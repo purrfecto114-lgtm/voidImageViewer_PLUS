@@ -128,8 +128,8 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             Write-Host "release $tag already exists, updating..."
             gh release upload $tag "voidImageViewer-$version-x64.zip" "voidImageViewer-$version-x86.zip" --clobber
-            gh release edit $tag --title $title --notes-file release-notes.md
-            if ($isPre) { gh release edit $tag --prerelease }
+            gh release edit $tag --title $title --notes-file release-notes.md --draft=false
+            if ($isPre) { gh release edit $tag --prerelease } else { gh release edit $tag --prerelease=false }
           } else {
             Write-Host "creating release $tag..."
             gh release create $tag `
