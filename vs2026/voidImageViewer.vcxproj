@@ -1625,6 +1625,7 @@
     <ClCompile Include="..\src\viv.c" />
     <ClCompile Include="..\src\wchar.c" />
     <ClCompile Include="..\src\webp.c" />
+    <ClCompile Include="..\src\zoomui.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\libwebp\src\dec\alphai_dec.h" />
@@ -1682,6 +1683,7 @@
     <ClInclude Include="..\src\viv.h" />
     <ClInclude Include="..\src\wchar.h" />
     <ClInclude Include="..\src\webp.h" />
+    <ClInclude Include="..\src\zoomui.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\res\1to1-8bit.ico" />

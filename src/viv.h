@@ -221,6 +221,10 @@ enum
 	VIV_ID_VIEW_REFRESH,
 	VIV_ID_VIEW_CAPTION,
 	VIV_ID_VIEW_THICKFRAME,
+
+	// touch / zoom controls (appended so existing ids are not shifted)
+	VIV_ID_VIEW_ZOOM_CONTROLS,
+	VIV_ID_ZOOMUI,
 };
 
 #include "version.h"
@@ -233,6 +237,7 @@ enum
 #include "utf8.h"
 #include "ini.h"
 #include "config.h"
+#include "zoomui.h"
 #include "webp.h"
 #include "small_pool.h"
 #include "safe_size.h"

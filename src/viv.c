@@ -289,6 +289,15 @@
 
 #include "viv.h"
 
+// touch gesture messages. (not defined in older SDKs)
+#ifndef WM_GESTURENOTIFY
+#define WM_GESTURENOTIFY 0x011A
+#endif
+
+#ifndef WM_GESTURE
+#define WM_GESTURE 0x0119
+#endif
+
 enum
 {
 	_VIV_COPYDATA_COMMAND_LINE,
@@ -611,6 +620,13 @@ static void _viv_update_1to1_scroll(int x,int y);
 static HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int counterclockwise);
 static void _viv_send_random_everything_search(void);
 static void _viv_do_mousewheel_action(int action,int delta,int x,int y);
+
+// touch support.
+static int _viv_is_touch_click(void);
+static void _viv_touch_double_click(void);
+static void _viv_gesture_reset(void);
+static int _viv_on_gesture(HWND hwnd,void *gesture_info_handle);
+static void _viv_zoomui_update(void);
 static void _viv_mipmap_free(_viv_mipmap_t *mipmap);
 static void _viv_queue_clear(void);
 static void _viv_clear(void);
@@ -794,6 +810,13 @@ static BYTE got_last_process_command_line_tick = 0;
 
 //static BYTE _viv_is_alt = 0;
 
+// touch gesture state.
+static DWORD _viv_gesture_zoom_dist = 0; // reference distance between the two fingers.
+static double _viv_gesture_zoom_ratio = 1.0; // accumulated pinch ratio since the last zoom step.
+static int _viv_gesture_last_x = 0; // last two finger pan location. (screen coords)
+static int _viv_gesture_last_y = 0;
+static BYTE _viv_gesture_have_last = 0;
+
 // MF_OWNERDRAW = don't show in menu.
 static _viv_command_t _viv_commands[] = 
 {
@@ -842,6 +865,7 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_MENU,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_MENU},
 	{LOCALIZATION_ID_STATUS_BAR,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_STATUS},
 	{LOCALIZATION_ID_CONTROLS,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_CONTROLS},
+	{LOCALIZATION_ID_ZOOM_CONTROLS,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_ZOOM_CONTROLS},
 	{LOCALIZATION_ID_PRESET,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_PRESET},
 	{LOCALIZATION_ID_MINIMAL,MF_STRING,_VIV_MENU_VIEW_PRESET,VIV_ID_VIEW_PRESET_1},
 	{LOCALIZATION_ID_COMPACT,MF_STRING,_VIV_MENU_VIEW_PRESET,VIV_ID_VIEW_PRESET_2},
@@ -1633,6 +1657,7 @@ static void _viv_on_size(void)
 			
 			high -= _viv_get_controls_high();
 		}
+			zoomui_layout(wide,high);
 		
 		{
 		
@@ -1985,6 +2010,11 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 		case VIV_ID_VIEW_CONTROLS:
 			config_show_controls = !config_show_controls;
 			_viv_update_frame();
+			break;
+
+		case VIV_ID_VIEW_ZOOM_CONTROLS:
+			config_show_zoom_controls = !config_show_zoom_controls;
+			_viv_zoomui_update();
 			break;
 			
 		case VIV_ID_VIEW_PRESET_1:
@@ -3300,6 +3330,14 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			_viv_show_cursor();
 			_viv_update_show_cursor();
 
+
+			if (_viv_is_touch_click())
+			{
+				// double tap on a touch screen: toggle 1:1 / best fit.
+				_viv_touch_double_click();
+
+				break;
+			}
 			// 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
 			switch(config_left_click_action)
 			{
@@ -3674,6 +3712,44 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 		{
 			_viv_do_mousewheel_action(_viv_get_current_key_mod_flags() == CONFIG_KEYFLAG_CTRL ? config_ctrl_mouse_wheel_action : config_mouse_wheel_action,GET_WHEEL_DELTA_WPARAM(wParam),GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
 			
+			break;
+		}
+
+		case WM_GESTURENOTIFY:
+		{
+			if (os_SetGestureConfig)
+			{
+				os_GestureConfig_t gesture_configs[3];
+
+				// GC_ZOOM = 2: enable pinch zoom.
+				gesture_configs[0].dwID = 2;
+				gesture_configs[0].dwWant = 1;
+				gesture_configs[0].dwBlock = 0;
+
+				// GC_PAN = 3: two finger pan with inertia.
+				// block single finger pan so single touches keep mouse semantics.
+				gesture_configs[1].dwID = 3;
+				gesture_configs[1].dwWant = 8; // GC_PAN_WITH_INERTIA
+				gesture_configs[1].dwBlock = 7; // GC_PAN_WITH_SINGLE_FINGER | GC_PAN_WITH_GUTTER
+
+				// GC_TWOFINGERTAP = 6: enable two finger tap.
+				gesture_configs[2].dwID = 6;
+				gesture_configs[2].dwWant = 1;
+				gesture_configs[2].dwBlock = 0;
+
+				os_SetGestureConfig(hwnd,0,0,gesture_configs,3);
+			}
+
+			break;
+		}
+
+		case WM_GESTURE:
+		{
+			if (_viv_on_gesture(hwnd,(void *)lParam))
+			{
+				return 0;
+			}
+
 			break;
 		}
 		
@@ -5414,6 +5490,7 @@ static int _viv_init(int nCmdShow)
 		
 	_viv_status_show(config_show_status);
 	_viv_controls_show(config_show_controls);
+	_viv_zoomui_update();
 	
 	DragAcceptFiles(_viv_hwnd,TRUE);
 
@@ -5568,6 +5645,8 @@ static void _viv_kill(void)
 	_viv_key_clear_all(_viv_key_list);
 	mem_free(_viv_key_list);
 	
+	zoomui_kill();
+
 	os_kill();
 
 #ifdef _DEBUG
@@ -6644,6 +6723,7 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 		
 		_viv_status_show(config_show_status);
 		_viv_controls_show(config_show_controls);
+		_viv_zoomui_update();
 		
 		SetWindowLong(_viv_hwnd,GWL_STYLE,style);
 
@@ -6679,6 +6759,7 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 		SetMenu(_viv_hwnd,0);
 		_viv_status_show(0);
 		_viv_controls_show(0);
+		_viv_zoomui_update();
 
 		SetWindowPos(_viv_hwnd,HWND_TOP,monitor_rect.left,monitor_rect.top,monitor_rect.right - monitor_rect.left,monitor_rect.bottom - monitor_rect.top,SWP_FRAMECHANGED|SWP_NOACTIVATE|SWP_NOCOPYBITS);
 
@@ -7124,6 +7205,7 @@ static void _viv_check_menus(HMENU hmenu)
 	CheckMenuItem(hmenu,VIV_ID_VIEW_THICKFRAME,config_show_thickframe ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_MENU,config_show_menu ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_CONTROLS,config_show_controls ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_ZOOM_CONTROLS,config_show_zoom_controls ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_STATUS,config_show_status ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ALLOW_SHRINKING,config_allow_shrinking ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_KEEP_ASPECT_RATIO,config_keep_aspect_ratio ? MF_CHECKED : MF_UNCHECKED);
@@ -9889,6 +9971,7 @@ static void _viv_update_frame(void)
 		
 		_viv_status_show(config_show_status);
 		_viv_controls_show(config_show_controls);
+		_viv_zoomui_update();
 
 		CopyRect(&newrect,&clientrect);
 		AdjustWindowRect(&newrect,newstyle,config_show_menu ? TRUE : FALSE);
@@ -10994,7 +11077,14 @@ static void _viv_controls_show(int show)
 			SendMessage(_viv_toolbar_hwnd,TB_SETEXTENDEDSTYLE,0,TBSTYLE_EX_MIXEDBUTTONS|TBSTYLE_EX_HIDECLIPPEDBUTTONS|TBSTYLE_EX_DOUBLEBUFFER);
 			SendMessage(_viv_toolbar_hwnd,TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON),0);
 			
-			_viv_toolbar_image_list = ImageList_Create((16 * os_logical_wide) / 96,(16 * os_logical_high) / 96,ILC_COLOR24|ILC_MASK,0,0);
+			{
+				int icon_size;
+
+				// larger toolbar icons on touch devices.
+				icon_size = os_is_touch_available() ? 24 : 16;
+
+				_viv_toolbar_image_list = ImageList_Create((icon_size * os_logical_wide) / 96,(icon_size * os_logical_high) / 96,ILC_COLOR24|ILC_MASK,0,0);
+			}
 			
 			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_PREV));
 			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_PLAY));
@@ -11003,11 +11093,24 @@ static void _viv_controls_show(int show)
 			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_BESTFIT));
 			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_1TO1));
 
+
+			// zoom icons: load at the exact image list size.
+			{
+				int icon_wide;
+				int icon_high;
+
+				if (ImageList_GetIconSize(_viv_toolbar_image_list,&icon_wide,&icon_high))
+				{
+					ImageList_AddIcon(_viv_toolbar_image_list,(HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ZOOMOUT),IMAGE_ICON,icon_wide,icon_high,LR_DEFAULTCOLOR));
+					ImageList_AddIcon(_viv_toolbar_image_list,(HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ZOOMIN),IMAGE_ICON,icon_wide,icon_high,LR_DEFAULTCOLOR));
+				}
+			}
+
 			SendMessage(_viv_toolbar_hwnd,TB_SETIMAGELIST,0,(LPARAM)_viv_toolbar_image_list);
 
 			{
-				TBBUTTON buttons[8];
-				wchar_t button_text[8][STRING_SIZE];
+				TBBUTTON buttons[11];
+				wchar_t button_text[11][STRING_SIZE];
 				int buttoni;
 				
 				buttoni = 0;
@@ -11074,7 +11177,36 @@ static void _viv_controls_show(int show)
 				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
 				buttoni++;
 					
-				SendMessage(_viv_toolbar_hwnd,TB_ADDBUTTONS,8,(LPARAM)buttons);
+				buttons[buttoni].iBitmap = 0;
+				buttons[buttoni].idCommand = 0;
+				buttons[buttoni].fsState = 0;
+				buttons[buttoni].fsStyle = TBSTYLE_SEP;
+				buttons[buttoni].iString = 0;
+				buttoni++;
+				
+				buttons[buttoni].iBitmap = 6;
+				buttons[buttoni].idCommand = VIV_ID_VIEW_ZOOM_OUT;
+				buttons[buttoni].fsState = TBSTATE_ENABLED;
+				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
+				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_ZOOM_OUT_BUTTON));
+				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
+				buttoni++;
+				
+				buttons[buttoni].iBitmap = 7;
+				buttons[buttoni].idCommand = VIV_ID_VIEW_ZOOM_IN;
+				buttons[buttoni].fsState = TBSTATE_ENABLED;
+				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
+				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_ZOOM_IN_BUTTON));
+				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
+				buttoni++;
+				
+				SendMessage(_viv_toolbar_hwnd,TB_ADDBUTTONS,11,(LPARAM)buttons);
+				
+				// larger buttons on touch devices.
+				if (os_is_touch_available())
+				{
+					SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONSIZE,0,MAKELPARAM((44 * os_logical_wide) / 96,(36 * os_logical_high) / 96));
+				}
 			}
 
 			_viv_toolbar_update_buttons();
@@ -11442,7 +11574,12 @@ static int _viv_get_controls_high(void)
 {
 	if (_viv_toolbar_hwnd)
 	{
-		return (32 * os_logical_high) / 96;
+		int controls_high;
+	
+		// larger toolbar on touch devices.
+		controls_high = os_is_touch_available() ? 44 : 32;
+	
+		return (controls_high * os_logical_high) / 96;
 	}
 	
 	return 0;
@@ -13926,6 +14063,183 @@ static void _viv_send_random_everything_search(void)
 		
 		mem_free(q);
 	}
+}
+
+
+static void _viv_zoomui_update(void)
+{
+	if (!zoomui_is_created())
+	{
+		zoomui_init(_viv_hwnd);
+
+		// layout the new zoom controls.
+		_viv_on_size();
+	}
+
+	zoomui_show(config_show_zoom_controls);
+}
+
+static int _viv_is_touch_click(void)
+{
+	// 0xFF515700 is the signature of touch injected mouse messages.
+	return ((GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700) ? 1 : 0;
+}
+
+static void _viv_touch_double_click(void)
+{
+	if (_viv_1to1)
+	{
+		// go to best fit.
+		_viv_zoom_pos = 0;
+		_viv_1to1 = 0;
+		_viv_view_set(0,0,1);
+		InvalidateRect(_viv_hwnd,0,FALSE);
+	}
+	else
+	{
+		_viv_view_1to1();
+	}
+}
+
+static void _viv_gesture_reset(void)
+{
+	_viv_gesture_zoom_dist = 0;
+	_viv_gesture_zoom_ratio = 1.0;
+	_viv_gesture_have_last = 0;
+}
+
+// returns 1 if the gesture was handled. (caller returns 0)
+static int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
+{
+	os_GestureInfo_t gesture_info;
+
+	if (!os_GetGestureInfo)
+	{
+		return 0;
+	}
+
+	os_zero_memory(&gesture_info,sizeof(gesture_info));
+
+	gesture_info.cbSize = sizeof(gesture_info);
+
+	if (!os_GetGestureInfo(gesture_info_handle,&gesture_info))
+	{
+		return 0;
+	}
+
+	switch(gesture_info.dwID)
+	{
+		case 1: // GID_BEGIN
+			_viv_gesture_reset();
+			break;
+
+		case 2: // GID_END
+			_viv_gesture_reset();
+			break;
+
+		case 3: // GID_ZOOM
+		{
+			DWORD dist;
+
+			dist = (DWORD)gesture_info.ullArguments;
+
+			if (gesture_info.dwFlags & 0x01) // GF_BEGIN
+			{
+				_viv_gesture_zoom_dist = dist;
+				_viv_gesture_zoom_ratio = 1.0;
+			}
+			else
+			if (_viv_gesture_zoom_dist && dist)
+			{
+				double ratio;
+
+				ratio = (double)dist / (double)_viv_gesture_zoom_dist;
+
+				_viv_gesture_zoom_ratio *= ratio;
+
+				// map the pinch to the same zoom steps as the mouse wheel.
+				while(_viv_gesture_zoom_ratio >= 1.2)
+				{
+					_viv_do_mousewheel_action(0,120,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
+
+					_viv_gesture_zoom_ratio /= 1.2;
+				}
+
+				while(_viv_gesture_zoom_ratio <= (1.0 / 1.2))
+				{
+					_viv_do_mousewheel_action(0,-120,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
+
+					_viv_gesture_zoom_ratio *= 1.2;
+				}
+			}
+
+			_viv_gesture_zoom_dist = dist;
+
+			break;
+		}
+
+		case 4: // GID_PAN (two finger pan, with inertia frames)
+		{
+			int x;
+			int y;
+
+			x = gesture_info.ptsLocation.x;
+			y = gesture_info.ptsLocation.y;
+
+			if (gesture_info.dwFlags & 0x01) // GF_BEGIN
+			{
+				_viv_gesture_last_x = x;
+				_viv_gesture_last_y = y;
+				_viv_gesture_have_last = 1;
+			}
+			else
+			if (_viv_gesture_have_last)
+			{
+				int mx;
+				int my;
+
+				mx = x - _viv_gesture_last_x;
+				my = y - _viv_gesture_last_y;
+
+				_viv_gesture_last_x = x;
+				_viv_gesture_last_y = y;
+
+				if (mx || my)
+				{
+					// pan the view: the image follows the fingers.
+					_viv_view_scroll(mx,my);
+				}
+			}
+
+			break;
+		}
+
+		case 6: // GID_TWOFINGERTAP
+		{
+			// reset the zoom.
+			_viv_1to1 = 0;
+			_viv_zoom_pos = 0;
+			_viv_view_set(_viv_view_x,_viv_view_y,1);
+			InvalidateRect(_viv_hwnd,0,FALSE);
+
+			_viv_gesture_reset();
+
+			break;
+		}
+
+		default:
+
+			// not handled. pass to DefWindowProc.
+			return 0;
+	}
+
+	// we handled the gesture. the info handle is now our responsibility.
+	if (os_CloseGestureInfoHandle)
+	{
+		os_CloseGestureInfoHandle(gesture_info_handle);
+	}
+
+	return 1;
 }
 
 // x,y in screen coords

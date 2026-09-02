@@ -55,6 +55,7 @@ BYTE config_frame_minus = 0; // show frame counter or remaining frames in status
 BYTE config_multiple_instances = 0; // all multiple instances or use a single instance.
 BYTE config_show_status = 1;
 BYTE config_show_controls = 1;
+BYTE config_show_zoom_controls = 0; // show the floating zoom controls. (defaults to on for touch devices)
 BYTE config_prevent_sleep = 1;
 BYTE config_loop_animations_once = 1;
 BYTE config_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
@@ -122,6 +123,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_show_status = ini_get_int(ini,(const utf8_t *)"show_status",config_show_status);
 		config_pixel_info = ini_get_int(ini,(const utf8_t *)"statusbar_pixel_info",config_pixel_info);
 		config_show_controls = ini_get_int(ini,(const utf8_t *)"show_controls",config_show_controls);
+		config_show_zoom_controls = ini_get_int(ini,(const utf8_t *)"show_zoom_controls",os_is_touch_available());
 		config_auto_zoom = ini_get_int(ini,(const utf8_t *)"auto_zoom",config_auto_zoom);
 		config_auto_zoom_type = ini_get_int(ini,(const utf8_t *)"auto_zoom_type",config_auto_zoom_type);
 		config_auto_fit_wide_mul = ini_get_int(ini,(const utf8_t *)"auto_fit_wide_mul",config_auto_fit_wide_mul);
@@ -306,6 +308,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"show_status",config_show_status);
 			_config_write_int(h,"statusbar_pixel_info",config_pixel_info);
 			_config_write_int(h,"show_controls",config_show_controls);
+			_config_write_int(h,"show_zoom_controls",config_show_zoom_controls);
 			_config_write_int(h,"auto_zoom",config_auto_zoom);
 			_config_write_int(h,"auto_zoom_type",config_auto_zoom_type);
 			_config_write_int(h,"auto_fit_wide_mul",config_auto_fit_wide_mul);

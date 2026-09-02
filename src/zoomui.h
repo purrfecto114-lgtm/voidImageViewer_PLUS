@@ -1,0 +1,49 @@
+//
+// Copyright 2026 voidtools / David Carpenter
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+//
+// Floating zoom controls (touch friendly)
+// Provides zoom in / zoom out / 1:1 / best fit buttons that remain available
+// in fullscreen mode and on touch devices where the mouse wheel is unavailable.
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// create (or recycle) the zoom controls child window.
+// parent is the main voidImageViewer window.
+void zoomui_init(HWND parent);
+
+// destroy the zoom controls window.
+void zoomui_kill(void);
+
+// show or hide the zoom controls.
+void zoomui_show(int show);
+
+// is the zoom controls window created?
+int zoomui_is_created(void);
+
+// reposition the zoom controls.
+// wide,high = the image area of the parent client (status bar / toolbar excluded).
+void zoomui_layout(int wide,int high);
+
+#ifdef __cplusplus
+}
+#endif

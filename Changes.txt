@@ -1,3 +1,15 @@
+Pre-release, BETA: Version 1.1.0-beta.1 (touch & zoom controls beta)
+	added pinch to zoom. (two fingers, anchored at the finger center, same zoom steps as the mouse wheel)
+	added two finger pan with inertia.
+	added two finger tap to reset the zoom.
+	added double tap on touch screens to toggle 1:1 / best fit.
+	kept single finger touch as mouse input. (existing click actions are unaffected)
+	added zoom in / zoom out buttons to the toolbar.
+	added a floating zoom controls bar. (zoom out, zoom in, 1:1, best fit; also available in fullscreen)
+	added View - Zoom Controls menu setting. (persisted as show_zoom_controls, default on for touch devices)
+	enlarged toolbar buttons and icons on touch devices.
+	updated Simplified Chinese and English localizations.
+
 Monday, 12 January 2026: Version 1.0.0.15
 	fixed an issue with scrolling large images.
 	improved position offset when using numpad keys.

@@ -1,0 +1,152 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.1.0-beta.1). Defaults to the pushed tag.'
+        required: false
+        default: ''
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build x64 (Release)
+        shell: cmd
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 "/p:OutDir=build\x64\\" "/p:IntDir=build\obj\x64\\" /m /nologo /v:m
+
+      - name: Build x86 (Release)
+        shell: cmd
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 "/p:OutDir=build\x86\\" "/p:IntDir=build\obj\x86\\" /m /nologo /v:m
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          $errors = @()
+          foreach ($p in @('build\x64\voidImageViewer.exe', 'build\x86\voidImageViewer.exe')) {
+            if (!(Test-Path $p)) {
+              $errors += "missing build output: $p"
+              continue
+            }
+            Write-Host "== $p =="
+            (Get-Item $p).VersionInfo | Format-List FileVersion, ProductVersion, FileDescription | Out-Host
+            if ((Get-Item $p).VersionInfo.FileVersion -notmatch '\d+') {
+              $errors += "no version info in $p"
+            }
+          }
+          if ($errors.Count -gt 0) { throw ($errors -join '; ') }
+
+      - name: Determine tag and version
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = '${{ inputs.tag }}'
+          if (-not $tag) { $tag = '${{ github.ref_name }}' }
+          if (-not $tag.StartsWith('v')) { $tag = "v$tag" }
+          $version = $tag.TrimStart('v')
+          "tag=$tag" | Add-Content -Path $env:GITHUB_OUTPUT
+          "version=$version" | Add-Content -Path $env:GITHUB_OUTPUT
+          Write-Host "tag=$tag version=$version"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $version = '${{ steps.tag.outputs.version }}'
+          $x64zip = "voidImageViewer-$version-x64.zip"
+          $x86zip = "voidImageViewer-$version-x86.zip"
+          Compress-Archive -Path 'build\x64\voidImageViewer.exe', 'LICENSE' -DestinationPath $x64zip
+          Compress-Archive -Path 'build\x86\voidImageViewer.exe', 'LICENSE' -DestinationPath $x86zip
+          if (!(Test-Path $x64zip) -or !(Test-Path $x86zip)) { throw 'packaging failed' }
+          Get-ChildItem *.zip | Out-Host
+
+      - name: Write release notes
+        shell: pwsh
+        run: |
+          @'
+          # voidImageViewer $VERSION - Touch & Zoom Controls (BETA)
+
+          > **Pre-release**: this is an experimental beta fork of voidtools/voidImageViewer adding touch optimizations and on-screen zoom controls. Feedback is welcome in the issue tracker.
+
+          ## What's new
+
+          - Pinch to zoom (anchored at the finger center, same zoom steps as the mouse wheel)
+          - Two finger pan with inertia
+          - Two finger tap to reset the zoom
+          - Double tap to toggle 1:1 / best fit
+          - Single finger touch keeps mouse semantics (all click actions unaffected)
+          - Zoom in / zoom out buttons on the toolbar
+          - Floating zoom controls (zoom out, zoom in, 1:1, best fit) — also available in fullscreen
+          - View -> Zoom Controls menu setting (`show_zoom_controls` ini setting, default on for touch devices)
+          - Enlarged toolbar buttons and icons on touch devices
+          - English and Simplified Chinese localization
+
+          ## Downloads
+
+          | File | Platform |
+          |---|---|
+          | voidImageViewer-$VERSION-x64.zip | 64-bit Windows |
+          | voidImageViewer-$VERSION-x86.zip | 32-bit Windows |
+
+          Requires Windows 7 or later. Gestures require touch hardware.
+
+          Based on upstream voidtools/voidImageViewer 1.0.0.15 (MIT license).
+          '@.Replace('$VERSION', '${{ steps.tag.outputs.version }}') | Out-File -FilePath release-notes.md -Encoding utf8
+
+      - name: Create or update pre-release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = '${{ steps.tag.outputs.tag }}'
+          $version = '${{ steps.tag.outputs.version }}'
+          $title = "voidImageViewer $version - Touch & Zoom Controls (BETA)"
+          $prerelease = '${{ inputs.prerelease }}'
+          if (-not $prerelease) { $prerelease = 'true' }
+          $isPre = $prerelease -ne 'false'
+
+          gh release view $tag 2> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "release $tag already exists, updating..."
+            gh release upload $tag "voidImageViewer-$version-x64.zip" "voidImageViewer-$version-x86.zip" --clobber
+            gh release edit $tag --title $title --notes-file release-notes.md
+            if ($isPre) { gh release edit $tag --prerelease }
+          } else {
+            Write-Host "creating release $tag..."
+            gh release create $tag `
+              "voidImageViewer-$version-x64.zip" `
+              "voidImageViewer-$version-x86.zip" `
+              --target $env:GITHUB_SHA `
+              --title $title `
+              --notes-file release-notes.md
+            if ($isPre) { gh release edit $tag --prerelease }
+          }
+          gh release view $tag | Out-Host
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: voidImageViewer-${{ steps.tag.outputs.version }}
+          path: |
+            build/x64/voidImageViewer.exe
+            build/x86/voidImageViewer.exe
+          if-no-files-found: error

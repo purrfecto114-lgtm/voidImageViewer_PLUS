@@ -22,6 +22,8 @@
 #define IDI_ICON2                       124
 #define IDI_1TO1                        124
 #define IDI_BESTFIT                     126
+#define IDI_ZOOMOUT                     130
+#define IDI_ZOOMIN                      131
 #define IDD_RENAME                      127
 #define IDD_JUMPTO                      128
 #define IDD_EVERYTHING                  129

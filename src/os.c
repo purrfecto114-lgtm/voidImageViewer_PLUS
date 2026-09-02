@@ -119,6 +119,9 @@ BOOL (WINAPI *os_GetFileAttributesExW)(LPCWSTR lpFileName,GET_FILEEX_INFO_LEVELS
 BOOL (WINAPI *_os_IsDebuggerPresent)(void) = 0;
 EXECUTION_STATE (WINAPI *os_SetThreadExecutionState)(  EXECUTION_STATE esFlags) = NULL;
 LANGID (WINAPI *os_GetUserDefaultUILanguage)(void) = NULL;
+BOOL (WINAPI *os_SetGestureConfig)(HWND hwnd,DWORD reserved,DWORD id,os_GestureConfig_t *configs,UINT count) = NULL;
+BOOL (WINAPI *os_GetGestureInfo)(void *gesture_info_handle,os_GestureInfo_t *gesture_info) = NULL;
+BOOL (WINAPI *os_CloseGestureInfoHandle)(void *gesture_info_handle) = NULL;
 HRESULT (WINAPI *os_SHOpenFolderAndSelectItems)(LPCITEMIDLIST pidlFolder,UINT cidl,LPCITEMIDLIST *apidl,DWORD dwFlags) = 0;
 int (WINAPI *os_GdiplusStartup)(OUT ULONG_PTR *token,const os_GdiplusStartupInput_t *input,void *output) = 0;
 VOID (WINAPI *os_GdiplusShutdown)(ULONG_PTR token) = 0;
@@ -860,6 +863,9 @@ void os_init(void)
 	if (_os_user32_hmodule)
 	{
 		os_ChangeWindowMessageFilterEx = (void *)GetProcAddress(_os_user32_hmodule,"ChangeWindowMessageFilterEx");
+		os_SetGestureConfig = (void *)GetProcAddress(_os_user32_hmodule,"SetGestureConfig");
+		os_GetGestureInfo = (void *)GetProcAddress(_os_user32_hmodule,"GetGestureInfo");
+		os_CloseGestureInfoHandle = (void *)GetProcAddress(_os_user32_hmodule,"CloseGestureInfoHandle");
 		_os_MonitorFromWindow = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromWindow");
 		_os_MonitorFromRect = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromRect");
 		_os_MonitorFromPoint = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromPoint");
@@ -916,6 +922,24 @@ void os_init(void)
 		os_GdipDrawImageRectI = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDrawImageRectI");
 		os_GdipDeleteGraphics = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDeleteGraphics");
 	}
+}
+
+// is a touch digitizer available?
+// (integrated or external touch screen)
+int os_is_touch_available(void)
+{
+	int sm;
+
+	// SM_DIGITIZER = 94
+	sm = GetSystemMetrics(94);
+
+	if (!sm)
+	{
+		return 0;
+	}
+
+	// NID_READY = 0x80, NID_EXTERNAL_INPUT = 0x04, NID_INTEGRATED_TOUCH = 0x01
+	return (sm & 0x80) ? 1 : 0;
 }
 
 void os_kill(void)

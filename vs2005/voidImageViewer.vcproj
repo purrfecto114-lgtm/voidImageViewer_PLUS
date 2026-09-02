@@ -2020,7 +2020,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\zoomui.c"
+				>
+			</File>
+			<File
 				RelativePath="..\src\webp.h"
+				>
+			</File>
+			<File
+				RelativePath="..\src\zoomui.h"
 				>
 			</File>
 		</Filter>

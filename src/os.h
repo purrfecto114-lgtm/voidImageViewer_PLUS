@@ -132,6 +132,38 @@ extern LANGID (WINAPI *os_GetUserDefaultUILanguage)(void);
 extern int os_logical_wide;
 extern int os_logical_high;
 
+// touch / gesture support (Windows 7+)
+// self-declared, binary compatible structures.
+// (avoids _WIN32_WINNT gating in older SDKs)
+
+typedef struct os_GestureConfig_s
+{
+	DWORD dwID;
+	DWORD dwWant;
+	DWORD dwBlock;
+
+}os_GestureConfig_t;
+
+typedef struct os_GestureInfo_s
+{
+	UINT cbSize;
+	DWORD dwFlags;
+	DWORD dwID;
+	HWND hwndTarget;
+	POINTS ptsLocation;
+	DWORD dwInstanceID;
+	DWORD dwSequenceID;
+	VIV_UINT64 ullArguments;
+	UINT cbExtraArgs;
+
+}os_GestureInfo_t;
+
+extern BOOL (WINAPI *os_SetGestureConfig)(HWND hwnd,DWORD reserved,DWORD id,os_GestureConfig_t *configs,UINT count);
+extern BOOL (WINAPI *os_GetGestureInfo)(void *gesture_info_handle,os_GestureInfo_t *gesture_info);
+extern BOOL (WINAPI *os_CloseGestureInfoHandle)(void *gesture_info_handle);
+
+int os_is_touch_available(void);
+
 #ifdef __cplusplus
 }
 #endif

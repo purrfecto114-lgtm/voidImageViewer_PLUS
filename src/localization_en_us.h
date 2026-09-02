@@ -294,4 +294,13 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"TIFF Image",
 	"TIFF Image",
 	"WebP Image",
+
+	// zoom controls (touch / floating)
+	"Zoom &Controls", // LOCALIZATION_ID_ZOOM_CONTROLS,
+	"Zoom Out", // LOCALIZATION_ID_TOOLBAR_ZOOM_OUT_BUTTON,
+	"Zoom In", // LOCALIZATION_ID_TOOLBAR_ZOOM_IN_BUTTON,
+	"Zoom out", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_OUT,
+	"Zoom in", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_IN,
+	"Actual size (1:1)", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_1TO1,
+	"Best fit", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_BESTFIT,
 };

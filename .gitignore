@@ -1,0 +1,7 @@
+# local build/verification artifacts (not needed for MSVC builds)
+shim/
+build/
+*.o
+*.obj
+*.exe
+*.pdb

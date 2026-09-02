@@ -295,4 +295,13 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"TIFF Image",
 	"TIFF Image",
 	"WebP Image",
+
+	// zoom controls (touch / floating)
+	"缩放控件(&Z)", // LOCALIZATION_ID_ZOOM_CONTROLS,
+	"缩小", // LOCALIZATION_ID_TOOLBAR_ZOOM_OUT_BUTTON,
+	"放大", // LOCALIZATION_ID_TOOLBAR_ZOOM_IN_BUTTON,
+	"缩小", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_OUT,
+	"放大", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_IN,
+	"实际大小 (1:1)", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_1TO1,
+	"最佳适配", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_BESTFIT,
 };
