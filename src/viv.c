@@ -4527,6 +4527,22 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+static void _viv_apply_config_language(void)
+{
+	// apply the language setting from the config file.
+	// config_language: 0 = auto (keep the detected system language), 1 = english, 2 = simplified chinese.
+	
+	if (config_language == 1)
+	{
+		localization_set_language(LOCALIZATION_LANGUAGE_ENGLISH);
+	}
+	else
+	if (config_language == 2)
+	{
+		localization_set_language(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED);
+	}
+}
+
 static int _viv_process_install_command_line_options(wchar_t *cl)
 {
 	wchar_t *p;
@@ -4539,6 +4555,8 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 	wchar_t install_options[STRING_SIZE];
 	wchar_t uninstall_path[STRING_SIZE];
 	int startmenu;
+	int language;
+	int language_set;
 	wchar_t *cl_start;
 	int is_admin_install;
 	int is_standard_user_install;
@@ -4550,6 +4568,8 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 	is_runas = 0;
 	is_admin_install = 0;
 	is_standard_user_install = 0;
+	language = config_language;
+	language_set = 0;
 	install_path[0] = 0;
 	install_options[0] = 0;
 	uninstall_path[0] = 0;
@@ -4656,6 +4676,36 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 				is_admin_install = 1;
 			}
 			else
+			if (string_icompare_lowercase_ascii(bufstart,"language") == 0)
+			{
+				wchar_t language_wbuf[STRING_SIZE];
+				
+				p = string_get_word(p,language_wbuf);
+				p = string_skip_ws(p);
+				
+				// map the language name to a config_language value.
+				// 0 = auto (system), 1 = english, 2 = simplified chinese.
+				// this does not require admin rights, the setting is stored in the ini.
+				
+				if (string_icompare_lowercase_ascii(language_wbuf,"english") == 0)
+				{
+					language = 1;
+					language_set = 1;
+				}
+				else
+				if (string_icompare_lowercase_ascii(language_wbuf,"chinese") == 0)
+				{
+					language = 2;
+					language_set = 1;
+				}
+				else
+				if (string_icompare_lowercase_ascii(language_wbuf,"auto") == 0)
+				{
+					language = 0;
+					language_set = 1;
+				}
+			}
+			else
 			if (string_icompare_lowercase_ascii(bufstart,"isrunas") == 0)
 			{
 				is_runas = 1;
@@ -4731,6 +4781,15 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 				return 1;
 			}
 		}
+	}
+	
+	if (language_set)
+	{
+		config_language = language;
+		
+		// save the language selection to the current settings location.
+		// (before the appdata handling below so that its saves include the new language)
+		config_save_settings(config_appdata);
 	}
 	
 	if (appdata > 0)
@@ -5336,6 +5395,9 @@ static int _viv_init(int nCmdShow)
 
 	// load settings
 	config_load_settings();
+	
+	// apply the language setting (config can override the system language).
+	_viv_apply_config_language();
 	
 	// config_maximized will be overwritten when we show are normal window
 	// so save it now and apply it later.
@@ -8025,6 +8087,14 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 			os_SetDlgItemText_localization_id(hwnd,IDC_ASSOCIATIONS_GROUPBOX,LOCALIZATION_ID_ASSOCIATIONS);
 			os_SetDlgItemText_localization_id(hwnd,IDC_CHECKALL,LOCALIZATION_ID_CHECK_ALL);
 			os_SetDlgItemText_localization_id(hwnd,IDC_CHECKNONE,LOCALIZATION_ID_CHECK_NONE);
+			
+			// language selection. entries: auto, english, simplified chinese.
+			// (language names are always shown in their own language)
+			os_SetDlgItemText_localization_id(hwnd,IDC_LANGUAGE_STATIC,LOCALIZATION_ID_OPTIONS_LANGUAGE_STATIC);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_LANGUAGE,LOCALIZATION_ID_LANGUAGE_AUTO);
+			os_ComboBox_AddString(hwnd,IDC_LANGUAGE,localization_get_language_name(LOCALIZATION_LANGUAGE_ENGLISH));
+			os_ComboBox_AddString(hwnd,IDC_LANGUAGE,localization_get_language_name(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED));
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LANGUAGE),config_language);
 
 			if (config_appdata) 
 			{
@@ -8725,8 +8795,10 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						int exti;
 						COLORREF colorref;
 						wchar_t params[STRING_SIZE];
+						int language_changed;
 						
 						params[0] = 0;
+						language_changed = 0;
 						
 						general_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_GENERAL);
 						view_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_VIEW);
@@ -8754,6 +8826,34 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						if (IsDlgButtonChecked(general_page,IDC_MULTIPLE_INSTANCES) == BST_CHECKED) 
 						{
 							config_multiple_instances = 1;
+						}
+						
+						// language.
+						{
+							int language;
+							
+							language = ComboBox_GetCurSel(GetDlgItem(general_page,IDC_LANGUAGE));
+							
+							if (language != config_language)
+							{
+								config_language = language;
+								language_changed = 1;
+								
+								if (language == 1)
+								{
+									localization_set_language(LOCALIZATION_LANGUAGE_ENGLISH);
+								}
+								else
+								if (language == 2)
+								{
+									localization_set_language(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED);
+								}
+								else
+								{
+									// auto: follow the system language again.
+									localization_init();
+								}
+							}
 						}
 						
 						if (IsDlgButtonChecked(general_page,IDC_STARTMENU) == BST_CHECKED) 
@@ -8878,6 +8978,21 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						}
 						
 						_viv_hmenu = new_hmenu;
+					}
+					
+					// refresh the visible controls when the language has changed.
+					if (language_changed)
+					{
+						// recreate the toolbar so its texts and tooltips use the new language.
+						_viv_controls_show(0);
+						_viv_controls_show(config_show_controls);
+						
+						// update the floating zoom control tooltips.
+						zoomui_localize();
+						
+						// relayout and redraw. (the title bar and status bar update here too)
+						_viv_on_size();
+						InvalidateRect(_viv_hwnd,0,FALSE);
 					}
 					
 					// do admin commands.
@@ -12025,6 +12140,7 @@ static void _viv_command_line_options(void)
 		"/nostartmenu\tRemove Start menu shortcuts.\n"
 		"/install <path>\tInstall to the specified path.\n"
 		"/install-options <...> Run with the specified options after installation.\n"
+		"/language <lang>\tSet the interface language: auto, english or chinese.\n"
 		"/uninstall <path>\tUninstall from the specified path.\n");
 		
 	string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));

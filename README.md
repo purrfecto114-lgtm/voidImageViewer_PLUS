@@ -1,10 +1,10 @@
-# void Image Viewer (Touch Beta)
+# void Image Viewer (Touch + Languages Beta)
 
-[![pre-release](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/purrfecto114-lgtm/voidImageViewer/releases)
-[![release](https://img.shields.io/github/v/release/purrfecto114-lgtm/voidImageViewer?include_prereleases&display_name=tag)](https://github.com/purrfecto114-lgtm/voidImageViewer/releases)
+[![pre-release](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
+[![release](https://img.shields.io/github/v/release/purrfecto114-lgtm/voidImageViewer_PLUS?include_prereleases&display_name=tag)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **⚠️ BETA** — This is an experimental fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with new **touch optimizations** and **on-screen zoom controls**. It is a pre-release for testing. Please report issues in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer/issues).
+> **⚠️ BETA** — This is an experimental fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with new **touch optimizations**, **on-screen zoom controls** and a **bilingual installer + UI language switcher**. It is a pre-release for testing. Please report issues in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/issues).
 
 A lightweight image viewer for Windows with animated GIF/WEBP support.  
 Opens and displays BMP, GIF, ICO, PNG, JPG, TIF and WEBP images as fast as possible.  
@@ -13,6 +13,7 @@ Animate GIF/WEBP files as accurately as possible.
 [Download](#download)<br/>
 [What's new in this beta](#whats-new-in-this-beta)<br/>
 [Touch & zoom controls](#touch--zoom-controls)<br/>
+[Languages](#languages)<br/>
 [Build from source](#build-from-source)<br/>
 [See also](#see-also)<br/>
 <br/><br/><br/>
@@ -23,7 +24,7 @@ Download
 --------
 Pre-release binaries are published on the GitHub Releases page:
 
-https://github.com/purrfecto114-lgtm/voidImageViewer/releases
+https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 Latest stable release of the upstream project:
 
@@ -36,6 +37,15 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.2** adds a bilingual installer and a UI language switcher:
+
+- **Bilingual installer** — one setup for everyone: the first page lets you pick **English or 简体中文**. All pages, messages and the license are localized, and the choice is remembered for future installs and the uninstaller.
+- **Language follows the installer** — the application starts in the language you picked in the setup.
+- **In-app language switcher** — *Options → General → Language*: Auto (system), English or 简体中文. The change is applied immediately, no restart needed.
+- **`language` ini setting** and a `/language auto|english|chinese` command line option for unattended installs.
+- **Refreshed Simplified Chinese translation** — the entire UI now uses plain, natural Chinese (menus, dialogs, status bar and Explorer file type descriptions).
+- **Run after setup** — the installer offers to launch void Image Viewer when it finishes.
+
 **Version 1.1.0-beta.1** adds touch and zoom UI improvements on top of upstream 1.0.0.15:
 
 - **Pinch to zoom** — two finger pinch zooms in and out, anchored at the pinch center. Uses the same zoom steps as the mouse wheel for consistent behavior.
@@ -73,13 +83,27 @@ Notes:
 
 
 
+Languages
+--------
+The UI ships with English and Simplified Chinese.
+
+- The **setup** asks for the language on its first page and installs the app in that language.
+- Inside the app, **Options → General → Language** switches between Auto (system), English and 简体中文 on the fly.
+- The setting is stored as `language=auto|english|chinese` in `voidImageViewer.ini`.
+- Unattended installs can pass `/language english` (or `chinese` / `auto`) to `voidImageViewer.exe`.
+
+<br/><br/>
+
+
+
 Build from source
 --------
 The project is plain C + Win32 API and builds with Visual Studio:
 
 1. Open `vs2019/voidImageViewer.sln` (VS2019+, v142 toolset) or `vs2026/voidImageViewer.sln` (VS2026, v145 toolset).
 2. Build the `voidImageViewer` project (x64 or Win32).
-3. `viv.exe` is output to the configured output directory.
+3. `voidImageViewer.exe` is output to the configured output directory.
+4. Optional: build the setup with NSIS 3 — `nsis\build_installer.ps1` (see `nsis\` for details). The source files are compiled with `/utf-8`, so localized strings build correctly on any system locale.
 
 A GitHub Actions workflow (`.github/workflows/release.yml`) builds the executable automatically on `windows-latest` and attaches it to GitHub releases.
 <br/><br/><br/>

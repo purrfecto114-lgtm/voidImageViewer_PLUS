@@ -215,6 +215,34 @@ int zoomui_is_created(void)
         return _zoomui_hwnd ? 1 : 0;
 }
 
+void zoomui_localize(void)
+{
+        // refresh the tooltip texts after the language has changed.
+        
+        if (_zoomui_tooltip_hwnd)
+        {
+                int i;
+                
+                for(i=0;i<_ZOOMUI_BUTTON_COUNT;i++)
+                {
+                        TOOLINFOW ti;
+                        wchar_t wbuf[STRING_SIZE];
+                        
+                        os_zero_memory(&ti,sizeof(ti));
+                        
+                        ti.cbSize = sizeof(ti);
+                        ti.uFlags = TTF_IDISHWND;
+                        ti.hwnd = _zoomui_hwnd;
+                        ti.uId = (UINT_PTR)_zoomui_button_hwnds[i];
+                        ti.hinst = os_hinstance;
+                        string_copy_utf8_string(wbuf,localization_get_string(_zoomui_tooltip_localization_ids[i]));
+                        ti.lpszText = wbuf;
+                        
+                        SendMessage(_zoomui_tooltip_hwnd,TTM_UPDATETIPTEXTW,0,(LPARAM)&ti);
+                }
+        }
+}
+
 void zoomui_show(int show)
 {
         if (_zoomui_hwnd)

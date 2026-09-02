@@ -52,6 +52,30 @@ const utf8_t *localization_get_en_us_string(localization_id_t localization_id)
 	return _localization_string_array_en_us[localization_id];
 }
 
+const utf8_t *localization_get_language_name(BYTE language)
+{
+	// Return the name of a language in that language itself.
+	// Used by the options dialog so every language is listed in its own script.
+	
+	if (language < LOCALIZATION_LANGUAGE_COUNT)
+	{
+		return _localization_language_array[language][LOCALIZATION_ID_LANGUAGE];
+	}
+	
+	return _localization_string_array_en_us[LOCALIZATION_ID_LANGUAGE];
+}
+
+void localization_set_language(BYTE language)
+{
+	// Explicitly select the active language.
+	// Invalid values are ignored (the current language is kept).
+	
+	if (language < LOCALIZATION_LANGUAGE_COUNT)
+	{
+		localization_language = language;
+	}
+}
+
 void localization_init(void)
 {
 	// Detect system language

@@ -56,6 +56,40 @@ jobs:
           }
           if ($errors.Count -gt 0) { throw ($errors -join '; ') }
 
+      - name: Build installers (NSIS)
+        shell: pwsh
+        run: |
+          # locate makensis (preinstalled on the hosted images, choco fallback)
+          $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $makensis) {
+            if (Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe') {
+              $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
+            } else {
+              Write-Host 'installing nsis via choco...'
+              choco install nsis -y --no-progress
+              $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
+            }
+          }
+          Write-Host "makensis: $makensis"
+
+          # validate the encodings required by the bilingual installer files
+          & powershell -ExecutionPolicy Bypass -File nsis\ensure_encodings.ps1
+
+          # the unified bilingual installer: the language is selected inside the setup.
+          & $makensis "-DVIV_EXE_DIR=$env:GITHUB_WORKSPACE\build\x64" '-Dx64' nsis\installer.nsi
+          if ($LASTEXITCODE -ne 0) { throw 'x64 installer build failed' }
+
+          & $makensis "-DVIV_EXE_DIR=$env:GITHUB_WORKSPACE\build\x86" nsis\installer.nsi
+          if ($LASTEXITCODE -ne 0) { throw 'x86 installer build failed' }
+
+          $errors = @()
+          foreach ($f in @('voidImageViewer-*-x64-Setup.exe', 'voidImageViewer-*-x86-Setup.exe')) {
+            if (!(Get-ChildItem $f -ErrorAction SilentlyContinue)) { $errors += "missing installer: $f" }
+          }
+          if ($errors.Count -gt 0) { throw ($errors -join '; ') }
+          Get-ChildItem *Setup.exe | Out-Host
+
+
       - name: Determine tag and version
         id: tag
         shell: pwsh
@@ -77,17 +111,33 @@ jobs:
           Compress-Archive -Path 'build\x64\voidImageViewer.exe', 'LICENSE' -DestinationPath $x64zip
           Compress-Archive -Path 'build\x86\voidImageViewer.exe', 'LICENSE' -DestinationPath $x86zip
           if (!(Test-Path $x64zip) -or !(Test-Path $x86zip)) { throw 'packaging failed' }
-          Get-ChildItem *.zip | Out-Host
+          # rename the installers to include the release version
+          Move-Item "voidImageViewer-*-x64-Setup.exe" "voidImageViewer-$version-x64-Setup.exe" -Force
+          Move-Item "voidImageViewer-*-x86-Setup.exe" "voidImageViewer-$version-x86-Setup.exe" -Force
+          if (!(Test-Path "voidImageViewer-$version-x64-Setup.exe")) { throw 'x64 setup missing' }
+          if (!(Test-Path "voidImageViewer-$version-x86-Setup.exe")) { throw 'x86 setup missing' }
+          Get-ChildItem *.zip, *Setup.exe | Out-Host
 
       - name: Write release notes
         shell: pwsh
         run: |
           @'
-          # voidImageViewer $VERSION - Touch & Zoom Controls (BETA)
+          # voidImageViewer $VERSION - Touch, Zoom & Languages (BETA)
 
-          > **Pre-release**: this is an experimental beta fork of voidtools/voidImageViewer adding touch optimizations and on-screen zoom controls. Feedback is welcome in the issue tracker.
+          > **Pre-release**: this is an experimental beta fork of voidtools/voidImageViewer adding touch optimizations, on-screen zoom controls and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker.
 
           ## What's new
+
+          ### 1.1.0-beta.2 - installer & languages
+
+          - Single bilingual setup: pick **English or 简体中文** on the first page (all pages, messages and the license are localized)
+          - The setup language is remembered and forwarded to the application
+          - New **Options → General → Language** setting (Auto / English / 简体中文), applied immediately
+          - `language` ini setting and `/language auto|english|chinese` command line option
+          - Refreshed, plain Simplified Chinese translation for the whole UI including Explorer file type descriptions
+          - The setup offers to run void Image Viewer when it finishes and now installs Changes.txt too
+
+          ### 1.1.0-beta.1 - touch & zoom controls
 
           - Pinch to zoom (anchored at the finger center, same zoom steps as the mouse wheel)
           - Two finger pan with inertia
@@ -98,14 +148,15 @@ jobs:
           - Floating zoom controls (zoom out, zoom in, 1:1, best fit) — also available in fullscreen
           - View -> Zoom Controls menu setting (`show_zoom_controls` ini setting, default on for touch devices)
           - Enlarged toolbar buttons and icons on touch devices
-          - English and Simplified Chinese localization
 
           ## Downloads
 
           | File | Platform |
           |---|---|
-          | voidImageViewer-$VERSION-x64.zip | 64-bit Windows |
-          | voidImageViewer-$VERSION-x86.zip | 32-bit Windows |
+          | voidImageViewer-$VERSION-x64-Setup.exe | 64-bit installer (English + 简体中文) |
+          | voidImageViewer-$VERSION-x86-Setup.exe | 32-bit installer (English + 简体中文) |
+          | voidImageViewer-$VERSION-x64.zip | 64-bit portable zip |
+          | voidImageViewer-$VERSION-x86.zip | 32-bit portable zip |
 
           Requires Windows 7 or later. Gestures require touch hardware.
 
@@ -119,25 +170,26 @@ jobs:
         run: |
           $tag = '${{ steps.tag.outputs.tag }}'
           $version = '${{ steps.tag.outputs.version }}'
-          $title = "voidImageViewer $version - Touch & Zoom Controls (BETA)"
+          $title = "voidImageViewer $version - Touch, Zoom & Languages (BETA)"
           $prerelease = '${{ inputs.prerelease }}'
           if (-not $prerelease) { $prerelease = 'true' }
           $isPre = $prerelease -ne 'false'
+          $assets = @(
+            "voidImageViewer-$version-x64-Setup.exe",
+            "voidImageViewer-$version-x86-Setup.exe",
+            "voidImageViewer-$version-x64.zip",
+            "voidImageViewer-$version-x86.zip"
+          )
 
           gh release view $tag 2> $null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "release $tag already exists, updating..."
-            gh release upload $tag "voidImageViewer-$version-x64.zip" "voidImageViewer-$version-x86.zip" --clobber
+            gh release upload $tag @assets --clobber
             gh release edit $tag --title $title --notes-file release-notes.md --draft=false
             if ($isPre) { gh release edit $tag --prerelease } else { gh release edit $tag --prerelease=false }
           } else {
             Write-Host "creating release $tag..."
-            gh release create $tag `
-              "voidImageViewer-$version-x64.zip" `
-              "voidImageViewer-$version-x86.zip" `
-              --target $env:GITHUB_SHA `
-              --title $title `
-              --notes-file release-notes.md
+            gh release create $tag @assets --target $env:GITHUB_SHA --title $title --notes-file release-notes.md
             if ($isPre) { gh release edit $tag --prerelease }
           }
           gh release view $tag | Out-Host
@@ -149,4 +201,5 @@ jobs:
           path: |
             build/x64/voidImageViewer.exe
             build/x86/voidImageViewer.exe
+            voidImageViewer-*-Setup.exe
           if-no-files-found: error

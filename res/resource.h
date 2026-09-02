@@ -126,6 +126,8 @@
 #define IDC_TITLE_BAR_FORMAT_STATIC             1064
 #define IDC_WINDOWEDBACKGROUNDCOLOR_STATIC      1065
 #define IDC_FULLSCREENBACKGROUNDCOLOR_STATIC    1066
+#define IDC_LANGUAGE_STATIC                     1067
+#define IDC_LANGUAGE                            1068
 
 // Next default values for new objects
 // 
@@ -134,7 +136,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1067
+#define _APS_NEXT_CONTROL_VALUE         1069
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif

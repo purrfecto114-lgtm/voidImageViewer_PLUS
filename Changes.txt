@@ -1,3 +1,15 @@
+Pre-release, BETA: Version 1.1.0-beta.2 (installer & language beta)
+	the setup is now a single bilingual installer: choose English or Simplified Chinese on the first page.
+	the selected installer language is forwarded to the application, so it starts in the same language.
+	the installer option pages, messages and license page are fully localized.
+	the setup now offers to run void Image Viewer after installation.
+	the setup also installs Changes.txt next to the application.
+	added a Language selection to Options - General. (auto / english / chinese, applied immediately)
+	added a language ini setting and a /language auto|english|chinese command line option.
+	rewrote the Simplified Chinese localization in plain and natural wording, including the file type descriptions.
+	fixed MSVC builds compiling the Chinese strings through the system code page. (/utf-8 is now forced)
+	fixed the encoding of the Chinese installer option pages, they no longer garble on non-Chinese systems.
+
 Pre-release, BETA: Version 1.1.0-beta.1 (touch & zoom controls beta)
 	added pinch to zoom. (two fingers, anchored at the finger center, same zoom steps as the mouse wheel)
 	added two finger pan with inertia.

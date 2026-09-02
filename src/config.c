@@ -23,6 +23,7 @@
 
 #include "viv.h"
 
+static int _config_icompare_ascii(const utf8_t *s1,const char *lowercase_ascii_s2);
 static void _config_load_settings_by_location(const wchar_t *path,int is_root);
 static void _config_write_int(HANDLE h,const char *ascii_key,int value);
 static void _config_write_string(HANDLE h,const char *ascii_key,const wchar_t *s);
@@ -30,6 +31,7 @@ static void _config_write_utf8(HANDLE h,const utf8_t *s);
 static void _config_save_settings_by_location(const wchar_t *path,int is_root);
 
 BYTE config_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
+BYTE config_language = 0; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
 BYTE config_keep_centered = 1; // when zooming out, don't recenter the image. (keep cursor under the same pixel)
 int config_x = 0;
 int config_y = 0;
@@ -124,6 +126,31 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_pixel_info = ini_get_int(ini,(const utf8_t *)"statusbar_pixel_info",config_pixel_info);
 		config_show_controls = ini_get_int(ini,(const utf8_t *)"show_controls",config_show_controls);
 		config_show_zoom_controls = ini_get_int(ini,(const utf8_t *)"show_zoom_controls",os_is_touch_available());
+		
+		// ui language. stored as a readable string: auto, english or chinese.
+		{
+			const utf8_t *language_value;
+			
+			language_value = ini_get_string(ini,(const utf8_t *)"language");
+			
+			if (language_value)
+			{
+				if (_config_icompare_ascii(language_value,"english") == 0)
+				{
+					config_language = 1;
+				}
+				else
+				if (_config_icompare_ascii(language_value,"chinese") == 0)
+				{
+					config_language = 2;
+				}
+				else
+				{
+					// "auto" (and anything we don't understand) follows the system language.
+					config_language = 0;
+				}
+			}
+		}
 		config_auto_zoom = ini_get_int(ini,(const utf8_t *)"auto_zoom",config_auto_zoom);
 		config_auto_zoom_type = ini_get_int(ini,(const utf8_t *)"auto_zoom_type",config_auto_zoom_type);
 		config_auto_fit_wide_mul = ini_get_int(ini,(const utf8_t *)"auto_fit_wide_mul",config_auto_fit_wide_mul);
@@ -237,6 +264,39 @@ void config_load_settings(void)
 }
 
 
+static int _config_icompare_ascii(const utf8_t *s1,const char *lowercase_ascii_s2)
+{
+	// case-insensitive compare of an ascii/utf-8 string against a lowercase ascii keyword.
+	// returns 0 when equal.
+	
+	while (*s1 && *lowercase_ascii_s2)
+	{
+		char c;
+		
+		c = (char)*s1;
+		
+		if ((c >= 'A') && (c <= 'Z'))
+		{
+			c += 'a' - 'A';
+		}
+		
+		if (c != *lowercase_ascii_s2)
+		{
+			return 1;
+		}
+		
+		s1++;
+		lowercase_ascii_s2++;
+	}
+	
+	if (*s1 || *lowercase_ascii_s2)
+	{
+		return 1;
+	}
+	
+	return 0;
+}
+
 static void _config_write_int(HANDLE h,const char *ascii_key,int value)
 {
 	wchar_t wbuf[STRING_SIZE];
@@ -309,6 +369,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"statusbar_pixel_info",config_pixel_info);
 			_config_write_int(h,"show_controls",config_show_controls);
 			_config_write_int(h,"show_zoom_controls",config_show_zoom_controls);
+			_config_write_string(h,"language",config_language == 1 ? L"english" : (config_language == 2 ? L"chinese" : L"auto"));
 			_config_write_int(h,"auto_zoom",config_auto_zoom);
 			_config_write_int(h,"auto_zoom_type",config_auto_zoom_type);
 			_config_write_int(h,"auto_fit_wide_mul",config_auto_fit_wide_mul);

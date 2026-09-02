@@ -40,9 +40,15 @@ typedef BYTE localization_id_t;
 // Returns UTF-8 encoded string
 const utf8_t *localization_get_string(localization_id_t localization_id);
 const utf8_t *localization_get_en_us_string(localization_id_t localization_id);
+// Get the native name of a language (e.g. the Chinese name in Chinese script).
+const utf8_t *localization_get_language_name(BYTE language);
 
 // Initialize language system (detects system language)
 void localization_init(void);
+
+// Set the active language (overrides the detected system language).
+// language: LOCALIZATION_LANGUAGE_* value.
+void localization_set_language(BYTE language);
 
 // String IDs for menu items and UI text
 enum
@@ -233,6 +239,8 @@ enum
 	LOCALIZATION_ID_OPTIONS_GENERAL_DIALOG,
 	LOCALIZATION_ID_OPTIONS_VIEW_DIALOG,
 	LOCALIZATION_ID_OPTIONS_CONTROLS_DIALOG,
+	LOCALIZATION_ID_OPTIONS_LANGUAGE_STATIC,
+	LOCALIZATION_ID_LANGUAGE_AUTO,
 	LOCALIZATION_ID_OK_BUTTON,
 	LOCALIZATION_ID_CANCEL_BUTTON,
 	LOCALIZATION_ID_STORE_SETTINGS_APPDATA,

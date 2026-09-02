@@ -19,23 +19,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# Build NSIS installer for void Image Viewer
-# Usage: .\build_installer.ps1 [arch] [vs_version] [build_config] [lang]
+# Build the unified bilingual (English + Simplified Chinese) NSIS installer
+# for void Image Viewer. The language is selected inside the installer, there
+# is no separate per-language build.
+#
+# Usage: .\build_installer.ps1 [arch] [vs_version] [build_config]
 #   arch: x86 or x64 (default: x86)
 #   vs_version: vs2005, vs2019, vs2026, etc. (default: auto-detect)
 #   build_config: Release, Debug, etc. (default: Release)
-#   lang: English or Chinese (default: Chinese)
 #
 # Examples:
-#   .\build_installer.ps1 x64 vs2026 Release Chinese
-#   .\build_installer.ps1 x86 vs2019 Release English
-#   .\build_installer.ps1 x64
+#   .\build_installer.ps1 x64 vs2026 Release
+#   .\build_installer.ps1 x86
+#   .\build_installer.ps1 x64 vs2019 Release
 
 param(
     [string]$Arch = "x86",
     [string]$VsVersion = "",
-    [string]$BuildConfig = "Release",
-    [string]$Lang = "Chinese"
+    [string]$BuildConfig = "Release"
 )
 
 # Change to script directory
@@ -45,7 +46,14 @@ Set-Location $ScriptDir
 # Check if NSIS is installed
 $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
 if (-not $makensis) {
-    Write-Host "Error: NSIS compiler (makensis.exe) not found in PATH!" -ForegroundColor Red
+    # also try the default install location
+    $defaultMakensis = "C:\Program Files (x86)\NSIS\makensis.exe"
+    if (Test-Path $defaultMakensis) {
+        $makensis = $defaultMakensis
+    }
+}
+if (-not $makensis) {
+    Write-Host "Error: NSIS compiler (makensis.exe) not found!" -ForegroundColor Red
     Write-Host "Please install NSIS from https://nsis.sourceforge.io/Download" -ForegroundColor Yellow
     Write-Host "and add it to your system PATH." -ForegroundColor Yellow
     exit 1
@@ -58,10 +66,10 @@ if (-not (Test-Path "version.nsh")) {
     exit 1
 }
 
-# Convert files to UTF-8 with BOM if needed (for Chinese support)
-if (Test-Path "convert_to_utf8_bom.ps1") {
-    Write-Host "Converting files to UTF-8 with BOM encoding..." -ForegroundColor Cyan
-    & powershell -ExecutionPolicy Bypass -File "convert_to_utf8_bom.ps1" | Out-Null
+# Validate and fix the encoding of the bilingual installer files
+if (Test-Path "ensure_encodings.ps1") {
+    Write-Host "Validating installer file encodings..." -ForegroundColor Cyan
+    & powershell -ExecutionPolicy Bypass -File "ensure_encodings.ps1" | Out-Null
 }
 
 # Auto-detect VS version if not specified
@@ -105,7 +113,7 @@ Write-Host "Building void Image Viewer Installer" -ForegroundColor Cyan
 Write-Host "Architecture: $Arch" -ForegroundColor White
 Write-Host "Visual Studio: $VsVersion" -ForegroundColor White
 Write-Host "Build Config: $BuildConfig" -ForegroundColor White
-Write-Host "Language: $Lang" -ForegroundColor White
+Write-Host "Languages: English + Simplified Chinese (selected in the installer)" -ForegroundColor White
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -130,8 +138,7 @@ Write-Host ""
 Write-Host "Compiling NSIS installer script..." -ForegroundColor Cyan
 $makensisArgs = @(
     "/DVS_VERSION=$VsVersion",
-    "/DBUILD_CONFIG=$BuildConfig",
-    "/DLANG=$Lang"
+    "/DBUILD_CONFIG=$BuildConfig"
 )
 
 if ($Arch -eq "x64") {
@@ -143,7 +150,7 @@ $makensisArgs += "installer.nsi"
 Write-Host "Command: makensis.exe $($makensisArgs -join ' ')" -ForegroundColor Gray
 Write-Host ""
 
-$process = Start-Process -FilePath "makensis.exe" -ArgumentList $makensisArgs -Wait -NoNewWindow -PassThru
+$process = Start-Process -FilePath $makensis -ArgumentList $makensisArgs -Wait -NoNewWindow -PassThru
 
 if ($process.ExitCode -eq 0) {
     Write-Host ""
@@ -151,7 +158,8 @@ if ($process.ExitCode -eq 0) {
     Write-Host "Build completed successfully!" -ForegroundColor Green
     Write-Host "========================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Installer file should be in the current directory." -ForegroundColor Green
+    Write-Host "The installer should be in the current directory." -ForegroundColor Green
+    Write-Host "The user picks the setup language on the first page." -ForegroundColor Green
     exit 0
 }
 else {

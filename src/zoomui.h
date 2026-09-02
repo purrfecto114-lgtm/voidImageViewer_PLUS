@@ -37,6 +37,9 @@ void zoomui_kill(void);
 // show or hide the zoom controls.
 void zoomui_show(int show);
 
+// Refresh the tooltip texts after a language change.
+void zoomui_localize(void);
+
 // is the zoom controls window created?
 int zoomui_is_created(void);
 
