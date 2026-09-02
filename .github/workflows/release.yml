@@ -82,12 +82,13 @@ jobs:
           & $makensis "-DVIV_EXE_DIR=$env:GITHUB_WORKSPACE\build\x86" nsis\installer.nsi
           if ($LASTEXITCODE -ne 0) { throw 'x86 installer build failed' }
 
+          # makensis writes the output relative to the script directory (nsis\)
           $errors = @()
-          foreach ($f in @('voidImageViewer-*-x64-Setup.exe', 'voidImageViewer-*-x86-Setup.exe')) {
+          foreach ($f in @('nsis\voidImageViewer-*-x64-Setup.exe', 'nsis\voidImageViewer-*-x86-Setup.exe')) {
             if (!(Get-ChildItem $f -ErrorAction SilentlyContinue)) { $errors += "missing installer: $f" }
           }
           if ($errors.Count -gt 0) { throw ($errors -join '; ') }
-          Get-ChildItem *Setup.exe | Out-Host
+          Get-ChildItem nsis\*Setup.exe | Out-Host
 
 
       - name: Determine tag and version
@@ -111,9 +112,9 @@ jobs:
           Compress-Archive -Path 'build\x64\voidImageViewer.exe', 'LICENSE' -DestinationPath $x64zip
           Compress-Archive -Path 'build\x86\voidImageViewer.exe', 'LICENSE' -DestinationPath $x86zip
           if (!(Test-Path $x64zip) -or !(Test-Path $x86zip)) { throw 'packaging failed' }
-          # rename the installers to include the release version
-          Move-Item "voidImageViewer-*-x64-Setup.exe" "voidImageViewer-$version-x64-Setup.exe" -Force
-          Move-Item "voidImageViewer-*-x86-Setup.exe" "voidImageViewer-$version-x86-Setup.exe" -Force
+          # rename the installers to include the release version (built into nsis\)
+          Move-Item "nsis\voidImageViewer-*-x64-Setup.exe" "voidImageViewer-$version-x64-Setup.exe" -Force
+          Move-Item "nsis\voidImageViewer-*-x86-Setup.exe" "voidImageViewer-$version-x86-Setup.exe" -Force
           if (!(Test-Path "voidImageViewer-$version-x64-Setup.exe")) { throw 'x64 setup missing' }
           if (!(Test-Path "voidImageViewer-$version-x86-Setup.exe")) { throw 'x86 setup missing' }
           Get-ChildItem *.zip, *Setup.exe | Out-Host
@@ -202,4 +203,5 @@ jobs:
             build/x64/voidImageViewer.exe
             build/x86/voidImageViewer.exe
             voidImageViewer-*-Setup.exe
+            nsis/voidImageViewer-*-Setup.exe
           if-no-files-found: error
