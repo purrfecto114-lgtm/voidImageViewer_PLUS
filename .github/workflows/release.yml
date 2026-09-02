@@ -33,11 +33,11 @@ jobs:
 
       - name: Build x64 (Release)
         shell: cmd
-        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 "/p:OutDir=build\x64\\" "/p:IntDir=build\obj\x64\\" /m /nologo /v:m
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x64\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x64\\" /m /nologo /v:m
 
       - name: Build x86 (Release)
         shell: cmd
-        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 "/p:OutDir=build\x86\\" "/p:IntDir=build\obj\x86\\" /m /nologo /v:m
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x86\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x86\\" /m /nologo /v:m
 
       - name: Verify build output
         shell: pwsh
