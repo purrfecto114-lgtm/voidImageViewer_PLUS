@@ -1670,11 +1670,6 @@
     <ClInclude Include="..\src\localization_zh_cn.h" />
     <ClInclude Include="..\src\mem.h" />
     <ClInclude Include="..\src\os.h" />
-    <ClInclude Include="..\src\render.h" />
-    <ClInclude Include="..\src\render_d3d.h" />
-    <ClInclude Include="..\src\render_gdi.h" />
-    <ClInclude Include="..\src\render_opengl.h" />
-    <ClInclude Include="..\src\render_software.h" />
     <ClInclude Include="..\src\safe_size.h" />
     <ClInclude Include="..\src\small_pool.h" />
     <ClInclude Include="..\src\string.h" />

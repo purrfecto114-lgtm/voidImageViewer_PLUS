@@ -1617,11 +1617,6 @@
     <ClCompile Include="..\src\ini.c" />
     <ClCompile Include="..\src\mem.c" />
     <ClCompile Include="..\src\os.c" />
-    <ClCompile Include="..\src\render.c" />
-    <ClCompile Include="..\src\render_d3d.c" />
-    <ClCompile Include="..\src\render_gdi.c" />
-    <ClCompile Include="..\src\render_opengl.c" />
-    <ClCompile Include="..\src\render_software.c" />
     <ClCompile Include="..\src\safe_size.c" />
     <ClCompile Include="..\src\small_pool.c" />
     <ClCompile Include="..\src\string.c" />
@@ -1671,11 +1666,6 @@
     <ClInclude Include="..\src\ini.h" />
     <ClInclude Include="..\src\mem.h" />
     <ClInclude Include="..\src\os.h" />
-    <ClInclude Include="..\src\render.h" />
-    <ClInclude Include="..\src\render_d3d.h" />
-    <ClInclude Include="..\src\render_gdi.h" />
-    <ClInclude Include="..\src\render_opengl.h" />
-    <ClInclude Include="..\src\render_software.h" />
     <ClInclude Include="..\src\safe_size.h" />
     <ClInclude Include="..\src\small_pool.h" />
     <ClInclude Include="..\src\string.h" />
