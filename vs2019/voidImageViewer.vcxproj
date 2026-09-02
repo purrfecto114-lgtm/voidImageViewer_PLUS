@@ -1616,6 +1616,7 @@
     <ClCompile Include="..\src\debug.c" />
     <ClCompile Include="..\src\ini.c" />
     <ClCompile Include="..\src\mem.c" />
+    <ClCompile Include="..\src\localization.c" />
     <ClCompile Include="..\src\os.c" />
     <ClCompile Include="..\src\safe_size.c" />
     <ClCompile Include="..\src\small_pool.c" />
@@ -1665,6 +1666,9 @@
     <ClInclude Include="..\src\everything_ipc.h" />
     <ClInclude Include="..\src\ini.h" />
     <ClInclude Include="..\src\mem.h" />
+    <ClInclude Include="..\src\localization.h" />
+    <ClInclude Include="..\src\localization_en_us.h" />
+    <ClInclude Include="..\src\localization_zh_cn.h" />
     <ClInclude Include="..\src\os.h" />
     <ClInclude Include="..\src\safe_size.h" />
     <ClInclude Include="..\src\small_pool.h" />
