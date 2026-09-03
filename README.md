@@ -37,6 +37,16 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.6** fixes the aspect ratio, zoom lag, and declutters the menus:
+
+- **Aspect ratio can no longer change while zooming** — the legacy *Pan && Scan* feature could stretch the image independently in x and y (19 confusing menu entries such as "Increase Width" and 18 numpad shortcuts). It is now removed: the zoom ladder always scales both axes together, so the aspect stays locked at every zoom level.
+- **No more ~0.5 s zoom lag at deep zoom** — a magnified paint used to stretch the *entire* destination rectangle (up to 16× the window ≈ hundreds of megapixels) even though only the visible part mattered (GDI's magnified `StretchBlt` ignores the clip region). The stretch is now limited to the visible area; every zoom step repaints in milliseconds.
+- **Regrouped the View menu** — the UI toggles (caption, frame, menu bar, status bar, toolbar, zoom controls and layout presets) now live in a **View → Layout** submenu, leaving a short, scannable top level: fullscreen, slideshow and refresh sit together, zoom keeps its own submenu, and the pan && scan submenu is gone.
+- **One honest zoom percent** — the status bar used to print two separate x/y percents (which read as if the aspect ratio could drift). It now shows a single zoom percentage.
+- **Clearer Chinese translations** — "允许缩小图片" (was misleadingly "允许窗口缩小"), "拉伸填满窗口" (now says it stretches), interpolation filter labels are less technical, and several status strings read more naturally.
+- Note: custom hotkeys for commands that moved into View → Layout reset to defaults once (hotkeys are stored by menu path); default hotkeys are unaffected.
+- Regression test suite added under `tests/` (zoom math + menu structure) — run `python3 tests/zoom_math_test.py && python3 tests/menu_structure_test.py`.
+
 **Version 1.1.0-beta.5** fixes the zoom experience:
 
 - **Pinch zoom follows your fingers** — the zoom now exactly tracks the finger movement, in or out. The beta.3/beta.4 zoom steps were accidentally 3–4× larger than intended on images larger than the window, so fast pinches overshot wildly. Corrupted gesture distances (a Windows multi-monitor quirk) are rejected, no single gesture message can change the zoom by more than 2×, and zoom updates are applied in one pass per message so fast pinches stay smooth.

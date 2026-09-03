@@ -331,7 +331,7 @@ enum
 	_VIV_MENU_VIEW,
 	_VIV_MENU_VIEW_PRESET,
 	_VIV_MENU_VIEW_WINDOW_SIZE,
-	_VIV_MENU_VIEW_PANSCAN,
+	_VIV_MENU_VIEW_LAYOUT,
 	_VIV_MENU_VIEW_ZOOM,
 	_VIV_MENU_VIEW_ONTOP,
 	_VIV_MENU_SLIDESHOW,
@@ -536,8 +536,6 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 static void _viv_update_frame(void);
 static void _viv_update_ontop(void);
 static void _viv_update_prevent_sleep(void);
-static void _viv_dst_pos_set(int x,int y);
-static void _viv_dst_zoom_set(int x,int y);
 static void _viv_frame_skip(int size);
 static DWORD WINAPI _viv_load_image_thread_proc(void *param);
 static _viv_reply_t *_viv_reply_add(DWORD type,DWORD size,void *data);
@@ -864,25 +862,28 @@ static _viv_command_t _viv_commands[] =
 
 	{LOCALIZATION_ID_VIEW,MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_VIEW},
 	
-	{LOCALIZATION_ID_CAPTION,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW,VIV_ID_VIEW_CAPTION},
-	{LOCALIZATION_ID_FRAME,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW,VIV_ID_VIEW_THICKFRAME},
-	{LOCALIZATION_ID_MENU,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_MENU},
-	{LOCALIZATION_ID_STATUS_BAR,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_STATUS},
-	{LOCALIZATION_ID_CONTROLS,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_CONTROLS},
-	{LOCALIZATION_ID_ZOOM_CONTROLS,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_ZOOM_CONTROLS},
-	{LOCALIZATION_ID_PRESET,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_PRESET},
+	{LOCALIZATION_ID_LAYOUT,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_LAYOUT},
+	{LOCALIZATION_ID_CAPTION,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_CAPTION},
+	{LOCALIZATION_ID_FRAME,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_THICKFRAME},
+	{LOCALIZATION_ID_MENU,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_MENU},
+	{LOCALIZATION_ID_STATUS_BAR,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_STATUS},
+	{LOCALIZATION_ID_CONTROLS,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_CONTROLS},
+	{LOCALIZATION_ID_ZOOM_CONTROLS,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_ZOOM_CONTROLS},
+	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW_LAYOUT,0},
+	{LOCALIZATION_ID_PRESET,MF_POPUP,_VIV_MENU_VIEW_LAYOUT,_VIV_MENU_VIEW_PRESET},
 	{LOCALIZATION_ID_MINIMAL,MF_STRING,_VIV_MENU_VIEW_PRESET,VIV_ID_VIEW_PRESET_1},
 	{LOCALIZATION_ID_COMPACT,MF_STRING,_VIV_MENU_VIEW_PRESET,VIV_ID_VIEW_PRESET_2},
 	{LOCALIZATION_ID_NORMAL,MF_STRING,_VIV_MENU_VIEW_PRESET,VIV_ID_VIEW_PRESET_3},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{LOCALIZATION_ID_FULLSCREEN,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_FULLSCREEN},
 	{LOCALIZATION_ID_SLIDESHOW,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_SLIDESHOW},
+	{LOCALIZATION_ID_REFRESH,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_REFRESH},
+	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{LOCALIZATION_ID_VIEW_WINDOW_SIZE,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_WINDOW_SIZE},
 	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_50_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_50},
 	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_100_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_100},
 	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_200_PERCENT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_200},
 	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_AUTO_FIT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT},
-	{LOCALIZATION_ID_REFRESH,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_REFRESH},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	// all zoom related commands live in one submenu.
 	{LOCALIZATION_ID_ZOOM,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_ZOOM},
@@ -897,30 +898,11 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_KEEP_ASPECT_RATIO,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_KEEP_ASPECT_RATIO},
 	{LOCALIZATION_ID_FILL_WINDOW,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_FILL_WINDOW},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
-	{LOCALIZATION_ID_PAN_SCAN,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_PANSCAN},
-	{LOCALIZATION_ID_INCREASE_SIZE,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_INCREASE_SIZE},
-	{LOCALIZATION_ID_DECREASE_SIZE,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_DECREASE_SIZE},
-	{LOCALIZATION_ID_INCREASE_WIDTH,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH},
-	{LOCALIZATION_ID_DECREASE_WIDTH,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH},
-	{LOCALIZATION_ID_INCREASE_HEIGHT,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT},
-	{LOCALIZATION_ID_DECREASE_HEIGHT,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT},
-	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW_PANSCAN,0},
-	{LOCALIZATION_ID_MOVE_UP,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_UP},
-	{LOCALIZATION_ID_MOVE_DOWN,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_DOWN},
-	{LOCALIZATION_ID_MOVE_LEFT,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_LEFT},
-	{LOCALIZATION_ID_MOVE_RIGHT,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_RIGHT},
-	{LOCALIZATION_ID_MOVE_UP_LEFT,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT},
-	{LOCALIZATION_ID_MOVE_UP_RIGHT,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT},
-	{LOCALIZATION_ID_MOVE_DOWN_LEFT,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT},
-	{LOCALIZATION_ID_MOVE_DOWN_RIGHT,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT},
-	{LOCALIZATION_ID_MOVE_CENTER,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_CENTER},
-	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW_PANSCAN,0},
-	{LOCALIZATION_ID_PANSCAN_RESET,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_RESET},
-	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{LOCALIZATION_ID_ON_TOP,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_ONTOP},
 	{LOCALIZATION_ID_ALWAYS,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_ALWAYS},
 	{LOCALIZATION_ID_WHILE_PLAYING_OR_ANIMATING,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING},
 	{LOCALIZATION_ID_NEVER,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_NEVER},
+
 	{LOCALIZATION_ID_OPTIONS,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_OPTIONS},
 	{LOCALIZATION_ID_SLIDESHOW_MENU,MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_SLIDESHOW},
 	{LOCALIZATION_ID_PLAY_PAUSE,MF_STRING,_VIV_MENU_SLIDESHOW,VIV_ID_SLIDESHOW_PAUSE},
@@ -1030,22 +1012,6 @@ _viv_default_key_t _viv_default_keys[] =
 	{VIV_ID_VIEW_WINDOW_SIZE_100,CONFIG_KEYFLAG_ALT | '2'},
 	{VIV_ID_VIEW_WINDOW_SIZE_200,CONFIG_KEYFLAG_ALT | '3'},
 	{VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT,CONFIG_KEYFLAG_ALT | '4'},
-	{VIV_ID_VIEW_PANSCAN_INCREASE_SIZE,VK_NUMPAD9},
-	{VIV_ID_VIEW_PANSCAN_DECREASE_SIZE,VK_NUMPAD1},
-	{VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH,VK_NUMPAD6},
-	{VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH,VK_NUMPAD4},
-	{VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT,VK_NUMPAD8},
-	{VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT,VK_NUMPAD2},
-	{VIV_ID_VIEW_PANSCAN_MOVE_UP,CONFIG_KEYFLAG_CTRL | VK_NUMPAD8},
-	{VIV_ID_VIEW_PANSCAN_MOVE_DOWN,CONFIG_KEYFLAG_CTRL | VK_NUMPAD2},
-	{VIV_ID_VIEW_PANSCAN_MOVE_LEFT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD4},
-	{VIV_ID_VIEW_PANSCAN_MOVE_RIGHT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD6},
-	{VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD7},
-	{VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD9},
-	{VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD1},
-	{VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT,CONFIG_KEYFLAG_CTRL | VK_NUMPAD3},
-	{VIV_ID_VIEW_PANSCAN_MOVE_CENTER,CONFIG_KEYFLAG_CTRL | VK_NUMPAD5},
-	{VIV_ID_VIEW_PANSCAN_RESET,VK_NUMPAD5},
 	{VIV_ID_VIEW_ZOOM_IN,VK_OEM_PLUS},
 	{VIV_ID_VIEW_ZOOM_IN,VK_ADD},
 	{VIV_ID_VIEW_ZOOM_IN,CONFIG_KEYFLAG_CTRL | VK_ADD},
@@ -2285,76 +2251,6 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 					}
 				}
 			}	
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_INCREASE_SIZE:
-			_viv_dst_zoom_set(_viv_dst_zoom_x_pos + 1,_viv_dst_zoom_y_pos + 1);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_DECREASE_SIZE:
-			_viv_dst_zoom_set(_viv_dst_zoom_x_pos - 1,_viv_dst_zoom_y_pos - 1);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_INCREASE_WIDTH:
-			_viv_dst_zoom_set(_viv_dst_zoom_x_pos + 1,_viv_dst_zoom_y_pos);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH:
-			_viv_dst_zoom_set(_viv_dst_zoom_x_pos - 1,_viv_dst_zoom_y_pos);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT:
-			_viv_dst_zoom_set(_viv_dst_zoom_x_pos,_viv_dst_zoom_y_pos + 1);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT:
-			_viv_dst_zoom_set(_viv_dst_zoom_x_pos,_viv_dst_zoom_y_pos - 1);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_MOVE_RIGHT:
-			_viv_dst_pos_set(_viv_dst_pos_x + 5,_viv_dst_pos_y);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_MOVE_LEFT:
-			_viv_dst_pos_set(_viv_dst_pos_x - 5,_viv_dst_pos_y);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_MOVE_UP:
-			_viv_dst_pos_set(_viv_dst_pos_x,_viv_dst_pos_y - 5);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN:
-			_viv_dst_pos_set(_viv_dst_pos_x,_viv_dst_pos_y + 5);
-			break;
-
-		case VIV_ID_VIEW_PANSCAN_MOVE_UP_LEFT:
-			_viv_dst_pos_set(_viv_dst_pos_x - 5,_viv_dst_pos_y - 5);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_MOVE_UP_RIGHT:
-			_viv_dst_pos_set(_viv_dst_pos_x + 5,_viv_dst_pos_y - 5);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN_LEFT:
-			_viv_dst_pos_set(_viv_dst_pos_x - 5,_viv_dst_pos_y + 5);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_MOVE_DOWN_RIGHT:
-			_viv_dst_pos_set(_viv_dst_pos_x + 5,_viv_dst_pos_y + 5);
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_MOVE_CENTER:
-			_viv_dst_pos_x = 500;
-			_viv_dst_pos_y = 500;
-			InvalidateRect(_viv_hwnd,NULL,FALSE);
-			_viv_status_update_temp_pos_zoom();	
-			break;
-			
-		case VIV_ID_VIEW_PANSCAN_RESET:
-			_viv_dst_pos_x = 500;
-			_viv_dst_pos_y = 500;
-			InvalidateRect(_viv_hwnd,NULL,FALSE);
-			_viv_dst_zoom_set(_VIV_DST_ZOOM_ONE,_VIV_DST_ZOOM_ONE);		
 			break;
 			
 		case VIV_ID_VIEW_ONTOP_ALWAYS:
@@ -4531,7 +4427,13 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 																paint_high = paint_bottom - paint_top;
 																
 																// are we drawing the whole thing?
-																if ((rect_p->right - rect_p->left >= paint_wide) && (rect_p->bottom - rect_p->top >= paint_high))
+																// magnified StretchBlt ignores the clipping region: it stretches the
+																// entire destination rectangle even when only a small part of it is
+																// visible. only take the whole-destination path when the destination
+																// is fully on screen, otherwise use the clip limited stretch. (a deep
+																// zoom renders up to 16x the fit size; stretching hundreds of
+																// megapixels on every paint was the zoom lag.)
+																if ((rw <= wide) && (rh <= high) && (rect_p->right - rect_p->left >= paint_wide) && (rect_p->bottom - rect_p->top >= paint_high))
 																{
 																	// if the clipping region is the full area, just use stretchblt, which is faster.
 																	if (_viv_StretchBltStitch(paint_hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
@@ -10486,96 +10388,6 @@ static void _viv_update_prevent_sleep(void)
 		
 		_viv_is_prevent_sleep = _is_prevent_sleep;
 	}
-}
-
-static void _viv_dst_pos_set(int x,int y)
-{
-	if (x < 0)
-	{
-		x = 0;
-	}
-
-	if (y < 0)
-	{
-		y = 0;
-	}
-
-	if (x > 1000)
-	{
-		x = 1000;
-	}
-
-	if (y > 1000)
-	{
-		y = 1000;
-	}
-
-	if ((x != _viv_dst_pos_x) || (y != _viv_dst_pos_y))
-	{
-		_viv_dst_pos_x = x;
-		_viv_dst_pos_y = y;
-		
-		InvalidateRect(_viv_hwnd,NULL,FALSE);
-	}
-
-	_viv_status_update_temp_pos_zoom();	
-}
-
-static void _viv_dst_zoom_set(int x,int y)
-{
-	if (x < 0)
-	{
-		x = 0;
-	}
-	else
-	if (x > _VIV_DST_ZOOM_MAX - 1)
-	{
-		x = _VIV_DST_ZOOM_MAX - 1;
-	}
-	
-	if (y < 0)
-	{
-		y = 0;
-	}
-	else
-	if (y > _VIV_DST_ZOOM_MAX - 1)
-	{
-		y = _VIV_DST_ZOOM_MAX - 1;
-	}
-	
-	if ((x != _viv_dst_zoom_x_pos) || (y != _viv_dst_zoom_y_pos))
-	{
-		_viv_dst_zoom_x_pos = x;
-		_viv_dst_zoom_y_pos = y;
-		
-		InvalidateRect(_viv_hwnd,NULL,FALSE);
-	}
-
-	_viv_status_update_temp_pos_zoom();	
-	/*
-	{
-		RECT rect;
-		int wide;
-		int high;
-		int rw;
-		int rh;
-		double new_view_x;
-		double new_view_y;
-
-		
-		GetClientRect(_viv_hwnd,&rect);
-		wide = rect.right - rect.left;
-		high = rect.bottom - rect.top;	
-		_viv_get_render_size(&rw,&rh);
-	
-		new_view_x = (int)(((_viv_view_ix * rw) / _viv_image_wide) + 0.5) + (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (wide / 2) - (rw / 2);
-		new_view_y = (int)(((_viv_view_iy * rh) / _viv_image_high) + 0.5) + (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (high / 2) - (rh / 2);
-
-debug_printf("RESTORE VIEW x %d y %d ix %d iy %d rw %d rh %d wide %d high %d\n",(int)(new_view_x),(int)(new_view_y),(int)_viv_view_ix,(int)_viv_view_iy,rw,rh,wide,high)		;
-//		_viv_view_set((int)(_viv_view_ix * (double)rw),(int)(_viv_view_iy * (double)rh),1);
-		_viv_view_set((int)new_view_x,(int)new_view_y,1);
-	}
-	*/
 }
 
 static void _viv_frame_skip(int size)

@@ -1,3 +1,29 @@
+Pre-release, BETA: Version 1.1.0-beta.6 (aspect ratio, zoom lag, menu cleanup)
+	the image aspect ratio can no longer change while zooming: the pan && scan
+	  feature that stretched the image independently in x and y (19 confusing
+	  menu entries and 18 numpad shortcuts, including "increase width") has
+	  been removed. the zoom ladder always scales both axes together.
+	the status bar now shows a single zoom percent. (it used to show two
+	  separate x/y percents, which read as if the aspect ratio could drift
+	  while zooming.)
+	zooming is no longer laggy at deep zoom: a magnified paint used to stretch
+	  the entire destination rectangle (up to 16x the window = hundreds of
+	  megapixels) even though only the visible part mattered. the stretch is
+	  now limited to the visible area, so every zoom step repaints in
+	  milliseconds instead of ~0.5s.
+	regrouped the View menu: the ui toggles (caption, frame, menu bar, status
+	  bar, toolbar, zoom controls, layout presets) now live in a Layout
+	  submenu, leaving a short, scannable top level. the pan && scan submenu
+	  is gone, fullscreen/slideshow/refresh sit together, and the zoom
+	  commands stay in their own submenu.
+	refreshed several chinese translations that were misleading: allow
+	  shrinking now reads as shrinking the image (not the window), fill window
+	  is labeled as stretching, the interpolation filter labels are less
+	  technical, and the slideshow/slideshow-status strings are more natural.
+	note: custom hotkeys saved for commands that moved into the View - Layout
+	  submenu are reset to their defaults once (hotkeys are stored by menu
+	  path). default hotkeys are unaffected.
+
 Pre-release, BETA: Version 1.1.0-beta.5 (pinch zoom & zoom controls fixes)
 	pinch to zoom now truly follows your fingers: the zoom tracks how far the
 	  fingers moved, in or out. (the zoom steps were accidentally much larger
