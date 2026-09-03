@@ -257,7 +257,7 @@
 #define _VIV_ASSOCIATION_TIFF				0x00000080
 #define _VIV_ASSOCIATION_WEBP				0x00000100
 
-#define _VIV_ZOOM_MAX 16
+#define _VIV_ZOOM_MAX 279 // one preset per 1% multiplicative zoom step: 1.01^278 ~= 16x
 
 #define BCM_SETSHIELD	0x0000160C
 
@@ -697,8 +697,9 @@ static int _viv_view_y = 0; // the current image offset in pixels
 static double _viv_view_ix = 0.0; // the current image offset in percent, used when resizing the window
 static double _viv_view_iy = 0.0; // the current image offset in percent, used when resizing the window
 static int _viv_zoom_pos = 0; // the current zoom level
-//static float _viv_zoom_presets[_VIV_ZOOM_MAX] = {0.004815f,0.019215f,0.043060f,0.076120f,0.118079f,0.168530f,0.226989f,0.292893f,0.365607f,0.444430f,0.528603f,0.617316f,0.709715f,0.804909f,0.901983f,1.000000f}; // (1 - cos(((float)(x+1) * 1.570796f) / _VIV_ZOOM_MAX)) // this is missing cos((1 * 1.570796f) / _VIV_ZOOM_MAX), which is too small
-static float _viv_zoom_presets[_VIV_ZOOM_MAX] = {0.0000,0.0100,0.0225,0.0379,0.0569,0.0806,0.1098,0.1461,0.1909,0.2465,0.3154,0.4007,0.5063,0.6372,0.7993,1.0000}; // 0.01 - 0.2 curve
+// the zoom presets are computed in _viv_init(): each step is a 1% multiplicative
+// zoom increase (1.01x) from the best fit size (pos 0) to ~16x (pos _VIV_ZOOM_MAX-1).
+static float _viv_zoom_presets[_VIV_ZOOM_MAX];
 
 static ULONG_PTR os_GdiplusToken; // gdiplus handle
 static int _viv_image_wide = 0; // current image width
@@ -880,11 +881,18 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_VIEW_WINDOW_SIZE_AUTO_FIT,MF_STRING,_VIV_MENU_VIEW_WINDOW_SIZE,VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT},
 	{LOCALIZATION_ID_REFRESH,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_REFRESH},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
+	// all zoom related commands live in one submenu.
+	{LOCALIZATION_ID_ZOOM,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_ZOOM},
+	{LOCALIZATION_ID_ZOOM_IN,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_IN},
+	{LOCALIZATION_ID_ZOOM_OUT,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_OUT},
+	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW_ZOOM,0},
+	{LOCALIZATION_ID_ONE_TO_ONE,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_1TO1},
+	{LOCALIZATION_ID_BEST_FIT,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_BESTFIT},
+	{LOCALIZATION_ID_RESET,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_RESET},
+	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{LOCALIZATION_ID_ALLOW_SHRINKING,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_ALLOW_SHRINKING},
 	{LOCALIZATION_ID_KEEP_ASPECT_RATIO,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_KEEP_ASPECT_RATIO},
 	{LOCALIZATION_ID_FILL_WINDOW,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_FILL_WINDOW},
-	{LOCALIZATION_ID_ONE_TO_ONE,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_1TO1},
-	{LOCALIZATION_ID_BEST_FIT,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW,VIV_ID_VIEW_BESTFIT},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{LOCALIZATION_ID_PAN_SCAN,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_PANSCAN},
 	{LOCALIZATION_ID_INCREASE_SIZE,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_INCREASE_SIZE},
@@ -893,10 +901,6 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_DECREASE_WIDTH,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_DECREASE_WIDTH},
 	{LOCALIZATION_ID_INCREASE_HEIGHT,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_INCREASE_HEIGHT},
 	{LOCALIZATION_ID_DECREASE_HEIGHT,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_DECREASE_HEIGHT},
-	{LOCALIZATION_ID_ZOOM,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_ZOOM},
-	{LOCALIZATION_ID_ZOOM_IN,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_IN},
-	{LOCALIZATION_ID_ZOOM_OUT,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_OUT},
-	{LOCALIZATION_ID_RESET,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_RESET},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW_PANSCAN,0},
 	{LOCALIZATION_ID_MOVE_UP,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_UP},
 	{LOCALIZATION_ID_MOVE_DOWN,MF_STRING,_VIV_MENU_VIEW_PANSCAN,VIV_ID_VIEW_PANSCAN_MOVE_DOWN},
@@ -1079,6 +1083,11 @@ WORD _viv_context_menu_items[] =
 	VIV_ID_NAV_NEXT,
 	VIV_ID_NAV_PREV,
 	0,
+	VIV_ID_VIEW_ZOOM_IN,
+	VIV_ID_VIEW_ZOOM_OUT,
+	VIV_ID_VIEW_1TO1,
+	VIV_ID_VIEW_BESTFIT,
+	0,
 	VIV_ID_VIEW_FULLSCREEN,
 	VIV_ID_SLIDESHOW_PAUSE,
 	_VIV_MENU_SLIDESHOW_RATE,
@@ -1110,7 +1119,6 @@ WORD _viv_context_menu_items[] =
 	VIV_ID_VIEW_ALLOW_SHRINKING,
 	VIV_ID_VIEW_KEEP_ASPECT_RATIO,
 	VIV_ID_VIEW_FILL_WINDOW,
-	VIV_ID_VIEW_1TO1,
 //	VIV_ID_VIEW_SLIDESHOW,
 	0,
 	_VIV_MENU_NAVIGATE_SORT,
@@ -1703,6 +1711,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			_viv_zoom_pos = 0;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
+			_viv_status_update_temp_pos_zoom();
 			break;
 	
 		case VIV_ID_HELP_HELP:
@@ -2095,6 +2104,7 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			_viv_1to1 = 0;
 			_viv_view_set(0,0,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
+			_viv_status_update_temp_pos_zoom();
 			break;
 			
 		case VIV_ID_VIEW_SLIDESHOW:
@@ -2610,6 +2620,102 @@ static void _viv_exit(void)
 	config_save_settings(config_appdata);
 	PostQuitMessage(0);
 }
+
+// cached backbuffer used for double buffered painting.
+static HDC _viv_paint_hdc = 0;
+static HBITMAP _viv_paint_hbitmap = 0;
+static HGDIOBJ _viv_paint_last_hbitmap = 0;
+static int _viv_paint_wide = 0;
+static int _viv_paint_high = 0;
+
+// prepare the paint backbuffer for a client area of wide x high pixels.
+// returns 1 when the caller should draw into _viv_paint_hdc instead of the screen dc.
+static int _viv_paint_begin(HDC hdc,int wide,int high)
+{
+	if (_viv_paint_hdc)
+	{
+		// reuse the existing bitmap when the client size has not changed.
+		if ((wide == _viv_paint_wide) && (high == _viv_paint_high))
+		{
+			return 1;
+		}
+		
+		// the size changed, discard the old bitmap.
+		if (_viv_paint_last_hbitmap)
+		{
+			SelectObject(_viv_paint_hdc,_viv_paint_last_hbitmap);
+			_viv_paint_last_hbitmap = 0;
+		}
+		
+		DeleteObject(_viv_paint_hbitmap);
+		_viv_paint_hbitmap = 0;
+		
+		_viv_paint_wide = 0;
+		_viv_paint_high = 0;
+	}
+	else
+	{
+		_viv_paint_hdc = CreateCompatibleDC(hdc);
+		
+		if (!_viv_paint_hdc)
+		{
+			return 0;
+		}
+	}
+	
+	if ((wide <= 0) || (high <= 0))
+	{
+		return 0;
+	}
+	
+	_viv_paint_hbitmap = CreateCompatibleBitmap(hdc,wide,high);
+	
+	if (!_viv_paint_hbitmap)
+	{
+		return 0;
+	}
+	
+	_viv_paint_last_hbitmap = SelectObject(_viv_paint_hdc,_viv_paint_hbitmap);
+	
+	if (!_viv_paint_last_hbitmap)
+	{
+		DeleteObject(_viv_paint_hbitmap);
+		_viv_paint_hbitmap = 0;
+		
+		return 0;
+	}
+	
+	_viv_paint_wide = wide;
+	_viv_paint_high = high;
+	
+	return 1;
+}
+
+// free the cached paint backbuffer.
+static void _viv_paint_kill(void)
+{
+	if (_viv_paint_hdc)
+	{
+		if (_viv_paint_last_hbitmap)
+		{
+			SelectObject(_viv_paint_hdc,_viv_paint_last_hbitmap);
+			_viv_paint_last_hbitmap = 0;
+		}
+		
+		DeleteDC(_viv_paint_hdc);
+		_viv_paint_hdc = 0;
+	}
+	
+	if (_viv_paint_hbitmap)
+	{
+		DeleteObject(_viv_paint_hbitmap);
+		_viv_paint_hbitmap = 0;
+	}
+	
+	_viv_paint_wide = 0;
+	_viv_paint_high = 0;
+}
+
 
 static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
@@ -4150,6 +4256,8 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			if (BeginPaint(hwnd,&ps))
 			{
 				HRGN update_hrgn;
+				HDC paint_hdc;
+				int paint_use_backbuffer;
 
 				update_hrgn = os_CreateRectRgn(0,0,0,0);
 
@@ -4180,6 +4288,13 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 					update_hrgn = mirror_hrgn;
 				}
 
+				// double buffer: render into a memory bitmap and present it to the
+				// screen with a single blit. this makes each paint atomic and prevents
+				// tearing (partial frames) while panning or zooming.
+				// rtl layouts keep painting directly, blitting a mirrored memory dc would be wrong.
+				paint_use_backbuffer = 0;
+				paint_hdc = ps.hdc;
+				
 //debug_printf("WM_PAINT\n")			;
 				if ((wide) && (high))
 				{
@@ -4187,6 +4302,16 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 					int ry;
 					int rw;
 					int rh;
+
+					// begin the backbuffer only when there is a viewport to render into.
+					if (!((os_GetLayout) && (os_GetLayout(ps.hdc) & LAYOUT_RTL)))
+					{
+						if (_viv_paint_begin(ps.hdc,rect.right - rect.left,rect.bottom - rect.top))
+						{
+							paint_use_backbuffer = 1;
+							paint_hdc = _viv_paint_hdc;
+						}
+					}
 
 					rx = 0;
 					ry = 0;
@@ -4252,7 +4377,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 								{
 									if ((rw == mip_wide) && (rh == mip_high))
 									{
-										if (BitBlt(ps.hdc,rx,ry,rw,rh,mem_hdc,0,0,SRCCOPY))
+										if (BitBlt(paint_hdc,rx,ry,rw,rh,mem_hdc,0,0,SRCCOPY))
 										{
 										}
 										else
@@ -4281,12 +4406,12 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 											if (config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE)
 											{
 												is_halftone = 1;
-												last_stretch_mode = SetStretchBltMode(ps.hdc,HALFTONE);
-												SetBrushOrgEx(ps.hdc,-rx,-ry,NULL);
+												last_stretch_mode = SetStretchBltMode(paint_hdc,HALFTONE);
+												SetBrushOrgEx(paint_hdc,-rx,-ry,NULL);
 											}
 											else
 											{
-												last_stretch_mode = SetStretchBltMode(ps.hdc,COLORONCOLOR);
+												last_stretch_mode = SetStretchBltMode(paint_hdc,COLORONCOLOR);
 											}
 
 											did_set_stretch_blt_mode = 1;
@@ -4297,11 +4422,11 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 											if (config_mag_filter == CONFIG_MAG_FILTER_HALFTONE)
 											{
 												is_halftone = 1;
-												last_stretch_mode = SetStretchBltMode(ps.hdc,HALFTONE);
+												last_stretch_mode = SetStretchBltMode(paint_hdc,HALFTONE);
 											}
 											else
 											{
-												last_stretch_mode = SetStretchBltMode(ps.hdc,COLORONCOLOR);
+												last_stretch_mode = SetStretchBltMode(paint_hdc,COLORONCOLOR);
 											}
 											
 											did_set_stretch_blt_mode = 1;
@@ -4344,9 +4469,9 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 															clip_hrgn = CreateRectRgn(rect_p->left,rect_p->top,rect_p->right,rect_p->bottom);
 															if (clip_hrgn)
 															{
-																if (SelectClipRgn(ps.hdc,clip_hrgn) != ERROR)
+																if (SelectClipRgn(paint_hdc,clip_hrgn) != ERROR)
 																{
-																	if (StretchBlt(ps.hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY))
+																	if (StretchBlt(paint_hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY))
 																	{
 																	}
 																	else
@@ -4401,7 +4526,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 																if ((rect_p->right - rect_p->left >= paint_wide) && (rect_p->bottom - rect_p->top >= paint_high))
 																{
 																	// if the clipping region is the full area, just use stretchblt, which is faster.
-																	if (_viv_StretchBltStitch(ps.hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
+																	if (_viv_StretchBltStitch(paint_hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
 																	{
 																	}
 																	else
@@ -4413,12 +4538,12 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 																{
 																	// use our own stretch that only renders the clipping rect region.
 																	// where-as StretchBlt ignores the clipping region and renders the entire dst region.
-																	_viv_stretch_blt(ps.hdc,rx,ry,rw,rh,mem_hdc,mip_wide,mip_high,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top);
+																	_viv_stretch_blt(paint_hdc,rx,ry,rw,rh,mem_hdc,mip_wide,mip_high,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top);
 																}
 															}
 															else
 															{
-																if (_viv_StretchBltStitch(ps.hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
+																if (_viv_StretchBltStitch(paint_hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
 																{
 																}
 																else
@@ -4434,7 +4559,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 
 													if (is_halftone)
 													{
-														SelectClipRgn(ps.hdc,NULL);
+														SelectClipRgn(paint_hdc,NULL);
 													}
 												}
 
@@ -4444,7 +4569,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 
 										if (did_set_stretch_blt_mode)
 										{
-											SetStretchBltMode(ps.hdc,last_stretch_mode);
+											SetStretchBltMode(paint_hdc,last_stretch_mode);
 										}
 									}
 
@@ -4473,11 +4598,24 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 						
 						if (hbrush)
 						{
-							os_fill_clipped_rect(ps.hdc,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,rx,ry,rw,rh,hbrush);
+							os_fill_clipped_rect(paint_hdc,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,rx,ry,rw,rh,hbrush);
 						
 							DeleteObject(hbrush);
 						}
 					}
+				}
+				
+				if (paint_use_backbuffer)
+				{
+					// present the frame: copy the invalidated region to the screen in one blit.
+					SelectClipRgn(ps.hdc,update_hrgn);
+					
+					if (!BitBlt(ps.hdc,0,0,rect.right - rect.left,rect.bottom - rect.top,paint_hdc,0,0,SRCCOPY))
+					{
+						debug_printf("paint present BitBlt failed %d\n",GetLastError());
+					}
+					
+					SelectClipRgn(ps.hdc,NULL);
 				}
 				
 				_viv_is_animation_paint = 0;
@@ -5310,6 +5448,24 @@ static int _viv_init(int nCmdShow)
 		}
 	}
 	
+	// init the zoom presets.
+	
+	{
+		int i;
+		double f;
+		
+		f = 1.0;
+		
+		// each zoom step grows the rendered image by 1% (1.01x).
+		// _viv_get_render_size() interpolates: render = fit + (16*fit - fit) * preset.
+		for(i=0;i<_VIV_ZOOM_MAX;i++)
+		{
+			_viv_zoom_presets[i] = (float)((f - 1.0) / 15.0);
+			
+			f *= 1.01;
+		}
+	}
+	
 	// init _viv_dst_zoom_values
 	
 	_viv_dst_zoom_values = mem_alloc(sizeof(float) * _VIV_DST_ZOOM_MAX);
@@ -5703,6 +5859,8 @@ static void _viv_kill(void)
 	mem_free(_viv_current_fd);
 	
 	mem_free(_viv_dst_zoom_values);
+	
+	_viv_paint_kill();
 	
 	_viv_key_clear_all(_viv_key_list);
 	mem_free(_viv_key_list);
@@ -9521,6 +9679,7 @@ static void _viv_view_1to1(void)
 			_viv_zoom_pos = _viv_old_zoom_pos;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
+			_viv_status_update_temp_pos_zoom();
 			
 			return;
 		}
@@ -9533,6 +9692,7 @@ static void _viv_view_1to1(void)
 	_viv_zoom_pos = 0;
 	_viv_view_set(_viv_view_x,_viv_view_y,1);
 	InvalidateRect(_viv_hwnd,0,FALSE);
+	_viv_status_update_temp_pos_zoom();
 }
 
 static void _viv_playlist_add_current_if_empty(void)
@@ -12038,7 +12198,34 @@ static void _viv_status_update_temp_pos_zoom(void)
 		y += 0.0005;
 	}
 
-	string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,(float)_viv_dst_zoom_values[_viv_dst_zoom_x_pos],(float)_viv_dst_zoom_values[_viv_dst_zoom_y_pos],(_viv_dst_zoom_values[_viv_dst_zoom_x_pos] * (float)_viv_image_wide) / (_viv_dst_zoom_values[_viv_dst_zoom_y_pos] * (float)_viv_image_high));
+	{
+		int rw;
+		int rh;
+		
+		_viv_get_render_size(&rw,&rh);
+		
+		// show the real zoom factor of the image on screen, that is:
+		// the preset zoom level multiplied by the pan and scan zoom.
+		if ((_viv_image_wide) && (_viv_image_high) && (rw) && (rh))
+		{
+			float zoom_x;
+			float zoom_y;
+			
+			rw = (int)(rw * _viv_dst_zoom_values[_viv_dst_zoom_x_pos]);
+			rh = (int)(rh * _viv_dst_zoom_values[_viv_dst_zoom_y_pos]);
+			
+			zoom_x = (float)rw / (float)_viv_image_wide;
+			zoom_y = (float)rh / (float)_viv_image_high;
+			
+			// the zoom is shown as an integer percent, the custom string_printf
+			// always prints 3 decimals for %f, so use %d and pass ints.
+			string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,(int)((zoom_x * 100.0f) + 0.5f),(int)((zoom_y * 100.0f) + 0.5f),zoom_x / zoom_y);
+		}
+		else
+		{
+			string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,100,100,1.0f);
+		}
+	}
 			
 	_viv_status_set_temp_text(wbuf);
 }
@@ -12191,11 +12378,25 @@ static void _viv_view_scroll(int mx,int my)
 	
 	if (config_scroll_window)
 	{
-		// this is not working for stamimail?!?
-		// probably a RTL issue.
-		if (ScrollWindowEx(_viv_hwnd,old_view_x - _viv_view_x,old_view_y - _viv_view_y,0,0,0,0,SW_INVALIDATE) == ERROR)
+		RECT rect;
+		
+		GetClientRect(_viv_hwnd,&rect);
+		
+		// limit the scroll to the image viewport so the scroll blit never
+		// touches the status bar and the toolbar.
+		rect.bottom -= _viv_get_status_high() + _viv_get_controls_high();
+		
+		if (ScrollWindowEx(_viv_hwnd,old_view_x - _viv_view_x,old_view_y - _viv_view_y,&rect,0,0,0,SW_INVALIDATE) == ERROR)
 		{
 			debug_printf("scroll error %d\n",GetLastError());
+		}
+		else
+		{
+			// repaint the exposed area right away. without this the newly exposed
+			// strip stays stale while more mouse move messages stream in during a
+			// drag, and stale pixels get scrolled back into the image, which looks
+			// like tearing.
+			UpdateWindow(_viv_hwnd);
 		}
 	}
 	else
@@ -14210,6 +14411,7 @@ static void _viv_touch_double_click(void)
 		_viv_1to1 = 0;
 		_viv_view_set(0,0,1);
 		InvalidateRect(_viv_hwnd,0,FALSE);
+		_viv_status_update_temp_pos_zoom();
 	}
 	else
 	{
@@ -14273,19 +14475,19 @@ static int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 				_viv_gesture_zoom_ratio *= ratio;
 
-				// map the pinch to the same zoom steps as the mouse wheel.
-				while(_viv_gesture_zoom_ratio >= 1.2)
+				// map the pinch to the same 1% zoom steps as the mouse wheel.
+				while(_viv_gesture_zoom_ratio >= 1.01)
 				{
 					_viv_do_mousewheel_action(0,120,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
 
-					_viv_gesture_zoom_ratio /= 1.2;
+					_viv_gesture_zoom_ratio /= 1.01;
 				}
 
-				while(_viv_gesture_zoom_ratio <= (1.0 / 1.2))
+				while(_viv_gesture_zoom_ratio <= (1.0 / 1.01))
 				{
 					_viv_do_mousewheel_action(0,-120,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
 
-					_viv_gesture_zoom_ratio *= 1.2;
+					_viv_gesture_zoom_ratio *= 1.01;
 				}
 			}
 
@@ -14466,13 +14668,25 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 		}
 		else
 		{
+			int steps;
+			
+			// proportional stepping: a standard wheel notch (delta 120) is one
+			// 1% zoom step. fast flicks send multiples of 120 and zoom further.
+			// high resolution wheels and trackpads send smaller deltas more often.
+			steps = (delta < 0) ? ((0 - delta) / 120) : (delta / 120);
+			
+			if (!steps)
+			{
+				steps = 1;
+			}
+			
 			if (delta > 0)
 			{
-				_viv_zoom_pos++;
+				_viv_zoom_pos += steps;
 			}
 			else
 			{
-				_viv_zoom_pos--;
+				_viv_zoom_pos -= steps;
 			}
 		}
 		
@@ -14523,6 +14737,7 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 			_viv_view_set((wide / 2) - (rw / 2) - cursor_x + new_cursor_x,(high / 2) - (rh / 2) - cursor_y + new_cursor_y,1);
 			
 			InvalidateRect(_viv_hwnd,0,FALSE);
+			_viv_status_update_temp_pos_zoom();
 		}
 	}
 	else

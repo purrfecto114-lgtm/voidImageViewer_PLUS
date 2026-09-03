@@ -198,7 +198,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"File not found.", // LOCALIZATION_ID_STATUS_BAR_FILE_NOT_FOUND,
 	"Failed to load image.", // LOCALIZATION_ID_STATUS_BAR_FAILED_TO_LOAD_IMAGE,
 	"Slideshow playing", // LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING,
-	"Pos %0.3f %0.3f, Zoom %0.3f %0.3f, Aspect Ratio %0.3f", // LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT,
+	"Pos %0.3f %0.3f, Zoom %d%% %d%%, Aspect Ratio %0.3f", // LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT,
 	"Animation rate %0.3f", // LOCALIZATION_ID_STATUS_BAR_ANIMATION_RATE_FORMAT,
 	"Slideshow rate %d %s", // LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_RATE_FORMAT,
 	"minutes", // LOCALIZATION_ID_STATUS_BAR_MINUTES,
@@ -305,4 +305,5 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Zoom in", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_IN,
 	"Actual size (1:1)", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_1TO1,
 	"Best fit", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_BESTFIT,
+	"Hide zoom controls", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_CLOSE,
 };

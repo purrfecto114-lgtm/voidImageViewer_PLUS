@@ -25,12 +25,13 @@
 #include "zoomui.h"
 
 // button order.
-#define _ZOOMUI_BUTTON_COUNT 4
+#define _ZOOMUI_BUTTON_COUNT 5
 
 #define _ZOOMUI_ID_ZOOMOUT 0
 #define _ZOOMUI_ID_ZOOMIN 1
 #define _ZOOMUI_ID_1TO1 2
 #define _ZOOMUI_ID_BESTFIT 3
+#define _ZOOMUI_ID_CLOSE 4
 
 static const int _zoomui_command_ids[_ZOOMUI_BUTTON_COUNT] =
 {
@@ -38,6 +39,9 @@ static const int _zoomui_command_ids[_ZOOMUI_BUTTON_COUNT] =
         VIV_ID_VIEW_ZOOM_IN,
         VIV_ID_VIEW_1TO1,
         VIV_ID_VIEW_BESTFIT,
+        // the close button reuses the zoom controls toggle command,
+        // toggling it off hides the whole floating bar.
+        VIV_ID_VIEW_ZOOM_CONTROLS,
 };
 
 static const localization_id_t _zoomui_tooltip_localization_ids[_ZOOMUI_BUTTON_COUNT] =
@@ -46,6 +50,7 @@ static const localization_id_t _zoomui_tooltip_localization_ids[_ZOOMUI_BUTTON_C
         LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_IN,
         LOCALIZATION_ID_ZOOMUI_TOOLTIP_1TO1,
         LOCALIZATION_ID_ZOOMUI_TOOLTIP_BESTFIT,
+        LOCALIZATION_ID_ZOOMUI_TOOLTIP_CLOSE,
 };
 
 static HWND _zoomui_hwnd = 0;
@@ -62,6 +67,7 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
 static void _zoomui_draw_zoom_glass(HDC hdc,const RECT *rect,int is_zoomin,int offset);
 static void _zoomui_draw_1to1(HDC hdc,const RECT *rect,int offset);
 static void _zoomui_draw_bestfit(HDC hdc,const RECT *rect,int offset);
+static void _zoomui_draw_close(HDC hdc,const RECT *rect,int offset);
 static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 
 static void _zoomui_calc_metrics(void)
@@ -355,6 +361,10 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
                 case _ZOOMUI_ID_BESTFIT:
                         _zoomui_draw_bestfit(hdc,rect,offset);
                         break;
+
+                case _ZOOMUI_ID_CLOSE:
+                        _zoomui_draw_close(hdc,rect,offset);
+                        break;
         }
 }
 
@@ -513,6 +523,38 @@ static void _zoomui_draw_bestfit(HDC hdc,const RECT *rect,int offset)
         DeleteObject(pen);
 }
 
+// draw an X close glyph.
+static void _zoomui_draw_close(HDC hdc,const RECT *rect,int offset)
+{
+        int cx;
+        int cy;
+        int d;
+        HPEN pen;
+        HPEN old_pen;
+
+        cx = (rect->left + rect->right) / 2 + offset;
+        cy = (rect->top + rect->bottom) / 2 + offset;
+
+        d = (rect->right - rect->left) / 5;
+
+        if (d < 3)
+        {
+                d = 3;
+        }
+
+        pen = CreatePen(PS_SOLID,2,GetTextColor(hdc));
+        old_pen = SelectObject(hdc,pen);
+
+        MoveToEx(hdc,cx - d,cy - d,NULL);
+        LineTo(hdc,cx + d + 1,cy + d + 1);
+
+        MoveToEx(hdc,cx + d,cy - d,NULL);
+        LineTo(hdc,cx - d - 1,cy + d + 1);
+
+        SelectObject(hdc,old_pen);
+        DeleteObject(pen);
+}
+
 static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
         switch (msg)
@@ -559,6 +601,10 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
                                         case VIV_ID_VIEW_BESTFIT:
                                                 buttoni = _ZOOMUI_ID_BESTFIT;
+                                                break;
+
+                                        case VIV_ID_VIEW_ZOOM_CONTROLS:
+                                                buttoni = _ZOOMUI_ID_CLOSE;
                                                 break;
                                 }
 

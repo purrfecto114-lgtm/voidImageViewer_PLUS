@@ -1,3 +1,18 @@
+Pre-release, BETA: Version 1.1.0-beta.3 (smooth zoom & tearing fixes)
+	zooming now uses fine 1% steps. (mouse wheel, toolbar buttons, pinch zoom and menu)
+	fast wheel flicks zoom proportionally further in one event.
+	pinch to zoom is much smoother, it follows the fingers with the same 1% granularity.
+	the status bar now shows the real zoom level in percent, and it updates while zooming.
+	fixed visible tearing and smearing while dragging images:
+		the exposed area is now repainted immediately during the drag.
+		all painting goes through a double buffer, every frame is presented in a single blit.
+		scrolling no longer touches the status bar and toolbar area.
+	added a close button to the floating zoom controls bar. (re-enable it from the View menu)
+	reorganized the menus:
+		all zoom commands now live in one View - Zoom submenu. (zoom in, zoom out, 1:1, best fit, reset)
+		best fit is now visible in the menu. (it was hidden before)
+		the right click menu now has a zoom section. (zoom in, zoom out, 1:1, best fit)
+
 Pre-release, BETA: Version 1.1.0-beta.2 (installer & language beta)
 	the setup is now a single bilingual installer: choose English or Simplified Chinese on the first page.
 	the selected installer language is forwarded to the application, so it starts in the same language.

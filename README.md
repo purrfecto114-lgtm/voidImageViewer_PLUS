@@ -37,6 +37,15 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.3** makes zooming smooth and fixes drag tearing:
+
+- **Fine 1% zoom steps** — the mouse wheel, toolbar buttons, menu commands and pinch zoom now step the zoom by 1% instead of the old coarse jumps. Fast wheel flicks zoom proportionally further in one event.
+- **Smoother pinch zoom** — pinch zooming now follows your fingers with the same 1% granularity.
+- **Real zoom level in the status bar** — the status bar now shows the actual zoom percentage of the image on screen, and it updates live while you zoom.
+- **No more tearing while dragging** — the area exposed by a drag is repainted immediately instead of lingering stale, every frame is composed in a double buffer and presented in a single blit, and scrolling no longer smears the status bar or toolbar.
+- **Closable floating zoom bar** — the floating zoom controls now have a close (X) button. Re-enable them from **View → Zoom Controls**.
+- **Cleaner menus** — all zoom commands now live in one **View → Zoom** submenu (zoom in, zoom out, 1:1, best fit, reset), best fit is visible in the menu again, and the right click menu gained a zoom section.
+
 **Version 1.1.0-beta.2** adds a bilingual installer and a UI language switcher:
 
 - **Bilingual installer** — one setup for everyone: the first page lets you pick **English or 简体中文**. All pages, messages and the license are localized, and the choice is remembered for future installs and the uninstaller.
