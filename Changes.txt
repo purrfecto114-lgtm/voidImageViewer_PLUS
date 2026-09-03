@@ -1,3 +1,24 @@
+Pre-release, BETA: Version 1.1.0-beta.5 (pinch zoom & zoom controls fixes)
+	pinch to zoom now truly follows your fingers: the zoom tracks how far the
+	  fingers moved, in or out. (the zoom steps were accidentally much larger
+	  than intended on images larger than the window, so fast pinches overshot
+	  wildly)
+	corrupted gesture distances (reported with a monitor offset on some windows
+	  builds) are now ignored, and no single gesture message can change the
+	  zoom by more than 2x.
+	pinch zooming now updates in one pass per gesture message instead of one
+	  pass per 1% step, keeping fast pinches smooth.
+	fixed the toolbar and floating zoom buttons: a single click used to zoom
+	  all the way to the maximum or minimum. each click is now one visible
+	  step (~10%).
+	the floating zoom bar is now just two clear buttons, zoom out and zoom in,
+	  drawn with the same icons as the toolbar. the 1:1, best fit and close
+	  buttons were removed. (1:1, best fit and reset stay in the View - Zoom
+	  menu and the right click menu; hide the bar from View - Zoom Controls)
+	saving as JPEG now really uses quality 90. (the encoder parameter was
+	  silently ignored before, windows saved at its default quality)
+	the status bar no longer shows garbage for extreme aspect ratio images.
+
 Pre-release, BETA: Version 1.1.0-beta.4 (quality of life)
 	new in the File menu: Save As... saves the current image as PNG, JPEG or BMP. (Ctrl+S)
 		re-encodes with the windows built-in GDI+ encoders, no new dependencies, no size cost.

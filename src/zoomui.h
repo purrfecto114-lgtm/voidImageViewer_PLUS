@@ -20,8 +20,8 @@
 // SOFTWARE.
 //
 // Floating zoom controls (touch friendly)
-// Provides zoom in / zoom out / 1:1 / best fit buttons that remain available
-// in fullscreen mode and on touch devices where the mouse wheel is unavailable.
+// Provides zoom out / zoom in buttons that remain available in fullscreen
+// mode and on touch devices where the mouse wheel is unavailable.
 
 #ifdef __cplusplus
 extern "C" {

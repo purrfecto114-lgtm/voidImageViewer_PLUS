@@ -24,33 +24,32 @@
 #include "viv.h"
 #include "zoomui.h"
 
-// button order.
-#define _ZOOMUI_BUTTON_COUNT 5
+// button order. the bar is intentionally only zoom out and zoom in: every
+// click is one visible zoom step, nothing jumps to a zoom limit and nothing
+// resembles a window caption button. 1:1 / best fit / reset stay in the
+// View - Zoom menu and the right click menu.
+#define _ZOOMUI_BUTTON_COUNT 2
 
 #define _ZOOMUI_ID_ZOOMOUT 0
 #define _ZOOMUI_ID_ZOOMIN 1
-#define _ZOOMUI_ID_1TO1 2
-#define _ZOOMUI_ID_BESTFIT 3
-#define _ZOOMUI_ID_CLOSE 4
 
 static const int _zoomui_command_ids[_ZOOMUI_BUTTON_COUNT] =
 {
         VIV_ID_VIEW_ZOOM_OUT,
         VIV_ID_VIEW_ZOOM_IN,
-        VIV_ID_VIEW_1TO1,
-        VIV_ID_VIEW_BESTFIT,
-        // the close button reuses the zoom controls toggle command,
-        // toggling it off hides the whole floating bar.
-        VIV_ID_VIEW_ZOOM_CONTROLS,
 };
 
 static const localization_id_t _zoomui_tooltip_localization_ids[_ZOOMUI_BUTTON_COUNT] =
 {
         LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_OUT,
         LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_IN,
-        LOCALIZATION_ID_ZOOMUI_TOOLTIP_1TO1,
-        LOCALIZATION_ID_ZOOMUI_TOOLTIP_BESTFIT,
-        LOCALIZATION_ID_ZOOMUI_TOOLTIP_CLOSE,
+};
+
+// icon resources shared with the toolbar zoom buttons.
+static const int _zoomui_icon_resource_ids[_ZOOMUI_BUTTON_COUNT] =
+{
+        IDI_ZOOMOUT,
+        IDI_ZOOMIN,
 };
 
 static HWND _zoomui_hwnd = 0;
@@ -64,11 +63,12 @@ static int _zoomui_margin = 0;
 static int _zoomui_is_registered = 0;
 static int _zoomui_hot_index = -1; // button under the cursor, or -1.
 
+static HICON _zoomui_icons[_ZOOMUI_BUTTON_COUNT]; // cached icons, loaded at the drawn size.
+static int _zoomui_icon_size = 0; // the size the cached icons were loaded at, or 0.
+
 static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_selected,int is_disabled,int is_hot);
-static void _zoomui_draw_zoom_glass(HDC hdc,const RECT *rect,int is_zoomin,int offset);
-static void _zoomui_draw_1to1(HDC hdc,const RECT *rect,int offset);
-static void _zoomui_draw_bestfit(HDC hdc,const RECT *rect,int offset);
-static void _zoomui_draw_close(HDC hdc,const RECT *rect,int offset);
+static HICON _zoomui_get_icon(int buttoni,int size);
+static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int buttoni,int offset);
 static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _zoomui_invalidate_button(int buttoni);
 static LRESULT CALLBACK _zoomui_button_subclass_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam,UINT_PTR uSubclass,DWORD_PTR dwRefData);
@@ -238,6 +238,23 @@ void zoomui_kill(void)
                 _zoomui_hwnd = 0;
         }
 
+        // release the cached icons.
+        {
+                int i;
+
+                for(i=0;i<_ZOOMUI_BUTTON_COUNT;i++)
+                {
+                        if (_zoomui_icons[i])
+                        {
+                                DestroyIcon(_zoomui_icons[i]);
+
+                                _zoomui_icons[i] = 0;
+                        }
+                }
+        }
+
+        _zoomui_icon_size = 0;
+
         os_zero_memory(_zoomui_button_hwnds,sizeof(_zoomui_button_hwnds));
 
         _zoomui_parent_hwnd = 0;
@@ -386,212 +403,77 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
 
         SetBkMode(hdc,TRANSPARENT);
 
-        switch(buttoni)
-        {
-                case _ZOOMUI_ID_ZOOMOUT:
-                case _ZOOMUI_ID_ZOOMIN:
-                        _zoomui_draw_zoom_glass(hdc,rect,(buttoni == _ZOOMUI_ID_ZOOMIN),offset);
-                        break;
-
-                case _ZOOMUI_ID_1TO1:
-                        _zoomui_draw_1to1(hdc,rect,offset);
-                        break;
-
-                case _ZOOMUI_ID_BESTFIT:
-                        _zoomui_draw_bestfit(hdc,rect,offset);
-                        break;
-
-                case _ZOOMUI_ID_CLOSE:
-                        _zoomui_draw_close(hdc,rect,offset);
-                        break;
-        }
+        // the icons make the buttons unmistakably zoom in / zoom out.
+        _zoomui_draw_icon(hdc,rect,buttoni,offset);
 }
 
-// draw a magnifying glass with a minus or plus.
-static void _zoomui_draw_zoom_glass(HDC hdc,const RECT *rect,int is_zoomin,int offset)
+// return the button icon at the requested size, loading and caching the
+// shared toolbar zoom icons. non shared LoadImage icons must be destroyed,
+// which zoomui_kill() and the size change below take care of.
+static HICON _zoomui_get_icon(int buttoni,int size)
 {
-        int cx;
-        int cy;
-        int lens_r;
-        HPEN pen;
-        HPEN old_pen;
-
-        cx = (rect->left + rect->right) / 2 + offset;
-        cy = (rect->top + rect->bottom) / 2 + offset;
-
-        // keep the lens clear of the button edges.
-        lens_r = (rect->right - rect->left) / 4;
-
-        if (lens_r > (rect->bottom - rect->top) / 4)
+        if ((buttoni < 0) || (buttoni >= _ZOOMUI_BUTTON_COUNT))
         {
-                lens_r = (rect->bottom - rect->top) / 4;
+                return 0;
         }
 
-        if (lens_r < 4)
+        if (size <= 0)
         {
-                lens_r = 4;
+                return 0;
         }
 
-        pen = CreatePen(PS_SOLID,(lens_r > 10) ? 2 : 1,GetTextColor(hdc));
-        old_pen = SelectObject(hdc,pen);
-
-        SelectObject(hdc,GetStockObject(NULL_BRUSH));
-
-        Ellipse(hdc,cx - lens_r,cy - lens_r,cx + lens_r + 1,cy + lens_r + 1);
-
-        // handle to the lower-right (45 degrees).
+        if (_zoomui_icon_size != size)
         {
-                int hx;
-                int hy;
-                int len;
+                int i;
 
-                // cos(45) ~= 707/1000.
-                hx = cx + ((lens_r * 707) / 1000);
-                hy = cy + ((lens_r * 707) / 1000);
-                len = lens_r + (lens_r / 2);
+                for(i=0;i<_ZOOMUI_BUTTON_COUNT;i++)
+                {
+                        if (_zoomui_icons[i])
+                        {
+                                DestroyIcon(_zoomui_icons[i]);
 
-                MoveToEx(hdc,hx,hy,NULL);
-                LineTo(hdc,hx + len,hy + len);
+                                _zoomui_icons[i] = 0;
+                        }
+                }
+
+                _zoomui_icon_size = size;
         }
 
-        // plus / minus.
-        if (is_zoomin)
+        if (!_zoomui_icons[buttoni])
         {
-                MoveToEx(hdc,cx - (lens_r / 2),cy,NULL);
-                LineTo(hdc,cx + (lens_r / 2) + 1,cy);
-
-                MoveToEx(hdc,cx,cy - (lens_r / 2),NULL);
-                LineTo(hdc,cx,cy + (lens_r / 2) + 1);
-        }
-        else
-        {
-                MoveToEx(hdc,cx - (lens_r / 2),cy,NULL);
-                LineTo(hdc,cx + (lens_r / 2) + 1,cy);
+                _zoomui_icons[buttoni] = (HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(_zoomui_icon_resource_ids[buttoni]),IMAGE_ICON,size,size,LR_DEFAULTCOLOR);
         }
 
-        SelectObject(hdc,old_pen);
-        DeleteObject(pen);
+        return _zoomui_icons[buttoni];
 }
 
-static void _zoomui_draw_1to1(HDC hdc,const RECT *rect,int offset)
+// draw the shared zoom icon, centered in the button.
+static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int buttoni,int offset)
 {
-        RECT text_rect;
-        wchar_t wbuf[STRING_SIZE];
-        HFONT font;
-        HFONT old_font;
-        int high;
-
-        high = rect->bottom - rect->top;
-
-        font = CreateFontW(
-                (high * 2) / 5,
-                0,0,0,
-                FW_BOLD,
-                0,0,0,
-                DEFAULT_CHARSET,
-                OUT_DEFAULT_PRECIS,
-                CLIP_DEFAULT_PRECIS,
-                DEFAULT_QUALITY,
-                DEFAULT_PITCH | FF_DONTCARE,
-                L"Tahoma");
-
-        old_font = SelectObject(hdc,font);
-
-        string_copy_utf8_string(wbuf,(const utf8_t *)"1:1");
-
-        CopyRect(&text_rect,rect);
-
-        text_rect.left += offset;
-        text_rect.top += offset;
-
-        DrawTextW(hdc,wbuf,-1,&text_rect,DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOCLIP);
-
-        SelectObject(hdc,old_font);
-
-        DeleteObject(font);
-}
-
-// draw 4 corner brackets around an implied image rectangle.
-static void _zoomui_draw_bestfit(HDC hdc,const RECT *rect,int offset)
-{
-        int cx;
-        int cy;
         int wide;
         int high;
-        int bracket;
-        HPEN pen;
-        HPEN old_pen;
+        int size;
+        HICON icon;
 
-        cx = (rect->left + rect->right) / 2 + offset;
-        cy = (rect->top + rect->bottom) / 2 + offset;
+        wide = rect->right - rect->left;
+        high = rect->bottom - rect->top;
 
-        wide = ((rect->right - rect->left) * 5) / 8;
-        high = ((rect->bottom - rect->top) * 5) / 8;
+        size = (wide < high) ? wide : high;
 
-        bracket = (wide / 3);
+        // padding so the icon does not touch the button border.
+        size -= size / 6;
 
-        if (bracket < 4)
+        if (size < 8)
         {
-                bracket = 4;
+                size = 8;
         }
 
-        pen = CreatePen(PS_SOLID,2,GetTextColor(hdc));
-        old_pen = SelectObject(hdc,pen);
+        icon = _zoomui_get_icon(buttoni,size);
 
-        // top-left.
-        MoveToEx(hdc,cx - (wide / 2),cy - (high / 2) + bracket,NULL);
-        LineTo(hdc,cx - (wide / 2),cy - (high / 2));
-        LineTo(hdc,cx - (wide / 2) + bracket,cy - (high / 2));
-
-        // top-right.
-        MoveToEx(hdc,cx + (wide / 2) - bracket,cy - (high / 2),NULL);
-        LineTo(hdc,cx + (wide / 2),cy - (high / 2));
-        LineTo(hdc,cx + (wide / 2),cy - (high / 2) + bracket);
-
-        // bottom-left.
-        MoveToEx(hdc,cx - (wide / 2),cy + (high / 2) - bracket,NULL);
-        LineTo(hdc,cx - (wide / 2),cy + (high / 2));
-        LineTo(hdc,cx - (wide / 2) + bracket,cy + (high / 2));
-
-        // bottom-right.
-        MoveToEx(hdc,cx + (wide / 2) - bracket,cy + (high / 2),NULL);
-        LineTo(hdc,cx + (wide / 2),cy + (high / 2));
-        LineTo(hdc,cx + (wide / 2),cy + (high / 2) - bracket);
-
-        SelectObject(hdc,old_pen);
-        DeleteObject(pen);
-}
-
-// draw an X close glyph.
-static void _zoomui_draw_close(HDC hdc,const RECT *rect,int offset)
-{
-        int cx;
-        int cy;
-        int d;
-        HPEN pen;
-        HPEN old_pen;
-
-        cx = (rect->left + rect->right) / 2 + offset;
-        cy = (rect->top + rect->bottom) / 2 + offset;
-
-        d = (rect->right - rect->left) / 5;
-
-        if (d < 3)
+        if (icon)
         {
-                d = 3;
+                DrawIconEx(hdc,((wide - size) / 2) + offset,((high - size) / 2) + offset,icon,size,size,0,NULL,DI_NORMAL);
         }
-
-        pen = CreatePen(PS_SOLID,2,GetTextColor(hdc));
-        old_pen = SelectObject(hdc,pen);
-
-        MoveToEx(hdc,cx - d,cy - d,NULL);
-        LineTo(hdc,cx + d + 1,cy + d + 1);
-
-        MoveToEx(hdc,cx + d,cy - d,NULL);
-        LineTo(hdc,cx - d - 1,cy + d + 1);
-
-        SelectObject(hdc,old_pen);
-        DeleteObject(pen);
 }
 
 // invalidate a single button. keeps hover repaints cheap.
@@ -705,17 +587,6 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
                                                 buttoni = _ZOOMUI_ID_ZOOMIN;
                                                 break;
 
-                                        case VIV_ID_VIEW_1TO1:
-                                                buttoni = _ZOOMUI_ID_1TO1;
-                                                break;
-
-                                        case VIV_ID_VIEW_BESTFIT:
-                                                buttoni = _ZOOMUI_ID_BESTFIT;
-                                                break;
-
-                                        case VIV_ID_VIEW_ZOOM_CONTROLS:
-                                                buttoni = _ZOOMUI_ID_CLOSE;
-                                                break;
                                 }
 
                                 if (buttoni != -1)

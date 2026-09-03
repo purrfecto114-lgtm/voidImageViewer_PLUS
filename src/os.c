@@ -1078,7 +1078,7 @@ int os_save_hbitmap(HBITMAP hbitmap,const wchar_t *filename,int format)
 											
 											if (format == 1)
 											{
-												static const GUID encoder_quality = {0x1d5be4b5,0xfa4a,0x452d,{0x9c,0xdd,0x5d,0xb3,0x53,0x62,0x2f,0xf6}};
+												static const GUID encoder_quality = {0x1d5be4b5,0xfa4a,0x452d,{0x9c,0xdd,0x5d,0xb3,0x51,0x05,0xe7,0xeb}};
 												os_EncoderParameters_t params;
 												unsigned long quality;
 												

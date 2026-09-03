@@ -37,6 +37,14 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.5** fixes the zoom experience:
+
+- **Pinch zoom follows your fingers** — the zoom now exactly tracks the finger movement, in or out. The beta.3/beta.4 zoom steps were accidentally 3–4× larger than intended on images larger than the window, so fast pinches overshot wildly. Corrupted gesture distances (a Windows multi-monitor quirk) are rejected, no single gesture message can change the zoom by more than 2×, and zoom updates are applied in one pass per message so fast pinches stay smooth.
+- **Fixed the zoom buttons** — a single click on the toolbar or floating zoom buttons used to jump all the way to the maximum or minimum zoom (a delta-encoding bug). Each click is now one visible ~10% step, and mouse-wheel notches step ~10% too.
+- **Simplified floating zoom bar** — just two clear buttons now: zoom out and zoom in, drawn with the same icons as the toolbar. The 1:1, best fit and close buttons are gone (those commands remain in View → Zoom and the right-click menu; hide the bar via View → Zoom Controls).
+- **JPEG Save As really uses quality 90** — the encoder parameter GUID was wrong, so Windows silently used its default quality.
+- The status bar no longer shows garbage for extreme aspect-ratio images.
+
 **Version 1.1.0-beta.4** adds quality of life improvements:
 
 - **Save As (Ctrl+S)** — save the current image as **PNG, JPEG or BMP** from the File menu. Uses the built-in Windows GDI+ encoders: no new dependencies, no size cost. In-memory rotations are included, and JPEG saves at quality 90.
@@ -87,7 +95,7 @@ Touch & zoom controls
 | Two finger tap | Reset zoom |
 | Double tap (touch) | Toggle 1:1 / best fit |
 | Toolbar zoom buttons | Zoom in / out |
-| Floating zoom bar | Zoom out, zoom in, 1:1, best fit — visible in windowed and fullscreen modes |
+| Floating zoom bar | Zoom out / zoom in — visible in windowed and fullscreen modes |
 
 Notes:
 

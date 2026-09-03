@@ -35,7 +35,7 @@ enum
 // note: must hold LOCALIZATION_ID_COUNT values, so it is wider than a byte.
 typedef unsigned short localization_id_t;
 
-#define LOCALIZATION_ID_INVALID 261
+// LOCALIZATION_ID_INVALID is defined after the localization id enum below.
 
 // Get localized string for a command name
 // Returns UTF-8 encoded string
@@ -332,9 +332,6 @@ enum
 	LOCALIZATION_ID_TOOLBAR_ZOOM_IN_BUTTON,
 	LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_OUT,
 	LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_IN,
-	LOCALIZATION_ID_ZOOMUI_TOOLTIP_1TO1,
-	LOCALIZATION_ID_ZOOMUI_TOOLTIP_BESTFIT,
-	LOCALIZATION_ID_ZOOMUI_TOOLTIP_CLOSE,
 
 	LOCALIZATION_ID_SAVE_AS,
 	LOCALIZATION_ID_SAVE_AS_CAPTION,
@@ -345,6 +342,10 @@ enum
 
 	LOCALIZATION_ID_COUNT,
 };
+
+// an id that is guaranteed to never be a valid string id.
+// (used by menu table entries that are separators and draw no text.)
+#define LOCALIZATION_ID_INVALID LOCALIZATION_ID_COUNT
 
 extern BYTE localization_language;
 

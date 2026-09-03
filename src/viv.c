@@ -258,6 +258,7 @@
 #define _VIV_ASSOCIATION_WEBP				0x00000100
 
 #define _VIV_ZOOM_MAX 279 // one preset per 1% multiplicative zoom step: 1.01^278 ~= 16x
+#define _VIV_ZOOM_STEPS_PER_NOTCH 10 // zoom steps per wheel notch / zoom button click (~10.5%)
 
 #define BCM_SETSHIELD	0x0000160C
 
@@ -7281,31 +7282,13 @@ static void _viv_get_render_size(int *prw,int *prh)
 		}
 	}		
 	
-	if (config_keep_aspect_ratio)
-	{
-		if (rw > _viv_image_wide)
-		{
-			max_zoom_wide = rw * 16;
-		}
-		else
-		{
-			max_zoom_wide = _viv_image_wide * 16;
-		}
-		
-		if (rh > _viv_image_high)
-		{
-			max_zoom_high = rh * 16;
-		}
-		else
-		{
-			max_zoom_high = _viv_image_high * 16;
-		}
-	}
-	else
-	{
-		max_zoom_wide = rw * 16;
-		max_zoom_high = rh * 16;
-	}
+	// the zoom ladder is geometric: each step multiplies the best fit size by
+	// 1.01, up to ~16x best fit at the last step. always interpolate from the
+	// unzoomed (best fit) size. (the old native size base made every "1%" step
+	// grow a windowed-downscaled photo by 3-4% or more, so pinch zoom overshot
+	// the finger movement and fast pinches exploded the zoom level.)
+	max_zoom_wide = rw * 16;
+	max_zoom_high = rh * 16;
 /*
 	if (max_zoom_wide < _viv_image_wide)
 	{
@@ -12403,7 +12386,16 @@ static void _viv_status_update_temp_pos_zoom(void)
 			
 			// the zoom is shown as an integer percent, the custom string_printf
 			// always prints 3 decimals for %f, so use %d and pass ints.
-			string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,(int)((zoom_x * 100.0f) + 0.5f),(int)((zoom_y * 100.0f) + 0.5f),zoom_x / zoom_y);
+			// guard degenerate aspect ratios: a zero zoom factor would divide by
+			// zero and print garbage.
+			if ((zoom_x > 0.0f) && (zoom_y > 0.0f))
+			{
+				string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,(int)((zoom_x * 100.0f) + 0.5f),(int)((zoom_y * 100.0f) + 0.5f),zoom_x / zoom_y);
+			}
+			else
+			{
+				string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,100,100,1.0f);
+			}
 		}
 		else
 		{
@@ -12442,7 +12434,9 @@ static void _viv_zoom_in(int out,int have_xy,int x,int y)
 
 	ClientToScreen(_viv_hwnd,&pt);
 	
-	_viv_do_mousewheel_action(0,MAKEWPARAM(0,out ? -120 : 120),pt.x,pt.y);
+	// pass a plain wheel notch delta. the MAKEWPARAM encoding predates the
+	// proportional stepping and made every click jump to a zoom limit.
+	_viv_do_mousewheel_action(0,out ? -120 : 120,pt.x,pt.y);
 }
 
 static void _viv_status_update_slideshow_rate(void)
@@ -14645,6 +14639,24 @@ static int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 			dist = (DWORD)gesture_info.ullArguments;
 
+			// sanity check the reported finger distance. some windows builds
+			// return the distance with a multi monitor offset added, or as a
+			// wrapped negative, which can explode the zoom ratio. a real distance
+			// is positive and never exceeds the virtual screen bounds.
+			{
+				int vw;
+				int vh;
+
+				vw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+				vh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
+				if ((vw > 0) && (vh > 0) && ((dist == 0) || (dist > (DWORD)(vw + vh))))
+				{
+					// implausible: drop this update and keep the old baseline.
+					break;
+				}
+			}
+
 			if (gesture_info.dwFlags & 0x01) // GF_BEGIN
 			{
 				_viv_gesture_zoom_dist = dist;
@@ -14657,21 +14669,56 @@ static int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 				ratio = (double)dist / (double)_viv_gesture_zoom_dist;
 
-				_viv_gesture_zoom_ratio *= ratio;
-
-				// map the pinch to the same 1% zoom steps as the mouse wheel.
-				while(_viv_gesture_zoom_ratio >= 1.01)
+				// clamp the per message ratio. two consecutive messages can not
+				// honestly halve or double the finger distance; larger jumps come
+				// from corrupted values or heavily coalesced input and must not
+				// change the zoom by more than 2x in a single message.
+				if (ratio > 2.0)
 				{
-					_viv_do_mousewheel_action(0,120,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
-
-					_viv_gesture_zoom_ratio /= 1.01;
+					ratio = 2.0;
+				}
+				else
+				if (ratio < 0.5)
+				{
+					ratio = 0.5;
 				}
 
-				while(_viv_gesture_zoom_ratio <= (1.0 / 1.01))
-				{
-					_viv_do_mousewheel_action(0,-120,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
+				_viv_gesture_zoom_ratio *= ratio;
 
-					_viv_gesture_zoom_ratio *= 1.01;
+				// convert the accumulated pinch ratio into whole 1% zoom steps and
+				// apply them all in one call. the render sizes form a true
+				// geometric 1.01x ladder, so the image follows the fingers.
+				{
+					int steps_in;
+					int steps_out;
+
+					steps_in = 0;
+					steps_out = 0;
+
+					while(_viv_gesture_zoom_ratio >= 1.01)
+					{
+						steps_in++;
+
+						_viv_gesture_zoom_ratio /= 1.01;
+					}
+
+					while(_viv_gesture_zoom_ratio <= (1.0 / 1.01))
+					{
+						steps_out++;
+
+						_viv_gesture_zoom_ratio *= 1.01;
+					}
+
+					if (steps_in)
+					{
+						// _VIV_ZOOM_STEPS_PER_NOTCH steps per 120 wheel delta units.
+						_viv_do_mousewheel_action(0,steps_in * (120 / _VIV_ZOOM_STEPS_PER_NOTCH),gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
+					}
+
+					if (steps_out)
+					{
+						_viv_do_mousewheel_action(0,-(steps_out * (120 / _VIV_ZOOM_STEPS_PER_NOTCH)),gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
+					}
 				}
 			}
 
@@ -14723,6 +14770,7 @@ static int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 			_viv_zoom_pos = 0;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
+			_viv_status_update_temp_pos_zoom();
 
 			_viv_gesture_reset();
 
@@ -14850,14 +14898,18 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 				}
 			}
 		}
-		else
+
+		// proportional stepping: a standard wheel notch (delta 120) applies
+		// _VIV_ZOOM_STEPS_PER_NOTCH 1% zoom steps (about 10%). fast flicks send
+		// multiples of 120 and zoom further. high resolution wheels and
+		// trackpads send smaller deltas more often. the steps also apply after
+		// the 1:1 transition above so gestures keep tracking the fingers.
 		{
 			int steps;
 			
-			// proportional stepping: a standard wheel notch (delta 120) is one
-			// 1% zoom step. fast flicks send multiples of 120 and zoom further.
-			// high resolution wheels and trackpads send smaller deltas more often.
-			steps = (delta < 0) ? ((0 - delta) / 120) : (delta / 120);
+			steps = ((delta < 0) ? (0 - delta) : delta) * _VIV_ZOOM_STEPS_PER_NOTCH;
+			
+			steps = (steps + 60) / 120;
 			
 			if (!steps)
 			{
