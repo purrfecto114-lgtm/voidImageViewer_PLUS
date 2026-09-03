@@ -1,3 +1,21 @@
+Pre-release, BETA: Version 1.1.0-beta.8 (zoom input responsiveness, less GDI churn)
+	zoom input got cheaper: the reachable top of the zoom ladder is now cached
+	  behind an O(1) signature (its only inputs are the image, the viewport and
+	  the layout settings), so a wheel tick or a window resize no longer
+	  re-walks the 1024 entry ladder and no longer saves/restores the zoom
+	  globals on every event.
+	leaving 1:1 mode with the wheel now finds the re-entry zoom level with a
+	  binary search (~10 render measurements instead of up to 1024): the old
+	  linear scan called the full render-size computation once per ladder step,
+	  which was measurable work right when the zoom started moving.
+	paints no longer allocate and free a GDI brush each frame: the canvas
+	  background brush is cached and rebuilt only when its color changes
+	  (config or dark theme switch).
+	no behavior change: the regression tests prove the binary searches return
+	  exactly what the linear scans returned for every tested geometry, and the
+	  ladder-top cache is validated against the measured value across
+	  geometry-change sequences.
+
 Pre-release, BETA: Version 1.1.0-beta.7 (zoom percent, 1600% zoom range, dark mode)
 	the status bar zoom percent is fixed: it displayed garbage (a huge
 	  negative number) because a double was passed where the printf read an

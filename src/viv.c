@@ -2538,6 +2538,11 @@ static HGDIOBJ _viv_paint_last_hbitmap = 0;
 static int _viv_paint_wide = 0;
 static int _viv_paint_high = 0;
 
+// cached background brush: one GDI allocation per color/theme change
+// instead of one per paint.
+static HBRUSH _viv_background_hbrush = 0;
+static COLORREF _viv_background_hbrush_color = 0;
+
 // prepare the paint backbuffer for a client area of wide x high pixels.
 // returns 1 when the caller should draw into _viv_paint_hdc instead of the screen dc.
 static int _viv_paint_begin(HDC hdc,int wide,int high)
@@ -4551,15 +4556,27 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 					}
 
 					{
-						HBRUSH hbrush;
+						COLORREF brush_color;
 						
-						hbrush = CreateSolidBrush(_viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : _viv_windowed_background());
+						brush_color = _viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : _viv_windowed_background();
 						
-						if (hbrush)
+						// reuse the background brush across paints: its color only changes
+						// with the config or the theme, so a paint no longer allocates and
+						// frees a GDI brush each frame.
+						if ((!_viv_background_hbrush) || (_viv_background_hbrush_color != brush_color))
 						{
-							os_fill_clipped_rect(paint_hdc,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,rx,ry,rw,rh,hbrush);
+							if (_viv_background_hbrush)
+							{
+								DeleteObject(_viv_background_hbrush);
+							}
+							
+							_viv_background_hbrush = CreateSolidBrush(brush_color);
+							_viv_background_hbrush_color = brush_color;
+						}
 						
-							DeleteObject(hbrush);
+						if (_viv_background_hbrush)
+						{
+							os_fill_clipped_rect(paint_hdc,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,rx,ry,rw,rh,_viv_background_hbrush);
 						}
 					}
 				}
@@ -5793,6 +5810,13 @@ static void _viv_kill(void)
 	mem_free(_viv_preload_fd);
 	mem_free(_viv_current_fd);
 	
+	
+	if (_viv_background_hbrush)
+	{
+		DeleteObject(_viv_background_hbrush);
+		
+		_viv_background_hbrush = 0;
+	}
 	
 	_viv_paint_kill();
 	
@@ -7244,17 +7268,63 @@ static void _viv_get_render_size(int *prw,int *prh)
 	*prh = rh;
 }
 
+// cache for _viv_zoom_pos_max: the ladder top depends only on the image,
+// the viewport and the layout settings. the signature check below is
+// O(1), so a wheel tick or a window resize no longer re-walks the 1024
+// entry ladder (and no longer saves/restores the zoom globals) on every
+// event.
+static int _viv_zoom_pos_max_cache = -1;
+static int _viv_zoom_pos_max_cache_image_wide = -1;
+static int _viv_zoom_pos_max_cache_image_high = -1;
+static int _viv_zoom_pos_max_cache_view_wide = -1;
+static int _viv_zoom_pos_max_cache_view_high = -1;
+static int _viv_zoom_pos_max_cache_fill_window = -1;
+static int _viv_zoom_pos_max_cache_keep_aspect = -1;
+static int _viv_zoom_pos_max_cache_allow_shrinking = -1;
+
 // the first ladder position that reaches the 16x size cap. positions
 // beyond this render identically (capped), so the wheel clamps here
 // instead of spinning in a dead zone of identical sizes.
 static int _viv_zoom_pos_max(void)
 {
+	RECT rect;
+	int wide;
+	int high;
+	int fill_window;
 	int rw;
 	int rh;
 	int pos;
 	int max_pos;
 	
 	max_pos = 0;
+	
+	// build the dependency signature of the ladder top: the image, the
+	// viewport and the layout settings. (the zoom position itself is not
+	// part of it: the top is always measured with the zoom state cleared.)
+	GetClientRect(_viv_hwnd,&rect);
+	wide = rect.right - rect.left;
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	
+	if (_viv_is_fullscreen)
+	{
+		fill_window = config_fullscreen_fill_window;
+	}
+	else
+	{
+		fill_window = config_fill_window;
+	}
+	
+	if ((_viv_zoom_pos_max_cache >= 0)
+		&& (_viv_zoom_pos_max_cache_image_wide == _viv_image_wide)
+		&& (_viv_zoom_pos_max_cache_image_high == _viv_image_high)
+		&& (_viv_zoom_pos_max_cache_view_wide == wide)
+		&& (_viv_zoom_pos_max_cache_view_high == high)
+		&& (_viv_zoom_pos_max_cache_fill_window == fill_window)
+		&& (_viv_zoom_pos_max_cache_keep_aspect == config_keep_aspect_ratio)
+		&& (_viv_zoom_pos_max_cache_allow_shrinking == config_allow_shrinking))
+	{
+		return _viv_zoom_pos_max_cache;
+	}
 	
 	// measure the unzoomed best fit size with the zoom state cleared.
 	{
@@ -7315,6 +7385,15 @@ static int _viv_zoom_pos_max(void)
 		// startup code paths are untouched.
 		max_pos = _VIV_ZOOM_MAX-1;
 	}
+	
+	_viv_zoom_pos_max_cache = max_pos;
+	_viv_zoom_pos_max_cache_image_wide = _viv_image_wide;
+	_viv_zoom_pos_max_cache_image_high = _viv_image_high;
+	_viv_zoom_pos_max_cache_view_wide = wide;
+	_viv_zoom_pos_max_cache_view_high = high;
+	_viv_zoom_pos_max_cache_fill_window = fill_window;
+	_viv_zoom_pos_max_cache_keep_aspect = config_keep_aspect_ratio;
+	_viv_zoom_pos_max_cache_allow_shrinking = config_allow_shrinking;
 	
 	return max_pos;
 }
@@ -14855,26 +14934,74 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 			
 			if (delta > 0)
 			{
-				for(_viv_zoom_pos = 0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)
+				// binary search for the first ladder position that grows past the
+				// 1:1 size. the render size is monotonic in the position, so this
+				// finds the same position as the old linear scan with ~10
+				// measurements instead of up to 1024.
 				{
-					_viv_get_render_size(&rw,&rh);
+					int lo;
+					int hi;
 					
-					if (rw > old_rw)
+					lo = 0;
+					hi = _VIV_ZOOM_MAX; // exclusive upper bound
+					
+					while (lo < hi)
 					{
-						break;
+						int mid;
+						
+						mid = lo + ((hi - lo) / 2);
+						
+						_viv_zoom_pos = mid;
+						
+						_viv_get_render_size(&rw,&rh);
+						
+						if (rw > old_rw)
+						{
+							hi = mid;
+						}
+						else
+						{
+							lo = mid + 1;
+						}
 					}
+					
+					_viv_zoom_pos = lo;
 				}
 			}
 			else
 			{
-				for(_viv_zoom_pos = _viv_zoom_pos_max();_viv_zoom_pos>=0;_viv_zoom_pos--)
+				// binary search for the highest ladder position below the 1:1 size,
+				// or -1 when even the best fit is at least as large. the render size
+				// is monotonic, so this matches the old linear scan from the top with
+				// ~10 measurements instead of up to 1024.
 				{
-					_viv_get_render_size(&rw,&rh);
+					int lo;
+					int hi;
 					
-					if (rw < old_rw)
+					lo = 0;
+					hi = _viv_zoom_pos_max() + 1; // exclusive upper bound
+					
+					while (lo < hi)
 					{
-						break;
+						int mid;
+						
+						mid = lo + ((hi - lo) / 2);
+						
+						_viv_zoom_pos = mid;
+						
+						_viv_get_render_size(&rw,&rh);
+						
+						if (rw < old_rw)
+						{
+							lo = mid + 1;
+						}
+						else
+						{
+							hi = mid;
+						}
 					}
+					
+					_viv_zoom_pos = lo - 1;
 				}
 			}
 		}

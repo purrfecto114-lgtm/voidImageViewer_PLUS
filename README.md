@@ -37,6 +37,13 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.8** makes zooming cheaper on the input path (performance):
+
+- **Ladder-top cache** — the reachable top of the zoom ladder is now cached behind an O(1) signature (image + viewport + layout settings), so every wheel tick and window resize stops re-walking the 1024-entry ladder and saving/restoring the zoom globals.
+- **Binary-search 1:1 exits** — leaving 1:1 mode with the wheel finds the re-entry zoom level with ~10 render measurements instead of up to 1024 full render-size computations (the old linear scan was measurable work right when the zoom started moving).
+- **Cached background brush** — paints no longer allocate and free a GDI brush each frame; it is rebuilt only when its color changes (config or dark theme switch).
+- No behavior change: the regression tests prove the binary searches return exactly what the linear scans returned for every tested geometry.
+
 **Version 1.1.0-beta.7** fixes the zoom display, widens the zoom range, and adds dark mode:
 
 - **Zoom percent fixed** — the status bar showed garbage (a huge negative percent): a double pan position was passed where the printf read an int. It now always shows the real zoom (rendered pixels ÷ native pixels); 1:1 reads 100%.

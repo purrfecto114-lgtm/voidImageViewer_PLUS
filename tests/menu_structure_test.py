@@ -159,12 +159,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.7 -beta.7",
-          "VERSION_BUILD\t\t7" in vh and '"-beta.7"' in vh)
-    check("rc = 1,1,0,7 + 1.1.0-beta.7",
-          "1,1,0,7" in rc and rc.count("1.1.0-beta.7") >= 2)
-    check("nsh = 1.1.0.7 + -beta.7",
-          '!define VERSION "1.1.0.7"' in nsh and '!define BETAVERSION "-beta.7"' in nsh)
+    check("version.h = 1.1.0.8 -beta.8",
+          "VERSION_BUILD\t\t8" in vh and '"-beta.8"' in vh)
+    check("rc = 1,1,0,8 + 1.1.0-beta.8",
+          "1,1,0,8" in rc and rc.count("1.1.0-beta.8") >= 2)
+    check("nsh = 1.1.0.8 + -beta.8",
+          '!define VERSION "1.1.0.8"' in nsh and '!define BETAVERSION "-beta.8"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -285,7 +285,16 @@ def t_ladder_shape():
     check("clamp_zoom_pos measures the live top",
           "pos_max = _viv_zoom_pos_max();" in viv)
     check("1:1 exit search starts at the live top",
-          "for(_viv_zoom_pos = _viv_zoom_pos_max();_viv_zoom_pos>=0;_viv_zoom_pos--)" in viv)
+          "hi = _viv_zoom_pos_max() + 1; // exclusive upper bound" in viv)
+    check("1:1 exit searches are binary (O(log n) measurements)",
+          viv.count("mid = lo + ((hi - lo) / 2);") == 2
+          and "for(_viv_zoom_pos = 0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)" not in viv)
+    check("ladder top cache signature present",
+          "_viv_zoom_pos_max_cache >= 0" in viv
+          and "_viv_zoom_pos_max_cache_view_wide == wide" in viv)
+    check("background brush cached across paints",
+          "static HBRUSH _viv_background_hbrush = 0;" in viv
+          and "CreateSolidBrush(brush_color)" in viv)
     check("render capped at 16x max(fit, native) in double space",
           "max_w = 16.0 * (double)((rw > _viv_image_wide) ? rw : _viv_image_wide);" in viv)
     check("int overflow guard for extreme panoramas",

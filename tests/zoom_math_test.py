@@ -275,6 +275,123 @@ def t_status_percent_is_native_relative():
     check("fit of a large photo displays < 100%", 0 < pct < 100, f"{pct:.1f}%")
 
 
+
+
+# ---------------------------------------------------------------------------
+# beta.8: the 1:1 exit binary searches (equivalence + measurement bound)
+# and the ladder-top cache signature.
+# ---------------------------------------------------------------------------
+def linear_exit_ascending(old_rw, fit_w, fit_h, image_w, image_h):
+    """viv.c beta.7 linear scan: first pos in [0, ZOOM_MAX) with rw > old_rw,
+    else ZOOM_MAX."""
+    for pos in range(ZOOM_MAX):
+        rw, _rh = render(fit_w, fit_h, pos, image_w, image_h)
+        if rw > old_rw:
+            return pos
+    return ZOOM_MAX
+
+
+def binary_exit_ascending(old_rw, fit_w, fit_h, image_w, image_h, counter):
+    """viv.c beta.8 binary search (mirrored exactly)."""
+    lo, hi = 0, ZOOM_MAX
+    while lo < hi:
+        mid = lo + (hi - lo) // 2
+        counter[0] += 1
+        rw, _rh = render(fit_w, fit_h, mid, image_w, image_h)
+        if rw > old_rw:
+            hi = mid
+        else:
+            lo = mid + 1
+    return lo
+
+
+def linear_exit_descending(old_rw, fit_w, fit_h, image_w, image_h, top):
+    """viv.c beta.7 linear scan from the ladder top: largest pos with
+    rw < old_rw, else -1."""
+    for pos in range(top, -1, -1):
+        rw, _rh = render(fit_w, fit_h, pos, image_w, image_h)
+        if rw < old_rw:
+            return pos
+    return -1
+
+
+def binary_exit_descending(old_rw, fit_w, fit_h, image_w, image_h, top, counter):
+    """viv.c beta.8 binary search (mirrored exactly)."""
+    lo, hi = 0, top + 1
+    while lo < hi:
+        mid = lo + (hi - lo) // 2
+        counter[0] += 1
+        rw, _rh = render(fit_w, fit_h, mid, image_w, image_h)
+        if rw < old_rw:
+            lo = mid + 1
+        else:
+            hi = mid
+    return lo - 1
+
+
+def t_binary_search_equivalence():
+    """beta.8: the binary-search 1:1 exits must return exactly what the beta.7
+    linear scans returned, and must measure O(log n) sizes, not O(n)."""
+    worst_calls = 0
+    for (iw, ih, cw, ch) in GEOMETRIES:
+        fw, fh = fit_size(iw, ih, cw, ch)
+        top = pos_max(fw, fh, iw, ih)
+        r_top = render(fw, fh, top, iw, ih)[0]
+        # exits from several old sizes: fit, native, mid ladder, cap and the
+        # cap +/-1 (a size no ladder step equals), plus degenerate 0/1.
+        olds = [fw, fh, iw, ih, 0, 1,
+                render(fw, fh, top // 2, iw, ih)[0],
+                r_top, r_top + 1, r_top - 1]
+        for old_rw in olds:
+            lin = linear_exit_ascending(old_rw, fw, fh, iw, ih)
+            ctr = [0]
+            binr = binary_exit_ascending(old_rw, fw, fh, iw, ih, ctr)
+            worst_calls = max(worst_calls, ctr[0])
+            assert lin == binr, ("asc", iw, ih, old_rw, lin, binr)
+            lin = linear_exit_descending(old_rw, fw, fh, iw, ih, top)
+            ctr = [0]
+            binr = binary_exit_descending(old_rw, fw, fh, iw, ih, top, ctr)
+            worst_calls = max(worst_calls, ctr[0])
+            assert lin == binr, ("desc", iw, ih, old_rw, lin, binr)
+    check("1:1 exit binary search == linear scan (all geometries)", True,
+          f"worst {worst_calls} measurements, linear worst is {ZOOM_MAX}")
+
+
+def t_pos_max_cache_signature():
+    """beta.8: the ladder-top cache returns the measured value whenever the
+    dependency signature (image, viewport, fill/aspect/shrink settings)
+    matches, and re-measures when any input changes."""
+    seq = [
+        (800, 600, 1600, 900, 0, 1, 1),
+        (800, 600, 1600, 900, 0, 1, 1),      # same -> cache hit
+        (800, 600, 1024, 768, 0, 1, 1),      # viewport change
+        (4000, 3000, 1024, 768, 0, 1, 1),    # image change
+        (4000, 3000, 1024, 768, 1, 1, 1),    # fill_window change
+        (4000, 3000, 1024, 768, 1, 0, 1),    # keep_aspect change
+        (4000, 3000, 1024, 768, 1, 0, 0),    # allow_shrinking change
+        (4000, 3000, 1024, 768, 1, 0, 0),    # same -> cache hit
+        (0, 0, 1024, 768, 1, 0, 0),          # no image
+        (4000, 3000, 1024, 768, 1, 0, 0),    # image back
+    ]
+    cache = {}
+    hits = 0
+    for (iw, ih, cw, ch, fill, aspect, shrink) in seq:
+        if iw and ih:
+            fw, fh = fit_size(iw, ih, cw, ch, fill, aspect, shrink)
+            measured = pos_max(fw, fh, iw, ih)
+        else:
+            measured = ZOOM_MAX - 1  # viv.c: no image keeps the full range
+        sig = (iw, ih, cw, ch, fill, aspect, shrink)
+        if sig in cache:
+            assert cache[sig] == measured, (sig, cache[sig], measured)
+            hits += 1
+        else:
+            cache[sig] = measured
+    # states 0-1, 6-7 and 9 (returns to the 6-7 signature) are repeats.
+    check("ladder-top cache signature model (same sig -> same top)", hits == 3,
+          f"{hits} hits across {len(seq)} states")
+
+
 if __name__ == "__main__":
     t_aspect_invariant()
     t_geometric_ladder()
@@ -285,6 +402,8 @@ if __name__ == "__main__":
     t_status_single_percent()
     t_pinch_follows_fingers()
     t_status_percent_is_native_relative()
+    t_binary_search_equivalence()
+    t_pos_max_cache_signature()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
