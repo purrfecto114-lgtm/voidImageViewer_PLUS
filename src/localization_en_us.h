@@ -306,4 +306,10 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Actual size (1:1)", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_1TO1,
 	"Best fit", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_BESTFIT,
 	"Hide zoom controls", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_CLOSE,
+	"Save &As...", // LOCALIZATION_ID_SAVE_AS,
+	"Save Image", // LOCALIZATION_ID_SAVE_AS_CAPTION,
+	"Failed to save image", // LOCALIZATION_ID_SAVE_AS_FAILED,
+	"PNG Image", // LOCALIZATION_ID_SAVE_AS_PNG,
+	"JPEG Image", // LOCALIZATION_ID_SAVE_AS_JPEG,
+	"BMP Image", // LOCALIZATION_ID_SAVE_AS_BMP,
 };

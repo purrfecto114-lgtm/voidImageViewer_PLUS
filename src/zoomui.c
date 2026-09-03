@@ -62,13 +62,16 @@ static int _zoomui_button_wide = 0;
 static int _zoomui_button_high = 0;
 static int _zoomui_margin = 0;
 static int _zoomui_is_registered = 0;
+static int _zoomui_hot_index = -1; // button under the cursor, or -1.
 
-static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_selected,int is_disabled);
+static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_selected,int is_disabled,int is_hot);
 static void _zoomui_draw_zoom_glass(HDC hdc,const RECT *rect,int is_zoomin,int offset);
 static void _zoomui_draw_1to1(HDC hdc,const RECT *rect,int offset);
 static void _zoomui_draw_bestfit(HDC hdc,const RECT *rect,int offset);
 static void _zoomui_draw_close(HDC hdc,const RECT *rect,int offset);
 static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+static void _zoomui_invalidate_button(int buttoni);
+static LRESULT CALLBACK _zoomui_button_subclass_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam,UINT_PTR uSubclass,DWORD_PTR dwRefData);
 
 static void _zoomui_calc_metrics(void)
 {
@@ -156,6 +159,15 @@ void zoomui_init(HWND parent)
 
                 _zoomui_layout_buttons();
 
+                // install hover tracking on each button.
+                for(i=0;i<_ZOOMUI_BUTTON_COUNT;i++)
+                {
+                        if (_zoomui_button_hwnds[i])
+                        {
+                                SetWindowSubclass(_zoomui_button_hwnds[i],_zoomui_button_subclass_proc,1,(DWORD_PTR)i);
+                        }
+                }
+
                 // tooltips.
                 {
                         _zoomui_tooltip_hwnd = os_CreateWindowEx(
@@ -206,6 +218,21 @@ void zoomui_kill(void)
 
         if (_zoomui_hwnd)
         {
+                // remove the hover subclasses before the buttons are destroyed.
+                {
+                        int i;
+                        
+                        for(i=0;i<_ZOOMUI_BUTTON_COUNT;i++)
+                        {
+                                if (_zoomui_button_hwnds[i])
+                                {
+                                        RemoveWindowSubclass(_zoomui_button_hwnds[i],_zoomui_button_subclass_proc,1);
+                                }
+                        }
+                }
+                
+                _zoomui_hot_index = -1;
+                
                 DestroyWindow(_zoomui_hwnd);
 
                 _zoomui_hwnd = 0;
@@ -253,6 +280,12 @@ void zoomui_show(int show)
 {
         if (_zoomui_hwnd)
         {
+                if (!show)
+                {
+                        // no WM_MOUSELEAVE arrives when hiding under the cursor.
+                        _zoomui_hot_index = -1;
+                }
+                
                 ShowWindow(_zoomui_hwnd,show ? SW_SHOW : SW_HIDE);
 
                 if (_zoomui_tooltip_hwnd)
@@ -299,7 +332,7 @@ void zoomui_layout(int wide,int high)
         _zoomui_layout_buttons();
 }
 
-static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_selected,int is_disabled)
+static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_selected,int is_disabled,int is_hot)
 {
         RECT fill_rect;
         HBRUSH brush;
@@ -314,6 +347,12 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
         {
                 brush = GetSysColorBrush(COLOR_3DLIGHT);
                 offset = 1;
+        }
+        else
+        if (is_hot)
+        {
+                // hovered: light fill, no offset.
+                brush = GetSysColorBrush(COLOR_3DLIGHT);
         }
         else
         {
@@ -555,6 +594,77 @@ static void _zoomui_draw_close(HDC hdc,const RECT *rect,int offset)
         DeleteObject(pen);
 }
 
+// invalidate a single button. keeps hover repaints cheap.
+static void _zoomui_invalidate_button(int buttoni)
+{
+        if ((buttoni >= 0) && (buttoni < _ZOOMUI_BUTTON_COUNT))
+        {
+                if (_zoomui_button_hwnds[buttoni])
+                {
+                        InvalidateRect(_zoomui_button_hwnds[buttoni],0,0);
+                }
+        }
+}
+
+// per button subclass: tracks the hovered button to draw a highlight.
+static LRESULT CALLBACK _zoomui_button_subclass_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam,UINT_PTR uSubclass,DWORD_PTR dwRefData)
+{
+        // uSubclass is part of the SetWindowSubclass signature, we use dwRefData instead.
+        (void)uSubclass;
+
+        switch (msg)
+        {
+                case WM_MOUSEMOVE:
+                {
+                        int buttoni;
+                        
+                        buttoni = (int)dwRefData;
+                        
+                        if (buttoni != _zoomui_hot_index)
+                        {
+                                _zoomui_invalidate_button(_zoomui_hot_index);
+                                
+                                _zoomui_hot_index = buttoni;
+                                
+                                _zoomui_invalidate_button(buttoni);
+                        }
+                        
+                        // request a WM_MOUSELEAVE when the cursor leaves this button.
+                        {
+                                TRACKMOUSEEVENT tme;
+                                
+                                os_zero_memory(&tme,sizeof(tme));
+                                
+                                tme.cbSize = sizeof(tme);
+                                tme.dwFlags = TME_LEAVE;
+                                tme.hwndTrack = hwnd;
+                                
+                                TrackMouseEvent(&tme);
+                        }
+                        
+                        break;
+                }
+                
+                case WM_MOUSELEAVE:
+                {
+                        int buttoni;
+                        
+                        buttoni = (int)dwRefData;
+                        
+                        if (_zoomui_hot_index == buttoni)
+                        {
+                                _zoomui_hot_index = -1;
+                                
+                                _zoomui_invalidate_button(buttoni);
+                        }
+                        
+                        break;
+                }
+        }
+        
+        return DefSubclassProc(hwnd,msg,wParam,lParam);
+}
+
 static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
         switch (msg)
@@ -610,7 +720,7 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
                                 if (buttoni != -1)
                                 {
-                                        _zoomui_draw_button(dis->hDC,&dis->rcItem,buttoni,(dis->itemState & ODS_SELECTED) ? 1 : 0,(dis->itemState & ODS_DISABLED) ? 1 : 0);
+                                        _zoomui_draw_button(dis->hDC,&dis->rcItem,buttoni,(dis->itemState & ODS_SELECTED) ? 1 : 0,(dis->itemState & ODS_DISABLED) ? 1 : 0,(buttoni == _zoomui_hot_index) ? 1 : 0);
 
                                         return TRUE;
                                 }

@@ -1,3 +1,14 @@
+Pre-release, BETA: Version 1.1.0-beta.4 (quality of life)
+	new in the File menu: Save As... saves the current image as PNG, JPEG or BMP. (Ctrl+S)
+		re-encodes with the windows built-in GDI+ encoders, no new dependencies, no size cost.
+		the in-memory rotation is included. alpha is flattened over the window background color.
+		the typed extension (.png/.jpg/.jpeg/.bmp) picks the format, jpeg is saved at quality 90.
+	new default navigation sort: by filename in natural order, ascending. (was: date modified, newest first)
+		this matches windows explorer, so next/previous now walk the folder in the order you see it.
+		existing installations keep their saved sort setting. change it from View - Navigation - Sort.
+	the floating zoom controls bar now highlights the button under the cursor.
+		hover repaints are limited to a single button. no image resources were added, keeping the executable small.
+
 Pre-release, BETA: Version 1.1.0-beta.3 (smooth zoom & tearing fixes)
 	zooming now uses fine 1% steps. (mouse wheel, toolbar buttons, pinch zoom and menu)
 	fast wheel flicks zoom proportionally further in one event.

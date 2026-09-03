@@ -120,6 +120,11 @@ extern int (__stdcall *os_GdipSetPixelOffsetMode)(void* graphics,int pixelOffset
 extern int (__stdcall *os_GdipSetSmoothingMode)(void *graphics, int smoothingMode);
 extern int (__stdcall *os_GdipDrawImageRectI)(void *graphics, void *image, INT x, INT y,INT width, INT height);
 extern int (__stdcall *os_GdipDeleteGraphics)(void *graphics);
+extern int (__stdcall *os_GdipCreateBitmapFromHBITMAP)(HBITMAP hbitmap,HPALETTE hpalette,void **bitmap);
+extern int (__stdcall *os_GdipSaveImageToFile)(void *image,const wchar_t *filename,const GUID *clsidEncoder,const void *encoderParams);
+extern int (__stdcall *os_GdipGetImageEncodersSize)(unsigned int *numCodecs,unsigned int *size);
+extern int (__stdcall *os_GdipGetImageEncoders)(unsigned int numCodecs,unsigned int size,void *encoders);
+int os_save_hbitmap(HBITMAP hbitmap,const wchar_t *filename,int format);
 extern BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags);
 extern BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent);
 extern BOOL (WINAPI *os_GetFileAttributesExW)(LPCWSTR lpFileName,GET_FILEEX_INFO_LEVELS fInfoLevelId,LPVOID lpFileInformation);

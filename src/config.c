@@ -42,8 +42,11 @@ int config_slideshow_rate = 5000;
 BYTE config_allow_shrinking = 1; // prevent resizing an image below 100%
 BYTE config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_HALFTONE; // shrink filter
 BYTE config_mag_filter = CONFIG_MAG_FILTER_COLORONCOLOR; // magnify filter
-BYTE config_nav_sort = CONFIG_NAV_SORT_DATE_MODIFIED; // current navigation sort.
-BYTE config_nav_sort_ascending = 0; // sort navigation ascending or descending.
+// default to sorting by filename in natural order, ascending.
+// this matches the windows explorer default, so next/previous navigation
+// walks the folder in the order the user sees it in explorer.
+BYTE config_nav_sort = CONFIG_NAV_SORT_NAME; // current navigation sort.
+BYTE config_nav_sort_ascending = 1; // sort navigation ascending or descending.
 BYTE config_keep_aspect_ratio = 1; // stretch images with the original aspect ratio.
 BYTE config_fill_window = 0; // stretch the image to fill the window
 BYTE config_fullscreen_fill_window = 1; // same as fill_window, except this setting is used when we are fullscreen

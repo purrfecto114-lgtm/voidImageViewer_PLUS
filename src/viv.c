@@ -483,6 +483,7 @@ static void _viv_copy(int cut);
 static void _viv_copy_filename(void);
 static void _viv_set_clipboard_image(void);
 static void _viv_copy_image(void);
+static void _viv_save_image_as(void);
 static int _viv_is_key_state(int control,int shift,int alt);
 static CLIPFORMAT _viv_get_CF_PREFERREDDROPEFFECT(void);
 static void _viv_pause(void);
@@ -835,6 +836,7 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_PREVIEW,MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_PREVIEW},
 	{LOCALIZATION_ID_PRINT,MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_PRINT},
 	{LOCALIZATION_ID_SET_DESKTOP_WALLPAPER,MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_SET_DESKTOP_WALLPAPER},
+	{LOCALIZATION_ID_SAVE_AS,MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_SAVE_AS},
 	{LOCALIZATION_ID_CLOSE,MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,VIV_ID_FILE_CLOSE}, // this just clears the image.
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_FILE,0},
 	{LOCALIZATION_ID_DELETE,MF_STRING|MF_DELETE,_VIV_MENU_FILE,VIV_ID_FILE_DELETE},
@@ -1004,6 +1006,7 @@ _viv_default_key_t _viv_default_keys[] =
 	{VIV_ID_FILE_ADD_FOLDER,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'B'},
 	{VIV_ID_FILE_ADD_EVERYTHING_SEARCH,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'E'},
 	{VIV_ID_FILE_OPEN_FILE_LOCATION,CONFIG_KEYFLAG_CTRL | VK_RETURN},
+	{VIV_ID_FILE_SAVE_AS,CONFIG_KEYFLAG_CTRL | 'S'},
 //	{VIV_ID_FILE_EDIT,CONFIG_KEYFLAG_CTRL | 'E'},
 	{VIV_ID_FILE_PRINT,CONFIG_KEYFLAG_CTRL | 'P'},
 //	{VIV_ID_FILE_SET_DESKTOP_WALLPAPER,CONFIG_KEYFLAG_CTRL | 'D'}, // this needs a confirmation dialog
@@ -2545,6 +2548,10 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 
 		case VIV_ID_FILE_OPEN_FILE_LOCATION:
 			_viv_open_file_location();
+			break;
+			
+		case VIV_ID_FILE_SAVE_AS:
+			_viv_save_image_as();
 			break;
 			
 		case VIV_ID_FILE_OPEN_EVERYTHING_SEARCH:	
@@ -7415,6 +7422,7 @@ static void _viv_check_menus(HMENU hmenu)
 	EnableMenuItem(hmenu,VIV_ID_FILE_PRINT,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_FILE_PROPERTIES,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_FILE_SET_DESKTOP_WALLPAPER,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_SAVE_AS,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_FILE_RENAME,is_image_enabled);
 
 	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_270,is_image_enabled);
@@ -7847,6 +7855,182 @@ static void _viv_copy_image(void)
 			_viv_set_clipboard_image();
 			
 			CloseClipboard();
+		}
+	}
+}
+
+// ascii, case-insensitive wide string compare. returns 0 if equal.
+static int _viv_icompare_w(const wchar_t *a,const wchar_t *b)
+{
+	while ((*a) && (*b))
+	{
+		wchar_t ca;
+		wchar_t cb;
+		
+		ca = *a;
+		cb = *b;
+		
+		if ((ca >= 'A') && (ca <= 'Z'))
+		{
+			ca = ca + 'a' - 'A';
+		}
+		
+		if ((cb >= 'A') && (cb <= 'Z'))
+		{
+			cb = cb + 'a' - 'A';
+		}
+		
+		if (ca != cb)
+		{
+			return 1;
+		}
+		
+		a++;
+		b++;
+	}
+	
+	if (*a != *b)
+	{
+		return 1;
+	}
+	
+	return 0;
+}
+
+// get the save format for a filename extension. (0 = png, 1 = jpeg, 2 = bmp, -1 = unknown)
+static int _viv_get_extension_format(const wchar_t *filename)
+{
+	int i;
+	int last_dot;
+	
+	last_dot = -1;
+	
+	for(i=string_get_length(filename)-1;i>=0;i--)
+	{
+		if (filename[i] == L'\\')
+		{
+			break;
+		}
+		
+		if (filename[i] == L'.')
+		{
+			last_dot = i;
+			break;
+		}
+	}
+	
+	if (last_dot == -1)
+	{
+		return -1;
+	}
+	
+	if (_viv_icompare_w(filename + last_dot + 1,L"png") == 0)
+	{
+		return 0;
+	}
+	
+	if ((_viv_icompare_w(filename + last_dot + 1,L"jpg") == 0) || (_viv_icompare_w(filename + last_dot + 1,L"jpeg") == 0))
+	{
+		return 1;
+	}
+	
+	if (_viv_icompare_w(filename + last_dot + 1,L"bmp") == 0)
+	{
+		return 2;
+	}
+	
+	return -1;
+}
+
+// save the current image to a new file. (png, jpeg or bmp)
+// re-encodes with the GDI+ built-in encoders, no new dependencies.
+// the in-memory rotation is included, alpha is flattened over the window background.
+static void _viv_save_image_as(void)
+{
+	if (*_viv_current_fd->cFileName)
+	{
+		if (_viv_frame_count)
+		{
+			OPENFILENAME ofn;
+			wchar_t tobuf[STRING_SIZE+1];
+			wchar_t filter_wbuf[STRING_SIZE];
+			wchar_t title_wbuf[STRING_SIZE];
+			int i;
+			int last_dot;
+			
+			os_zero_memory(&ofn,sizeof(OPENFILENAME));
+			
+			// default to the current filename with a .png extension.
+			string_copy(tobuf,_viv_current_fd->cFileName);
+			
+			last_dot = -1;
+			
+			for(i=string_get_length(tobuf)-1;i>=0;i--)
+			{
+				if (tobuf[i] == L'\\')
+				{
+					break;
+				}
+				
+				if (tobuf[i] == L'.')
+				{
+					last_dot = i;
+					break;
+				}
+			}
+			
+			if (last_dot != -1)
+			{
+				tobuf[last_dot] = 0;
+			}
+			
+			string_cat(tobuf,L".png");
+			
+			string_printf(filter_wbuf,"%s (*.png)%c*.png%c%s (*.jpg)%c*.jpg%c%s (*.bmp)%c*.bmp%c",
+				localization_get_string(LOCALIZATION_ID_SAVE_AS_PNG),0,
+				localization_get_string(LOCALIZATION_ID_SAVE_AS_JPEG),0,
+				localization_get_string(LOCALIZATION_ID_SAVE_AS_BMP),0,0);
+			
+			string_copy_utf8_string(title_wbuf,localization_get_string(LOCALIZATION_ID_SAVE_AS_CAPTION));
+			
+			ofn.lStructSize = sizeof(OPENFILENAME);
+			ofn.hwndOwner = _viv_hwnd;
+			ofn.hInstance = os_hinstance;
+			ofn.lpstrFilter = filter_wbuf;
+			ofn.nFilterIndex = 1;
+			ofn.lpstrFile = tobuf;
+			ofn.nMaxFile = STRING_SIZE;
+			ofn.lpstrTitle = title_wbuf;
+			ofn.Flags = OFN_ENABLESIZING | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+			
+			if (GetSaveFileName(&ofn))
+			{
+				int format;
+				
+				// use the typed extension when we recognize it, otherwise the selected filter.
+				format = _viv_get_extension_format(tobuf);
+				
+				if (format == -1)
+				{
+					format = (int)ofn.nFilterIndex - 1;
+					
+					if ((format < 0) || (format > 2))
+					{
+						format = 0;
+					}
+					
+					string_cat(tobuf,(format == 1) ? L".jpg" : ((format == 2) ? L".bmp" : L".png"));
+				}
+				
+				if (!os_save_hbitmap(_viv_frames[0].hbitmap,tobuf,format))
+				{
+					wchar_t message_wbuf[STRING_SIZE];
+					
+					string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_SAVE_AS_FAILED));
+					
+					MessageBox(_viv_hwnd,message_wbuf,L"voidImageViewer",MB_OK|MB_ICONERROR);
+				}
+			}
 		}
 	}
 }

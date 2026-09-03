@@ -145,6 +145,10 @@ int (__stdcall *os_GdipSetPixelOffsetMode)(void* graphics,int pixelOffsetMode) =
 int (__stdcall *os_GdipSetSmoothingMode)(void *graphics, int smoothingMode) = 0;
 int (__stdcall *os_GdipDrawImageRectI)(void *graphics, void *image, INT x, INT y,INT width, INT height) = 0;
 int (__stdcall *os_GdipDeleteGraphics)(void *graphics) = 0;
+int (__stdcall *os_GdipCreateBitmapFromHBITMAP)(HBITMAP hbitmap,HPALETTE hpalette,void **bitmap) = 0;
+int (__stdcall *os_GdipSaveImageToFile)(void *image,const wchar_t *filename,const GUID *clsidEncoder,const void *encoderParams) = 0;
+int (__stdcall *os_GdipGetImageEncodersSize)(unsigned int *numCodecs,unsigned int *size) = 0;
+int (__stdcall *os_GdipGetImageEncoders)(unsigned int numCodecs,unsigned int size,void *encoders) = 0;
 BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void) = 0;
 HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
 static unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
@@ -921,6 +925,10 @@ void os_init(void)
 		os_GdipSetSmoothingMode = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipSetSmoothingMode");
 		os_GdipDrawImageRectI = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDrawImageRectI");
 		os_GdipDeleteGraphics = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDeleteGraphics");
+		os_GdipCreateBitmapFromHBITMAP = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipCreateBitmapFromHBITMAP");
+		os_GdipSaveImageToFile = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipSaveImageToFile");
+		os_GdipGetImageEncodersSize = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageEncodersSize");
+		os_GdipGetImageEncoders = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageEncoders");
 	}
 }
 
@@ -940,6 +948,183 @@ int os_is_touch_available(void)
 
 	// NID_READY = 0x80, NID_EXTERNAL_INPUT = 0x04, NID_INTEGRATED_TOUCH = 0x01
 	return (sm & 0x80) ? 1 : 0;
+}
+
+// GDI+ encoder parameter structures. (locally defined, mirrors the gdiplus ABI)
+typedef struct
+{
+	GUID Guid; // encoder parameter GUID.
+	unsigned long NumberOfValues; // number of values pointed to by Value.
+	unsigned long Type; // value type. (4 = long)
+	void *Value; // pointer to the value.
+} os_EncoderParameter_t;
+
+typedef struct
+{
+	unsigned int Count; // number of parameters.
+	os_EncoderParameter_t Parameter[1];
+} os_EncoderParameters_t;
+
+// GDI+ image codec info. (locally defined, mirrors the gdiplus ABI)
+typedef struct
+{
+	GUID Clsid;
+	GUID FormatID;
+	const wchar_t *CodecName;
+	const wchar_t *DllName;
+	const wchar_t *FormatDescription;
+	const wchar_t *FilenameExtension;
+	const wchar_t *MimeType;
+	unsigned long Flags;
+	unsigned long Version;
+	unsigned long SigCount;
+	unsigned long SigSize;
+	const void *SigPattern;
+	const void *SigMask;
+} os_ImageCodecInfo_t;
+
+// ascii, case-insensitive wide string compare. returns 0 if equal.
+static int _os_icompare_w(const wchar_t *a,const wchar_t *b)
+{
+	while ((*a) && (*b))
+	{
+		wchar_t ca;
+		wchar_t cb;
+		
+		ca = *a;
+		cb = *b;
+		
+		if ((ca >= 'A') && (ca <= 'Z'))
+		{
+			ca = ca + 'a' - 'A';
+		}
+		
+		if ((cb >= 'A') && (cb <= 'Z'))
+		{
+			cb = cb + 'a' - 'A';
+		}
+		
+		if (ca != cb)
+		{
+			return 1;
+		}
+		
+		a++;
+		b++;
+	}
+	
+	if (*a != *b)
+	{
+		return 1;
+	}
+	
+	return 0;
+}
+
+// save a HBITMAP to a file with the GDI+ built-in encoders.
+// format: 0 = png, 1 = jpeg, 2 = bmp.
+// returns 1 on success.
+int os_save_hbitmap(HBITMAP hbitmap,const wchar_t *filename,int format)
+{
+	int ret;
+	void *image;
+	
+	ret = 0;
+	image = 0;
+	
+	if (os_GdipCreateBitmapFromHBITMAP)
+	{
+		if (os_GdipCreateBitmapFromHBITMAP(hbitmap,0,&image) == 0)
+		{
+			if (image)
+			{
+				const wchar_t *mime;
+				
+				// mime type of the built-in encoder for the target format.
+				mime = (format == 1) ? L"image/jpeg" : ((format == 2) ? L"image/bmp" : L"image/png");
+				
+				// find the encoder CLSID for this mime type.
+				if ((os_GdipGetImageEncodersSize) && (os_GdipGetImageEncoders) && (os_GdipSaveImageToFile))
+				{
+					unsigned int num;
+					unsigned int size;
+					
+					num = 0;
+					size = 0;
+					
+					if (os_GdipGetImageEncodersSize(&num,&size) == 0)
+					{
+						if ((num) && (size))
+						{
+							os_ImageCodecInfo_t *codecs;
+							
+							codecs = (os_ImageCodecInfo_t *)mem_alloc(size);
+							
+							if (codecs)
+							{
+								os_zero_memory(codecs,size);
+								
+								if (os_GdipGetImageEncoders(num,size,codecs) == 0)
+								{
+									unsigned int i;
+									
+									for(i=0;i<num;i++)
+									{
+										if (_os_icompare_w(codecs[i].MimeType,mime) == 0)
+										{
+											int save_ret;
+											
+											save_ret = 1;
+											
+											if (format == 1)
+											{
+												static const GUID encoder_quality = {0x1d5be4b5,0xfa4a,0x452d,{0x9c,0xdd,0x5d,0xb3,0x53,0x62,0x2f,0xf6}};
+												os_EncoderParameters_t params;
+												unsigned long quality;
+												
+												// jpeg: request quality 90.
+												quality = 90;
+												
+												os_zero_memory(&params,sizeof(params));
+												
+												params.Count = 1;
+												params.Parameter[0].Guid = encoder_quality;
+												params.Parameter[0].Type = 4;
+												params.Parameter[0].NumberOfValues = 1;
+												params.Parameter[0].Value = &quality;
+												
+												save_ret = os_GdipSaveImageToFile(image,filename,&codecs[i].Clsid,&params);
+												
+												// if the quality parameter was rejected, retry with the encoder defaults.
+												if (save_ret != 0)
+												{
+													save_ret = os_GdipSaveImageToFile(image,filename,&codecs[i].Clsid,0);
+												}
+											}
+											else
+											{
+												save_ret = os_GdipSaveImageToFile(image,filename,&codecs[i].Clsid,0);
+											}
+											
+											ret = (save_ret == 0);
+											
+											break;
+										}
+									}
+								}
+								
+								mem_free(codecs);
+							}
+						}
+					}
+				}
+				
+				os_GdipDisposeImage(image);
+			}
+		}
+	}
+	
+	return ret;
 }
 
 void os_kill(void)

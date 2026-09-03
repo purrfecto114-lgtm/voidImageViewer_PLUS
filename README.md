@@ -37,6 +37,12 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.4** adds quality of life improvements:
+
+- **Save As (Ctrl+S)** — save the current image as **PNG, JPEG or BMP** from the File menu. Uses the built-in Windows GDI+ encoders: no new dependencies, no size cost. In-memory rotations are included, and JPEG saves at quality 90.
+- **Intuitive default sort** — images are now sorted **by filename in natural order** (upstream default was: newest first). Next/previous now walks the folder in the same order you see in Explorer. Existing installations keep their saved setting (View → Navigation → Sort).
+- **Hover feedback on the floating zoom bar** — the button under the cursor is highlighted. Repaints are limited to a single button and no image resources were added, keeping the executable small.
+
 **Version 1.1.0-beta.3** makes zooming smooth and fixes drag tearing:
 
 - **Fine 1% zoom steps** — the mouse wheel, toolbar buttons, menu commands and pinch zoom now step the zoom by 1% instead of the old coarse jumps. Fast wheel flicks zoom proportionally further in one event.
