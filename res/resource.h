@@ -128,6 +128,8 @@
 #define IDC_FULLSCREENBACKGROUNDCOLOR_STATIC    1066
 #define IDC_LANGUAGE_STATIC                     1067
 #define IDC_LANGUAGE                            1068
+#define IDC_DARKMODE_STATIC                     1069
+#define IDC_DARKMODE                            1070
 
 // Next default values for new objects
 // 
@@ -136,7 +138,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        130
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1069
+#define _APS_NEXT_CONTROL_VALUE         1071
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif

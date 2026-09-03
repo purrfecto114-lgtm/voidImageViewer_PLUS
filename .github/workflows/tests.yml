@@ -1,0 +1,30 @@
+name: tests
+
+# Continuous verification of the zoom math, menu structure, dark mode wiring
+# and localization alignment invariants. Runs on every push and every day
+# (04:00 UTC = 12:00 Asia/Shanghai) so regressions are caught even when no
+# one is actively working on the repository.
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Zoom math regression tests
+        run: python3 tests/zoom_math_test.py
+
+      - name: Menu structure, dark mode wiring and version consistency tests
+        run: python3 tests/menu_structure_test.py

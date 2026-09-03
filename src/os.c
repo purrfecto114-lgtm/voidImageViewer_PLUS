@@ -154,6 +154,20 @@ HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
 static unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
 BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct) = 0;
 DWORD (WINAPI *os_GetLayout)(HDC hdc) = 0;
+// windows 10 (1809+) dark mode exports, resolved by ordinal at runtime.
+typedef int (__stdcall *OS_SetPreferredAppMode_fn)(int mode);
+typedef void (__stdcall *OS_FlushMenuThemes_fn)(void);
+typedef void (__stdcall *OS_RefreshImmersiveColorPolicyState_fn)(void);
+typedef int (__stdcall *OS_ShouldAppsUseDarkMode_fn)(void);
+typedef int (__stdcall *OS_AllowDarkModeForWindow_fn)(HWND hwnd,int allow);
+typedef HRESULT (__stdcall *OS_DwmSetWindowAttribute_fn)(HWND hwnd,DWORD attribute,const void *value,DWORD size);
+static OS_SetPreferredAppMode_fn _os_SetPreferredAppMode = 0;
+static OS_FlushMenuThemes_fn _os_FlushMenuThemes = 0;
+static OS_RefreshImmersiveColorPolicyState_fn _os_RefreshImmersiveColorPolicyState = 0;
+static OS_ShouldAppsUseDarkMode_fn _os_ShouldAppsUseDarkMode = 0;
+static OS_AllowDarkModeForWindow_fn _os_AllowDarkModeForWindow = 0;
+static OS_DwmSetWindowAttribute_fn _os_DwmSetWindowAttribute = 0;
+
 static HMONITOR (WINAPI *_os_MonitorFromWindow)(HWND hwnd,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromRect)(LPCRECT lprc,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromPoint)(POINT pt,DWORD dwFlags) = 0;
@@ -175,6 +189,7 @@ static HMODULE _os_UxTheme_hmodule = 0;
 static HMODULE _os_gdiplus_hmodule = 0;
 static HMODULE _os_ucrtbase_hmodule = 0;
 static HMODULE _os_gdi32_hmodule = 0;
+static HMODULE _os_dwmapi_hmodule = 0;
 
 void os_zero_memory(void *data,int size)
 {
@@ -879,6 +894,21 @@ void os_init(void)
 	if (_os_UxTheme_hmodule)
 	{
 		os_EnableThemeDialogTexture = (void *)GetProcAddress(_os_UxTheme_hmodule,"EnableThemeDialogTexture");
+		
+		// windows 10 dark mode: uxtheme exports these by ordinal only. on
+		// windows 7/8 and pre-1809 builds they do not resolve and every dark
+		// function below quietly does nothing.
+		_os_SetPreferredAppMode = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(135));
+		_os_FlushMenuThemes = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(136));
+		_os_RefreshImmersiveColorPolicyState = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(104));
+		_os_ShouldAppsUseDarkMode = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(132));
+		_os_AllowDarkModeForWindow = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(133));
+	}
+	
+	_os_dwmapi_hmodule = LoadLibraryA("dwmapi.dll");
+	if (_os_dwmapi_hmodule)
+	{
+		_os_DwmSetWindowAttribute = (void *)GetProcAddress(_os_dwmapi_hmodule,"DwmSetWindowAttribute");
 	}
 	
 	// set "floating point to int mode" to truncate
@@ -1127,6 +1157,103 @@ int os_save_hbitmap(HBITMAP hbitmap,const wchar_t *filename,int format)
 	return ret;
 }
 
+// is the system windows theme dark? never in high contrast mode: dark
+// overrides would break accessibility color themes.
+int os_dark_system_dark(void)
+{
+	HIGHCONTRASTW high_contrast;
+	
+	high_contrast.cbSize = sizeof(high_contrast);
+	
+	if (SystemParametersInfoW(SPI_GETHIGHCONTRAST,sizeof(high_contrast),&high_contrast,0))
+	{
+		if (high_contrast.dwFlags & HCF_HIGHCONTRASTON)
+		{
+			return 0;
+		}
+	}
+	
+	if (_os_ShouldAppsUseDarkMode)
+	{
+		return _os_ShouldAppsUseDarkMode() ? 1 : 0;
+	}
+	
+	return 0;
+}
+
+// set the app menu theme. mode 0 = light, 1 = dark, 2 = follow the system.
+void os_dark_set_app_mode(int mode)
+{
+	if (_os_SetPreferredAppMode)
+	{
+		// PreferredAppMode: Default = 0, AllowDark = 1, ForceDark = 2, ForceLight = 3.
+		switch(mode)
+		{
+			case 0:
+				_os_SetPreferredAppMode(3);
+				break;
+				
+			case 1:
+				_os_SetPreferredAppMode(2);
+				break;
+				
+			default:
+				_os_SetPreferredAppMode(1);
+				break;
+		}
+	}
+	
+	os_dark_refresh();
+}
+
+// draw a window frame (title bar) in dark or light colors.
+void os_dark_titlebar(HWND hwnd,int dark)
+{
+	BOOL value;
+	HRESULT result;
+	
+	if (!hwnd)
+	{
+		return;
+	}
+	
+	value = dark ? TRUE : FALSE;
+	
+	if (_os_AllowDarkModeForWindow)
+	{
+		_os_AllowDarkModeForWindow(hwnd,dark);
+	}
+	
+	if (!_os_DwmSetWindowAttribute)
+	{
+		return;
+	}
+	
+	// DWMWA_USE_IMMERSIVE_DARK_MODE is 20 on windows 10 2004 and newer;
+	// windows 10 1809-1909 used 19 and fails with E_INVALIDARG for 20.
+	result = _os_DwmSetWindowAttribute(hwnd,20,&value,sizeof(value));
+	
+	if (result == (HRESULT)0x80070057)
+	{
+		// E_INVALIDARG: retry with the older attribute.
+		_os_DwmSetWindowAttribute(hwnd,19,&value,sizeof(value));
+	}
+}
+
+// re-read the system theme after a WM_SETTINGCHANGE.
+void os_dark_refresh(void)
+{
+	if (_os_RefreshImmersiveColorPolicyState)
+	{
+		_os_RefreshImmersiveColorPolicyState();
+	}
+	
+	if (_os_FlushMenuThemes)
+	{
+		_os_FlushMenuThemes();
+	}
+}
+
 void os_kill(void)
 {
 	if (_os_user32_hmodule)
@@ -1152,6 +1279,11 @@ void os_kill(void)
 	if (_os_UxTheme_hmodule)
 	{
 		FreeLibrary(_os_UxTheme_hmodule);
+	}
+	
+	if (_os_dwmapi_hmodule)
+	{
+		FreeLibrary(_os_dwmapi_hmodule);
 	}
 	
 	if (_os_gdiplus_hmodule)

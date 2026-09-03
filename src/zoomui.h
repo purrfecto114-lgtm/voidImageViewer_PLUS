@@ -40,6 +40,9 @@ void zoomui_show(int show);
 // Refresh the tooltip texts after a language change.
 void zoomui_localize(void);
 
+// Switch the zoom controls palette (light / dark).
+void zoomui_set_dark(int dark);
+
 // is the zoom controls window created?
 int zoomui_is_created(void);
 

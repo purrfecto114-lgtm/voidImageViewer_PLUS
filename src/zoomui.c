@@ -65,6 +65,7 @@ static int _zoomui_hot_index = -1; // button under the cursor, or -1.
 
 static HICON _zoomui_icons[_ZOOMUI_BUTTON_COUNT]; // cached icons, loaded at the drawn size.
 static int _zoomui_icon_size = 0; // the size the cached icons were loaded at, or 0.
+static int _zoomui_dark = 0; // 1 = draw with the dark mode palette.
 
 static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_selected,int is_disabled,int is_hot);
 static HICON _zoomui_get_icon(int buttoni,int size);
@@ -260,6 +261,21 @@ void zoomui_kill(void)
         _zoomui_parent_hwnd = 0;
 }
 
+// switch the palette between light and dark. called after creating and
+// whenever the app dark mode or the windows theme changes.
+void zoomui_set_dark(int dark)
+{
+    if (_zoomui_dark != (dark ? 1 : 0))
+    {
+        _zoomui_dark = dark ? 1 : 0;
+
+        if (_zoomui_hwnd)
+        {
+            InvalidateRect(_zoomui_hwnd,0,FALSE);
+        }
+    }
+}
+
 int zoomui_is_created(void)
 {
         return _zoomui_hwnd ? 1 : 0;
@@ -362,26 +378,33 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
 
         if (is_selected)
         {
-                brush = GetSysColorBrush(COLOR_3DLIGHT);
                 offset = 1;
-        }
-        else
-        if (is_hot)
-        {
-                // hovered: light fill, no offset.
-                brush = GetSysColorBrush(COLOR_3DLIGHT);
-        }
-        else
-        {
-                brush = GetSysColorBrush(COLOR_BTNFACE);
         }
 
         CopyRect(&fill_rect,rect);
 
-        FillRect(hdc,&fill_rect,brush);
+        // hovered or pressed: highlighted fill, otherwise the bar color.
+        {
+                COLORREF fill_color;
+
+                if (is_selected || is_hot)
+                {
+                        fill_color = _zoomui_dark ? RGB(0x38,0x38,0x38) : GetSysColor(COLOR_3DLIGHT);
+                }
+                else
+                {
+                        fill_color = _zoomui_dark ? RGB(0x25,0x25,0x25) : GetSysColor(COLOR_BTNFACE);
+                }
+
+                brush = CreateSolidBrush(fill_color);
+
+                FillRect(hdc,&fill_rect,brush);
+
+                DeleteObject(brush);
+        }
 
         // border.
-        pen = CreatePen(PS_SOLID,1,GetSysColor(is_selected ? COLOR_3DDKSHADOW : COLOR_3DSHADOW));
+        pen = CreatePen(PS_SOLID,1,_zoomui_dark ? (is_selected ? RGB(0x80,0x80,0x80) : RGB(0x45,0x45,0x45)) : GetSysColor(is_selected ? COLOR_3DDKSHADOW : COLOR_3DSHADOW));
         old_pen = SelectObject(hdc,pen);
 
         old_brush = SelectObject(hdc,GetStockObject(NULL_BRUSH));
@@ -394,11 +417,11 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
 
         if (is_disabled)
         {
-                SetTextColor(hdc,GetSysColor(COLOR_3DSHADOW));
+                SetTextColor(hdc,_zoomui_dark ? RGB(0x90,0x90,0x90) : GetSysColor(COLOR_3DSHADOW));
         }
         else
         {
-                SetTextColor(hdc,GetSysColor(COLOR_BTNTEXT));
+                SetTextColor(hdc,_zoomui_dark ? RGB(0xE8,0xE8,0xE8) : GetSysColor(COLOR_BTNTEXT));
         }
 
         SetBkMode(hdc,TRANSPARENT);
@@ -609,14 +632,22 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
                         GetClientRect(hwnd,&rect);
 
-                        FillRect(hdc,&rect,(HBRUSH)(COLOR_BTNFACE + 1));
+                        {
+                                HBRUSH background_brush;
+
+                                background_brush = CreateSolidBrush(_zoomui_dark ? RGB(0x20,0x20,0x20) : GetSysColor(COLOR_BTNFACE));
+
+                                FillRect(hdc,&rect,background_brush);
+
+                                DeleteObject(background_brush);
+                        }
 
                         // raised border.
                         {
                                 HPEN pen;
                                 HPEN old_pen;
 
-                                pen = CreatePen(PS_SOLID,1,GetSysColor(COLOR_3DSHADOW));
+                                pen = CreatePen(PS_SOLID,1,_zoomui_dark ? RGB(0x45,0x45,0x45) : GetSysColor(COLOR_3DSHADOW));
                                 old_pen = SelectObject(hdc,pen);
 
                                 MoveToEx(hdc,rect.left,rect.bottom - 1,NULL);
@@ -626,7 +657,7 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
                                 SelectObject(hdc,old_pen);
                                 DeleteObject(pen);
 
-                                pen = CreatePen(PS_SOLID,1,GetSysColor(COLOR_3DHIGHLIGHT));
+                                pen = CreatePen(PS_SOLID,1,_zoomui_dark ? RGB(0x70,0x70,0x70) : GetSysColor(COLOR_3DHIGHLIGHT));
                                 old_pen = SelectObject(hdc,pen);
 
                                 MoveToEx(hdc,rect.left + 1,rect.bottom - 1,NULL);

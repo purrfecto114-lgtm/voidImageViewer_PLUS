@@ -1,3 +1,31 @@
+Pre-release, BETA: Version 1.1.0-beta.7 (zoom percent, 1600% zoom range, dark mode)
+	the status bar zoom percent is fixed: it displayed garbage (a huge
+	  negative number) because a double was passed where the printf read an
+	  int. it now always shows the real zoom: rendered pixels / native pixels.
+	  1:1 reads 100%.
+	the zoom range is now honest and deep: the maximum is exactly 16x the
+	  native size (1600%) for every image. previously the cap was 16x the
+	  best fit size, which read as a weird 1590% for images that fit the
+	  window and LOST deep zoom entirely for photos larger than the window
+	  (a 4000px photo in a 1600px window topped out at 477%).
+	zooming no longer has dead spots: the live top of the zoom ladder is
+	  measured, so the wheel never spins through positions that all render
+	  the same capped size, and the ladder stays clamped when the window
+	  is resized.
+	new: dark mode that follows the windows theme (windows 10 1809+): dark
+	  title bar, dark menus, dark status bar and dark floating zoom
+	  controls; the image canvas goes dark too unless you picked your own
+	  color. choose automatic / light / dark in options -> general, and the
+	  app follows the system light/dark toggle live without a restart.
+	  older windows and high-contrast themes keep the light ui.
+	  known limitations: the toolbar band and the options dialog contents
+	  stay light (a dark icon set is future work), and the status bar size
+	  grip is drawn by the system theme.
+	every user-facing string for the new feature is localized (en/zh).
+	a daily scheduled test run was added (github actions "tests" workflow):
+	  the zoom math, menu structure and dark mode wiring regression suites
+	  now run on every push and once a day.
+
 Pre-release, BETA: Version 1.1.0-beta.6 (aspect ratio, zoom lag, menu cleanup)
 	the image aspect ratio can no longer change while zooming: the pan && scan
 	  feature that stretched the image independently in x and y (19 confusing

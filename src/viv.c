@@ -257,7 +257,7 @@
 #define _VIV_ASSOCIATION_TIFF				0x00000080
 #define _VIV_ASSOCIATION_WEBP				0x00000100
 
-#define _VIV_ZOOM_MAX 279 // one preset per 1% multiplicative zoom step: 1.01^278 ~= 16x
+#define _VIV_ZOOM_MAX 1024 // one ladder entry per 1% multiplicative zoom step. long enough that the 16x size cap is reachable even for photos much larger than the window.
 #define _VIV_ZOOM_STEPS_PER_NOTCH 10 // zoom steps per wheel notch / zoom button click (~10.5%)
 
 #define BCM_SETSHIELD	0x0000160C
@@ -554,6 +554,10 @@ static void _viv_toolbar_update_buttons(void);
 static void _viv_status_set_temp_text(wchar_t *text);
 static void _viv_status_update_temp_pos_zoom(void);
 static void _viv_status_update_temp_animation_rate(void);
+static int _viv_zoom_pos_max(void);
+static int _viv_is_dark(void);
+static void _viv_apply_dark_mode(int repaint);
+static COLORREF _viv_windowed_background(void);
 static void _viv_zoom_in(int out,int have_xy,int x,int y);
 static void _viv_status_update_slideshow_rate(void);
 static void _viv_options_treeview_changed(HWND hwnd);
@@ -697,9 +701,11 @@ static int _viv_view_y = 0; // the current image offset in pixels
 static double _viv_view_ix = 0.0; // the current image offset in percent, used when resizing the window
 static double _viv_view_iy = 0.0; // the current image offset in percent, used when resizing the window
 static int _viv_zoom_pos = 0; // the current zoom level
-// the zoom presets are computed in _viv_init(): each step is a 1% multiplicative
-// zoom increase (1.01x) from the best fit size (pos 0) to ~16x (pos _VIV_ZOOM_MAX-1).
-static float _viv_zoom_presets[_VIV_ZOOM_MAX];
+// the zoom ladder is computed in _viv_init(): each step is a 1% multiplicative
+// zoom increase (1.01x) from the best fit size (pos 0). the reachable top is
+// measured at runtime (see _viv_zoom_pos_max): the first step that reaches
+// the 16x size cap for the current image and window.
+static float _viv_zoom_scales[_VIV_ZOOM_MAX];
 
 static ULONG_PTR os_GdiplusToken; // gdiplus handle
 static int _viv_image_wide = 0; // current image width
@@ -735,11 +741,6 @@ static GUID _viv_FrameDimensionTime = {0x6aedbd6d,0x3fb5,0x418a,{0x83,0xa6,0x7f,
 static HMENU _viv_hmenu = 0;
 static int _viv_dst_pos_x = 500;
 static int _viv_dst_pos_y = 500;
-#define _VIV_DST_ZOOM_MAX	139
-static float *_viv_dst_zoom_values;
-#define _VIV_DST_ZOOM_ONE	82
-static int _viv_dst_zoom_x_pos = _VIV_DST_ZOOM_ONE;
-static int _viv_dst_zoom_y_pos = _VIV_DST_ZOOM_ONE;
 static CRITICAL_SECTION _viv_cs;
 static HANDLE _viv_load_image_thread = 0;
 static BYTE _viv_load_is_preload = 0;
@@ -1585,6 +1586,11 @@ static void _viv_on_size(void)
 {
 	if (!_viv_prevent_on_size)
 	{
+		// keep the zoom level inside the live ladder: a window resize changes
+		// the best fit size and with it the reachable zoom range. (inside the
+		// guard: fullscreen toggle intermediates must not re-clamp.)
+		_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos);
+		
 		RECT rect;
 		int wide;
 		int high;
@@ -4053,6 +4059,23 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			break;
 		}
 			
+		case WM_SETTINGCHANGE:
+		
+			// the windows theme switched between light and dark. re-apply the
+			// dark chrome (title bar, menus, status bar, zoom controls) so it
+			// follows the system without a restart.
+			if ((lParam) && (string_compare((const wchar_t *)lParam,L"ImmersiveColorSet") == 0))
+			{
+				if (config_dark_mode == 2)
+				{
+					os_dark_refresh();
+					
+					_viv_apply_dark_mode(1);
+				}
+			}
+			
+			break;
+			
 		case WM_NOTIFY:
 
 			switch(((NMHDR *)lParam)->idFrom)
@@ -4064,6 +4087,34 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 
 						switch(((NMHDR *)lParam)->code)
 						{
+							case NM_CUSTOMDRAW:
+							{
+								NMCUSTOMDRAW *custom_draw;
+								
+								// dark status bar: the comctl32 status bar has no dark
+								// theme, so the parts are painted dark here. (the size grip
+								// is theme drawn and stays light.)
+								custom_draw = (NMCUSTOMDRAW *)lParam;
+								
+								if (custom_draw->dwDrawStage == CDDS_PREPAINT)
+								{
+									return CDRF_NOTIFYITEMDRAW;
+								}
+								
+								if (custom_draw->dwDrawStage == CDDS_ITEMPREPAINT)
+								{
+									if (_viv_is_dark())
+									{
+										SetTextColor(custom_draw->hdc,RGB(0xE8,0xE8,0xE8));
+										SetBkColor(custom_draw->hdc,RGB(0x20,0x20,0x20));
+									}
+									
+									return CDRF_DODEFAULT;
+								}
+								
+								break;
+							}
+							
 							case NM_CLICK:
 							{
 								int item;
@@ -4241,8 +4292,6 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 						
 						_viv_get_render_size(&rw,&rh);
 
-						rw = (int)(rw * _viv_dst_zoom_values[_viv_dst_zoom_x_pos]);
-						rh = (int)(rh * _viv_dst_zoom_values[_viv_dst_zoom_y_pos]);
 						
 			#if 0
 						if (_viv_zoom_pos == 1)
@@ -4504,7 +4553,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 					{
 						HBRUSH hbrush;
 						
-						hbrush = CreateSolidBrush(_viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b));
+						hbrush = CreateSolidBrush(_viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : _viv_windowed_background());
 						
 						if (hbrush)
 						{
@@ -5358,52 +5407,20 @@ static int _viv_init(int nCmdShow)
 		}
 	}
 	
-	// init the zoom presets.
-	
+	// init the zoom ladder: a geometric 1.01x per step. the ladder is long
+	// enough that the 16x size cap is reachable even for photos much larger
+	// than the window.
 	{
 		int i;
 		double f;
 		
 		f = 1.0;
 		
-		// each zoom step grows the rendered image by 1% (1.01x).
-		// _viv_get_render_size() interpolates: render = fit + (16*fit - fit) * preset.
 		for(i=0;i<_VIV_ZOOM_MAX;i++)
 		{
-			_viv_zoom_presets[i] = (float)((f - 1.0) / 15.0);
+			_viv_zoom_scales[i] = (float)f;
 			
 			f *= 1.01;
-		}
-	}
-	
-	// init _viv_dst_zoom_values
-	
-	_viv_dst_zoom_values = mem_alloc(sizeof(float) * _VIV_DST_ZOOM_MAX);
-	
-	{
-		int i;
-		float f;
-		
-		f = 1.0;
-		
-		i = _VIV_DST_ZOOM_ONE;
-		while(i >= 0)
-		{
-			_viv_dst_zoom_values[i] = f;
-			f /= 1.02;
-			
-			i--;
-		}
-		
-		f = 1.0;
-		
-		i = _VIV_DST_ZOOM_ONE;
-		while(i < _VIV_DST_ZOOM_MAX)
-		{
-			_viv_dst_zoom_values[i] = f;
-			f *= 1.02;
-			
-			i++;
 		}
 	}
 	
@@ -5464,6 +5481,10 @@ static int _viv_init(int nCmdShow)
 	
 	// apply the language setting (config can override the system language).
 	_viv_apply_config_language();
+	
+	// set the menu theme (light/dark) before any menu or window is created,
+	// so the dark mode applies from the very first draw.
+	os_dark_set_app_mode(config_dark_mode);
 	
 	// config_maximized will be overwritten when we show are normal window
 	// so save it now and apply it later.
@@ -5620,6 +5641,10 @@ static int _viv_init(int nCmdShow)
 	_viv_controls_show(config_show_controls);
 	_viv_zoomui_update();
 	
+	// apply the dark chrome (title bar, status bar, zoom controls) to the
+	// freshly created window.
+	_viv_apply_dark_mode(0);
+	
 	DragAcceptFiles(_viv_hwnd,TRUE);
 
 	_viv_update_title();
@@ -5768,7 +5793,6 @@ static void _viv_kill(void)
 	mem_free(_viv_preload_fd);
 	mem_free(_viv_current_fd);
 	
-	mem_free(_viv_dst_zoom_values);
 	
 	_viv_paint_kill();
 	
@@ -7053,6 +7077,18 @@ static void _viv_slideshow(void)
 	}
 }
 
+// multiply and cap in double space, so an extreme panorama can not
+// overflow the int conversion in _viv_get_render_size.
+static double _viv_clamp_double(double value,double maximum)
+{
+	if (value > maximum)
+	{
+		return maximum;
+	}
+	
+	return value;
+}
+
 static void _viv_get_render_size(int *prw,int *prh)
 {
 	RECT rect;
@@ -7061,8 +7097,6 @@ static void _viv_get_render_size(int *prw,int *prh)
 	int rw;
 	int rh;
 	int fill_window;
-	int max_zoom_wide;
-	int max_zoom_high;
 	
 	if (!((_viv_image_wide) && (_viv_image_high)))
 	{
@@ -7184,32 +7218,160 @@ static void _viv_get_render_size(int *prw,int *prh)
 		}
 	}		
 	
-	// the zoom ladder is geometric: each step multiplies the best fit size by
-	// 1.01, up to ~16x best fit at the last step. always interpolate from the
-	// unzoomed (best fit) size. (the old native size base made every "1%" step
-	// grow a windowed-downscaled photo by 3-4% or more, so pinch zoom overshot
-	// the finger movement and fast pinches exploded the zoom level.)
-	max_zoom_wide = rw * 16;
-	max_zoom_high = rh * 16;
-/*
-	if (max_zoom_wide < _viv_image_wide)
-	{
-		max_zoom_wide = _viv_image_wide;
-	}
-	
-	if (max_zoom_high < _viv_image_high)
-	{
-		max_zoom_high = _viv_image_high;
-	}
-	*/
+	// the zoom ladder is geometric: each step multiplies the best fit size
+	// by 1.01. the ladder tops out at 16x the LARGER of the best fit and
+	// the native size per axis (upstream semantics: deep zoom stays reachable
+	// for photos much larger than the window, and small images can grow to
+	// 1600%), and the last reachable step snaps exactly to the cap.
 	if (_viv_zoom_pos)
 	{
-		rw = rw + (int)((max_zoom_wide - rw) * _viv_zoom_presets[_viv_zoom_pos]);
-		rh = rh + (int)((max_zoom_high - rh) * _viv_zoom_presets[_viv_zoom_pos]);
+		double scale;
+		double max_w;
+		double max_h;
+		
+		scale = _viv_zoom_scales[_viv_zoom_pos];
+		
+		// the caps are computed in double space: an int cap could itself
+		// overflow for an absurd panorama.
+		max_w = 16.0 * (double)((rw > _viv_image_wide) ? rw : _viv_image_wide);
+		max_h = 16.0 * (double)((rh > _viv_image_high) ? rh : _viv_image_high);
+		
+		rw = (int)_viv_clamp_double((double)rw * scale,max_w);
+		rh = (int)_viv_clamp_double((double)rh * scale,max_h);
 	}
 	
 	*prw = rw;
 	*prh = rh;
+}
+
+// the first ladder position that reaches the 16x size cap. positions
+// beyond this render identically (capped), so the wheel clamps here
+// instead of spinning in a dead zone of identical sizes.
+static int _viv_zoom_pos_max(void)
+{
+	int rw;
+	int rh;
+	int pos;
+	int max_pos;
+	
+	max_pos = 0;
+	
+	// measure the unzoomed best fit size with the zoom state cleared.
+	{
+		int backup_pos;
+		int backup_1to1;
+		int backup_doing;
+		
+		backup_pos = _viv_zoom_pos;
+		backup_1to1 = _viv_1to1;
+		backup_doing = _viv_doing;
+		
+		_viv_zoom_pos = 0;
+		_viv_1to1 = 0;
+		_viv_doing = _VIV_DOING_NOTHING;
+		
+		_viv_get_render_size(&rw,&rh);
+		
+		_viv_zoom_pos = backup_pos;
+		_viv_1to1 = backup_1to1;
+		_viv_doing = backup_doing;
+	}
+	
+	if ((rw) && (rh))
+	{
+		double max_w;
+		double max_h;
+		
+		max_w = 16.0 * (double)((rw > _viv_image_wide) ? rw : _viv_image_wide);
+		max_h = 16.0 * (double)((rh > _viv_image_high) ? rh : _viv_image_high);
+		
+		// walk the ladder for the first position that hits the cap on
+		// either axis.
+		for(pos=0;pos<_VIV_ZOOM_MAX;pos++)
+		{
+			if (((double)rw * (double)_viv_zoom_scales[pos]) >= max_w)
+			{
+				break;
+			}
+			
+			if (((double)rh * (double)_viv_zoom_scales[pos]) >= max_h)
+			{
+				break;
+			}
+		}
+		
+		if (pos < _VIV_ZOOM_MAX)
+		{
+			max_pos = pos;
+		}
+		else
+		{
+			max_pos = _VIV_ZOOM_MAX-1;
+		}
+	}
+	else
+	{
+		// no image (or degenerate window): keep the full table range so
+		// startup code paths are untouched.
+		max_pos = _VIV_ZOOM_MAX-1;
+	}
+	
+	return max_pos;
+}
+
+// is the dark ui active? config: 0 = light, 1 = dark, 2 = follow the windows theme.
+static int _viv_is_dark(void)
+{
+	if (config_dark_mode == 1)
+	{
+		return 1;
+	}
+	
+	if (config_dark_mode == 0)
+	{
+		return 0;
+	}
+	
+	return os_dark_system_dark();
+}
+
+// the windowed background color. when the dark ui is active and the user kept
+// the default white, use a dark canvas instead. a customized color always wins.
+static COLORREF _viv_windowed_background(void)
+{
+	if (_viv_is_dark())
+	{
+		if ((config_windowed_background_color_r == 255) && (config_windowed_background_color_g == 255) && (config_windowed_background_color_b == 255))
+		{
+			return RGB(0x20,0x20,0x20);
+		}
+	}
+	
+	return RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b);
+}
+
+// apply the dark chrome to the main window: frame (title bar), status bar
+// and zoom controls. the menu theme was set app wide before the first
+// window was created (os_dark_set_app_mode).
+static void _viv_apply_dark_mode(int repaint)
+{
+	int dark;
+	
+	dark = _viv_is_dark();
+	
+	os_dark_titlebar(_viv_hwnd,dark);
+	
+	if (_viv_status_hwnd)
+	{
+		InvalidateRect(_viv_status_hwnd,0,FALSE);
+	}
+	
+	zoomui_set_dark(dark);
+	
+	if (repaint)
+	{
+		InvalidateRect(_viv_hwnd,0,FALSE);
+	}
 }
 
 static void _viv_set_custom_rate(void)
@@ -8323,6 +8485,14 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 			os_ComboBox_AddString(hwnd,IDC_LANGUAGE,localization_get_language_name(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED));
 			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LANGUAGE),config_language);
 
+			// dark mode selection: automatic (follow the windows theme), light or dark.
+			os_SetDlgItemText_localization_id(hwnd,IDC_DARKMODE_STATIC,LOCALIZATION_ID_OPTIONS_DARK_MODE_STATIC);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_DARKMODE,LOCALIZATION_ID_DARK_MODE_AUTO);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_DARKMODE,LOCALIZATION_ID_DARK_MODE_LIGHT);
+			os_ComboBox_AddString_localization_id(hwnd,IDC_DARKMODE,LOCALIZATION_ID_DARK_MODE_DARK);
+			// combo order: automatic, light, dark.
+			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_DARKMODE),config_dark_mode == 1 ? 2 : (config_dark_mode == 0 ? 1 : 0));
+
 			if (config_appdata) 
 			{
 				CheckDlgButton(hwnd,IDC_APPDATA,BST_CHECKED);
@@ -9082,6 +9252,35 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 								}
 							}
 						}
+						// dark mode.
+						{
+							int dark_mode;
+							
+							dark_mode = ComboBox_GetCurSel(GetDlgItem(general_page,IDC_DARKMODE));
+							
+							if (dark_mode < 0)
+							{
+								dark_mode = 0;
+							}
+							
+							// combo order: automatic, light, dark.
+							if (dark_mode == 1)
+							{
+								config_dark_mode = 0;
+							}
+							else
+							if (dark_mode == 2)
+							{
+								config_dark_mode = 1;
+							}
+							else
+							{
+								config_dark_mode = 2;
+							}
+							
+							os_dark_set_app_mode(config_dark_mode);
+							_viv_apply_dark_mode(1);
+						}
 						
 						if (IsDlgButtonChecked(general_page,IDC_STARTMENU) == BST_CHECKED) 
 						{
@@ -9745,7 +9944,7 @@ static void _viv_view_1to1(void)
 		if (_viv_have_old_zoom)
 		{
 			_viv_1to1 = 0;
-			_viv_zoom_pos = _viv_old_zoom_pos;
+			_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_old_zoom_pos);
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			_viv_status_update_temp_pos_zoom();
@@ -12152,71 +12351,40 @@ static void _viv_status_set_temp_text(wchar_t *text)
 static void _viv_status_update_temp_pos_zoom(void)
 {
 	wchar_t wbuf[STRING_SIZE];
-	double x;
-	double y;
+	int percent;
 	
-	x = (double)((_viv_dst_pos_x - 500) / 500.0f);
+	percent = 100;
 	
-	if (x < 0)
-	{
-		x -= 0.0005;
-	}
-	else
-	{	
-		x += 0.0005;
-	}
-
-	y = (float)((_viv_dst_pos_y - 500) / 500.0f);
-	
-	if (y < 0)
-	{
-		y -= 0.0005;
-	}
-	else
-	{	
-		y += 0.0005;
-	}
-
 	{
 		int rw;
 		int rh;
 		
 		_viv_get_render_size(&rw,&rh);
 		
-		// show the real zoom factor of the image on screen, that is:
-		// the preset zoom level multiplied by the pan and scan zoom.
+		// show the real zoom factor of the image on screen: the rendered size
+		// divided by the native pixel size. keeping the aspect ratio means both
+		// axes agree; averaging cancels the +-1px rounding of the int sizes.
 		if ((_viv_image_wide) && (_viv_image_high) && (rw) && (rh))
 		{
-			float zoom_x;
-			float zoom_y;
+			double zoom_x;
+			double zoom_y;
 			
-			rw = (int)(rw * _viv_dst_zoom_values[_viv_dst_zoom_x_pos]);
-			rh = (int)(rh * _viv_dst_zoom_values[_viv_dst_zoom_y_pos]);
+			zoom_x = (double)rw / (double)_viv_image_wide;
+			zoom_y = (double)rh / (double)_viv_image_high;
 			
-			zoom_x = (float)rw / (float)_viv_image_wide;
-			zoom_y = (float)rh / (float)_viv_image_high;
-			
-			// the zoom is shown as an integer percent, the custom string_printf
-			// always prints 3 decimals for %f, so use %d and pass ints.
-			// guard degenerate aspect ratios: a zero zoom factor would divide by
-			// zero and print garbage.
-			if ((zoom_x > 0.0f) && (zoom_y > 0.0f))
-			{
-				string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,(int)((zoom_x * 100.0f) + 0.5f),(int)((zoom_y * 100.0f) + 0.5f),zoom_x / zoom_y);
-			}
-			else
-			{
-				string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,100,100,1.0f);
-			}
-		}
-		else
-		{
-			string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),x,y,100,100,1.0f);
+			percent = (int)((((zoom_x + zoom_y) / 2.0) * 100.0) + 0.5);
 		}
 	}
-			
+	
+	// the zoom is shown as an integer percent. pass EXACTLY ONE int for the
+	// ONE %d in the format: the custom string_printf reads varargs with the
+	// exact types given here, so a double first argument would be read as
+	// garbage bits. (beta.6 printed huge negative percents this way.)
+	string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),percent);
+	
 	_viv_status_set_temp_text(wbuf);
 }
+
 
 static void _viv_status_update_temp_animation_rate(void)
 {
@@ -14699,7 +14867,7 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 			}
 			else
 			{
-				for(_viv_zoom_pos = _VIV_ZOOM_MAX-1;_viv_zoom_pos>=0;_viv_zoom_pos--)
+				for(_viv_zoom_pos = _viv_zoom_pos_max();_viv_zoom_pos>=0;_viv_zoom_pos--)
 				{
 					_viv_get_render_size(&rw,&rh);
 					
@@ -14738,8 +14906,9 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 			}
 		}
 		
-		if (_viv_zoom_pos < 0) _viv_zoom_pos = 0;
-		if (_viv_zoom_pos > _VIV_ZOOM_MAX-1) _viv_zoom_pos = _VIV_ZOOM_MAX-1;
+		// clamp to the live ladder range (0 .. pos_max) so the wheel never
+		// spins in a dead zone of positions that all render the same size.
+		_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos);
 		
 		if (_viv_zoom_pos != old_zoom_pos)
 		{
@@ -15730,8 +15899,6 @@ static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt
 	{
 		_viv_get_render_size(&rw,&rh);
 
-		rw = (int)(rw * _viv_dst_zoom_values[_viv_dst_zoom_x_pos]);
-		rh = (int)(rh * _viv_dst_zoom_values[_viv_dst_zoom_y_pos]);
 
 		rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
 		ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
@@ -15779,8 +15946,6 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 			
 			_viv_get_render_size(&rw,&rh);
 
-			rw = (int)(rw * _viv_dst_zoom_values[_viv_dst_zoom_x_pos]);
-			rh = (int)(rh * _viv_dst_zoom_values[_viv_dst_zoom_y_pos]);
 
 			rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
 			ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
@@ -15809,14 +15974,24 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 
 static int _viv_clamp_zoom_pos(int zoom_pos)
 {
-	if (zoom_pos > _VIV_ZOOM_MAX-1)
-	{
-		return _VIV_ZOOM_MAX-1;
-	}
-
-	if (zoom_pos < 0)
+	int pos_max;
+	
+	// nothing to measure for the ladder floor.
+	if (zoom_pos <= 0)
 	{
 		return 0;
+	}
+	
+	{
+		
+		// the top of the ladder depends on the image, the window and the fill
+		// settings (the 16x size cap), so it is measured, not hardcoded.
+		pos_max = _viv_zoom_pos_max();
+		
+		if (zoom_pos > pos_max)
+		{
+			return pos_max;
+		}
 	}
 	
 	return zoom_pos;

@@ -293,4 +293,8 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"PNG Image", // LOCALIZATION_ID_SAVE_AS_PNG,
 	"JPEG Image", // LOCALIZATION_ID_SAVE_AS_JPEG,
 	"BMP Image", // LOCALIZATION_ID_SAVE_AS_BMP,
+	"Dark &mode:", // LOCALIZATION_ID_OPTIONS_DARK_MODE_STATIC,
+	"Automatic (follow Windows)", // LOCALIZATION_ID_DARK_MODE_AUTO,
+	"Light", // LOCALIZATION_ID_DARK_MODE_LIGHT,
+	"Dark", // LOCALIZATION_ID_DARK_MODE_DARK,
 };

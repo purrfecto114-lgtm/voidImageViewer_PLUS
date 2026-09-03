@@ -32,6 +32,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root);
 
 BYTE config_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
 BYTE config_language = 0; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
+BYTE config_dark_mode = 2; // ui theme: 0 = light, 1 = dark, 2 = auto (follow the windows theme).
 BYTE config_keep_centered = 1; // when zooming out, don't recenter the image. (keep cursor under the same pixel)
 int config_x = 0;
 int config_y = 0;
@@ -151,6 +152,31 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 				{
 					// "auto" (and anything we don't understand) follows the system language.
 					config_language = 0;
+				}
+			}
+		}
+		
+		// dark mode. stored as a readable string: auto, dark or light.
+		{
+			const utf8_t *dark_mode_value;
+			
+			dark_mode_value = ini_get_string(ini,(const utf8_t *)"dark_mode");
+			
+			if (dark_mode_value)
+			{
+				if (_config_icompare_ascii(dark_mode_value,"dark") == 0)
+				{
+					config_dark_mode = 1;
+				}
+				else
+				if (_config_icompare_ascii(dark_mode_value,"light") == 0)
+				{
+					config_dark_mode = 0;
+				}
+				else
+				{
+					// "auto" (and anything we don't understand) follows the windows theme.
+					config_dark_mode = 2;
 				}
 			}
 		}
@@ -373,6 +399,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"show_controls",config_show_controls);
 			_config_write_int(h,"show_zoom_controls",config_show_zoom_controls);
 			_config_write_string(h,"language",config_language == 1 ? L"english" : (config_language == 2 ? L"chinese" : L"auto"));
+		_config_write_string(h,"dark_mode",config_dark_mode == 1 ? L"dark" : (config_dark_mode == 0 ? L"light" : L"auto"));
 			_config_write_int(h,"auto_zoom",config_auto_zoom);
 			_config_write_int(h,"auto_zoom_type",config_auto_zoom_type);
 			_config_write_int(h,"auto_fit_wide_mul",config_auto_fit_wide_mul);

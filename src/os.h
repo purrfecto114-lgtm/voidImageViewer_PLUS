@@ -130,6 +130,13 @@ extern BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HA
 extern BOOL (WINAPI *os_GetFileAttributesExW)(LPCWSTR lpFileName,GET_FILEEX_INFO_LEVELS fInfoLevelId,LPVOID lpFileInformation);
 extern BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void);
 extern HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags);
+// windows dark mode support. every function quietly does nothing on windows
+// versions without the dark mode apis (older than windows 10 1809).
+// mode 0 = light, 1 = dark, 2 = follow the system theme.
+extern int os_dark_system_dark(void);
+extern void os_dark_set_app_mode(int mode);
+extern void os_dark_titlebar(HWND hwnd,int dark);
+extern void os_dark_refresh(void);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);
 extern DWORD (WINAPI *os_GetLayout)(HDC hdc);
 extern EXECUTION_STATE (WINAPI *os_SetThreadExecutionState)(  EXECUTION_STATE esFlags);

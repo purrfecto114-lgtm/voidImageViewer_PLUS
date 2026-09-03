@@ -60,6 +60,7 @@ void config_save_settings(int appdata);
 
 extern BYTE config_appdata;
 extern BYTE config_language; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
+extern BYTE config_dark_mode; // ui theme: 0 = light, 1 = dark, 2 = auto (follow the windows theme).
 extern BYTE config_keep_centered;
 extern int config_x;
 extern int config_y;

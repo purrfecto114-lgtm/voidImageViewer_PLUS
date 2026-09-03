@@ -37,6 +37,13 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.7** fixes the zoom display, widens the zoom range, and adds dark mode:
+
+- **Zoom percent fixed** — the status bar showed garbage (a huge negative percent): a double pan position was passed where the printf read an int. It now always shows the real zoom (rendered pixels ÷ native pixels); 1:1 reads 100%.
+- **Zoom range: exactly 1600%, and deep zoom restored** — the cap was 16× the *best fit* size: a confusing "1590%" for images that fit the window, and photos larger than the window lost deep zoom entirely (a 4000 px photo in a 1600 px window topped out at 477%). The cap is now 16× the native size for every image, the ladder is long enough to reach it, and the wheel never spins in a dead zone (the live top of the ladder is measured).
+- **Dark mode (Windows 10 1809+)** — follows the Windows light/dark theme live, no restart: dark title bar, dark menus, dark status bar, dark floating zoom controls, and a dark image canvas (unless you picked your own background color). Choose Automatic / Light / Dark in Options → General. High-contrast themes and older Windows keep the light UI. Known limits: the toolbar band and the options dialog contents stay light (a dark icon set is future work), and the status-bar size grip is theme-drawn.
+- **Daily scheduled regression tests** — a GitHub Actions workflow runs the zoom math, menu structure and dark-mode wiring test suites on every push and once a day.
+
 **Version 1.1.0-beta.6** fixes the aspect ratio, zoom lag, and declutters the menus:
 
 - **Aspect ratio can no longer change while zooming** — the legacy *Pan && Scan* feature could stretch the image independently in x and y (19 confusing menu entries such as "Increase Width" and 18 numpad shortcuts). It is now removed: the zoom ladder always scales both axes together, so the aspect stays locked at every zoom level.
