@@ -6,6 +6,7 @@ beta.7 changes against regressions.
 Run:  python3 tests/menu_structure_test.py
 Exit 0 = pass.
 """
+import os
 import re
 import sys
 
@@ -168,12 +169,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.16 -rc.3",
-          "VERSION_BUILD\t\t16" in vh and '"-rc.3"' in vh)
-    check("rc = 1,1,0,16 + 1.1.0-rc.3",
-          "1,1,0,16" in rc and rc.count("1.1.0-rc.3") >= 2)
-    check("nsh = 1.1.0.16 + -rc.3",
-          '!define VERSION "1.1.0.16"' in nsh and '!define BETAVERSION "-rc.3"' in nsh)
+    check("version.h = 1.1.0.17 -rc.4",
+          "VERSION_BUILD\t\t17" in vh and '"-rc.4"' in vh)
+    check("rc = 1,1,0,17 + 1.1.0-rc.4",
+          "1,1,0,17" in rc and rc.count("1.1.0-rc.4") >= 2)
+    check("nsh = 1.1.0.17 + -rc.4",
+          '!define VERSION "1.1.0.17"' in nsh and '!define BETAVERSION "-rc.4"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -933,6 +934,79 @@ def t_review_fixes_round2():
           "if (did_set_stretch_blt_mode)" in viv)
 
 
+# ---------------------------------------------------------------------------
+# 17. rc.4 release engineering pass, batch 1 guards: no infinite waits,
+#     the installer script auto-detects sanely, the rc mojibake is gone,
+#     the repo junk is untracked and the review hardening is in place.
+# ---------------------------------------------------------------------------
+def t_review_fixes_round4():
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+    rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
+    ps1 = read("nsis/build_installer.ps1").decode("utf-8", errors="replace")
+    gi = read(".gitignore").decode()
+
+    # F3: closing instances and exit no longer wait forever
+    check("close existing uses a timeout-aware send",
+          "SendMessageTimeoutA(hwnd,WM_CLOSE,0,0,SMTO_ABORTIFHUNG,5000,0);" in viv and
+          "SendMessage(hwnd,WM_CLOSE,0,0);" not in viv)
+    check("close existing has a last resort terminate",
+          "TerminateProcess(process_handle,1);" in viv)
+    body = viv[viv.rfind("static void _viv_close_existing_process(void)"):
+               viv.rfind("static void _viv_uninstall_delete_file")]
+    check("close existing retries are bounded",
+          "for(attempts = 0;attempts < 16;attempts++)" in body and
+          "for(;;)" not in body)
+    check("no INFINITE wait remains anywhere in viv.c",
+          "INFINITE" not in viv)
+    check("kill waits bounded for the load thread",
+          "WaitForSingleObject(_viv_load_image_thread,10000) != WAIT_OBJECT_0" in viv and
+          "TerminateThread(_viv_load_image_thread,1);" in viv)
+
+    # the rc mojibake is gone, the copyright is plain ascii like upstream
+    check("rc has no utf-8 replacement character",
+          "\ufffd" not in rc)
+    check("rc copyright is the ascii (C) form",
+          'VALUE "LegalCopyright", "Copyright (C) 2026 voidtools"' in rc)
+
+    # ps1: auto detect prefers built exes then vswhere, not directory existence
+    check("ps1 no longer auto-picks by plain directory existence",
+          '$VsVersion = "vs2026"' not in ps1)
+    check("ps1 probes for a built exe per project dir",
+          'foreach ($vs in @("vs2026", "vs2019", "vs2005"))' in ps1 and
+          "Test-Path $candidate" in ps1)
+    check("ps1 falls back to the installed toolchain via vswhere",
+          "vswhere.exe" in ps1 and "installationVersion" in ps1)
+
+    # repo hygiene: the junk is gone and gitignore covers the classes
+    check("pax headers directory is gone",
+          not os.path.exists("libwebp/PaxHeaders.X"))
+    check("binary resource editor state is gone",
+          not os.path.exists("res/voidImageViewer.aps"))
+    check("unreferenced 1to1-32bit.ico is gone",
+          not os.path.exists("res/1to1-32bit.ico"))
+    check("gitignore covers aps, pax headers, user state, link intermediates",
+          "*.aps" in gi and "PaxHeaders.X/" in gi and
+          "*.user" in gi and "*.iobj" in gi)
+
+    # F2: the ipc reply item count is clamped to the message size
+    check("ipc reply item count is clamped to the message size",
+          "max_items = (DWORD)((cds->cbData - sizeof(EVERYTHING_IPC_LIST2)) / sizeof(EVERYTHING_IPC_ITEM2));" in viv and
+          "for(i=0;(i < list.numitems) && (i < max_items);i++)" in viv)
+
+    # F1: the frame count is clamped before the UINT -> int store
+    check("first frame count is clamped to a sane maximum",
+          "if (first_frame->frame_count > 0x10000)" in viv and
+          "first_frame->frame_count = 0x10000;" in viv)
+
+    # F1: the rotate buffer allocations multiply in SIZE_T
+    check("rotate buffer allocations cast to SIZE_T before multiplying",
+          "mem_alloc((SIZE_T)bitmap.bmWidth * (SIZE_T)bitmap.bmHeight * sizeof(DWORD));" in viv and
+          "mem_alloc((SIZE_T)ret_wide * (SIZE_T)ret_high * sizeof(DWORD));" in viv)
+    check("the uncast rotate allocations are gone",
+          "mem_alloc(bitmap.bmWidth * bitmap.bmHeight" not in viv and
+          "mem_alloc(ret_wide * ret_high" not in viv)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -952,6 +1026,7 @@ if __name__ == "__main__":
     t_zoom_percent_wiring()
     t_review_fixes()
     t_review_fixes_round2()
+    t_review_fixes_round4()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

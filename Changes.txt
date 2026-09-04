@@ -1,3 +1,43 @@
+Release candidate: Version 1.1.0-rc.4 (release engineering pass, batch 1: user path fixes)
+	exit and uninstall can no longer hang: closing existing instances (the
+	step that runs before install, uninstall and reinstall) used a
+	synchronous send and two infinite waits, so one hung instance would
+	block setup forever (the upstream author left a FIXME about it). the
+	loop now asks each instance to close with a timeout that gives up on
+	unresponsive windows, waits a bounded time, force terminates as a last
+	resort, and stops retrying a window that refuses to close. the exit
+	path's wait for the image load thread is bounded too (10 seconds, then
+	the thread is stopped where it stands: the process is exiting, the os
+	reclaims anything it leaked).
+	build_installer.ps1 no longer auto-picks vs2026 just because the
+	repository contains a vs2026 directory: the repo ships vs2005, vs2019
+	and vs2026 project directories, so directory existence says nothing
+	about the installed toolchain and the plain existence check always won.
+	auto-detection now prefers a project directory that already contains a
+	built executable for the requested arch/config (the script packages
+	exes, so it packages what was actually built), then falls back to the
+	installed visual studio reported by vswhere; the usage comment and the
+	error hints match the new behavior.
+	the installer resource's copyright string had lost its (c) to a utf-8
+	replacement character (u+fffd) in an early lossy conversion; it is
+	restored as plain ascii "Copyright (C) 2026 voidtools" like the
+	upstream resource.
+	repository hygiene: 357 pax header metadata files (tar extraction
+	junk), the visual studio binary resource editor state
+	(res/voidImageViewer.aps, 40kb) and the unreferenced 1to1-32bit.ico are
+	no longer tracked; .gitignore now covers visual studio user state
+	(*.user, *.suo, ...), resource editor state (*.aps), incremental link
+	intermediates (*.iobj, *.ipdb), pax header directories and os junk.
+	hardening from the release engineering review: the everything ipc
+	reply item count is clamped to what the message can actually hold (a
+	lying numitems would spin the loop for billions of iterations of
+	failing validations), the first frame count is clamped to a sane
+	maximum before it is stored in an int (a huge count could wrap the int
+	and with it the frame array allocation), and the orientation rotate
+	buffer allocations cast to SIZE_T before multiplying (the 32 bit int
+	intermediate could overflow before reaching the allocator's uintptr_t
+	parameter).
+
 Release candidate: Version 1.1.0-rc.3 (second review pass: verified, rejected, hardened)
 	second pass over a re-review of the rc.2 fixes, every claim checked
 	against evidence: one finding was rejected with two independent

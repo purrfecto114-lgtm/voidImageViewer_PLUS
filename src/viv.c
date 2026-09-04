@@ -3040,6 +3040,15 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 								first_frame->frame_count = 1;
 							}
 							
+							// the count is a UINT here but is stored in an int below: clamp
+							// the top as well so a huge count can not wrap the int (and
+							// with it the frame array allocation). real animations are
+							// orders of magnitude below this cap.
+							if (first_frame->frame_count > 0x10000)
+							{
+								first_frame->frame_count = 0x10000;
+							}
+							
 							// always show the first frame.
 							// if we check for the terminate flag and hold down right, we might never see an image.
 							// 
@@ -4036,10 +4045,16 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 					if (_viv_safe_copy_data(cds->lpData,cds->cbData,cds->lpData,&list,sizeof(list)))
 					{
 						DWORD i;
+						DWORD max_items;
 						
 						debug_printf("%d / %d results\n",list.numitems,list.totitems);
 						
-						for(i=0;i<list.numitems;i++)
+						// clamp the item count to what the message can actually hold:
+						// a lying numitems would otherwise spin the loop below for
+						// billions of iterations of failing validations.
+						max_items = (DWORD)((cds->cbData - sizeof(EVERYTHING_IPC_LIST2)) / sizeof(EVERYTHING_IPC_ITEM2));
+						
+						for(i=0;(i < list.numitems) && (i < max_items);i++)
 						{
 							EVERYTHING_IPC_ITEM2 item;
 							
@@ -5890,7 +5905,18 @@ static void _viv_kill(void)
 		_viv_load_image_terminate = 1;
 		
 		// it's critical we wait for load image to finish before we kill the main window.
-		WaitForSingleObject(_viv_load_image_thread,INFINITE);
+		// the wait is bounded: a decoder wedged mid-decode must not make exit
+		// impossible. (the terminate flag is checked between decode steps, so
+		// the timeout below only fires on a truly stuck decoder.)
+		if (WaitForSingleObject(_viv_load_image_thread,10000) != WAIT_OBJECT_0)
+		{
+			// stop the thread where it stands. it is no longer safe for the
+			// rest of the teardown to share memory with it. the process is
+			// exiting: anything the thread leaked is reclaimed by the OS.
+			TerminateThread(_viv_load_image_thread,1);
+			
+			WaitForSingleObject(_viv_load_image_thread,1000);
+		}
 		
 		CloseHandle(_viv_load_image_thread);
 	}
@@ -14652,36 +14678,70 @@ static void _viv_edit_key_remove_currently_used_by(_viv_key_list_t *keylist,DWOR
 	}
 }
 
-//FIXME: we should timeout 
-//FIXME: we should check for the process name voidImageViewer.exe rather than the window class name. -be careful when uninstalling as the non-admin process will be waiting for the admin process to exit.
+// close every running instance before (un)install. the original loop
+// waited forever: a hung instance would block install, uninstall and
+// exit forever. (this resolves the upstream FIXME: bounded waits, with
+// a last resort terminate.)
+// FIXME: we should check for the process name voidImageViewer.exe rather than the
+// window class name. -be careful when uninstalling as the non-admin process will be
+// waiting for the admin process to exit.
 static void _viv_close_existing_process(void)
 {
-	for(;;)
+	int attempts;
+	
+	// close at most 16 instances; a window that survives a close attempt
+	// stops the loop early, so the cap only guards a pathological
+	// instance spawning loop, not a normal machine.
+	for(attempts = 0;attempts < 16;attempts++)
 	{
 		HWND hwnd;
+		DWORD process_id;
+		HANDLE process_handle;
 		
 		hwnd = FindWindowA("VOIDIMAGEVIEWER",0);
-		if (hwnd)
-		{
-			DWORD process_id;
-			HANDLE process_handle;
-			
-			GetWindowThreadProcessId(hwnd,&process_id);
-			
-			process_handle = OpenProcess(SYNCHRONIZE,FALSE,process_id);
-
-			SendMessage(hwnd,WM_CLOSE,0,0);
-			
-			if (process_handle)
-			{
-				WaitForSingleObject(process_handle,INFINITE);
-			
-				CloseHandle(process_handle);
-			}
-		}
-		else
+		
+		if (!hwnd)
 		{
 			// no window open
+			break;
+		}
+		
+		// ask the instance to close. SMTO_ABORTIFHUNG gives up on an
+		// unresponsive window instead of blocking us forever.
+		SendMessageTimeoutA(hwnd,WM_CLOSE,0,0,SMTO_ABORTIFHUNG,5000,0);
+		
+		process_id = 0;
+		GetWindowThreadProcessId(hwnd,&process_id);
+		
+		process_handle = 0;
+		
+		if (process_id)
+		{
+			// PROCESS_TERMINATE is for the last resort kill below. opening
+			// may fail (NULL) for an elevated instance from a non elevated
+			// uninstaller: we then skip the wait and the window check below
+			// stops the loop instead of spinning.
+			process_handle = OpenProcess(SYNCHRONIZE|PROCESS_TERMINATE,FALSE,process_id);
+		}
+		
+		if (process_handle)
+		{
+			if (WaitForSingleObject(process_handle,5000) == WAIT_TIMEOUT)
+			{
+				// the instance did not exit in time: force it.
+				TerminateProcess(process_handle,1);
+				
+				WaitForSingleObject(process_handle,5000);
+			}
+			
+			CloseHandle(process_handle);
+		}
+		
+		// if the window survived the close (and the possible kill),
+		// repeating the same failing attempt can not succeed: stop
+		// instead of stalling setup.
+		if (hwnd == FindWindowA("VOIDIMAGEVIEWER",0))
+		{
 			break;
 		}
 	}
@@ -15801,8 +15861,10 @@ static HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int orientation)
 					bi.biBitCount = 32;
 					bi.biCompression = BI_RGB;
 										
-					old_pixels = mem_alloc(bitmap.bmWidth * bitmap.bmHeight * sizeof(DWORD));
-					new_pixels = mem_alloc(ret_wide * ret_high * sizeof(DWORD));
+					// SIZE_T casts: the 32 bit int intermediate can overflow
+					// before it ever reaches mem_alloc's uintptr_t parameter.
+					old_pixels = mem_alloc((SIZE_T)bitmap.bmWidth * (SIZE_T)bitmap.bmHeight * sizeof(DWORD));
+					new_pixels = mem_alloc((SIZE_T)ret_wide * (SIZE_T)ret_high * sizeof(DWORD));
 				
 					if (GetDIBits(mem_hdc,hbitmap,0,bitmap.bmHeight,old_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS))
 					{

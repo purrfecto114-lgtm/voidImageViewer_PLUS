@@ -37,6 +37,14 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this release candidate
 --------
+**Version 1.1.0-rc.4** is the release-engineering pass, batch 1 (user path fixes, no decisions required):
+
+- **No more exit/uninstall hangs** - closing existing instances (the step that runs before install, uninstall and reinstall) used a synchronous send and two infinite waits, so one hung instance blocked setup forever (the upstream author had left a FIXME about it). Now the close request gives up on unresponsive windows instead of blocking, the waits are bounded, a refusing instance is force-terminated as a last resort, and the loop stops retrying a window that survives. The exit path's wait for the image load thread is bounded too (10 seconds, then the thread is stopped where it stands).
+- **build_installer.ps1 auto-detect fixed** - it always picked vs2026, because the repository *contains* a vs2026 directory (the repo ships all three project dirs, so directory existence says nothing about your toolchain). Auto-detection now prefers a project directory that already contains a built executable, then falls back to the installed Visual Studio reported by vswhere; pass `-VsVersion` to override.
+- **Installer copyright string repaired** - the resource's LegalCopyright had lost its © to a U+FFFD replacement character in an early lossy conversion; restored as plain ASCII `Copyright (C) 2026 voidtools`, matching the upstream resource style.
+- **Repository hygiene** - 357 tar `PaxHeaders.X` metadata files, the binary resource editor state (`res/voidImageViewer.aps`) and the unreferenced `res/1to1-32bit.ico` are no longer tracked; `.gitignore` now covers VS user state, `*.aps`, incremental link intermediates, pax header directories and OS junk.
+- **Hardening** - the Everything IPC reply item count is clamped to what the message can actually hold (a lying `numitems` would spin billions of iterations of failing validations), the first frame count is clamped to a sane maximum before its UINT→int store, and the EXIF-rotate buffer allocations cast to `SIZE_T` before multiplying.
+
 **Version 1.1.0-rc.3** is the second review pass (every re-review claim re-verified against evidence before touching code):
 
 - **One re-review claim rejected with evidence** - the two finger tap gesture id was claimed wrong (`GID_TWOFINGERTAP` "should be 5"). Verified against the real winuser.h and Microsoft Learn: it really is 6 (5 is `GID_ROTATE`, 7 is `GID_PRESSANDTAP`), so the rc.2 values were already correct. A comment now guards the value so the claim does not resurface. The `last_stretch_mode` warning suppression was also verified harmless (every read is guarded).
@@ -205,7 +213,7 @@ The project is plain C + Win32 API and builds with Visual Studio:
 1. Open `vs2019/voidImageViewer.sln` (VS2019+, v142 toolset) or `vs2026/voidImageViewer.sln` (VS2026, v145 toolset).
 2. Build the `voidImageViewer` project (x64 or Win32).
 3. `voidImageViewer.exe` is output to the configured output directory.
-4. Optional: build the setup with NSIS 3 — `nsis\build_installer.ps1` (see `nsis\` for details). The source files are compiled with `/utf-8`, so localized strings build correctly on any system locale.
+4. Optional: build the setup with NSIS 3 — `nsis\build_installer.ps1` (see `nsis\` for details). It auto-detects the Visual Studio version: it prefers a project directory that already contains a built executable, then falls back to your installed Visual Studio (vswhere); pass `-VsVersion vs2019` to override. The source files are compiled with `/utf-8`, so localized strings build correctly on any system locale.
 
 A GitHub Actions workflow (`.github/workflows/release.yml`) builds the executable automatically on `windows-latest` and attaches it to GitHub releases.
 <br/><br/><br/>

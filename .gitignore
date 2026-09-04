@@ -5,3 +5,24 @@ build/
 *.obj
 *.exe
 *.pdb
+*.iobj
+*.ipdb
+
+# Visual Studio binary resource editor state (res/voidImageViewer.aps etc)
+*.aps
+
+# Visual Studio per-user state
+*.user
+*.suo
+*.ncb
+*.opt
+*.plg
+*.sdf
+*.opensdf
+
+# tarball pax header metadata directories (extracted junk, never source)
+PaxHeaders.X/
+
+# OS junk
+Thumbs.db
+.DS_Store

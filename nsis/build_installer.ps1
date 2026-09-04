@@ -25,7 +25,8 @@
 #
 # Usage: .\build_installer.ps1 [arch] [vs_version] [build_config]
 #   arch: x86 or x64 (default: x86)
-#   vs_version: vs2005, vs2019, vs2026, etc. (default: auto-detect)
+#   vs_version: vs2005, vs2019, vs2026, etc. (default: auto-detect:
+#               prefers a project dir with a built exe, then vswhere)
 #   build_config: Release, Debug, etc. (default: Release)
 #
 # Examples:
@@ -72,21 +73,58 @@ if (Test-Path "ensure_encodings.ps1") {
     & powershell -ExecutionPolicy Bypass -File "ensure_encodings.ps1" | Out-Null
 }
 
-# Auto-detect VS version if not specified
+# Auto-detect VS version if not specified.
+# NOTE: this repository ships vs2005, vs2019 AND vs2026 project directories,
+# so a plain directory existence check says nothing about which toolchain the
+# user actually has installed. Detection therefore prefers, in order:
+#   1. a project directory that already contains a built executable for the
+#      requested arch/config (packaging what was actually built),
+#   2. an installed Visual Studio instance reported by vswhere (VS2017+).
 if ([string]::IsNullOrEmpty($VsVersion)) {
     Write-Host "Auto-detecting Visual Studio version..." -ForegroundColor Cyan
-    if (Test-Path "..\vs2026") {
-        $VsVersion = "vs2026"
+
+    $detected = $null
+
+    # 1) prefer a project directory that already has a built executable
+    foreach ($vs in @("vs2026", "vs2019", "vs2005")) {
+        $candidate = "..\$vs\$BuildConfig\voidImageViewer.exe"
+        if ($Arch -eq "x64") {
+            $candidate = "..\$vs\x64\$BuildConfig\voidImageViewer.exe"
+        }
+        if (Test-Path $candidate) {
+            $detected = $vs
+            break
+        }
     }
-    elseif (Test-Path "..\vs2019") {
-        $VsVersion = "vs2019"
+
+    # 2) fall back to the installed toolchain (vswhere knows VS2017+)
+    if (-not $detected) {
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        if (Test-Path $vswhere) {
+            # newest first: vs2026 = VS 18.x, vs2019 = VS 16.x
+            foreach ($vs in @("vs2026", "vs2019")) {
+                $major = "16"
+                if ($vs -eq "vs2026") { $major = "18" }
+                $versions = & $vswhere -products * -requires Microsoft.Component.MSBuild -property installationVersion 2>$null
+                if ($versions | Where-Object { $_.StartsWith("$major.") }) {
+                    if (Test-Path "..\$vs") {
+                        $detected = $vs
+                        break
+                    }
+                }
+            }
+        }
     }
-    elseif (Test-Path "..\vs2005") {
-        $VsVersion = "vs2005"
+
+    if ($detected) {
+        $VsVersion = $detected
+        Write-Host "Detected: $VsVersion" -ForegroundColor Green
     }
     else {
-        Write-Host "Error: Could not auto-detect VS version!" -ForegroundColor Red
-        Write-Host "Please specify VS version manually: .\build_installer.ps1 -Arch $Arch -VsVersion vs2026" -ForegroundColor Yellow
+        Write-Host "Error: Could not auto-detect Visual Studio version!" -ForegroundColor Red
+        Write-Host "No built executable was found and no matching Visual Studio installation was detected." -ForegroundColor Yellow
+        Write-Host "Please build the solution first, or specify VS version manually:" -ForegroundColor Yellow
+        Write-Host "  .\build_installer.ps1 -Arch $Arch -VsVersion vs2026" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "Available VS directories:"
         if (Test-Path "..\vs2026") { Write-Host "  - vs2026" }
@@ -94,7 +132,6 @@ if ([string]::IsNullOrEmpty($VsVersion)) {
         if (Test-Path "..\vs2005") { Write-Host "  - vs2005" }
         exit 1
     }
-    Write-Host "Detected: $VsVersion" -ForegroundColor Green
 }
 
 # Determine executable path based on architecture
