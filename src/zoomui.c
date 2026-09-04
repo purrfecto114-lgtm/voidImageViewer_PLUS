@@ -67,6 +67,8 @@ static HICON _zoomui_icons[_ZOOMUI_BUTTON_COUNT]; // cached icons, loaded at the
 static int _zoomui_icon_size = 0; // the size the cached icons were loaded at, or 0.
 static int _zoomui_dark = 0; // 1 = draw with the dark mode palette.
 
+static void _zoomui_apply_tooltip_colors(void);
+
 static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_selected,int is_disabled,int is_hot);
 static HICON _zoomui_get_icon(int buttoni,int size);
 static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int buttoni,int offset);
@@ -203,6 +205,9 @@ void zoomui_init(HWND parent)
                                 }
 
                                 SendMessage(_zoomui_tooltip_hwnd,TTM_ACTIVATE,TRUE,0);
+
+                                // match the tooltip colors to the current palette.
+                                _zoomui_apply_tooltip_colors();
                         }
                 }
         }
@@ -261,6 +266,25 @@ void zoomui_kill(void)
         _zoomui_parent_hwnd = 0;
 }
 
+// tint the tooltip control with the palette: comctl tooltips have no dark
+// theme of their own, the colors are set by message.
+static void _zoomui_apply_tooltip_colors(void)
+{
+    if (_zoomui_tooltip_hwnd)
+    {
+        if (_zoomui_dark)
+        {
+            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);
+            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,RGB(0xE8,0xE8,0xE8),0);
+        }
+        else
+        {
+            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,GetSysColor(COLOR_INFOBK),0);
+            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,GetSysColor(COLOR_INFOTEXT),0);
+        }
+    }
+}
+
 // switch the palette between light and dark. called after creating and
 // whenever the app dark mode or the windows theme changes.
 void zoomui_set_dark(int dark)
@@ -274,6 +298,10 @@ void zoomui_set_dark(int dark)
             InvalidateRect(_zoomui_hwnd,0,FALSE);
         }
     }
+
+    // the tooltip control may exist before the first palette flip and a
+    // fresh control always starts light: tint it on every call.
+    _zoomui_apply_tooltip_colors();
 }
 
 int zoomui_is_created(void)

@@ -1,3 +1,26 @@
+Pre-release, BETA: Version 1.1.0-beta.9 (reliable dark mode detection)
+	dark mode detection is now reliable: the system theme is read from the
+	documented AppsUseLightTheme registry value (the source the shell
+	itself follows) instead of the undocumented uxtheme ordinal 132 probe,
+	which is known to return wrong values on some windows 10 1903+ builds.
+	the probe stays as a fallback for systems without the value.
+	the theme is followed live in more situations: WM_SETTINGCHANGE for
+	any setting (not only "ImmersiveColorSet") and WM_THEMECHANGED both
+	re-read the theme, high contrast on/off updates the chrome immediately,
+	and an elevated viewer now receives the theme broadcasts too (the uipi
+	message filter used to block them, so run-as-admin stayed on the wrong
+	theme until restart).
+	the detection is cached: the ui used to call SystemParametersInfo and
+	the uxtheme probe on every paint and status bar custom draw; now the
+	system is probed once and the cache drops on setting changes (also a
+	small performance win on the paint path).
+	the repaint on a theme flip is gated on the dark state actually
+	changing, so unrelated setting broadcasts no longer cause chrome churn.
+	tooltip controls now follow the dark palette: the floating zoom
+	controls and the toolbar hover hints tint dark (comctl tooltips have
+	no dark theme of their own; the colors are set by message), and the
+	tint survives the toolbar recreation on a language switch.
+
 Pre-release, BETA: Version 1.1.0-beta.8 (zoom input responsiveness, less GDI churn)
 	zoom input got cheaper: the reachable top of the zoom ladder is now cached
 	  behind an O(1) signature (its only inputs are the image, the viewport and

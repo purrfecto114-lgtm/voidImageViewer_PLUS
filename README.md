@@ -37,6 +37,13 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.9** makes the dark mode detection reliable and follows the theme live in more situations:
+
+- **Registry-based detection** — the system theme is read from the documented `AppsUseLightTheme` registry value (the source the shell itself follows) instead of the undocumented uxtheme ordinal 132 probe, which is known to return wrong values on some Windows 10 1903+ builds. The probe stays as a fallback.
+- **Live in more situations** — any `WM_SETTINGCHANGE` (not only `ImmersiveColorSet`) and `WM_THEMECHANGED` re-read the theme; high contrast on/off updates the chrome immediately; and an elevated (run-as-admin) viewer now receives the theme broadcasts too — the UIPI message filter used to block them.
+- **Cached detection** — the UI used to call `SystemParametersInfo` and the uxtheme probe on every paint and status bar custom draw. The system is now probed once and the cache drops on setting changes (also a small paint-path performance win). Repaints on a theme flip are gated on the dark state actually changing.
+- **Dark tooltips** — the floating zoom controls and the toolbar hover hints now tint dark with the palette (comctl tooltips have no dark theme of their own); the tint survives the toolbar recreation on a language switch.
+
 **Version 1.1.0-beta.8** makes zooming cheaper on the input path (performance):
 
 - **Ladder-top cache** — the reachable top of the zoom ladder is now cached behind an O(1) signature (image + viewport + layout settings), so every wheel tick and window resize stops re-walking the 1024-entry ladder and saving/restoring the zoom globals.

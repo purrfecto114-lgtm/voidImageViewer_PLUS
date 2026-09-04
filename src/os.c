@@ -167,6 +167,21 @@ static OS_RefreshImmersiveColorPolicyState_fn _os_RefreshImmersiveColorPolicySta
 static OS_ShouldAppsUseDarkMode_fn _os_ShouldAppsUseDarkMode = 0;
 static OS_AllowDarkModeForWindow_fn _os_AllowDarkModeForWindow = 0;
 static OS_DwmSetWindowAttribute_fn _os_DwmSetWindowAttribute = 0;
+// registry reads for a stable dark mode detection: the undocumented uxtheme
+// probe returns wrong values on some windows 10 1903+ builds, the personalize
+// registry value is the documented source the shell itself follows.
+typedef LONG (__stdcall *OS_RegOpenKeyExW_fn)(HKEY key,const wchar_t *name,DWORD options,DWORD access,HKEY *result);
+typedef LONG (__stdcall *OS_RegQueryValueExW_fn)(HKEY key,const wchar_t *name,DWORD *reserved,DWORD *type,unsigned char *data,DWORD *size);
+typedef LONG (__stdcall *OS_RegCloseKey_fn)(HKEY key);
+static OS_RegOpenKeyExW_fn _os_RegOpenKeyExW = 0;
+static OS_RegQueryValueExW_fn _os_RegQueryValueExW = 0;
+static OS_RegCloseKey_fn _os_RegCloseKey = 0;
+static HMODULE _os_advapi32_hmodule = 0;
+
+// cached dark state: the ui queries the dark mode in paint paths, so the
+// system is probed once and the cache is dropped on setting changes.
+static int _os_dark_cache_valid = 0;
+static int _os_dark_cache_dark = 0;
 
 static HMONITOR (WINAPI *_os_MonitorFromWindow)(HWND hwnd,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromRect)(LPCRECT lprc,DWORD dwFlags) = 0;
@@ -911,6 +926,15 @@ void os_init(void)
 		_os_DwmSetWindowAttribute = (void *)GetProcAddress(_os_dwmapi_hmodule,"DwmSetWindowAttribute");
 	}
 	
+	// advapi32: registry reads for the dark mode detection.
+	_os_advapi32_hmodule = LoadLibraryA("advapi32.dll");
+	if (_os_advapi32_hmodule)
+	{
+		_os_RegOpenKeyExW = (void *)GetProcAddress(_os_advapi32_hmodule,"RegOpenKeyExW");
+		_os_RegQueryValueExW = (void *)GetProcAddress(_os_advapi32_hmodule,"RegQueryValueExW");
+		_os_RegCloseKey = (void *)GetProcAddress(_os_advapi32_hmodule,"RegCloseKey");
+	}
+	
 	// set "floating point to int mode" to truncate
 	_os_ucrtbase_hmodule = LoadLibraryA("ucrtbase.dll");
 	if (_os_ucrtbase_hmodule)
@@ -1158,10 +1182,19 @@ int os_save_hbitmap(HBITMAP hbitmap,const wchar_t *filename,int format)
 }
 
 // is the system windows theme dark? never in high contrast mode: dark
-// overrides would break accessibility color themes.
+// overrides would break accessibility color themes. the result is cached:
+// the ui queries the dark state in paint paths, so the system is probed
+// once and the cache is dropped on WM_SETTINGCHANGE / WM_THEMECHANGED.
 int os_dark_system_dark(void)
 {
 	HIGHCONTRASTW high_contrast;
+	
+	if (_os_dark_cache_valid)
+	{
+		return _os_dark_cache_dark;
+	}
+	
+	_os_dark_cache_dark = 0;
 	
 	high_contrast.cbSize = sizeof(high_contrast);
 	
@@ -1169,16 +1202,61 @@ int os_dark_system_dark(void)
 	{
 		if (high_contrast.dwFlags & HCF_HIGHCONTRASTON)
 		{
-			return 0;
+			_os_dark_cache_valid = 1;
+			
+			return _os_dark_cache_dark;
 		}
 	}
 	
-	if (_os_ShouldAppsUseDarkMode)
+	// primary source: the personalize registry value. 0 means the apps
+	// theme is dark. this documented value behaves identically on every
+	// windows 10/11 build, unlike the uxtheme ordinal probe.
+	if (_os_RegOpenKeyExW && _os_RegQueryValueExW && _os_RegCloseKey)
 	{
-		return _os_ShouldAppsUseDarkMode() ? 1 : 0;
+		HKEY key;
+		
+		if (_os_RegOpenKeyExW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",0,KEY_QUERY_VALUE,&key) == 0)
+		{
+			DWORD type;
+			DWORD apps_use_light;
+			DWORD size;
+			
+			size = sizeof(apps_use_light);
+			
+			if (_os_RegQueryValueExW(key,L"AppsUseLightTheme",0,&type,(unsigned char *)&apps_use_light,&size) == 0)
+			{
+				if (type == REG_DWORD)
+				{
+					_os_dark_cache_dark = (apps_use_light == 0) ? 1 : 0;
+					_os_dark_cache_valid = 1;
+					
+					_os_RegCloseKey(key);
+					
+					return _os_dark_cache_dark;
+				}
+			}
+			
+			_os_RegCloseKey(key);
+		}
 	}
 	
-	return 0;
+	// fallback when the registry value is missing or unreadable: the
+	// undocumented uxtheme probe.
+	if (_os_ShouldAppsUseDarkMode)
+	{
+		_os_dark_cache_dark = _os_ShouldAppsUseDarkMode() ? 1 : 0;
+	}
+	
+	_os_dark_cache_valid = 1;
+	
+	return _os_dark_cache_dark;
+}
+
+// drop the cached dark state. call when the system settings may have
+// changed (WM_SETTINGCHANGE, WM_THEMECHANGED) so the next query re-reads.
+void os_dark_invalidate(void)
+{
+	_os_dark_cache_valid = 0;
 }
 
 // set the app menu theme. mode 0 = light, 1 = dark, 2 = follow the system.
@@ -1284,6 +1362,11 @@ void os_kill(void)
 	if (_os_dwmapi_hmodule)
 	{
 		FreeLibrary(_os_dwmapi_hmodule);
+	}
+	
+	if (_os_advapi32_hmodule)
+	{
+		FreeLibrary(_os_advapi32_hmodule);
 	}
 	
 	if (_os_gdiplus_hmodule)

@@ -159,12 +159,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.8 -beta.8",
-          "VERSION_BUILD\t\t8" in vh and '"-beta.8"' in vh)
-    check("rc = 1,1,0,8 + 1.1.0-beta.8",
-          "1,1,0,8" in rc and rc.count("1.1.0-beta.8") >= 2)
-    check("nsh = 1.1.0.8 + -beta.8",
-          '!define VERSION "1.1.0.8"' in nsh and '!define BETAVERSION "-beta.8"' in nsh)
+    check("version.h = 1.1.0.9 -beta.9",
+          "VERSION_BUILD\t\t9" in vh and '"-beta.9"' in vh)
+    check("rc = 1,1,0,9 + 1.1.0-beta.9",
+          "1,1,0,9" in rc and rc.count("1.1.0-beta.9") >= 2)
+    check("nsh = 1.1.0.9 + -beta.9",
+          '!define VERSION "1.1.0.9"' in nsh and '!define BETAVERSION "-beta.9"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +301,69 @@ def t_ladder_shape():
           "_viv_clamp_double" in viv)
 
 
+# ---------------------------------------------------------------------------
+# 9. the beta.9 dark mode detection hardening: registry source, cache,
+#    broadened broadcast handling, uipi filter and dark tooltips.
+# ---------------------------------------------------------------------------
+def t_dark_detection_wiring():
+    osc = read("src/os.c").decode()
+    osh = read("src/os.h").decode()
+    viv = read("src/viv.c").decode()
+    zc = read("src/zoomui.c").decode()
+
+    # registry primary source + ordinal fallback
+    check("os.c reads AppsUseLightTheme from the registry",
+          'L"AppsUseLightTheme"' in osc)
+    check("os.c opens the Personalize key",
+          'L"Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Themes\\\\Personalize"' in osc)
+    check("os.c keeps the uxtheme probe only as the fallback",
+          osc.find("_os_ShouldAppsUseDarkMode()") > osc.find("AppsUseLightTheme"))
+    check("os.c validates the registry type",
+          "type == REG_DWORD" in osc)
+
+    # cache + invalidation
+    check("os.c caches the dark state",
+          "_os_dark_cache_valid" in osc and "_os_dark_cache_dark" in osc)
+    check("os.h exports os_dark_invalidate",
+          "void os_dark_invalidate(void);" in osh)
+    check("os.c implements os_dark_invalidate",
+          "void os_dark_invalidate(void)" in osc)
+
+    # broadened broadcast handling
+    check("viv.c handles WM_THEMECHANGED",
+          "case WM_THEMECHANGED:" in viv)
+    check("viv.c invalidates the dark cache on setting changes",
+          viv.count("os_dark_invalidate();") >= 2)
+    check("viv.c gates the re-apply on the dark state flip",
+          "if (was_dark != is_dark)" in viv)
+    check("viv.c still flushes the immersive color policy",
+          'string_compare((const wchar_t *)lParam,L"ImmersiveColorSet") == 0' in viv)
+
+    # uipi filter for elevated runs
+    check("viv.c allows the theme broadcasts through uipi",
+          "os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_SETTINGCHANGE,1,0);" in viv
+          and "os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_THEMECHANGED,1,0);" in viv)
+
+    # dark tooltips
+    check("viv.c tints the toolbar tooltip",
+          "SendMessage(tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);" in viv)
+    check("zoomui.c tints its tooltip",
+          "_zoomui_apply_tooltip_colors" in zc)
+    check("zoomui.c re-tints on every palette call",
+          zc.count("_zoomui_apply_tooltip_colors();") >= 2)
+
+    # message fallback defines for older SDKs
+    check("viv.c defines the tooltip message fallbacks",
+          "#define TTM_SETTIPBKCOLOR (WM_USER+19)" in viv
+          and "#define TB_GETTOOLTIPS (WM_USER+35)" in viv
+          and "#define WM_THEMECHANGED 0x031A" in viv)
+
+    # the toolbar recreate on language switch re-applies the dark chrome
+    check("language switch re-tints the recreated toolbar tooltip",
+          viv.find("_viv_apply_dark_mode(0);",
+                   viv.find("_viv_controls_show(config_show_controls);")) != -1)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -310,6 +373,7 @@ if __name__ == "__main__":
     t_status_vararg_safety()
     t_dark_mode_wiring()
     t_ladder_shape()
+    t_dark_detection_wiring()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

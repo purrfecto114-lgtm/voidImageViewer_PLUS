@@ -137,6 +137,9 @@ extern int os_dark_system_dark(void);
 extern void os_dark_set_app_mode(int mode);
 extern void os_dark_titlebar(HWND hwnd,int dark);
 extern void os_dark_refresh(void);
+// drop the cached system dark state so the next os_dark_system_dark()
+// call re-reads it (WM_SETTINGCHANGE / WM_THEMECHANGED).
+extern void os_dark_invalidate(void);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);
 extern DWORD (WINAPI *os_GetLayout)(HDC hdc);
 extern EXECUTION_STATE (WINAPI *os_SetThreadExecutionState)(  EXECUTION_STATE esFlags);

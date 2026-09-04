@@ -299,6 +299,23 @@
 #define WM_GESTURE 0x0119
 #endif
 
+// theme change message and tooltip color messages. (not defined in older SDKs)
+#ifndef WM_THEMECHANGED
+#define WM_THEMECHANGED 0x031A
+#endif
+
+#ifndef TB_GETTOOLTIPS
+#define TB_GETTOOLTIPS (WM_USER+35)
+#endif
+
+#ifndef TTM_SETTIPBKCOLOR
+#define TTM_SETTIPBKCOLOR (WM_USER+19)
+#endif
+
+#ifndef TTM_SETTIPTEXTCOLOR
+#define TTM_SETTIPTEXTCOLOR (WM_USER+20)
+#endif
+
 enum
 {
 	_VIV_COPYDATA_COMMAND_LINE,
@@ -4066,14 +4083,63 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			
 		case WM_SETTINGCHANGE:
 		
-			// the windows theme switched between light and dark. re-apply the
-			// dark chrome (title bar, menus, status bar, zoom controls) so it
-			// follows the system without a restart.
+			// system settings changed (theme, high contrast, ...). the uxtheme
+			// color policy is only current after a refresh and the menus only
+			// re-theme after a flush, so do both when the immersive color set
+			// changed.
 			if ((lParam) && (string_compare((const wchar_t *)lParam,L"ImmersiveColorSet") == 0))
 			{
-				if (config_dark_mode == 2)
+				os_dark_refresh();
+			}
+			
+			// re-read the dark state (the theme itself or the high contrast
+			// accessibility switch may flip it) and re-apply the chrome only
+			// when it actually changed: unrelated broadcasts are frequent and
+			// must not cause chrome churn.
+			{
+				int was_dark;
+				int is_dark;
+				
+				was_dark = _viv_is_dark();
+				
+				os_dark_invalidate();
+				
+				is_dark = _viv_is_dark();
+				
+				if (was_dark != is_dark)
 				{
-					os_dark_refresh();
+					if (config_dark_mode == 2)
+					{
+						os_dark_refresh();
+					}
+					
+					_viv_apply_dark_mode(1);
+				}
+			}
+			
+			break;
+		
+		case WM_THEMECHANGED:
+		
+			// the visual style changed (classic, high contrast or a theme
+			// switch). the dark state may flip with it: re-read and re-apply
+			// the chrome the same way.
+			{
+				int was_dark;
+				int is_dark;
+				
+				was_dark = _viv_is_dark();
+				
+				os_dark_invalidate();
+				
+				is_dark = _viv_is_dark();
+				
+				if (was_dark != is_dark)
+				{
+					if (config_dark_mode == 2)
+					{
+						os_dark_refresh();
+					}
 					
 					_viv_apply_dark_mode(1);
 				}
@@ -5652,6 +5718,12 @@ static int _viv_init(int nCmdShow)
 	{
 		// MSGFLT_ALLOW = 1
 		os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_CLOSE,1,0);
+		
+		// theme change broadcasts come from unelevated system processes:
+		// allow them through the uipi filter so an elevated viewer still
+		// follows the windows theme live.
+		os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_SETTINGCHANGE,1,0);
+		os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_THEMECHANGED,1,0);
 	}
 		
 	_viv_status_show(config_show_status);
@@ -7446,6 +7518,29 @@ static void _viv_apply_dark_mode(int repaint)
 	}
 	
 	zoomui_set_dark(dark);
+	
+	// the toolbar tooltip control has no dark theme of its own: tint it
+	// with the palette so the hover hints match the ui.
+	if (_viv_toolbar_hwnd)
+	{
+		HWND tooltip_hwnd;
+		
+		tooltip_hwnd = (HWND)SendMessage(_viv_toolbar_hwnd,TB_GETTOOLTIPS,0,0);
+		
+		if (tooltip_hwnd)
+		{
+			if (dark)
+			{
+				SendMessage(tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);
+				SendMessage(tooltip_hwnd,TTM_SETTIPTEXTCOLOR,RGB(0xE8,0xE8,0xE8),0);
+			}
+			else
+			{
+				SendMessage(tooltip_hwnd,TTM_SETTIPBKCOLOR,GetSysColor(COLOR_INFOBK),0);
+				SendMessage(tooltip_hwnd,TTM_SETTIPTEXTCOLOR,GetSysColor(COLOR_INFOTEXT),0);
+			}
+		}
+	}
 	
 	if (repaint)
 	{
@@ -9491,6 +9586,10 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						// recreate the toolbar so its texts and tooltips use the new language.
 						_viv_controls_show(0);
 						_viv_controls_show(config_show_controls);
+						
+						// the recreated toolbar has a fresh (light) tooltip control:
+						// re-apply the dark chrome to it.
+						_viv_apply_dark_mode(0);
 						
 						// update the floating zoom control tooltips.
 						zoomui_localize();
