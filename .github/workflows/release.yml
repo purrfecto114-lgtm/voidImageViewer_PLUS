@@ -93,8 +93,13 @@ jobs:
         env:
           TAG: ${{ steps.resolve.outputs.tag }}
         run: |
+          # fail closed: if the tag ref cannot be resolved here the
+          # check must abort, not silently pass against itself
+          tagged="$(git rev-parse "refs/tags/${TAG}^{commit}")" || {
+            echo "::error::cannot resolve refs/tags/${TAG} after checkout"
+            exit 1
+          }
           head="$(git rev-parse HEAD)"
-          tagged="$(git rev-parse "refs/tags/${TAG}^{commit}" 2>/dev/null || echo "$head")"
           if [ "$head" != "$tagged" ]; then
             echo "::error::HEAD $head does not match tag commit $tagged"
             exit 1

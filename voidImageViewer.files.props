@@ -107,15 +107,12 @@
     <ClInclude Include="..\libwebp\src\dsp\yuv.h" />
     <ClInclude Include="..\libwebp\src\utils\bit_reader_inl_utils.h" />
     <ClInclude Include="..\libwebp\src\utils\bit_reader_utils.h" />
-    <ClInclude Include="..\libwebp\src\utils\bit_writer_utils.h" />
     <ClInclude Include="..\libwebp\src\utils\color_cache_utils.h" />
     <ClInclude Include="..\libwebp\src\utils\endian_inl_utils.h" />
     <ClInclude Include="..\libwebp\src\utils\filters_utils.h" />
-    <ClInclude Include="..\libwebp\src\utils\huffman_encode_utils.h" />
     <ClInclude Include="..\libwebp\src\utils\huffman_utils.h" />
     <ClInclude Include="..\libwebp\src\utils\palette.h" />
     <ClInclude Include="..\libwebp\src\utils\quant_levels_dec_utils.h" />
-    <ClInclude Include="..\libwebp\src\utils\quant_levels_utils.h" />
     <ClInclude Include="..\libwebp\src\utils\random_utils.h" />
     <ClInclude Include="..\libwebp\src\utils\rescaler_utils.h" />
     <ClInclude Include="..\libwebp\src\utils\thread_utils.h" />

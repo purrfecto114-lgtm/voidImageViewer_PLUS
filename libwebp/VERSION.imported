@@ -35,6 +35,17 @@ pruned at import (not present in this tree at all):
   listed above. the decode set was verified self-contained by an
   include-closure scan (no kept file references anything pruned).
 
+post-import sweep (rc.5 carpet review, 2026-09-05): the first
+  pruning pass missed files that only exist in 1.6.0 (they were not
+  in the old 1.3.2 project list the pass was diffed against):
+  src/dsp/lossless_enc_avx2.c (new-in-1.6.0 encoder file) and the
+  three encoder-side headers src/utils/{bit_writer_utils.h,
+  huffman_encode_utils.h, quant_levels_utils.h} were still on disk
+  (and the headers still listed as ClInclude). none of them were
+  compiled or referenced - the shipped binary was already
+  encoder-free - but the tree was not. they are now removed, so the
+  tree matches this record exactly: zero encoder files anywhere.
+
 kept:  tests/  doc/  cmake/  src/{dec,demux,dsp,utils,webp} with
   all upstream headers  COPYING  PATENTS  AUTHORS  ChangeLog  NEWS
   README.md  and the top-level build files (CMakeLists.txt,
