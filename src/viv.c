@@ -3031,6 +3031,15 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 							
 							first_frame = (_viv_reply_load_image_first_frame_t *)(e + 1);
 							
+							// defense in depth: the frame array below is allocated with
+							// frame_count entries and frame 0 is written immediately after.
+							// every current reply sender guarantees at least one frame, but
+							// clamp here as well so a future sender can not corrupt the heap.
+							if (!first_frame->frame_count)
+							{
+								first_frame->frame_count = 1;
+							}
+							
 							// always show the first frame.
 							// if we check for the terminate flag and hold down right, we might never see an image.
 							// 
@@ -3258,6 +3267,17 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				_viv_random = 0;
 			}
 			
+			
+			count = DragQueryFile((HDROP)wParam,0xFFFFFFFF,0,0);
+			
+			if (!count)
+			{
+				// a drop with zero files (e.g. a cancelled drag) must not
+				// clear the current playlist.
+				SetForegroundWindow(hwnd);
+				break;
+			}
+			
 			is_shift = (GetKeyState(VK_SHIFT) < 0);
 			if (is_shift)
 			{
@@ -3269,7 +3289,6 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				_viv_playlist_clearall();
 			}
 			
-			count = DragQueryFile((HDROP)wParam,0xFFFFFFFF,0,0);
 			
 			if ((count >= 2) || (is_shift))
 			{
@@ -3864,7 +3883,8 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				os_GestureConfig_t gesture_configs[3];
 
 				// windows gesture ids (winuser.h): GID_ZOOM 3, GID_PAN 4,
-				// GID_TWOFINGERTAP 6. the want/block flags: GC_ZOOM 1, GC_PAN 1
+				// GID_TWOFINGERTAP 6 (5 is GID_ROTATE - do not "fix" this to 5;
+				// verified against winuser.h). the want/block flags: GC_ZOOM 1, GC_PAN 1
 				// and GC_PAN_WITH_INERTIA 0x10; single finger pan (0x02|0x04) and
 				// gutters (0x08) are blocked so single touches keep mouse
 				// semantics.
@@ -11640,6 +11660,25 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 
 				first_frame.wide = viv_webp->wide;
 				first_frame.high = viv_webp->high;
+				
+				// apply orientation: transposed orientations (5-8) swap the axes.
+				// the hbitmap above was already rotated to match, so the reported
+				// dimensions swap with it. mirrors the gdi+ path.
+				switch (viv_webp->orientation)
+				{
+					case 5: // #define PHOTO_ORIENTATION_TRANSPOSE         5u
+					case 6: // #define PHOTO_ORIENTATION_ROTATE270         6u
+					case 7: // #define PHOTO_ORIENTATION_TRANSVERSE        7u
+					case 8: // #define PHOTO_ORIENTATION_ROTATE90          8u
+						
+						{
+							int temp;
+							temp = first_frame.wide;
+							first_frame.wide = first_frame.high;
+							first_frame.high = temp;
+						}
+						break;
+				}
 				first_frame.is_low_res = 0;
 				first_frame.frame.hbitmap = hbitmap;
 				first_frame.frame.mipmap = NULL;
@@ -11659,6 +11698,8 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 			else
 			{
 				_viv_frame_t frame;
+				int frame_wide;
+				int frame_high;
 				
 				frame.hbitmap = hbitmap;
 				frame.mipmap = NULL;
@@ -11666,7 +11707,24 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 				
 //printf("DELAY %d\n",delay)				;
 
-				_viv_get_mipmap(hbitmap,viv_webp->wide,viv_webp->high,_viv_load_render_wide/2,_viv_load_render_high/2,&mip_wide,&mip_high,&frame.mipmap);
+				frame_wide = viv_webp->wide;
+				frame_high = viv_webp->high;
+				
+				// apply orientation: transposed orientations (5-8) swap the axes
+				// for the mipmap too (the hbitmap above is already rotated).
+				switch (viv_webp->orientation)
+				{
+					case 5:
+					case 6:
+					case 7:
+					case 8:
+						
+							frame_wide = viv_webp->high;
+							frame_high = viv_webp->wide;
+							break;
+				}
+				
+				_viv_get_mipmap(hbitmap,frame_wide,frame_high,_viv_load_render_wide/2,_viv_load_render_high/2,&mip_wide,&mip_high,&frame.mipmap);
 				
 				_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_ADDITIONAL_FRAME,sizeof(_viv_frame_t),&frame);
 			}
@@ -14749,7 +14807,7 @@ static void _viv_install_add_remove_programs(const wchar_t *install_path)
 		DWORD no_modify_repair;
 		
 		uninstall_wbuf[0] = L'"';
-		string_copy(uninstall_wbuf + 1,install_path);
+		string_copy_with_bufsize(uninstall_wbuf + 1,STRING_SIZE - 1,install_path);
 		string_cat_utf8(uninstall_wbuf,(const utf8_t *)"\\Uninstall.exe\"");
 		
 		string_copy(icon_wbuf,install_path);
@@ -15188,6 +15246,10 @@ static void _viv_show_jumpto(void)
 			
 			if (!GetMessageW(&msg,NULL,0,0))
 			{
+				// the modal pump consumed a WM_QUIT (GetMessage returned 0):
+				// re-inject it so the main message loop terminates instead of
+				// blocking in WaitMessage forever.
+				PostQuitMessage((int)msg.wParam);
 				break;
 			}
 			

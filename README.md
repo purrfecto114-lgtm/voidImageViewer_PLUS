@@ -37,6 +37,14 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this release candidate
 --------
+**Version 1.1.0-rc.3** is the second review pass (every re-review claim re-verified against evidence before touching code):
+
+- **One re-review claim rejected with evidence** - the two finger tap gesture id was claimed wrong (`GID_TWOFINGERTAP` "should be 5"). Verified against the real winuser.h and Microsoft Learn: it really is 6 (5 is `GID_ROTATE`, 7 is `GID_PRESSANDTAP`), so the rc.2 values were already correct. A comment now guards the value so the claim does not resurface. The `last_stretch_mode` warning suppression was also verified harmless (every read is guarded).
+- **WebP + transposed EXIF orientation** - webp files with orientation 5-8 reported the un-rotated canvas dimensions while the bitmap was already rotated; the status bar showed swapped sizes and the mipmap picked the wrong aspect. The dimensions now swap exactly like the GDI+ path.
+- **Uninstall string bounds** - the quoted uninstall command was copied at a +1 offset with the full buffer size, which could write one wchar past the buffer for a maximum length install path.
+- **Jump-to dialog no longer swallows WM_QUIT** - if Windows asks the app to exit while the jump-to dialog is open, the quit request is re-posted so the app actually terminates instead of blocking forever.
+- **Zero-file drops** - a drop with zero files (a cancelled drag) no longer clears the current playlist.
+
 **Version 1.1.0-rc.2** is a review-fixes release (external code audit, every fix verified against the source):
 
 - **Touch gestures actually enabled** - the SetGestureConfig wrapper had shifted parameter types, so the app asked Windows to configure *zero* gestures, and the gesture ids were wrong (2 is GID_END, not a gesture). Pinch zoom, two finger pan (with inertia, single finger pan still the mouse) and two finger tap are now really configured.

@@ -168,12 +168,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.15 -rc.2",
-          "VERSION_BUILD\t\t15" in vh and '"-rc.2"' in vh)
-    check("rc = 1,1,0,15 + 1.1.0-rc.2",
-          "1,1,0,15" in rc and rc.count("1.1.0-rc.2") >= 2)
-    check("nsh = 1.1.0.15 + -rc.2",
-          '!define VERSION "1.1.0.15"' in nsh and '!define BETAVERSION "-rc.2"' in nsh)
+    check("version.h = 1.1.0.16 -rc.3",
+          "VERSION_BUILD\t\t16" in vh and '"-rc.3"' in vh)
+    check("rc = 1,1,0,16 + 1.1.0-rc.3",
+          "1,1,0,16" in rc and rc.count("1.1.0-rc.3") >= 2)
+    check("nsh = 1.1.0.16 + -rc.3",
+          '!define VERSION "1.1.0.16"' in nsh and '!define BETAVERSION "-rc.3"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -879,6 +879,60 @@ def t_review_fixes():
           'GetProcAddress(_os_user32_hmodule,"GetLayout")' not in osc)
 
 
+# ---------------------------------------------------------------------------
+# 18. rc.3 second review pass: guards for this round's verified fixes, plus
+#     a tripwire documenting the rejected gesture id claim (GID_TWOFINGERTAP
+#     is 6 in winuser.h; 5 is GID_ROTATE - verified against the mingw-w64
+#     header and microsoft learn).
+# ---------------------------------------------------------------------------
+def t_review_fixes_round2():
+    viv = read("src/viv.c").decode()
+
+    # R1 rejected: the gesture id claim was false, the comment marks the trap
+    check("gesture id tripwire documents the winuser.h truth",
+          'GID_TWOFINGERTAP 6 (5 is GID_ROTATE' in viv and
+          'gesture_configs[2].dwID = 6;' in viv)
+
+    # R4: the quoted uninstall string copy is bounded to the remaining space
+    check("arp uninstall path copy is bounded",
+          "string_copy_with_bufsize(uninstall_wbuf + 1,STRING_SIZE - 1,install_path);" in viv and
+          "string_copy(uninstall_wbuf + 1" not in viv)
+
+    # L5: the jumpto modal pump re-injects a consumed WM_QUIT
+    i = viv.find("if (!GetMessageW(&msg,NULL,0,0))")
+    check("jumpto pump re-posts a consumed WM_QUIT",
+          i != -1 and "PostQuitMessage((int)msg.wParam);" in viv[i:i+400])
+
+    # L1: a zero file drop is a no-op before the playlist is touched
+    dstart = viv.find("case WM_DROPFILES:")
+    dend = viv.find("case WM_TIMER:", dstart)
+    drop = viv[dstart:dend]
+    check("zero file drop is a no-op",
+          "count = DragQueryFile((HDROP)wParam,0xFFFFFFFF,0,0);" in drop and
+          "if (!count)" in drop and
+          drop.find("count = DragQueryFile") < drop.find("if (!count)") < drop.find("is_shift = (GetKeyState"))
+
+    # R2: webp first frame reports transposed dimensions for 5-8
+    i = viv.find("first_frame.wide = viv_webp->wide;")
+    check("webp first frame swaps axes for orientation 5-8",
+          i != -1 and "switch (viv_webp->orientation)" in viv[i:i+900] and
+          "temp = first_frame.wide;" in viv[i:i+900])
+
+    # R2: webp additional frames pick mipmap dims after the orientation swap
+    check("webp additional frame mipmap uses swapped dims",
+          "_viv_get_mipmap(hbitmap,frame_wide,frame_high," in viv and
+          "_viv_get_mipmap(hbitmap,viv_webp->wide," not in viv)
+
+    # R5 hardening: the reply consumer clamps the frame count
+    check("first frame reply clamps zero frame counts",
+          "if (!first_frame->frame_count)" in viv and
+          "first_frame->frame_count = 1;" in viv)
+
+    # L4 rejected: the 4701 suppression stays because the reads are guarded
+    check("last_stretch_mode read stays guarded by did_set_stretch_blt_mode",
+          "if (did_set_stretch_blt_mode)" in viv)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -897,6 +951,7 @@ if __name__ == "__main__":
     t_paste_wiring()
     t_zoom_percent_wiring()
     t_review_fixes()
+    t_review_fixes_round2()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

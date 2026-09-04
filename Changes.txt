@@ -1,3 +1,26 @@
+Release candidate: Version 1.1.0-rc.3 (second review pass: verified, rejected, hardened)
+	second pass over a re-review of the rc.2 fixes, every claim checked
+	against evidence: one finding was rejected with two independent
+	sources (GID_TWOFINGERTAP really is 6 in winuser.h, 5 is
+	GID_ROTATE, so the rc.2 touch gesture ids were already correct; a
+	comment now marks the value so the misinformation does not return),
+	and the "possibly uninitialized last_stretch_mode" suppression was
+	verified harmless (both reads are guarded), so it stays.
+	real fixes from this pass: webp images with a transposed exif
+	orientation (5-8) now report swapped dimensions to match the
+	already rotated bitmap (the status bar and the mipmap selection
+	used the un-rotated canvas size, an asymmetry the gdi+ path never
+	had); the quoted uninstall command is copied with the remaining
+	buffer space instead of the full buffer (a maximum length install
+	path could write one wchar past the buffer); the jump to dialog no
+	longer swallows WM_QUIT - if windows asks the app to exit while
+	the dialog is open, the quit is re-posted so the main loop
+	terminates instead of blocking forever; a file drop with zero
+	files no longer clears the current playlist.
+	hardening: the first frame reply clamps a zero frame count to one
+	(no current sender can produce one, but the guarantee was only
+	implicit in the loop structure, not contractual).
+
 Release candidate: Version 1.1.0-rc.2 (review fixes: touch gestures, security, webp backdrop)
 	fixed the touch gesture configuration: the SetGestureConfig wrapper
 	had its parameter types shifted so the app asked windows to configure

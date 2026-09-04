@@ -133,6 +133,7 @@ jobs:
 
           ## Recent changes
 
+          - **1.1.0-rc.3** - second review pass, every re-review claim re-verified against evidence: a gesture id claim rejected with winuser.h proof (GID_TWOFINGERTAP is 6), WebP transposed-EXIF dimensions fixed to match the rotated bitmap, quoted uninstall string bounded, jump-to dialog re-posts a swallowed WM_QUIT, zero file drops no longer clear the playlist, first frame count clamp
           - **1.1.0-rc.2** - review fixes: touch gestures are actually enabled now (SetGestureConfig wrapper bug), the app registers in add/remove programs (the real fix for the installed list), security hardening (bounded copies, validated IPC, clipboard size checks), WebP transparency honors the backdrop, zero delay frame stall fix, mipmap axis fix
           - **1.1.0-rc.1** - zoom buttons step whole 10 percents (a non multiple first snaps to the nearest multiple of 10), the zoom percent is always visible in the status bar and clicking it opens an exact percent dialog, dark dialogs now actually paint dark (a beta.10 placement bug), translations aligned 254/254
           - **1.1.0-beta.13** - startup crash fix (bad gdi+ export name), right click menu regrouped (zoom submenu, trimmed slideshow rates, paste with copy), clipboard image paste
