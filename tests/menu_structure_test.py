@@ -1078,6 +1078,38 @@ def t_release_engineering_round5():
     check("the prerelease input is derived from the version phase, not typed in",
           "inputs.prerelease" not in ry)
 
+    # libwebp 1.6.0 import: provenance, decode-only tree and build set
+    vi = read("libwebp/VERSION.imported").decode("utf-8", errors="replace")
+    check("libwebp provenance records 1.6.0 + tarball sha256",
+          "version:         1.6.0" in vi and
+          "93a852c2b3efafee3723efd4636de855b46f9fe1efddd607e1f42f60fc8f2136" in vi)
+    for d in ("webp_js", "examples", "imageio", "swig", "man", "gradle",
+              "infra", "extras", "sharpyuv", "src/enc", "src/mux"):
+        check("libwebp/%s is pruned" % d, not os.path.exists("libwebp/" + d))
+    for f in ("cost.c", "enc_sse2.c", "lossless_enc.c", "ssim.c",
+              "bit_writer_utils.c", "huffman_encode_utils.c",
+              "quant_levels_utils.c"):
+        check("encoder-side file gone: %s" % f,
+              not os.path.exists("libwebp/src/dsp/" + f) or
+              not os.path.exists("libwebp/src/utils/" + f))
+    for d in ("tests", "doc", "cmake", "src/dec", "src/demux",
+              "src/dsp", "src/utils", "src/webp"):
+        check("libwebp/%s kept" % d, os.path.exists("libwebp/" + d))
+    for proj in ("vs2019/voidImageViewer.vcxproj", "vs2026/voidImageViewer.vcxproj"):
+        p = read(proj).decode("utf-8", errors="replace")
+        cc = [f for f in re.findall(r"<ClCompile Include=\"([^\"]+)\"", p) if "libwebp" in f]
+        check(proj + " compiles the 66-file decode-only set",
+              len(cc) == 66, "%d entries" % len(cc))
+        check(proj + " adds the new avx2 lossless variant",
+              "lossless_avx2.c" in p)
+        check(proj + " no longer compiles any encoder-side file",
+              "cost.c" not in p and "enc_sse2.c" not in p and
+              "lossless_enc.c" not in p and "ssim.c" not in p and
+              "bit_writer_utils.c" not in p and "huffman_encode_utils.c" not in p)
+    ac = read("libwebp/configure.ac").decode()
+    check("vendored tree is libwebp 1.6.0",
+          "[1.6.0]" in ac)
+
     # tests workflow: pinned runners, drift matrix, schedule compile only
     check("compile pins windows-2022 for the shipping v143 path",
           "windows-2022" in ty and "runner: windows-2022" in ty)
