@@ -168,12 +168,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.14 -rc.1",
-          "VERSION_BUILD\t\t14" in vh and '"-rc.1"' in vh)
-    check("rc = 1,1,0,14 + 1.1.0-rc.1",
-          "1,1,0,14" in rc and rc.count("1.1.0-rc.1") >= 2)
-    check("nsh = 1.1.0.14 + -rc.1",
-          '!define VERSION "1.1.0.14"' in nsh and '!define BETAVERSION "-rc.1"' in nsh)
+    check("version.h = 1.1.0.15 -rc.2",
+          "VERSION_BUILD\t\t15" in vh and '"-rc.2"' in vh)
+    check("rc = 1,1,0,15 + 1.1.0-rc.2",
+          "1,1,0,15" in rc and rc.count("1.1.0-rc.2") >= 2)
+    check("nsh = 1.1.0.15 + -rc.2",
+          '!define VERSION "1.1.0.15"' in nsh and '!define BETAVERSION "-rc.2"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -503,7 +503,7 @@ def t_progressive_wiring():
           "if ((render_wide >= image_wide) || (render_high >= image_high))" in viv)
     check("the top-level half-size boundary is gone",
           "if ((render_wide >= image_wide) || (render_high >= image_high))" in viv and
-          viv.count("if ((render_wide >= mip_wide) || (render_high >= mip_wide))") == 1)
+          viv.count("if ((render_wide >= mip_wide) || (render_high >= mip_high))") == 1)
 
     # progressive preview plumbing
     check("os.h exports the thumbnail function",
@@ -770,6 +770,115 @@ def t_zoom_percent_wiring():
           "_viv_status_set_temp_text" not in body)
 
 
+
+# ---------------------------------------------------------------------------
+# 17. rc.2 review fixes: every finding from the external code review that
+#     was verified real gets a permanent regression guard here.
+# ---------------------------------------------------------------------------
+def t_review_fixes():
+    viv = read("src/viv.c").decode()
+    osh = read("src/os.h").decode()
+    osc = read("src/os.c").decode()
+    stc = read("src/string.c").decode()
+    sth = read("src/string.h").decode()
+    nsi = read("nsis/installer.nsi").decode(errors="replace")
+
+    # H1: the gesture config wrapper must match winuser.h
+    check("os gesture wrapper signature matches winuser.h",
+          "UINT cIDs,os_GestureConfig_t *configs,UINT cbSize" in osh and
+          "UINT cIDs,os_GestureConfig_t *configs,UINT cbSize" in osc)
+    check("gesture config call passes 3 configs + sizeof",
+          "os_SetGestureConfig(hwnd,0,3,gesture_configs,sizeof(os_GestureConfig_t));" in viv)
+    check("gesture ids are the real GID_* values",
+          "gesture_configs[0].dwID = 3;" in viv and
+          "gesture_configs[1].dwID = 4;" in viv and
+          "gesture_configs[2].dwID = 6;" in viv)
+    check("the broken zero config call is gone",
+          "os_SetGestureConfig(hwnd,0,0,gesture_configs,3)" not in viv)
+
+    # H2: string_get_word is bounded now
+    check("string_get_word takes a buffer size",
+          "wchar_t *string_get_word(wchar_t *p,wchar_t *buf,int buf_size)" in sth and
+          "wchar_t *string_get_word(wchar_t *p,wchar_t *buf,int buf_size)" in stc)
+    check("string_get_word clamps both copy branches",
+          stc.count("if (d - buf < buf_size - 1)") == 2)
+    check("all viv.c callers pass STRING_SIZE",
+          viv.count("string_get_word(p,buf,STRING_SIZE)") == 11 and
+          "string_get_word(p,install_path,STRING_SIZE)" in viv and
+          "string_get_word(p,language_wbuf,STRING_SIZE)" in viv)
+
+    # H3: every fd.cFileName copy is bounded to MAX_PATH
+    check("all 12 fd.cFileName copies are bounded",
+          viv.count("string_copy_with_bufsize(fd.cFileName,MAX_PATH") == 12)
+    check("no unbounded fd.cFileName copy remains",
+          "string_copy(fd.cFileName," not in viv)
+
+    # H4: the add/remove programs registration exists
+    check("arp install helper writes the uninstall key",
+          "static void _viv_install_add_remove_programs(const wchar_t *install_path)" in viv and
+          "Uninstall\\\\voidImageViewer" in viv)
+    check("arp uninstall helper removes both hives",
+          "static void _viv_uninstall_add_remove_programs(void)" in viv and
+          viv.count("RegDeleteKeyW(HKEY_") == 2)
+    check("install/uninstall call the arp helpers",
+          "_viv_install_add_remove_programs(install_path);" in viv and
+          "_viv_uninstall_add_remove_programs();" in viv)
+    check("nsis .onInit strips the quoted uninstall string",
+          ("StrCmp $R3 " + "'" + chr(34) + "'" + " 0 +2") in nsi and
+          'StrCpy $R2 $R2 "" 1' in nsi)
+
+    # M1: zero delay frames can not stall the frame skip loop
+    check("frame skip guards zero delay frames",
+          viv.count("(_viv_frames[_viv_frame_position].delay > 0) ?") == 2)
+
+    # M2: webp frames composite over the backdrop like the gdi+ path
+    check("webp frame is drawn into a dib section",
+          "CreateDIBSection(viv_webp->screen_hdc,&bmi,DIB_RGB_COLORS,&bits,NULL,0);" in viv)
+    check("webp frames get the backdrop painted first",
+          "_viv_fill_backdrop(viv_webp->mem_hdc,viv_webp->wide,viv_webp->high);" in viv)
+    check("the webp pre-flatten onto the window background is gone",
+          "config_windowed_background_color_b + ((b - config_windowed_background_color_b)" not in viv)
+
+    # M3: everything ipc replies are validated field by field
+    check("copydata helpers exist",
+          "static const char *_viv_copydata_read(const COPYDATASTRUCT *cds," in viv and
+          "static int _viv_everything_item_to_fd(const COPYDATASTRUCT *cds," in viv)
+    check("both everything cases validate the list header first",
+          viv.count("if (_viv_safe_copy_data(cds->lpData,cds->cbData,cds->lpData,&list,sizeof(list)))") == 2)
+    check("no raw trust of sender offsets remains",
+          "filename_len = *(DWORD *)p;" not in viv)
+
+    # M4: the mipmap stop condition compares the right axis
+    check("mipmap stop condition uses mip_high",
+          "(render_wide >= mip_wide) || (render_high >= mip_high)" in viv and
+          "render_high >= mip_wide)" not in viv)
+
+    # M5: the pasted dib size is validated against the clipboard global
+    check("paste dib validates GlobalSize before copying",
+          "GlobalSize(hglobal)" in viv)
+
+    # M7: the status panes test the buffer content, not the pointer
+    check("pos/rgb panes dereference their buffers",
+          viv.count("if (*pixel_pos_buf)") == 3 and
+          viv.count("if (*pixel_rgb_buf)") == 3 and
+          "if (pixel_pos_buf)" not in viv and
+          "if (pixel_rgb_buf)" not in viv)
+
+    # preload OOB: the additional frame write is bounds checked
+    check("preload additional frame write is bounds checked",
+          "if (_viv_preload_frame_loaded_count < _viv_preload_frame_count)" in viv)
+
+    # save as refuses to save the progressive preview thumbnail
+    check("save as refuses the low res preview",
+          viv.count("if (_viv_image_is_low_res)") == 1 and
+          "do not save while the progressive preview is on screen" in viv)
+
+    # GetLayout lives in gdi32, not user32
+    check("GetLayout loads from gdi32",
+          'GetProcAddress(_os_gdi32_hmodule,"GetLayout")' in osc and
+          'GetProcAddress(_os_user32_hmodule,"GetLayout")' not in osc)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -787,6 +896,7 @@ if __name__ == "__main__":
     t_context_menu_shape()
     t_paste_wiring()
     t_zoom_percent_wiring()
+    t_review_fixes()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

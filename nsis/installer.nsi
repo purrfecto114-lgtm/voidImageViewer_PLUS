@@ -203,6 +203,13 @@ Function .onInit
 
         IfErrors no_existing_install_dir
 
+        ; the exe writes a quoted UninstallString (safe with spaces in the
+        ; path): strip the leading quote so PathRemoveFileSpec sees a plain
+        ; file spec (it removes through the trailing quote).
+        StrCpy $R3 $R2 1
+        StrCmp $R3 '"' 0 +2
+        StrCpy $R2 $R2 "" 1
+
         ClearErrors
         system::Call 'Shlwapi::PathRemoveFileSpec(tR2R2) i.r1'
         IfErrors no_existing_install_dir

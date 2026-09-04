@@ -28,3 +28,29 @@ jobs:
 
       - name: Menu structure, dark mode wiring and version consistency tests
         run: python3 tests/menu_structure_test.py
+
+  # rc.2: compile both shipping configurations on every push, so a build
+  # break is caught before tagging a release (previously only the tag
+  # driven release workflow compiled).
+  compile:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build x64 (Release)
+        shell: cmd
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x64\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x64\" /m /nologo /v:m
+
+      - name: Build x86 (Release)
+        shell: cmd
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x86\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x86\" /m /nologo /v:m
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          foreach ($p in @('build\x64\voidImageViewer.exe', 'build\x86\voidImageViewer.exe')) {
+            if (!(Test-Path $p)) { throw "missing build output: $p" }
+            Write-Host "== $p ==" (Get-Item $p).Length bytes
+          }

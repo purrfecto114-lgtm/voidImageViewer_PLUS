@@ -180,7 +180,7 @@ typedef struct os_GestureInfo_s
 
 }os_GestureInfo_t;
 
-extern BOOL (WINAPI *os_SetGestureConfig)(HWND hwnd,DWORD reserved,DWORD id,os_GestureConfig_t *configs,UINT count);
+extern BOOL (WINAPI *os_SetGestureConfig)(HWND hwnd,DWORD reserved,UINT cIDs,os_GestureConfig_t *configs,UINT cbSize);
 extern BOOL (WINAPI *os_GetGestureInfo)(void *gesture_info_handle,os_GestureInfo_t *gesture_info);
 extern BOOL (WINAPI *os_CloseGestureInfoHandle)(void *gesture_info_handle);
 

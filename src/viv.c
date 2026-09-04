@@ -530,6 +530,8 @@ static void _viv_open_file_location(void);
 static void _viv_properties(void);
 static void _viv_doing_cancel(void);
 static const char *_viv_get_copydata_string(const char *p,const char *e,wchar_t *buf,int bufsize);
+static const char *_viv_copydata_read(const COPYDATASTRUCT *cds,const char *p,void *dst,DWORD size);
+static int _viv_everything_item_to_fd(const COPYDATASTRUCT *cds,const EVERYTHING_IPC_ITEM2 *item,WIN32_FIND_DATA *fd);
 static void _viv_blank(void);
 static void _viv_options(void);
 static INT_PTR CALLBACK _viv_options_proc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
@@ -636,6 +638,8 @@ static void _viv_install_start_menu_shortcuts(void);
 static void _viv_uninstall_start_menu_shortcuts(void);
 static void _viv_append_admin_param(wchar_t *wbuf,const utf8_t *param);
 static void _viv_install_copy_file(const wchar_t *install_path,const wchar_t *temp_path,const utf8_t *filename,int critical);
+static void _viv_install_add_remove_programs(const wchar_t *install_path);
+static void _viv_uninstall_add_remove_programs(void);
 static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _viv_shuffle_playlist(void);
 static void _viv_show_jumpto(void);
@@ -1431,7 +1435,7 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 		}
 		else
 		{
-			string_copy(fd.cFileName,full_path_and_filename);
+			string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
 			
 			_viv_open(&fd,0);
 		}
@@ -1457,7 +1461,7 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 				}
 				else
 				{
-					string_copy(fd.cFileName,full_path_and_filename);
+					string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
 					_viv_playlist_add(&fd);
 				}
 					
@@ -3162,14 +3166,36 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 									// we could have been cleared.
 									if (_viv_preload_frames)
 									{
-										_viv_preload_frames[_viv_preload_frame_loaded_count].hbitmap = additional_frame->hbitmap;
-										_viv_preload_frames[_viv_preload_frame_loaded_count].mipmap = additional_frame->mipmap;
-										_viv_preload_frames[_viv_preload_frame_loaded_count].delay = additional_frame->delay;
-										
-										_viv_preload_frame_loaded_count++;
-										
-										additional_frame->hbitmap = 0;
-										additional_frame->mipmap = 0;
+										// make sure we check the frame count too
+										// incase we get an event from an old load.
+										if (_viv_preload_frame_loaded_count < _viv_preload_frame_count)
+										{
+											_viv_preload_frames[_viv_preload_frame_loaded_count].hbitmap = additional_frame->hbitmap;
+											_viv_preload_frames[_viv_preload_frame_loaded_count].mipmap = additional_frame->mipmap;
+											_viv_preload_frames[_viv_preload_frame_loaded_count].delay = additional_frame->delay;
+											
+											_viv_preload_frame_loaded_count++;
+											
+											additional_frame->hbitmap = 0;
+											additional_frame->mipmap = 0;
+										}
+										else
+										{
+											// a stale event from an old load: free the frame.
+											if (additional_frame->hbitmap)
+											{
+												DeleteObject(additional_frame->hbitmap);
+												
+												additional_frame->hbitmap = 0;
+											}
+											
+											if (additional_frame->mipmap)
+											{
+												_viv_mipmap_free(additional_frame->mipmap);
+												
+												additional_frame->mipmap = 0;
+											}
+										}
 									}
 								}
 								else
@@ -3837,23 +3863,26 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			{
 				os_GestureConfig_t gesture_configs[3];
 
-				// GC_ZOOM = 2: enable pinch zoom.
-				gesture_configs[0].dwID = 2;
-				gesture_configs[0].dwWant = 1;
+				// windows gesture ids (winuser.h): GID_ZOOM 3, GID_PAN 4,
+				// GID_TWOFINGERTAP 6. the want/block flags: GC_ZOOM 1, GC_PAN 1
+				// and GC_PAN_WITH_INERTIA 0x10; single finger pan (0x02|0x04) and
+				// gutters (0x08) are blocked so single touches keep mouse
+				// semantics.
+				gesture_configs[0].dwID = 3; // GID_ZOOM
+				gesture_configs[0].dwWant = 1; // GC_ZOOM
 				gesture_configs[0].dwBlock = 0;
 
-				// GC_PAN = 3: two finger pan with inertia.
-				// block single finger pan so single touches keep mouse semantics.
-				gesture_configs[1].dwID = 3;
-				gesture_configs[1].dwWant = 8; // GC_PAN_WITH_INERTIA
-				gesture_configs[1].dwBlock = 7; // GC_PAN_WITH_SINGLE_FINGER | GC_PAN_WITH_GUTTER
+				gesture_configs[1].dwID = 4; // GID_PAN
+				gesture_configs[1].dwWant = 0x11; // GC_PAN | GC_PAN_WITH_INERTIA
+				gesture_configs[1].dwBlock = 0x0E; // single finger v|h | gutter
 
-				// GC_TWOFINGERTAP = 6: enable two finger tap.
-				gesture_configs[2].dwID = 6;
-				gesture_configs[2].dwWant = 1;
+				gesture_configs[2].dwID = 6; // GID_TWOFINGERTAP
+				gesture_configs[2].dwWant = 1; // GC_TWOFINGERTAP
 				gesture_configs[2].dwBlock = 0;
 
-				os_SetGestureConfig(hwnd,0,0,gesture_configs,3);
+				// cIDs is the number of configurations, cbSize is the size of
+				// one GESTURECONFIG (the wrapper signature matches winuser.h).
+				os_SetGestureConfig(hwnd,0,3,gesture_configs,sizeof(os_GestureConfig_t));
 			}
 
 			break;
@@ -3915,84 +3944,48 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				// Everything reply
 				case _VIV_COPYDATA_RANDOM_EVERYTHING_SEARCH:
 				{
-					EVERYTHING_IPC_ITEM2 *items;
+					EVERYTHING_IPC_LIST2 list;
 					
-					debug_printf("%d / %d results\n",((EVERYTHING_IPC_LIST2 *)cds->lpData)->numitems,((EVERYTHING_IPC_LIST2 *)cds->lpData)->totitems);
-					
-					items = (EVERYTHING_IPC_ITEM2 *)(((EVERYTHING_IPC_LIST2 *)cds->lpData) + 1);
-					
-					if (((EVERYTHING_IPC_LIST2 *)cds->lpData)->numitems)
+					// validate the list header before trusting anything in the
+					// reply: WM_COPYDATA arrives from arbitrary processes.
+					if (_viv_safe_copy_data(cds->lpData,cds->cbData,cds->lpData,&list,sizeof(list)))
 					{
-						if (items[0].flags & EVERYTHING_IPC_FOLDER)
+						debug_printf("%d / %d results\n",list.numitems,list.totitems);
+						
+						if (list.numitems)
 						{
-							// add this folder ?
-//							_viv_playlist_add_path(full_path_and_filename);
-						}
-						else
-						{
-							DWORD filename_len;
-							char *p;
-
-							// EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME
-							p = ((char *)cds->lpData) + items[0].data_offset;
+							EVERYTHING_IPC_ITEM2 item;
 							
-							filename_len = *(DWORD *)p;
-							if (filename_len < MAX_PATH)
+							if (_viv_safe_copy_data(cds->lpData,cds->cbData,((char *)cds->lpData) + sizeof(EVERYTHING_IPC_LIST2),&item,sizeof(item)))
 							{
-								WIN32_FIND_DATA fd;
-
-								p += sizeof(DWORD);
-								
-								os_zero_memory(&fd,sizeof(WIN32_FIND_DATA));
-								
-								os_copy_memory(fd.cFileName,(wchar_t *)p,filename_len * sizeof(wchar_t));
-								fd.cFileName[filename_len] = 0;
-								
-								if (_viv_is_valid_filename(&fd))
+								if (item.flags & EVERYTHING_IPC_FOLDER)
 								{
-									p += (filename_len + 1) * sizeof(wchar_t);
+									// add this folder ?
+								}
+								else
+								{
+									WIN32_FIND_DATA fd;
 									
-									// EVERYTHING_IPC_QUERY2_REQUEST_SIZE	
-									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_SIZE)
+									if (_viv_everything_item_to_fd(cds,&item,&fd))
 									{
-										fd.nFileSizeLow = *(DWORD *)p;
-										p += sizeof(DWORD);
-										fd.nFileSizeHigh = *(DWORD *)p;
-										p += sizeof(DWORD);
+										if (_viv_is_valid_filename(&fd))
+										{
+											_viv_open(&fd,0);
+										}
 									}
-
-									// EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED
-									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED)
-									{
-										fd.ftCreationTime.dwLowDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
-										fd.ftCreationTime.dwHighDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
-									}
-									
-									// EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED
-									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED)
-									{
-										fd.ftLastWriteTime.dwLowDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
-										fd.ftLastWriteTime.dwHighDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
-									}
-									
-									_viv_open(&fd,0);
 								}
 							}
 						}
+						else
+						if (list.totitems)
+						{
+							// our random index was too high, try again.
+							_viv_random_tot_results = list.totitems;
+							
+							PostMessage(hwnd,_VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH,0,0);
+						}
 					}
-					else
-					if (((EVERYTHING_IPC_LIST2 *)cds->lpData)->totitems)
-					{
-						// our random index was too high, try again.
-						_viv_random_tot_results = ((EVERYTHING_IPC_LIST2 *)cds->lpData)->totitems;
-
-						PostMessage(hwnd,_VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH,0,0);
-					}
-
+					
 					break;
 				}
 
@@ -4000,8 +3993,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				case _VIV_COPYDATA_OPEN_EVERYTHING_SEARCH:
 				case _VIV_COPYDATA_ADD_EVERYTHING_SEARCH:
 				{
-					DWORD i;
-					EVERYTHING_IPC_ITEM2 *items;
+					EVERYTHING_IPC_LIST2 list;
 					
 					if (_viv_random)
 					{
@@ -4019,74 +4011,40 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 						_viv_playlist_add_current_if_empty();
 					}
 					
-					debug_printf("%d / %d results\n",((EVERYTHING_IPC_LIST2 *)cds->lpData)->numitems,((EVERYTHING_IPC_LIST2 *)cds->lpData)->totitems);
-					
-					items = (EVERYTHING_IPC_ITEM2 *)(((EVERYTHING_IPC_LIST2 *)cds->lpData) + 1);
-					
-					for(i=0;i<((EVERYTHING_IPC_LIST2 *)cds->lpData)->numitems;i++)
+					// validate the list header and the item array before
+					// trusting any item offsets from the sender.
+					if (_viv_safe_copy_data(cds->lpData,cds->cbData,cds->lpData,&list,sizeof(list)))
 					{
-						if (items[i].flags & EVERYTHING_IPC_FOLDER)
+						DWORD i;
+						
+						debug_printf("%d / %d results\n",list.numitems,list.totitems);
+						
+						for(i=0;i<list.numitems;i++)
 						{
-							// add this folder ?
-//							_viv_playlist_add_path(full_path_and_filename);
-						}
-						else
-						{
-							DWORD filename_len;
-							char *p;
-
-							// EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME
-							p = ((char *)cds->lpData) + items[i].data_offset;
+							EVERYTHING_IPC_ITEM2 item;
 							
-							filename_len = *(DWORD *)p;
-							if (filename_len < MAX_PATH)
+							if (_viv_safe_copy_data(cds->lpData,cds->cbData,((char *)cds->lpData) + sizeof(EVERYTHING_IPC_LIST2) + (i * sizeof(EVERYTHING_IPC_ITEM2)),&item,sizeof(item)))
 							{
-								WIN32_FIND_DATA fd;
-
-								p += sizeof(DWORD);
-								
-								os_zero_memory(&fd,sizeof(WIN32_FIND_DATA));
-								
-								os_copy_memory(fd.cFileName,(wchar_t *)p,filename_len * sizeof(wchar_t));
-								fd.cFileName[filename_len] = 0;
-								
-								if (_viv_is_valid_filename(&fd))
+								if (item.flags & EVERYTHING_IPC_FOLDER)
 								{
-									p += (filename_len + 1) * sizeof(wchar_t);
+									// add this folder ?
+								}
+								else
+								{
+									WIN32_FIND_DATA fd;
 									
-									// EVERYTHING_IPC_QUERY2_REQUEST_SIZE	
-									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_SIZE)
+									if (_viv_everything_item_to_fd(cds,&item,&fd))
 									{
-										fd.nFileSizeLow = *(DWORD *)p;
-										p += sizeof(DWORD);
-										fd.nFileSizeHigh = *(DWORD *)p;
-										p += sizeof(DWORD);
+										if (_viv_is_valid_filename(&fd))
+										{
+											_viv_playlist_add(&fd);
+										}
 									}
-
-									// EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED
-									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED)
-									{
-										fd.ftCreationTime.dwLowDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
-										fd.ftCreationTime.dwHighDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
-									}
-									
-									// EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED
-									if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED)
-									{
-										fd.ftLastWriteTime.dwLowDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
-										fd.ftLastWriteTime.dwHighDateTime = *(DWORD *)p;
-										p += sizeof(DWORD);
-									}
-									
-									_viv_playlist_add(&fd);
 								}
 							}
 						}
 					}
-
+					
 					if (cds->dwData == _VIV_COPYDATA_OPEN_EVERYTHING_SEARCH)
 					{
 						_viv_home(0,0);
@@ -4870,7 +4828,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 	p = string_skip_ws(cl);
 	
 	// skip exe filename
-	p = string_get_word(p,buf);
+	p = string_get_word(p,buf,STRING_SIZE);
 	p = string_skip_ws(p);
 
 	cl_start = p;
@@ -4893,7 +4851,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 			was_quote = TRUE;
 		}
 		
-		p = string_get_word(p,buf);
+		p = string_get_word(p,buf,STRING_SIZE);
 		p = string_skip_ws(p);
 		
 		bufstart = buf;
@@ -4906,7 +4864,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 			
 			if (string_icompare_lowercase_ascii(bufstart,"install") == 0)
 			{
-				p = string_get_word(p,install_path);
+				p = string_get_word(p,install_path,STRING_SIZE);
 				p = string_skip_ws(p);				
 
 				uninstall_path[0] = 0;
@@ -4916,7 +4874,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"install-options") == 0)
 			{
-				p = string_get_word(p,install_options);
+				p = string_get_word(p,install_options,STRING_SIZE);
 				p = string_skip_ws(p);				
 
 				is_admin_install = 1;
@@ -4924,7 +4882,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"uninstall") == 0)
 			{
-				p = string_get_word(p,uninstall_path);
+				p = string_get_word(p,uninstall_path,STRING_SIZE);
 				p = string_skip_ws(p);			
 				
 				// no uninstall path?
@@ -4973,7 +4931,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 			{
 				wchar_t language_wbuf[STRING_SIZE];
 				
-				p = string_get_word(p,language_wbuf);
+				p = string_get_word(p,language_wbuf,STRING_SIZE);
 				p = string_skip_ws(p);
 				
 				// map the language name to a config_language value.
@@ -5128,6 +5086,10 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"Uninstall.exe",0);
 		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"Changes.txt",0);
 		
+		// register in add/remove programs so the app shows up in
+		// programs and features.
+		_viv_install_add_remove_programs(install_path);
+		
 		if (install_options[0])
 		{
 			wchar_t new_exe_filename_wbuf[STRING_SIZE];
@@ -5144,6 +5106,9 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 		
 		// make sure no other process is running.
 		_viv_close_existing_process();
+		
+		// remove our add/remove programs entry (from both hives).
+		_viv_uninstall_add_remove_programs();
 		
 		// remove %APPDATA%\voidimageviewer
 		if (string_get_appdata_voidimageviewer_path(path))
@@ -5223,7 +5188,7 @@ static void _viv_process_command_line(wchar_t *cl)
 	p = string_skip_ws(p);
 	
 	// skip exe filename
-	p = string_get_word(p,buf);
+	p = string_get_word(p,buf,STRING_SIZE);
 	p = string_skip_ws(p);
 
 	// skip first parameter.
@@ -5244,7 +5209,7 @@ static void _viv_process_command_line(wchar_t *cl)
 			was_quote = TRUE;
 		}
 
-		p = string_get_word(p,buf);
+		p = string_get_word(p,buf,STRING_SIZE);
 		p = string_skip_ws(p);
 		
 		bufstart = buf;
@@ -5290,7 +5255,7 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"everything") == 0)
 			{
-				p = string_get_word(p,buf);
+				p = string_get_word(p,buf,STRING_SIZE);
 				p = string_skip_ws(p);
 				
 				_viv_send_everything_search(0,0,0,buf);
@@ -5298,7 +5263,7 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"random") == 0)
 			{
-				p = string_get_word(p,buf);
+				p = string_get_word(p,buf,STRING_SIZE);
 				p = string_skip_ws(p);
 				
 				_viv_send_everything_search(0,0,1,buf);
@@ -5316,7 +5281,7 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"x") == 0)
 			{
-				p = string_get_word(p,buf);
+				p = string_get_word(p,buf,STRING_SIZE);
 				p = string_skip_ws(p);
 				
 				window_x = string_to_int(buf);
@@ -5325,7 +5290,7 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"y") == 0)
 			{
-				p = string_get_word(p,buf);
+				p = string_get_word(p,buf,STRING_SIZE);
 				p = string_skip_ws(p);
 				
 				window_y = string_to_int(buf);
@@ -5334,7 +5299,7 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"width") == 0)
 			{
-				p = string_get_word(p,buf);
+				p = string_get_word(p,buf,STRING_SIZE);
 				p = string_skip_ws(p);
 				
 				window_wide = string_to_int(buf);
@@ -5343,7 +5308,7 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"height") == 0)
 			{
-				p = string_get_word(p,buf);
+				p = string_get_word(p,buf,STRING_SIZE);
 				p = string_skip_ws(p);
 				
 				window_high = string_to_int(buf);
@@ -5352,7 +5317,7 @@ static void _viv_process_command_line(wchar_t *cl)
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"rate") == 0)
 			{
-				p = string_get_word(p,buf);
+				p = string_get_word(p,buf,STRING_SIZE);
 				p = string_skip_ws(p);
 
 				config_slideshow_rate = string_to_int(buf);
@@ -6496,7 +6461,7 @@ debug_printf("FIND next\n");
 										if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) > 0))
 										{
 											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-											string_copy(fd.cFileName,search_wbuf);
+											string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 											os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
 											got_best = 1;
 										}
@@ -6509,7 +6474,7 @@ debug_printf("FIND next\n");
 										if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) < 0))
 										{
 											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-											string_copy(fd.cFileName,search_wbuf);
+											string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 											os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
 											got_best = 1;
 										}
@@ -6523,7 +6488,7 @@ debug_printf("FIND next\n");
 								if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) > 0))
 								{
 									string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-									string_copy(fd.cFileName,search_wbuf);
+									string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 									os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
 									
 									got_start = 1;
@@ -6534,7 +6499,7 @@ debug_printf("FIND next\n");
 								if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) < 0))
 								{
 									string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-									string_copy(fd.cFileName,search_wbuf);
+									string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 									os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
 									got_start = 1;
 								}
@@ -6686,7 +6651,7 @@ static void _viv_home(int end,int is_preload)
 							if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) > 0))
 							{
 								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-								string_copy(fd.cFileName,search_wbuf);
+								string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 								os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
 								got_best = 1;
 							}
@@ -6696,7 +6661,7 @@ static void _viv_home(int end,int is_preload)
 							if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) < 0))
 							{
 								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-								string_copy(fd.cFileName,search_wbuf);
+								string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 								os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
 								got_best = 1;
 							}		
@@ -8601,14 +8566,22 @@ static void _viv_paste_clipboard_image(void)
 						
 						stride = (int)(((DWORD)bih->biWidth * (DWORD)bih->biBitCount + 31) / 32) * 4;
 						
-						os_copy_memory(bits,src,(int)((SIZE_T)stride * (SIZE_T)height));
+						// the clipboard global must actually contain the whole
+						// dib (header, masks, palette and bits): a short or hostile
+						// clipboard would otherwise be read past its end.
+						if (((SIZE_T)GlobalSize(hglobal)) >= ((SIZE_T)bih->biSize + (SIZE_T)mask_size + (SIZE_T)color_count * 4) + ((SIZE_T)stride * (SIZE_T)height))
+						{
+							os_copy_memory(bits,src,(int)((SIZE_T)stride * (SIZE_T)height));
+							
+							_viv_show_clipboard_image(hbitmap,(int)bih->biWidth,height);
+							
+							ReleaseDC(0,screen_hdc);
+							GlobalUnlock(hglobal);
+							
+							return;
+						}
 						
-						_viv_show_clipboard_image(hbitmap,(int)bih->biWidth,height);
-						
-						ReleaseDC(0,screen_hdc);
-						GlobalUnlock(hglobal);
-						
-						return;
+						DeleteObject(hbitmap);
 					}
 					
 					ReleaseDC(0,screen_hdc);
@@ -8740,6 +8713,20 @@ static void _viv_save_image_as(void)
 	{
 		if (_viv_frame_count)
 		{
+			// do not save while the progressive preview is on screen:
+			// frames[0] is still the low resolution thumbnail until the
+			// full first frame lands.
+			if (_viv_image_is_low_res)
+			{
+				wchar_t message_wbuf[STRING_SIZE];
+				
+				string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_LOADING));
+				
+				MessageBox(_viv_hwnd,message_wbuf,L"voidImageViewer",MB_OK|MB_ICONINFORMATION);
+				
+				return;
+			}
+			
 			OPENFILENAME ofn;
 			wchar_t tobuf[STRING_SIZE+1];
 			wchar_t filter_wbuf[STRING_SIZE];
@@ -11036,7 +11023,7 @@ static void _viv_playlist_add_path(const wchar_t *full_path_and_filename)
 					string_cat_path_separator(buf);
 					string_cat(buf,fd.cFileName);
 					
-					string_copy(fd.cFileName,buf);
+					string_copy_with_bufsize(fd.cFileName,MAX_PATH,buf);
 					
 					_viv_playlist_add(&fd);
 				}
@@ -11067,7 +11054,7 @@ static void _viv_playlist_add_filename(const wchar_t *filename)
 		}
 		else
 		{
-			string_copy(fd.cFileName,full_path_and_filename);
+			string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
 
 			if (_viv_is_valid_filename(&fd))
 			{
@@ -11486,7 +11473,9 @@ static void _viv_frame_skip(int size)
 					_viv_timer_tick = 0;
 				}
 
-				size -= _viv_frames[_viv_frame_position].delay;
+				// a zero delay frame (the webp first frame) must still make
+				// progress, otherwise this loop never terminates.
+				size -= (_viv_frames[_viv_frame_position].delay > 0) ? _viv_frames[_viv_frame_position].delay : 1;
 			}
 		}
 		else
@@ -11503,7 +11492,7 @@ static void _viv_frame_skip(int size)
 				_viv_animation_timer_tick_start = os_get_tick_count();
 				_viv_timer_tick = 0;
 				
-				size += _viv_frames[_viv_frame_position].delay;
+				size += (_viv_frames[_viv_frame_position].delay > 0) ? _viv_frames[_viv_frame_position].delay : 1;
 			}
 		}
 			
@@ -11548,123 +11537,15 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 		return 0;
 	}
 	
-	if (viv_webp->has_alpha)
-	{
-		BYTE *p;
-		DWORD run;
-		
-		run = viv_webp->wide * viv_webp->high;
-		p = pixels;
-		
-		while(run)
-		{
-			int a;
-
-			a = p[3];
-			
-			if (a != 255)
-			{
-				while(run)
-				{
-					int r;
-					int g;
-					int b;
-					int a;
-
-					r = p[0];
-					g = p[1];
-					b = p[2];
-					a = p[3];
-					
-					b = config_windowed_background_color_b + ((b - config_windowed_background_color_b) * a) / 255;
-					g = config_windowed_background_color_g + ((g - config_windowed_background_color_g) * a) / 255;
-					r = config_windowed_background_color_r + ((r - config_windowed_background_color_r) * a) / 255;
-					
-					p[0] = r;
-					p[1] = g;
-					p[2] = b;
-					p[3] = 255;
-					
-					p += 4;
-					run--;
-				}
-				
-				break;
-			}
-			
-			p += 4;
-			run--;
-		}
-	}
-	
-	/*
-	{
-		int x;
-		int y;
-		
-		for(y=0;y<height;y++)
-		{
-			for(x=0;x<width;x++)
-			{
-				SetPixel(screen_hdc,x,y,RGB(pixels[(x + (y * width)) * 4],pixels[(x + (y * width)) * 4],pixels[(x + (y * width)) * 4]));
-			}
-		}
-	}
-	*/
-
-	// RGBA => BGR
-	
-	{
-		const BYTE *p;
-		BYTE *d;
-		DWORD high_run;
-		
-		high_run = viv_webp->high;
-		p = pixels;
-		d = pixels;
-
-		while(high_run)
-		{
-			BYTE *wd;
-			DWORD wide_run;
-			
-			wide_run = viv_webp->wide;
-			wd = d;
-		
-			while(wide_run)
-			{
-				int a;
-				int r;
-				int g;
-				int b;
-				
-				r = p[0];
-				g = p[1];
-				b = p[2];
-				a = p[3];
-				
-				p += 4;
-				
-				wd[0] = b;
-				wd[1] = g;
-				wd[2] = r;
-				wd += 3;
-				
-				wide_run--;
-			}
-			
-			d += (((viv_webp->wide * 3) + 3) / 4) * 4;
-			
-			high_run--;
-		}
-	}
-	
-
+	// the webp frame is composited into a 24bpp top-down dib: when the
+	// frame has alpha the backdrop is painted first and the rgba pixels
+	// are blended over it, exactly like the gdi+ path does for png/gif.
+	// opaque frames simply overwrite every pixel.
 	{
 		BITMAPINFO bmi;
 		HBITMAP hbitmap;
+		void *bits;
 
-		// Create compatible bitmap
 		ZeroMemory(&bmi, sizeof(BITMAPINFO));
 		bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 		bmi.bmiHeader.biWidth = viv_webp->wide;
@@ -11673,16 +11554,74 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 		bmi.bmiHeader.biBitCount = 24;
 		bmi.bmiHeader.biCompression = BI_RGB;
 		
-		hbitmap = CreateCompatibleBitmap(viv_webp->screen_hdc,viv_webp->wide,viv_webp->high);
+		hbitmap = CreateDIBSection(viv_webp->screen_hdc,&bmi,DIB_RGB_COLORS,&bits,NULL,0);
 
 		// Set RGB data to the bitmap
 		if (hbitmap) 
 		{
 			int mip_wide;
 			int mip_high;
+			HGDIOBJ last_hbitmap;
+			const BYTE *p;
+			BYTE *d;
+			DWORD high_run;
+			int stride;
 
-			SetDIBits(viv_webp->mem_hdc,hbitmap,0,viv_webp->high,pixels,&bmi,DIB_RGB_COLORS);
-
+			last_hbitmap = SelectObject(viv_webp->mem_hdc,hbitmap);
+			
+			if (viv_webp->has_alpha)
+			{
+				// fill the backdrop under the transparent pixels (cached
+				// brushes, a single FillRect).
+				_viv_fill_backdrop(viv_webp->mem_hdc,viv_webp->wide,viv_webp->high);
+			}
+			
+			// blend the rgba frame over the dib pixels. the webp scan0 is
+			// rgba, the dib is bgr with 4 byte aligned rows: the source is
+			// read ahead of the write cursor so the shared webp canvas
+			// buffer is left untouched.
+			stride = ((viv_webp->wide * 3) + 3) / 4 * 4;
+			p = pixels;
+			d = (BYTE *)bits;
+			high_run = viv_webp->high;
+			
+			while(high_run)
+			{
+				BYTE *wd;
+				DWORD wide_run;
+				
+				wide_run = viv_webp->wide;
+				wd = d;
+			
+				while(wide_run)
+				{
+					int r;
+					int g;
+					int b;
+					int a;
+					
+					r = p[0];
+					g = p[1];
+					b = p[2];
+					a = p[3];
+					
+					p += 4;
+					
+					// alpha 255 fully replaces the backdrop pixel, alpha 0
+					// keeps it.
+					wd[0] = b + ((wd[0] - b) * (255 - a)) / 255;
+					wd[1] = g + ((wd[1] - g) * (255 - a)) / 255;
+					wd[2] = r + ((wd[2] - r) * (255 - a)) / 255;
+					wd += 3;
+					
+					wide_run--;
+				}
+				
+				d += stride;
+				high_run--;
+			}
+			
+			SelectObject(viv_webp->mem_hdc,last_hbitmap);
 			if (viv_webp->orientation > 1)
 			{
 				HBITMAP new_hbitmap;
@@ -12937,14 +12876,14 @@ static void _viv_status_update(void)
 				parti++;
 			}
 			
-			if (pixel_pos_buf)
+			if (*pixel_pos_buf)
 			{
 				part_wide += pixel_pos_wide;
 				part_array[parti] = part_wide;
 				parti++;
 			}
 			
-			if (pixel_rgb_buf)
+			if (*pixel_rgb_buf)
 			{
 				part_wide += pixel_rgb_wide;
 				part_array[parti] = part_wide;
@@ -13011,13 +12950,13 @@ static void _viv_status_update(void)
 				parti++;
 			}
 			
-			if (pixel_pos_buf)
+			if (*pixel_pos_buf)
 			{
 				_viv_status_set(parti,pixel_pos_buf);
 				parti++;
 			}
 			
-			if (pixel_rgb_buf)
+			if (*pixel_rgb_buf)
 			{
 				_viv_status_set(parti,pixel_rgb_buf);
 				parti++;
@@ -14790,6 +14729,58 @@ static void _viv_append_admin_param(wchar_t *wbuf,const utf8_t *param)
 	string_cat_utf8(wbuf,param);
 }
 
+// register voidImageViewer in add/remove programs (programs and
+// features). the setup runs the exe with /install so the exe owns this
+// key: hklm for admin installs (what the setup's .onInit reads back),
+// hkcu otherwise. the uninstall string is quoted so windows can run it
+// with spaces in the path.
+static void _viv_install_add_remove_programs(const wchar_t *install_path)
+{
+	HKEY hkey;
+	HKEY root;
+
+	root = os_is_admin() ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
+	
+	if (RegCreateKeyExW(root,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer",0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		wchar_t uninstall_wbuf[STRING_SIZE];
+		wchar_t icon_wbuf[STRING_SIZE];
+		wchar_t version_wbuf[STRING_SIZE];
+		DWORD no_modify_repair;
+		
+		uninstall_wbuf[0] = L'"';
+		string_copy(uninstall_wbuf + 1,install_path);
+		string_cat_utf8(uninstall_wbuf,(const utf8_t *)"\\Uninstall.exe\"");
+		
+		string_copy(icon_wbuf,install_path);
+		string_cat_utf8(icon_wbuf,(const utf8_t *)"\\voidImageViewer.exe,0");
+		
+		// 1.1.0-rc.2 (from version.h)
+		string_printf(version_wbuf,"%d.%d.%d%s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_TYPE);
+		
+		no_modify_repair = 1;
+		
+		RegSetValueExW(hkey,L"DisplayName",0,REG_SZ,(BYTE *)L"void Image Viewer",sizeof(L"void Image Viewer"));
+		RegSetValueExW(hkey,L"DisplayVersion",0,REG_SZ,(BYTE *)version_wbuf,(string_get_length(version_wbuf) + 1) * sizeof(wchar_t));
+		RegSetValueExW(hkey,L"Publisher",0,REG_SZ,(BYTE *)L"voidtools",sizeof(L"voidtools"));
+		RegSetValueExW(hkey,L"InstallLocation",0,REG_SZ,(BYTE *)install_path,(string_get_length(install_path) + 1) * sizeof(wchar_t));
+		RegSetValueExW(hkey,L"DisplayIcon",0,REG_SZ,(BYTE *)icon_wbuf,(string_get_length(icon_wbuf) + 1) * sizeof(wchar_t));
+		RegSetValueExW(hkey,L"UninstallString",0,REG_SZ,(BYTE *)uninstall_wbuf,(string_get_length(uninstall_wbuf) + 1) * sizeof(wchar_t));
+		RegSetValueExW(hkey,L"NoModify",0,REG_DWORD,(BYTE *)&no_modify_repair,sizeof(DWORD));
+		RegSetValueExW(hkey,L"NoRepair",0,REG_DWORD,(BYTE *)&no_modify_repair,sizeof(DWORD));
+		
+		RegCloseKey(hkey);
+	}
+}
+
+// remove the add/remove programs entry from both hives: the admin
+// install writes hklm, a standard user install writes hkcu.
+static void _viv_uninstall_add_remove_programs(void)
+{
+	RegDeleteKeyW(HKEY_LOCAL_MACHINE,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer");
+	RegDeleteKeyW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer");
+}
+
 static void _viv_install_copy_file(const wchar_t *install_path,const wchar_t *temp_path,const utf8_t *filename,int critical)
 {
 	wchar_t dst_wbuf[STRING_SIZE];
@@ -15526,7 +15517,9 @@ static void _viv_add_current_path_to_playlist(void)
 				_viv_playlist_t *d;
 				
 				string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-				string_copy(fd.cFileName,search_wbuf);
+				// cFileName is only MAX_PATH wchars: clamp the full path
+				// copy or a deep directory smashes the stack find data.
+				string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 				
 				d = _viv_playlist_add(&fd);
 				
@@ -16610,7 +16603,7 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 			return best_hbitmap;
 		}
 		
-		if ((render_wide >= mip_wide) || (render_high >= mip_wide))
+		if ((render_wide >= mip_wide) || (render_high >= mip_high))
 		{
 			*pmip_wide = best_wide;
 			*pmip_high = best_high;
@@ -17649,6 +17642,84 @@ static int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,
 		*d++ = *p;
 		p++;
 		run--;
+	}
+	
+	return 1;
+}
+
+// read size bytes at p from a WM_COPYDATA message into dst, advancing
+// p. returns 0 when the read would leave the message: WM_COPYDATA
+// arrives from arbitrary processes and every offset and length in it
+// must be validated before it is trusted.
+static const char *_viv_copydata_read(const COPYDATASTRUCT *cds,const char *p,void *dst,DWORD size)
+{
+	if (_viv_safe_copy_data(cds->lpData,cds->cbData,p,dst,size))
+	{
+		return p + size;
+	}
+	
+	return 0;
+}
+
+// parse one Everything IPC item into a find data. the list2 header and
+// the item array are validated by the caller; the per item data walk
+// (filename, size, dates) is validated here field by field. returns 0
+// when the item data lies outside the message: the item is then skipped
+// instead of reading whatever the sender pointed at.
+static int _viv_everything_item_to_fd(const COPYDATASTRUCT *cds,const EVERYTHING_IPC_ITEM2 *item,WIN32_FIND_DATA *fd)
+{
+	const char *p;
+	DWORD filename_len;
+	
+	os_zero_memory(fd,sizeof(WIN32_FIND_DATA));
+	
+	// EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME
+	p = ((const char *)cds->lpData) + item->data_offset;
+	
+	p = _viv_copydata_read(cds,p,&filename_len,sizeof(DWORD));
+	
+	if (!p)
+	{
+		return 0;
+	}
+	
+	if (filename_len >= MAX_PATH)
+	{
+		return 0;
+	}
+	
+	if (!(p = _viv_copydata_read(cds,p,fd->cFileName,filename_len * sizeof(wchar_t))))
+	{
+		return 0;
+	}
+	
+	fd->cFileName[filename_len] = 0;
+	
+	// the null terminator after the filename, when present.
+	if ((SIZE_T)(((const char *)cds->lpData) + cds->cbData - p) >= sizeof(wchar_t))
+	{
+		p += sizeof(wchar_t);
+	}
+	
+	// EVERYTHING_IPC_QUERY2_REQUEST_SIZE
+	if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_SIZE)
+	{
+		if (!(p = _viv_copydata_read(cds,p,&fd->nFileSizeLow,sizeof(DWORD)))) return 0;
+		if (!(p = _viv_copydata_read(cds,p,&fd->nFileSizeHigh,sizeof(DWORD)))) return 0;
+	}
+	
+	// EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED
+	if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED)
+	{
+		if (!(p = _viv_copydata_read(cds,p,&fd->ftCreationTime.dwLowDateTime,sizeof(DWORD)))) return 0;
+		if (!(p = _viv_copydata_read(cds,p,&fd->ftCreationTime.dwHighDateTime,sizeof(DWORD)))) return 0;
+	}
+	
+	// EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED
+	if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED)
+	{
+		if (!(p = _viv_copydata_read(cds,p,&fd->ftLastWriteTime.dwLowDateTime,sizeof(DWORD)))) return 0;
+		if (!(p = _viv_copydata_read(cds,p,&fd->ftLastWriteTime.dwHighDateTime,sizeof(DWORD)))) return 0;
 	}
 	
 	return 1;

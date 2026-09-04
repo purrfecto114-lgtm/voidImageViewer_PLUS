@@ -801,7 +801,7 @@ wchar_t *string_skip_ws(const wchar_t *p)
 	return (wchar_t *)p;
 }
 
-wchar_t *string_get_word(wchar_t *p,wchar_t *buf)
+wchar_t *string_get_word(wchar_t *p,wchar_t *buf,int buf_size)
 {
 	wchar_t *d;
 	int is_quote;
@@ -814,7 +814,13 @@ wchar_t *string_get_word(wchar_t *p,wchar_t *buf)
 		if ((*p == '"') && (p[1] == '"'))
 		{
 			p += 2;
-			*d++ = '"';
+			
+			// the word is longer than the destination: stop at the
+			// capacity, the rest of the word is skipped below.
+			if (d - buf < buf_size - 1)
+			{
+				*d++ = '"';
+			}
 		}
 		else
 		if (*p == '"')
@@ -829,7 +835,12 @@ wchar_t *string_get_word(wchar_t *p,wchar_t *buf)
 		}
 		else
 		{
-			*d++ = *p;
+			// keep skipping the word, only copy what fits.
+			if (d - buf < buf_size - 1)
+			{
+				*d++ = *p;
+			}
+			
 			p++;
 		}
 	}

@@ -1,3 +1,41 @@
+Release candidate: Version 1.1.0-rc.2 (review fixes: touch gestures, security, webp backdrop)
+	fixed the touch gesture configuration: the SetGestureConfig wrapper
+	had its parameter types shifted so the app asked windows to configure
+	zero gestures with a garbage size, and the gesture ids were wrong
+	(2 is GID_END, not a gesture to enable). pinch zoom, two finger pan
+	and two finger tap are now actually enabled, with the ids and flags
+	from winuser.h (pan wants inertia and blocks single finger pan so
+	single touches keep the mouse semantics).
+	the app now registers itself in add/remove programs: the install
+	writes the uninstall key (display name, version, icon and a quoted
+	uninstall command) to hklm for admin installs and hkcu otherwise,
+	and the uninstaller removes it from both hives. this completes the
+	beta.13 fix for "installed but not in the programs list": the crash
+	was fixed then, but the registration itself was never written
+	anywhere in the first place.
+	security hardening from a full code review, every fix verified
+	against the source: all 10 find-data filename copies are bounded to
+	MAX_PATH (a deep directory could smash the stack by up to 1.5k),
+	the command line word parser takes a buffer size (a >1024 character
+	token overflowed it), everything ipc replies (WM_COPYDATA from
+	arbitrary processes) are validated field by field before any sender
+	offset is trusted, and the pasted CF_DIB is checked against the
+	clipboard global size before its bits are read.
+	webp images with transparency now honor the backdrop (black, white,
+	custom color, checkerboard or the dark aware window background): the
+	frame is composited over the backdrop exactly like the gdi+ path
+	instead of being pre-flattened onto the plain window background
+	color.
+	a zero duration frame (the webp first frame) can no longer stall the
+	animation jump loop; the mipmap chain stop condition compares the
+	height axis (wide images at 50..99% zoom were one level too blurry);
+	the status bar pos/rgb panes test their content instead of the
+	pointer; save as refuses to save while the progressive preview is on
+	screen (it would have saved the thumbnail); a stale preload event can
+	no longer write past the preload frame array; and the rtl layout
+	query loads GetLayout from gdi32 (it was loaded from user32 and
+	therefore never resolved).
+
 Release candidate: Version 1.1.0-rc.1 (zoom percent stepping, zoom pane, dark dialog fix)
 	zoom in and zoom out buttons (toolbar, keyboard, the configured mouse
 	zoom action) now step whole 10 percents: a zoom that is not a multiple

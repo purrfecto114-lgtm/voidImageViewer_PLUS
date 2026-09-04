@@ -37,6 +37,14 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this release candidate
 --------
+**Version 1.1.0-rc.2** is a review-fixes release (external code audit, every fix verified against the source):
+
+- **Touch gestures actually enabled** - the SetGestureConfig wrapper had shifted parameter types, so the app asked Windows to configure *zero* gestures, and the gesture ids were wrong (2 is GID_END, not a gesture). Pinch zoom, two finger pan (with inertia, single finger pan still the mouse) and two finger tap are now really configured.
+- **Installed programs list** - the app now writes its own uninstall key (display name, version, icon, quoted uninstall command; HKLM for admin installs, HKCU otherwise) during /install and removes it on uninstall. This completes the beta.13 fix: the crash was fixed then, but the registration itself was never written anywhere.
+- **Security hardening** - all 10 find-data filename copies are bounded to MAX_PATH (deep directories could smash the stack), the command line word parser takes a buffer size, Everything IPC WM_COPYDATA replies are validated field by field before trusting sender offsets, and the pasted CF_DIB is checked against the clipboard global size before its bits are read.
+- **WebP transparency honors the backdrop** - transparent WebP pixels are composited over the selected backdrop (checkerboard, black, white, custom color, or the dark-aware window background) exactly like PNG/GIF, instead of being pre-flattened onto the plain window background color.
+- **Smaller fixes** - zero duration frames can no longer stall the animation jump loop, the mipmap stop condition compares the height axis (wide images at 50-99% zoom were one level too blurry), the status POS/RGB panes test their content instead of the pointer, save-as refuses to save the progressive preview thumbnail, stale preload events can not write past the frame array, and the RTL layout query loads GetLayout from gdi32 (it was loaded from user32 and never resolved).
+
 **Version 1.1.0-rc.1** adds percent based zoom stepping, an always visible zoom pane and fixes the dark dialogs:
 
 - **Zoom percent stepping** - the zoom in/out buttons now step whole 10 percents. If the current zoom is not a multiple of 10 (after a wheel or pinch gesture), the first click snaps to the nearest multiple of 10. The wheel and gestures keep their smooth proportional stepping.
