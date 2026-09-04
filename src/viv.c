@@ -200,7 +200,6 @@
 // *opening a non existing filename should show an error message: "File Not Found". eg: viv.exe "c:\non-existing-folder\foo.jpg" -also added "failed to load image" message for bad images.
 // *hide mouse on hover.
 // *using wrong registry key in _viv_install_association_by_extension.
-// *vs2005 and vs2019 solutions in separate dirs.
 // 1.0.0.12
 // *fixed a gdi leak when freeing mipmaps
 // *fixed a gdi leak when refreshing.

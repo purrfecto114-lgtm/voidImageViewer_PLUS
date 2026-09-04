@@ -25,7 +25,7 @@
 #
 # Usage: .\build_installer.ps1 [arch] [vs_version] [build_config]
 #   arch: x86 or x64 (default: x86)
-#   vs_version: vs2005, vs2019, vs2026, etc. (default: auto-detect:
+#   vs_version: vs2019, vs2026 (default: auto-detect:
 #               prefers a project dir with a built exe, then vswhere)
 #   build_config: Release, Debug, etc. (default: Release)
 #
@@ -74,9 +74,8 @@ if (Test-Path "ensure_encodings.ps1") {
 }
 
 # Auto-detect VS version if not specified.
-# NOTE: this repository ships vs2005, vs2019 AND vs2026 project directories,
-# so a plain directory existence check says nothing about which toolchain the
-# user actually has installed. Detection therefore prefers, in order:
+# NOTE: a plain directory existence check says nothing about which toolchain
+# the user actually has installed. Detection therefore prefers, in order:
 #   1. a project directory that already contains a built executable for the
 #      requested arch/config (packaging what was actually built),
 #   2. an installed Visual Studio instance reported by vswhere (VS2017+).
@@ -86,7 +85,7 @@ if ([string]::IsNullOrEmpty($VsVersion)) {
     $detected = $null
 
     # 1) prefer a project directory that already has a built executable
-    foreach ($vs in @("vs2026", "vs2019", "vs2005")) {
+    foreach ($vs in @("vs2026", "vs2019")) {
         $candidate = "..\$vs\$BuildConfig\voidImageViewer.exe"
         if ($Arch -eq "x64") {
             $candidate = "..\$vs\x64\$BuildConfig\voidImageViewer.exe"
@@ -129,7 +128,6 @@ if ([string]::IsNullOrEmpty($VsVersion)) {
         Write-Host "Available VS directories:"
         if (Test-Path "..\vs2026") { Write-Host "  - vs2026" }
         if (Test-Path "..\vs2019") { Write-Host "  - vs2019" }
-        if (Test-Path "..\vs2005") { Write-Host "  - vs2005" }
         exit 1
     }
 }

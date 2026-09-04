@@ -28,7 +28,7 @@
 
 ; Visual Studio version configuration
 ; Can be overridden via command line: makensis.exe /DVS_VERSION=vs2026 installer.nsi
-; Supported versions: vs2005, vs2019, vs2026, etc.
+; Supported versions: vs2019, vs2026
 !ifndef VS_VERSION
         !define VS_VERSION "vs2026"  ; Default VS version
 !endif

@@ -972,7 +972,7 @@ def t_review_fixes_round4():
     check("ps1 no longer auto-picks by plain directory existence",
           '$VsVersion = "vs2026"' not in ps1)
     check("ps1 probes for a built exe per project dir",
-          'foreach ($vs in @("vs2026", "vs2019", "vs2005"))' in ps1 and
+          'foreach ($vs in @("vs2026", "vs2019"))' in ps1 and
           "Test-Path $candidate" in ps1)
     check("ps1 falls back to the installed toolchain via vswhere",
           "vswhere.exe" in ps1 and "installationVersion" in ps1)
@@ -1095,20 +1095,55 @@ def t_release_engineering_round5():
     for d in ("tests", "doc", "cmake", "src/dec", "src/demux",
               "src/dsp", "src/utils", "src/webp"):
         check("libwebp/%s kept" % d, os.path.exists("libwebp/" + d))
-    for proj in ("vs2019/voidImageViewer.vcxproj", "vs2026/voidImageViewer.vcxproj"):
-        p = read(proj).decode("utf-8", errors="replace")
-        cc = [f for f in re.findall(r"<ClCompile Include=\"([^\"]+)\"", p) if "libwebp" in f]
-        check(proj + " compiles the 66-file decode-only set",
-              len(cc) == 66, "%d entries" % len(cc))
-        check(proj + " adds the new avx2 lossless variant",
-              "lossless_avx2.c" in p)
-        check(proj + " no longer compiles any encoder-side file",
-              "cost.c" not in p and "enc_sse2.c" not in p and
-              "lossless_enc.c" not in p and "ssim.c" not in p and
-              "bit_writer_utils.c" not in p and "huffman_encode_utils.c" not in p)
+    fp_list = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
+    cc = [f for f in re.findall(r"<ClCompile Include=\"([^\"]+)\"", fp_list) if "libwebp" in f]
+    check("the shared file list compiles the 66-file decode-only set",
+          len(cc) == 66, "%d entries" % len(cc))
+    check("the shared file list adds the new avx2 lossless variant",
+          "lossless_avx2.c" in fp_list)
+    check("no project compiles any encoder-side file",
+          "cost.c" not in fp_list and "enc_sse2.c" not in fp_list and
+          "lossless_enc.c" not in fp_list and "ssim.c" not in fp_list and
+          "bit_writer_utils.c" not in fp_list and "huffman_encode_utils.c" not in fp_list)
     ac = read("libwebp/configure.ac").decode()
     check("vendored tree is libwebp 1.6.0",
           "[1.6.0]" in ac)
+
+    # structure: vs2005 deleted, config families trimmed, shared file list
+    check("vs2005 project directory is deleted",
+          not os.path.exists("vs2005"))
+    for f, needle in (("nsis/build_installer.ps1", "vs2005"),
+                      ("nsis/installer.nsi", "Supported versions: vs2005"),
+                      ("src/viv.c", "vs2005 and vs2019 solutions")):
+        t = read(f).decode("utf-8", errors="replace")
+        check("%s no longer references vs2005" % f, needle not in t)
+    fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
+    check("shared props carries the full compile list",
+          len(re.findall(r"<ClCompile ", fp)) == 80)
+    check("shared props has no phantom res\\resource reference",
+          'res\\resource"' not in fp)
+    check("shared props has the resource script and icons",
+          "voidImageViewer.rc" in fp and "1to1-8bit.ico" in fp)
+    for proj, toolset in (("vs2019/voidImageViewer.vcxproj", "v143"),
+                          ("vs2026/voidImageViewer.vcxproj", "v145")):
+        p = read(proj).decode("utf-8", errors="replace")
+        check(proj + " imports the shared file list",
+              'Import Project="..\\voidImageViewer.files.props"' in p)
+        check(proj + " carries no file items of its own",
+              "<ClCompile " not in p and "<ClInclude " not in p)
+        check(proj + " has only Debug and Release configurations",
+              sorted(set(re.findall(r"<Configuration>([^<]+)</Configuration>", p))) == ["Debug", "Release"])
+        check(proj + " has no ALPHA/BETA/LITE remains",
+              "ALPHA" not in p and "BETA" not in p and "LITE" not in p)
+        check(proj + " toolset adjudicated to " + toolset,
+              sorted(set(re.findall(r"<PlatformToolset>([^<]+)</PlatformToolset>", p))) == [toolset])
+        check(proj + " still defines 8 configuration groups",
+              len(re.findall(r"<ItemDefinitionGroup ", p)) == 8)
+    readme = read("README.md").decode("utf-8", errors="replace")
+    check("README build section documents the v143 adjudication",
+          "VS2022+, v143 toolset" in readme and "/p:PlatformToolset=v142" in readme)
+    check("README documents the pinned runner matrix",
+          "windows-2022" in readme and "windows-2025" in readme)
 
     # tests workflow: pinned runners, drift matrix, schedule compile only
     check("compile pins windows-2022 for the shipping v143 path",

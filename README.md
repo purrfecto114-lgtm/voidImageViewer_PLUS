@@ -210,12 +210,12 @@ Build from source
 --------
 The project is plain C + Win32 API and builds with Visual Studio:
 
-1. Open `vs2019/voidImageViewer.sln` (VS2019+, v142 toolset) or `vs2026/voidImageViewer.sln` (VS2026, v145 toolset).
+1. Open `vs2019/voidImageViewer.sln` (VS2022+, v143 toolset) or `vs2026/voidImageViewer.sln` (VS2026, v145 toolset). The two projects share one file list (`voidImageViewer.files.props`); only the toolset differs. To build with VS2019, override the toolset: `msbuild /p:PlatformToolset=v142` (not covered by CI).
 2. Build the `voidImageViewer` project (x64 or Win32).
 3. `voidImageViewer.exe` is output to the configured output directory.
 4. Optional: build the setup with NSIS 3 — `nsis\build_installer.ps1` (see `nsis\` for details). It auto-detects the Visual Studio version: it prefers a project directory that already contains a built executable, then falls back to your installed Visual Studio (vswhere); pass `-VsVersion vs2019` to override. The source files are compiled with `/utf-8`, so localized strings build correctly on any system locale.
 
-A GitHub Actions workflow (`.github/workflows/release.yml`) builds the executable automatically on `windows-latest` and attaches it to GitHub releases.
+GitHub Actions builds the executable automatically: `tests.yml` compiles both shipping configurations on every push (pinned `windows-2022` for the v143 shipping path plus a `windows-2025` v145 compatibility leg), and `release.yml` (tag push) runs the tests, builds on `windows-2022`, verifies SHA-256 checksums end to end and attaches the assets to GitHub releases.
 <br/><br/><br/>
 
 
