@@ -99,9 +99,13 @@ jobs:
           if (-not $tag) { $tag = '${{ github.ref_name }}' }
           if (-not $tag.StartsWith('v')) { $tag = "v$tag" }
           $version = $tag.TrimStart('v')
+          # derive the release phase label from the version string:
+          # 1.1.0-rc.1 -> " (RC)", 1.1.0-beta.9 -> " (BETA)", 1.1.0 -> ""
+          $phase = if ($version -match '-rc\.') { ' (RC)' } elseif ($version -match '-beta\.') { ' (BETA)' } else { '' }
           "tag=$tag" | Add-Content -Path $env:GITHUB_OUTPUT
           "version=$version" | Add-Content -Path $env:GITHUB_OUTPUT
-          Write-Host "tag=$tag version=$version"
+          "phase=$phase" | Add-Content -Path $env:GITHUB_OUTPUT
+          Write-Host "tag=$tag version=$version phase=$phase"
 
       - name: Package
         shell: pwsh
@@ -123,9 +127,18 @@ jobs:
         shell: pwsh
         run: |
           @'
-          # voidImageViewer $VERSION - Touch, Zoom & Languages (BETA)
+          # voidImageViewer $VERSION - Touch, Zoom & Languages$PHASE
 
-          > **Pre-release**: this is an experimental beta fork of voidtools/voidImageViewer adding touch optimizations, on-screen zoom controls and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker.
+          > **Pre-release**: this is an experimental fork of voidtools/voidImageViewer adding touch optimizations, on-screen zoom controls and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker.
+
+          ## Recent changes
+
+          - **1.1.0-rc.1** - zoom buttons step whole 10 percents (a non multiple first snaps to the nearest multiple of 10), the zoom percent is always visible in the status bar and clicking it opens an exact percent dialog, dark dialogs now actually paint dark (a beta.10 placement bug), translations aligned 254/254
+          - **1.1.0-beta.13** - startup crash fix (bad gdi+ export name), right click menu regrouped (zoom submenu, trimmed slideshow rates, paste with copy), clipboard image paste
+          - **1.1.0-beta.12** - zoom stall fix around the half size mipmap, progressive first frame from the embedded exif thumbnail
+          - **1.1.0-beta.11** - transparent image backdrop (checkerboard, custom color), installer language dialog fix, machine universality alignment with upstream
+
+          See `Changes.txt` in the repository for the full history.
 
           ## What's new
 
@@ -162,7 +175,7 @@ jobs:
           Requires Windows 7 or later. Gestures require touch hardware.
 
           Based on upstream voidtools/voidImageViewer 1.0.0.15 (MIT license).
-          '@.Replace('$VERSION', '${{ steps.tag.outputs.version }}') | Out-File -FilePath release-notes.md -Encoding utf8
+          '@.Replace('$VERSION', '${{ steps.tag.outputs.version }}').Replace('$PHASE', '${{ steps.tag.outputs.phase }}') | Out-File -FilePath release-notes.md -Encoding utf8
 
       - name: Create or update pre-release
         shell: pwsh
@@ -171,7 +184,7 @@ jobs:
         run: |
           $tag = '${{ steps.tag.outputs.tag }}'
           $version = '${{ steps.tag.outputs.version }}'
-          $title = "voidImageViewer $version - Touch, Zoom & Languages (BETA)"
+          $title = "voidImageViewer $version - Touch, Zoom & Languages${{ steps.tag.outputs.phase }}"
           $prerelease = '${{ inputs.prerelease }}'
           if (-not $prerelease) { $prerelease = 'true' }
           $isPre = $prerelease -ne 'false'
