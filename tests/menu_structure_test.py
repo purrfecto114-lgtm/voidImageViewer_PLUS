@@ -1007,6 +1007,93 @@ def t_review_fixes_round4():
           "mem_alloc(ret_wide * ret_high" not in viv)
 
 
+# ---------------------------------------------------------------------------
+# rc.5 round: the release engineering batch 2 (user-approved D1-D8).
+# ---------------------------------------------------------------------------
+def t_release_engineering_round5():
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+    gi = read(".gitignore").decode()
+    ry = read(".github/workflows/release.yml").decode()
+    ty = read(".github/workflows/tests.yml").decode()
+
+    # the frame array multiplications go through safe_size_mul (the idle
+    # wrench from safe_size.h; a 32 bit sizeof*count could wrap before
+    # reaching the allocator even with the clamped count).
+    check("preload frame array allocation uses safe_size_mul",
+          "mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_preload_frame_count));" in viv)
+    check("frame array allocation uses safe_size_mul",
+          "mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_frame_count));" in viv)
+    check("the raw frame array multiplications are gone",
+          "sizeof(_viv_frame_t) * _viv_preload_frame_count" not in viv and
+          "sizeof(_viv_frame_t) * _viv_frame_count" not in viv)
+
+    # the everything FILE_SIZE-indexed branch requests SIZE only; date
+    # modified is requested by its own indexed check right below (the
+    # duplicated request was a typo, in both search senders).
+    size_lines = [l for l in viv.splitlines()
+                  if "EVERYTHING_IPC_QUERY2_REQUEST_SIZE" in l and "|=" in l]
+    check("exactly two SIZE request sites remain",
+          len(size_lines) == 2, repr(size_lines))
+    check("the FILE_SIZE branch no longer piggybacks DATE_MODIFIED",
+          all("REQUEST_DATE_MODIFIED" not in l for l in size_lines))
+
+    # the gpl-licensed crt.c is gone and nothing references it
+    check("the gpl crt.c is deleted",
+          not os.path.exists("src/crt.c"))
+    for proj in ("vs2019/voidImageViewer.vcxproj", "vs2026/voidImageViewer.vcxproj"):
+        p = read(proj).decode("utf-8", errors="replace")
+        check(proj + " does not reference crt.c",
+              'ClCompile Include="..\\src\\crt.c"' not in p and
+              "crt.c" not in p)
+
+    # gitignore: python bytecode was the one uncovered class
+    check("gitignore covers python bytecode",
+          "__pycache__/" in gi)
+
+    # release workflow: no clobber, hash chain, gate, whitelist, least privilege
+    check("release has no upload/clobber path (create only, no overwrite)",
+          "gh release upload" not in ry and "gh release edit" not in ry)
+    check("release refuses to overwrite an existing release",
+          "Refuse to overwrite an existing release" in ry)
+    check("release job order is validate -> tests -> build -> publish",
+          all(j in ry for j in ("  validate:", "  tests:", "  build:", "  publish:")))
+    check("release publishes only with contents: write, workflow default is read",
+          "    permissions:\n      contents: write" in ry and
+          "permissions:\n  contents: read" in ry)
+    check("artifact hashes are re-verified after download",
+          "Re-verify artifact SHA-256" in ry and "sha256sum -c sha256.txt" in ry)
+    check("tag whitelist regex accepts 3 or 4 numeric segments",
+          "grep -Eq '^v[0-9]+\\.[0-9]+(\\.[0-9]+){1,2}(-(beta|rc)\\.[0-9]+)?$'" in ry)
+    check("tag must match src/version.h",
+          "Verify the tag matches src/version.h" in ry)
+    check("release notes are generated from Changes.txt, not embedded",
+          "Generate release notes from Changes.txt" in ry and
+          "Recent changes" not in ry and
+          "beta.13" not in ry)
+    check("user input reaches shells only through env",
+          "${{ inputs.tag }}" not in ry.replace("INPUT_TAG: ${{ inputs.tag }}", "") and
+          "INPUT_TAG: ${{ inputs.tag }}" in ry and
+          "${{ github.ref_name }}" not in ry.replace("REF_NAME: ${{ github.ref_name }}", "") and
+          "REF_NAME: ${{ github.ref_name }}" in ry)
+    check("the prerelease input is derived from the version phase, not typed in",
+          "inputs.prerelease" not in ry)
+
+    # tests workflow: pinned runners, drift matrix, schedule compile only
+    check("compile pins windows-2022 for the shipping v143 path",
+          "windows-2022" in ty and "runner: windows-2022" in ty)
+    check("compile adds the windows-2025 v145 compatibility leg",
+          "windows-2025" in ty and "project: vs2026" in ty and "toolset: v145" in ty)
+    check("windows-latest is no longer used by any job",
+          "runs-on: windows-latest" not in ty and "runs-on: windows-latest" not in ry)
+    check("the daily schedule skips the python suites",
+          "if: github.event_name != 'schedule'" in ty)
+    check("tags run the tests workflow too",
+          "tags: ['v*']" in ty)
+    check("actions are pinned to commit shas",
+          "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in ty and
+          "microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57" in ty)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -1027,6 +1114,7 @@ if __name__ == "__main__":
     t_review_fixes()
     t_review_fixes_round2()
     t_review_fixes_round4()
+    t_release_engineering_round5()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

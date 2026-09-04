@@ -26,3 +26,7 @@ PaxHeaders.X/
 # OS junk
 Thumbs.db
 .DS_Store
+
+# python bytecode (the local test suites)
+__pycache__/
+*.pyc

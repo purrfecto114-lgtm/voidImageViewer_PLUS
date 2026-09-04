@@ -201,7 +201,6 @@
 // *hide mouse on hover.
 // *using wrong registry key in _viv_install_association_by_extension.
 // *vs2005 and vs2019 solutions in separate dirs.
-// *remove crt.c and other unused c files.
 // 1.0.0.12
 // *fixed a gdi leak when freeing mipmaps
 // *fixed a gdi leak when refreshing.
@@ -3092,7 +3091,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 									_viv_preload_frame_count = first_frame->frame_count;
 
 									// allocate hbitmaps.
-									_viv_preload_frames = (_viv_frame_t *)mem_alloc(sizeof(_viv_frame_t) * _viv_preload_frame_count);
+									_viv_preload_frames = (_viv_frame_t *)mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_preload_frame_count));
 									_viv_preload_frames[0].hbitmap = first_frame->frame.hbitmap;
 									_viv_preload_frames[0].mipmap = first_frame->frame.mipmap;
 									_viv_preload_frames[0].delay = first_frame->frame.delay;
@@ -3123,7 +3122,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 									_viv_frame_count = first_frame->frame_count;
 
 									// allocate hbitmaps.
-									_viv_frames = mem_alloc(sizeof(_viv_frame_t) * _viv_frame_count);
+									_viv_frames = (_viv_frame_t *)mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_frame_count));
 									_viv_frames[0].hbitmap = first_frame->frame.hbitmap;
 									_viv_frames[0].mipmap = first_frame->frame.mipmap;
 									_viv_frames[0].delay = first_frame->frame.delay;
@@ -15563,7 +15562,7 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 					
 			if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_FILE_SIZE))
 			{
-				_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_SIZE | EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED; 
+				_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_SIZE; // date modified is requested by its own indexed check below 
 			}
 			
 			if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_DATE_MODIFIED))
@@ -16030,7 +16029,7 @@ static void _viv_send_random_everything_search(void)
 				
 		if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_FILE_SIZE))
 		{
-			_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_SIZE | EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED; 
+			_viv_everything_request_flags |= EVERYTHING_IPC_QUERY2_REQUEST_SIZE; // date modified is requested by its own indexed check below 
 		}
 		
 		if (SendMessage(everything_hwnd,EVERYTHING_WM_IPC,EVERYTHING_IPC_IS_FILE_INFO_INDEXED,EVERYTHING_IPC_FILE_INFO_DATE_MODIFIED))
