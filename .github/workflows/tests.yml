@@ -1,12 +1,19 @@
 name: tests
 
 # Continuous verification of the zoom math, menu structure, dark mode wiring
-# and localization alignment invariants. Runs on every push and every day
-# (04:00 UTC = 12:00 Asia/Shanghai) so regressions are caught even when no
-# one is actively working on the repository.
+# and localization alignment invariants. Runs on every push (branches and
+# tags) and every pull request.
+#
+# The daily schedule (04:00 UTC = 12:00 Asia/Shanghai) intentionally runs
+# ONLY the Windows compile matrix: the Python suites are fully covered by
+# push/PR/tag events, while compiling every day on pinned runner images is
+# the drift detector for hosted-image toolchain changes (the images gain
+# and lose preinstalled software over time, e.g. the VS2026 images ship
+# without NSIS and without the v143 toolset).
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
     branches: [master]
   schedule:
@@ -15,11 +22,12 @@ on:
 
 jobs:
   tests:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
@@ -29,23 +37,44 @@ jobs:
       - name: Menu structure, dark mode wiring and version consistency tests
         run: python3 tests/menu_structure_test.py
 
-  # rc.2: compile both shipping configurations on every push, so a build
-  # break is caught before tagging a release (previously only the tag
-  # driven release workflow compiled).
+  # Compile both shipping configurations on every push (since rc.2), pull
+  # request, tag and daily schedule so a build break is caught before
+  # tagging a release.
+  #
+  # Runner matrix: windows-latest is in the middle of GitHub's gradual
+  # migration to the Windows Server 2025 + VS2026 (v145) image, and the
+  # 2025 image has no v143 toolset (MSB8020). Pin the shipping build to
+  # windows-2022 (VS2022, v143) and pair it with windows-2025 (VS2026,
+  # v145 via the vs2026 project) so the migration can not break this
+  # repository's CI by surprise: the v145 leg doubles as the forward
+  # compatibility / image drift detector.
   compile:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-2022 v143
+            runner: windows-2022
+            project: vs2019
+            toolset: v143
+          - name: windows-2025 v145
+            runner: windows-2025
+            project: vs2026
+            toolset: v145
+    runs-on: ${{ matrix.runner }}
+    name: compile (${{ matrix.name }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: microsoft/setup-msbuild@v2
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
 
       - name: Build x64 (Release)
         shell: cmd
-        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x64\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x64\\" /m /nologo /v:m
+        run: msbuild ${{ matrix.project }}\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=${{ matrix.toolset }} "/p:OutDir=%GITHUB_WORKSPACE%\build\x64\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x64\\" /m /nologo /v:m
 
       - name: Build x86 (Release)
         shell: cmd
-        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x86\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x86\\" /m /nologo /v:m
+        run: msbuild ${{ matrix.project }}\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=${{ matrix.toolset }} "/p:OutDir=%GITHUB_WORKSPACE%\build\x86\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x86\\" /m /nologo /v:m
 
       - name: Verify build output
         shell: pwsh
