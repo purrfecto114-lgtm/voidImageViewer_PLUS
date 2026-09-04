@@ -35,6 +35,15 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 
 
+What's new in this release candidate
+--------
+**Version 1.1.0-rc.1** adds percent based zoom stepping, an always visible zoom pane and fixes the dark dialogs:
+
+- **Zoom percent stepping** - the zoom in/out buttons now step whole 10 percents. If the current zoom is not a multiple of 10 (after a wheel or pinch gesture), the first click snaps to the nearest multiple of 10. The wheel and gestures keep their smooth proportional stepping.
+- **Zoom pane** - the zoom percent is always visible as the leftmost status bar pane. Clicking it (hand cursor) opens a small dialog to type an exact percent; typing 100 enters the pixel perfect 1:1 mode.
+- **Dark dialogs fix** - the beta.10 dark dialog color handler was dead code (placed before the first case label inside switch(msg), unreachable in C), so dialog backgrounds and text never actually painted dark. It now runs on every message, and the Jump To dialog is wired too.
+- **Translations** - the two new zoom strings are translated in both languages (254/254 aligned).
+
 What's new in this beta
 --------
 **Version 1.1.0-beta.13** fixes the beta.12 startup crash and regroups the right click menu:

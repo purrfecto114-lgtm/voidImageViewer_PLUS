@@ -305,4 +305,6 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"&White", // LOCALIZATION_ID_BACKDROP_WHITE,
 	"&Custom color...", // LOCALIZATION_ID_BACKDROP_CUSTOM,
 	"&Checkerboard", // LOCALIZATION_ID_BACKDROP_CHECKERBOARD,
+	"Set Zoom", // LOCALIZATION_ID_SET_ZOOM_CAPTION,
+	"&Zoom percent:", // LOCALIZATION_ID_SET_ZOOM_STATIC,
 };

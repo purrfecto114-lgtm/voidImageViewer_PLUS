@@ -279,4 +279,6 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"白色(&W)", // LOCALIZATION_ID_BACKDROP_WHITE
 	"自定义颜色(&C)...", // LOCALIZATION_ID_BACKDROP_CUSTOM
 	"棋盘格(&K)", // LOCALIZATION_ID_BACKDROP_CHECKERBOARD
+	"设置缩放", // LOCALIZATION_ID_SET_ZOOM_CAPTION
+	"缩放百分比(&Z)：", // LOCALIZATION_ID_SET_ZOOM_STATIC
 };

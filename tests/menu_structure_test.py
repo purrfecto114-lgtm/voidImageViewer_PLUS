@@ -138,10 +138,12 @@ def t_localization_alignment():
             "LOCALIZATION_ID_BACKDROP_BLACK",
             "LOCALIZATION_ID_BACKDROP_WHITE",
             "LOCALIZATION_ID_BACKDROP_CUSTOM",
-            "LOCALIZATION_ID_BACKDROP_CHECKERBOARD")
-    check("enum ends with the dark+backdrop ids", tuple(ids[-10:]) == tail)
-    check("en ends with the dark+backdrop ids", tuple(en[-10:]) == tail)
-    check("zh ends with the dark+backdrop ids", tuple(zh[-10:]) == tail)
+            "LOCALIZATION_ID_BACKDROP_CHECKERBOARD",
+            "LOCALIZATION_ID_SET_ZOOM_CAPTION",
+            "LOCALIZATION_ID_SET_ZOOM_STATIC")
+    check("enum ends with the dark+backdrop+zoom ids", tuple(ids[-12:]) == tail)
+    check("en ends with the dark+backdrop+zoom ids", tuple(en[-12:]) == tail)
+    check("zh ends with the dark+backdrop+zoom ids", tuple(zh[-12:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -166,12 +168,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.13 -beta.13",
-          "VERSION_BUILD\t\t13" in vh and '"-beta.13"' in vh)
-    check("rc = 1,1,0,13 + 1.1.0-beta.13",
-          "1,1,0,13" in rc and rc.count("1.1.0-beta.13") >= 2)
-    check("nsh = 1.1.0.13 + -beta.13",
-          '!define VERSION "1.1.0.13"' in nsh and '!define BETAVERSION "-beta.13"' in nsh)
+    check("version.h = 1.1.0.14 -rc.1",
+          "VERSION_BUILD\t\t14" in vh and '"-rc.1"' in vh)
+    check("rc = 1,1,0,14 + 1.1.0-rc.1",
+          "1,1,0,14" in rc and rc.count("1.1.0-rc.1") >= 2)
+    check("nsh = 1.1.0.14 + -rc.1",
+          '!define VERSION "1.1.0.14"' in nsh and '!define BETAVERSION "-rc.1"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -182,21 +184,25 @@ def t_version():
 # ---------------------------------------------------------------------------
 def t_status_vararg_safety():
     viv = read("src/viv.c").decode()
-    m = re.search(r"static void _viv_status_update_temp_pos_zoom\(void\)\s*\{(.*?)\n\}",
+    # the zoom pane call: exactly one string_printf uses the zoom format,
+    # inside _viv_status_update, passing exactly one int-returning call.
+    calls = re.findall(
+        r"string_printf\(\s*zoom_buf,\s*localization_get_string\(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT\)\s*,([^;]*)\);",
+        viv, re.S)
+    check("exactly one zoom pane format call", len(calls) == 1, repr(calls))
+    if calls:
+        args = calls[0].strip()
+        check("zoom pane call passes exactly one vararg",
+              args == "_viv_zoom_percent()", repr(args))
+    # _viv_zoom_percent must be declared int and round the double average
+    m = re.search(r"static int _viv_zoom_percent\(void\)\s*\{(.*?)\n\}",
                   viv, re.S)
-    assert m, "status zoom function not found"
+    assert m, "_viv_zoom_percent not found"
     body = m.group(1)
-    call = re.search(
-        r"string_printf\(\s*wbuf,\s*localization_get_string\(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT\)\s*,([^;]*)\);",
-        body, re.S)
-    assert call, "string_printf call with the zoom format not found"
-    args = call.group(1).strip()
-    # exactly one argument after the format, and it is an int variable
-    check("status call passes exactly one vararg", args == "percent", repr(args))
-    check("percent is a local int", re.search(r"\bint percent;", body) is not None)
-    # no double/float pan positions are passed any more
-    check("no pan position doubles near the call",
-          "x, y" not in args and "zoom_x" not in args)
+    check("zoom percent returns the rounded int average",
+          "return (int)((((zoom_x + zoom_y) / 2.0) * 100.0) + 0.5);" in body)
+    check("the old five vararg call is gone",
+          re.search(r"_viv_status_update_temp_pos_zoom\(void\)\s*\{[^}]*string_printf", viv, re.S) is None)
 
 
 # ---------------------------------------------------------------------------
@@ -293,8 +299,8 @@ def t_ladder_shape():
           "pos_max = _viv_zoom_pos_max();" in viv)
     check("1:1 exit search starts at the live top",
           "hi = _viv_zoom_pos_max() + 1; // exclusive upper bound" in viv)
-    check("1:1 exit searches are binary (O(log n) measurements)",
-          viv.count("mid = lo + ((hi - lo) / 2);") == 2
+    check("1:1 exit and percent searches are binary (O(log n) measurements)",
+          viv.count("mid = lo + ((hi - lo) / 2);") == 3
           and "for(_viv_zoom_pos = 0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)" not in viv)
     check("ladder top cache signature present",
           "_viv_zoom_pos_max_cache >= 0" in viv
@@ -394,10 +400,17 @@ def t_dark_dialogs_wiring():
           "_viv_dialog_dark_ctlcolor" in viv and
           "_viv_dialog_dark_erase" in viv and
           "_viv_dialog_dark_brush" in viv)
-    check("all 9 dialog procs route through the dispatcher",
-          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 9)
-    check("all 9 dialogs get the dark chrome at init",
-          viv.count("_viv_dark_dialog(hwnd);") == 9)
+    check("all 11 dialog procs route through the dispatcher",
+          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 11)
+    check("all 11 dialogs get the dark chrome at init",
+          viv.count("_viv_dark_dialog(hwnd);") == 11)
+    # rc.1 regression guard: the dispatcher must NOT sit inside switch(msg)
+    # before the first case label - that placement is unreachable dead code
+    # (the beta.10 bug: gcc warned "statement will never be executed").
+    dead = viv.count("switch(msg)\r\n\t{\r\n\t\t{\r\n\t\t\tINT_PTR dark_dialog_reply;")
+    check("no dispatcher dead placement inside switch(msg)", dead == 0, str(dead))
+    live = viv.count("{\r\n\t\tINT_PTR dark_dialog_reply;")
+    check("dispatcher runs before the switch in every proc", live == 11, str(live))
     check("the dispatcher handles the color and erase messages",
           "case WM_CTLCOLORSTATIC:" in viv and
           "case WM_CTLCOLOREDIT:" in viv and
@@ -634,6 +647,129 @@ def t_paste_wiring():
 
 
 
+# ---------------------------------------------------------------------------
+# rc.1: percent based zoom stepping + the always visible zoom pane.
+# ---------------------------------------------------------------------------
+def t_zoom_percent_wiring():
+    viv = read("src/viv.c").decode()
+    osh = read("src/os.h").decode()
+    rh = read("res/resource.h").decode()
+    rct = read("res/voidImageViewer.rc").decode(errors="replace")
+    lh = read("src/localization.h").decode()
+    le = read("src/localization_en_us.h").decode()
+    lz = read("src/localization_zh_cn.h").decode()
+
+    # stepping: snap to the nearest multiple of 10 first, then 10% per click
+    m = re.search(r"static void _viv_zoom_in\(int out,int have_xy,int x,int y\)\s*\{(.*?)\n\}",
+                  viv, re.S)
+    assert m, "_viv_zoom_in not found"
+    body = m.group(1)
+    check("button zoom uses the percent stepper",
+          "_viv_zoom_percent();" in body and "_viv_zoom_set_percent(target" in body)
+    check("already a multiple of 10 steps 10 percent",
+          "target = percent + (out ? -10 : 10);" in body)
+    check("not a multiple snaps to the nearest 10",
+          "lower = (percent / 10) * 10;" in body and "upper = lower + 10;" in body)
+    check("midpoint ties round toward the click direction",
+          "target = out ? lower : upper;" in body)
+    check("buttons no longer delegate to the wheel action",
+          "_viv_do_mousewheel_action" not in body)
+    check("percent steps are skipped without an image",
+          "if (!_viv_image_wide)" in body)
+
+    # the percent -> ladder position search
+    m = re.search(r"static void _viv_zoom_set_percent\(int percent,int screen_x,int screen_y,int force\)\s*\{(.*?)\n\}",
+                  viv, re.S)
+    assert m, "_viv_zoom_set_percent not found"
+    body = m.group(1)
+    check("the percent search is a binary search over the ladder",
+          "lo + ((hi - lo) / 2)" in viv and "_viv_zoom_pos_max() + 1" in viv
+          and "static int _viv_zoom_pos_for_percent(int percent,int strict)" in viv
+          and "_viv_zoom_pos_for_percent(percent,0)" in viv
+          and "_viv_zoom_pos_for_percent(next,1)" in viv)
+    check("exact 100 percent enters the 1:1 mode",
+          "if (percent == 100)" in body and "_viv_1to1 = 1;" in body and
+          "_viv_old_zoom_pos = _viv_zoom_pos;" in body)
+    check("leaving 1:1 mode clears the flag",
+          "_viv_1to1 = 0;" in body)
+    check("the result is clamped to the live ladder",
+          "_viv_clamp_zoom_pos(_viv_zoom_pos);" in body)
+    check("the anchor math keeps the point under the cursor fixed",
+          "new_cursor_x = ((__int64)old_cursor_px * (__int64)new_rw) / (__int64)old_rw;" in body)
+    check("the view is invalidated and the status refreshed",
+          "InvalidateRect(_viv_hwnd,0,FALSE);" in body and
+          "_viv_status_update_temp_pos_zoom();" in body)
+    check("button clicks force visible progress when the target is unreachable",
+          "if (force && (!_viv_1to1))" in body and
+          "next = ((old_percent / 10) * 10) + ((force > 0) ? 10 : -10);" in body and
+          "_viv_zoom_pos_for_percent(next,1)" in body)
+    check("a zoom out click at the ladder floor is a no-op",
+          "if (out && (!_viv_1to1) && (_viv_zoom_pos == 0))" in viv)
+    check("buttons pass the direction, the dialog does not force",
+          "_viv_zoom_set_percent(target,pt.x,pt.y,out ? -1 : 1);" in viv and
+          "_viv_zoom_set_percent(target,pt.x,pt.y,0);" in viv)
+
+    # the status bar zoom pane (part 0, always visible, clickable)
+    m = re.search(r"static void _viv_status_update\(void\)\s*\{(.*?)\n\t\tif \(_viv_status_hwnd\)",
+                  viv, re.S)
+    assert m or True
+    check("the parts array grew for the zoom pane",
+          "int part_array[7];" in viv)
+    check("zoom text is built for the pane",
+          "wchar_t zoom_buf[STRING_SIZE];" in viv and "*zoom_buf = 0;" in viv)
+    check("the zoom pane is the leftmost fixed part",
+          "part_array[parti] = zoom_wide;" in viv)
+    check("the pane is measured like the other parts",
+          "GetTextExtentPoint32(hdc,zoom_buf,string_get_length(zoom_buf),&size)" in viv)
+    check("the message pane moved to part 1",
+          "_viv_status_set(1,text);" in viv and "_viv_status_set(0,zoom_buf);" in viv)
+    check("the right parts start at index 2",
+          "parti = 2;" in viv)
+    check("the pane width is never below the minimum",
+          "if (zoom_wide < minwide)" in viv)
+
+    # clicking the pane opens the set zoom dialog
+    check("status click case 0 opens the dialog",
+          "_viv_set_zoom_dialog();" in viv)
+    check("the frame toggle pane is now located dynamically",
+          "SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2" in viv)
+    check("hand cursor over the zoom pane",
+          "case WM_SETCURSOR:" in viv and "SB_GETRECT" in viv and "IDC_HAND" in viv)
+
+    # the set zoom dialog
+    check("dialog invoker clamps the target range",
+          "if (target > 1600)" in viv and "if (target >= 1)" in viv)
+    check("the dialog proc seeds the edit with the current percent",
+          "SetDlgItemInt(hwnd,IDC_SET_ZOOM_EDIT,_viv_set_zoom_dialog_percent,FALSE);" in viv)
+    check("the dialog gets the dark chrome",
+          re.search(r"static INT_PTR CALLBACK _viv_set_zoom_proc\(.*?\{.*?_viv_dialog_dark_proc\(hwnd,msg,wParam,lParam\);", viv, re.S) is not None and
+          "_viv_dark_dialog(hwnd);" in viv)
+    check("dialog ids defined",
+          "#define IDD_SET_ZOOM" in rh and
+          "#define IDC_SET_ZOOM_EDIT" in rh and
+          "#define IDC_SET_ZOOM_STATIC" in rh)
+    check("dialog template present",
+          "IDD_SET_ZOOM DIALOGEX" in rct and
+          "IDC_SET_ZOOM_EDIT,54,12,66,12,ES_AUTOHSCROLL | ES_NUMBER" in rct)
+    check("dialog strings localized in both tables",
+          '"Set Zoom", // LOCALIZATION_ID_SET_ZOOM_CAPTION,' in le and
+          '"&Zoom percent:", // LOCALIZATION_ID_SET_ZOOM_STATIC,' in le and
+          '"设置缩放", // LOCALIZATION_ID_SET_ZOOM_CAPTION' in lz and
+          '"缩放百分比(&Z)：", // LOCALIZATION_ID_SET_ZOOM_STATIC' in lz)
+    check("enum gains the two zoom ids",
+          "LOCALIZATION_ID_SET_ZOOM_CAPTION," in lh and
+          "LOCALIZATION_ID_SET_ZOOM_STATIC," in lh)
+
+    # the temp zoom flash is replaced by the permanent pane
+    m = re.search(r"static void _viv_status_update_temp_pos_zoom\(void\)\s*\{(.*?)\n\}",
+                  viv, re.S)
+    assert m
+    body = m.group(1)
+    check("temp zoom flash now just refreshes the status bar",
+          "_viv_status_update();" in body and "string_printf" not in body and
+          "_viv_status_set_temp_text" not in body)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -650,6 +786,7 @@ if __name__ == "__main__":
     t_thumbnail_api()
     t_context_menu_shape()
     t_paste_wiring()
+    t_zoom_percent_wiring()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

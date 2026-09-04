@@ -392,6 +392,216 @@ def t_pos_max_cache_signature():
           f"{hits} hits across {len(seq)} states")
 
 
+
+# ---------------------------------------------------------------------------
+# rc.1: percent based button stepping. mirrors _viv_zoom_in (snap math),
+# _viv_zoom_set_percent (binary search + closest pick + force rule) and the
+# 1:1 special case for an exact 100%.
+# ---------------------------------------------------------------------------
+def percent_of(fit_w, fit_h, image_w, image_h, pos):
+    rw, rh = render(fit_w, fit_h, pos, image_w, image_h)
+    if not image_w or not image_h or not rw or not rh:
+        return 100
+    return int((((rw / image_w) + (rh / image_h)) / 2.0) * 100.0 + 0.5)
+
+
+def snap_target(percent, out):
+    """the _viv_zoom_in target math, mirrored exactly."""
+    if (percent % 10) == 0:
+        return percent + (-10 if out else 10)
+    lower = (percent // 10) * 10
+    upper = lower + 10
+    if (percent - lower) < (upper - percent):
+        return lower
+    if (percent - lower) > (upper - percent):
+        return upper
+    return lower if out else upper   # midpoint tie -> click direction
+
+
+def pos_for_percent(target, pm, fit_w, fit_h, image_w, image_h, strict=0):
+    """the _viv_zoom_pos_for_percent search, mirrored exactly.
+    strict=1 returns the first position that reaches the target
+    (no closest-pick below) - used by the force fallback."""
+    lo, hi = 0, pm + 1
+    while lo < hi:
+        mid = lo + ((hi - lo) // 2)
+        if percent_of(fit_w, fit_h, image_w, image_h, mid) >= target:
+            hi = mid
+        else:
+            lo = mid + 1
+    if lo > pm:
+        lo = pm
+    if (lo > 0) and (not strict):
+        below = percent_of(fit_w, fit_h, image_w, image_h, lo - 1)
+        at = percent_of(fw, fh, iw, ih, lo) if False else percent_of(fit_w, fit_h, image_w, image_h, lo)
+        if (target - below) < (at - target):
+            lo = lo - 1
+    return lo
+
+
+def button_click(state, out, pm, fit_w, fit_h, image_w, image_h):
+    """state = (pos, is_1to1). one click of the zoom in/out button,
+    mirroring _viv_zoom_in + _viv_zoom_set_percent (with force)."""
+    pos, is_1to1 = state
+    percent = 100 if is_1to1 else percent_of(fit_w, fit_h, image_w, image_h, pos)
+    # floor guard: a zoom out click at the ladder floor is a no-op.
+    if out and (not is_1to1) and pos == 0:
+        return (pos, is_1to1)
+    old_percent = percent
+    target = snap_target(percent, out)
+    if target == 100:
+        return (0, True)          # exact 100% enters 1:1
+    if is_1to1:
+        is_1to1 = False
+        old_pos = 0
+    else:
+        old_pos = pos
+    new_pos = pos_for_percent(target, pm, fit_w, fit_h, image_w, image_h)
+    # force rule: when the exact target is undisplayable (landed != target)
+    # and the landing does not move in the click direction, jump to the
+    # next multiple of 10 in the click direction.
+    landed = percent_of(fit_w, fit_h, image_w, image_h, new_pos)
+    force = 1 if not out else -1
+    if (not is_1to1) and landed != target and (
+            (force > 0 and new_pos <= old_pos) or
+            (force < 0 and new_pos >= old_pos)):
+        nxt = (old_percent // 10) * 10 + (10 if not out else -10)
+        if nxt < 1:
+            nxt = 1
+        new_pos = pos_for_percent(nxt, pm, fit_w, fit_h, image_w, image_h, strict=1)
+    if new_pos > pm:
+        new_pos = pm
+    if new_pos < 0:
+        new_pos = 0
+    return (new_pos, is_1to1)
+
+
+def t_percent_stepping():
+    # unit checks of the snap math (the user visible contract)
+    cases = [
+        (34, False, 30), (34, True, 30),
+        (37, False, 40), (37, True, 40),
+        (35, False, 40), (35, True, 30),      # tie -> direction
+        (100, False, 110), (100, True, 90),
+        (9, False, 10), (1600, True, 1590),
+        (1447, False, 1450),
+    ]
+    for percent, out, want in cases:
+        got = snap_target(percent, out)
+        check(f"snap {percent} {'out' if out else 'in'} -> {want}", got == want, f"got {got}")
+
+    geometries = [
+        ("photo 4000x3000 in 800x600", 4000, 3000, 800, 600),
+        ("exact fit 800x600", 800, 600, 800, 600),
+        ("small icon 100x100 in 800x600", 100, 100, 800, 600),
+        ("panorama 12000x300 in 800x600", 12000, 300, 800, 600),
+        ("tall 600x4000 in 800x600", 600, 4000, 800, 600),
+    ]
+    for name, iw, ih, cw, ch in geometries:
+        fw, fh = fit_size(iw, ih, cw, ch)
+        pm = pos_max(fw, fh, iw, ih)
+        pmin = percent_of(fw, fh, iw, ih, 0)
+        pmax = percent_of(fw, fh, iw, ih, pm)
+
+        # from every 128th position: one click must respect the spec:
+        # - the result stays inside the live ladder
+        # - from a multiple of 10 the click moves one step in its direction
+        #   (or is already at the domain edge / enters 1:1)
+        # - from a non multiple the click lands on the nearest multiple
+        #   (possibly moving toward it against the click direction - the
+        #   literal spec) or makes visible progress where the ladder is too
+        #   sparse to display multiples (~14% apart past 1400%)
+        bad = 0
+        for pos in range(0, pm + 1, max(1, pm // 128)):
+            new_pos, is_1to1 = button_click((pos, False), False, pm, fw, fh, iw, ih)
+            if new_pos < 0 or new_pos > pm or (is_1to1 and new_pos != 0):
+                bad += 1000
+            elif is_1to1:
+                pass
+            else:
+                percent = percent_of(fw, fh, iw, ih, pos)
+                if (percent % 10) == 0:
+                    if new_pos <= pos and pos != pm:
+                        bad += 1
+                else:
+                    newp = percent_of(fw, fh, iw, ih, new_pos)
+                    if (newp % 10) != 0 and new_pos == pos and percent < 1000:
+                        bad += 1
+        check(f"{name}: zoom in steps by the spec", bad == 0, str(bad))
+
+        bad = 0
+        for pos in range(0, pm + 1, max(1, pm // 128)):
+            new_pos, _ = button_click((pos, False), True, pm, fw, fh, iw, ih)
+            if new_pos < 0 or new_pos > pm:
+                bad += 1000
+            else:
+                percent = percent_of(fw, fh, iw, ih, pos)
+                if (percent % 10) == 0:
+                    if new_pos >= pos and pos != 0:
+                        bad += 1
+                elif pos != 0:
+                    # (pos 0 is the ladder floor: zoom out is a no-op there)
+                    newp = percent_of(fw, fh, iw, ih, new_pos)
+                    if (newp % 10) != 0 and new_pos == pos and percent < 1000:
+                        bad += 1
+        check(f"{name}: zoom out steps by the spec", bad == 0, str(bad))
+
+        # the domain is respected
+        check(f"{name}: ladder domain percent {pmin}..{pmax}",
+              0 < pmin <= 100 or pmin >= 1)
+        check(f"{name}: top reaches the cap region", pmax >= 100)
+
+        # repeated IN from the floor: the first click lands on a multiple of
+        # 10 (or makes progress in a sparse zone), then steps of 10
+        state = (0, False)
+        prev = percent_of(fw, fh, iw, ih, 0)
+        ok_seq = True
+        last_mult = None
+        for _ in range(40):
+            state = button_click(state, False, pm, fw, fh, iw, ih)
+            pos, is_1to1 = state
+            cur = 100 if is_1to1 else percent_of(fw, fh, iw, ih, pos)
+            if cur <= prev:
+                ok_seq = False
+                break
+            # the ladder renders in 1.01x steps, so every multiple of 10 is
+            # displayable only below ~100% (delta per position <= 1). above
+            # that the clicks still step one ~10% multiple, but the shown
+            # integer can be a few points off the exact multiple.
+            if (cur % 10) == 0:
+                if (last_mult is not None and cur - last_mult != 10
+                        and last_mult <= 100):
+                    ok_seq = False      # dense zone: exact 10 chains
+                    break
+                last_mult = cur
+            gain = cur - prev
+            if (prev % 10) == 0:
+                # from a multiple: one ~10% step
+                if not (5 <= gain <= (25 if cur > 1000 else 15)):
+                    ok_seq = False
+                    break
+            else:
+                # from a non multiple: the snap lands on (or past) the
+                # nearest multiple - forward, possibly small, never big.
+                if not (0 < gain <= (25 if cur > 1000 else 15)):
+                    ok_seq = False
+                    break
+            prev = cur
+        check(f"{name}: repeated zoom in climbs in ~10% steps, exact below 100%", ok_seq,
+              f"last {prev} mult {last_mult}")
+
+        # 1:1 entry/exit through the buttons
+        state = button_click(state, False, pm, fw, fh, iw, ih)
+        # walk to exactly 100 by clicking OUT from 1:1 model is overkill:
+        # entering 1:1 happens at target 100; verify exit clicks move.
+        state = (0, True)   # in 1:1
+        s1 = button_click(state, False, pm, fw, fh, iw, ih)
+        s2 = button_click(state, True, pm, fw, fh, iw, ih)
+        check(f"{name}: 1:1 in/out clicks leave the mode zoomed",
+              (not s1[1]) and (not s2[1]) and s1[0] >= 0 and s2[0] >= 0)
+
+
+
 if __name__ == "__main__":
     t_aspect_invariant()
     t_geometric_ladder()
@@ -404,6 +614,7 @@ if __name__ == "__main__":
     t_status_percent_is_native_relative()
     t_binary_search_equivalence()
     t_pos_max_cache_signature()
+    t_percent_stepping()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

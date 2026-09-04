@@ -1,3 +1,22 @@
+Release candidate: Version 1.1.0-rc.1 (zoom percent stepping, zoom pane, dark dialog fix)
+	zoom in and zoom out buttons (toolbar, keyboard, the configured mouse
+	zoom action) now step whole 10 percents: a zoom that is not a multiple
+	of 10 first snaps to the nearest multiple of 10, then every click
+	changes 10 percent. the mouse wheel and pinch gestures keep the smooth
+	proportional stepping.
+	the zoom percent is now always visible as the leftmost status bar pane
+	(the old three second temporary text is gone). clicking it opens a small
+	dialog to type an exact percent (1..1600); typing 100 enters the
+	pixel perfect 1:1 mode.
+	fixed a silent bug in the dark dialogs from beta.10: the shared dark
+	color handler was placed inside switch(msg) before the first case label,
+	which is unreachable in c, so dialogs never actually painted their
+	backgrounds and text dark (only the title bar and control themes did).
+	the handler now runs first on every dialog message, and the jump to
+	dialog is wired too (it was missed in the beta.10 audit).
+	translations: the two new zoom strings are added to both language
+	tables (254/254 aligned).
+
 Pre-release, BETA: Version 1.1.0-beta.13 (startup crash fix, context menu, clipboard paste)
 	fixed a fatal startup bug introduced in beta.12: the progressive preview
 	loaded the gdi+ thumbnail function by a name that does not exist in any

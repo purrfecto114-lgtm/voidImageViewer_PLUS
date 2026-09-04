@@ -584,6 +584,11 @@ static int _viv_toolbar_get_wide(void);
 static void _viv_toolbar_update_buttons(void);
 static void _viv_status_set_temp_text(wchar_t *text);
 static void _viv_status_update_temp_pos_zoom(void);
+static int _viv_zoom_percent(void);
+static int _viv_zoom_pos_for_percent(int percent,int strict);
+static void _viv_zoom_set_percent(int percent,int screen_x,int screen_y,int force);
+static void _viv_set_zoom_dialog(void);
+static INT_PTR CALLBACK _viv_set_zoom_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _viv_status_update_temp_animation_rate(void);
 static int _viv_zoom_pos_max(void);
 static int _viv_is_dark(void);
@@ -4220,6 +4225,27 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			
 			break;
 			
+		case WM_SETCURSOR:
+		
+			// hand cursor over the clickable zoom pane (status bar part 0).
+			if (_viv_status_hwnd && ((HWND)wParam == _viv_status_hwnd))
+			{
+				POINT pt;
+				RECT pane_rect;
+				
+				GetCursorPos(&pt);
+				ScreenToClient(_viv_status_hwnd,&pt);
+				
+				if ((SendMessage(_viv_status_hwnd,SB_GETRECT,0,(LPARAM)&pane_rect)) && (PtInRect(&pane_rect,pt)))
+				{
+					SetCursor(LoadCursor(NULL,IDC_HAND));
+					
+					return TRUE;
+				}
+			}
+			
+			break;
+			
 		case WM_NOTIFY:
 
 			switch(((NMHDR *)lParam)->idFrom)
@@ -4273,12 +4299,19 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 								
 								switch(item)
 								{
-									case 1:
-										config_frame_minus = !config_frame_minus;
-										_viv_status_update();
+									case 0:
+										// the zoom pane: type an exact percent.
+										_viv_set_zoom_dialog();
 										break;
 									
 									default:
+										// the frame counter pane is followed only by the dimension
+										// pane. clicking it toggles the frame numbering direction.
+										if (item == (int)SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2)
+										{
+											config_frame_minus = !config_frame_minus;
+											_viv_status_update();
+										}
 										break;
 								}
 															
@@ -8142,19 +8175,19 @@ static void _viv_delete(int permanently)
 
 static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
-		{
-			INT_PTR dark_dialog_reply;
-			
-			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-			
-			if (dark_dialog_reply != -1)
-			{
-				return dark_dialog_reply;
-			}
-		}
-		
 		case WM_INITDIALOG:
 			// dark chrome: title bar and dark explorer control style.
 			_viv_dark_dialog(hwnd);
@@ -9173,19 +9206,19 @@ static void _viv_blank(void)
 
 static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
-		{
-			INT_PTR dark_dialog_reply;
-			
-			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-			
-			if (dark_dialog_reply != -1)
-			{
-				return dark_dialog_reply;
-			}
-		}
-		
 		case WM_INITDIALOG:
 			// dark chrome: title bar and dark explorer control style.
 			_viv_dark_dialog(hwnd);
@@ -9383,19 +9416,19 @@ static void _viv_options_remove_key(HWND hwnd)
 
 static INT_PTR CALLBACK _viv_edit_key_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
-		{
-			INT_PTR dark_dialog_reply;
-			
-			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-			
-			if (dark_dialog_reply != -1)
-			{
-				return dark_dialog_reply;
-			}
-		}
-		
 		case WM_INITDIALOG:
 			// dark chrome: title bar and dark explorer control style.
 			_viv_dark_dialog(hwnd);
@@ -9508,19 +9541,19 @@ static void _viv_options_edit_key(HWND hwnd,int key_index)
 
 static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
-		{
-			INT_PTR dark_dialog_reply;
-			
-			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-			
-			if (dark_dialog_reply != -1)
-			{
-				return dark_dialog_reply;
-			}
-		}
-		
 		case WM_INITDIALOG:
 			// dark chrome: title bar and dark explorer control style.
 			_viv_dark_dialog(hwnd);
@@ -9639,19 +9672,19 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 
 static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
-		{
-			INT_PTR dark_dialog_reply;
-			
-			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-			
-			if (dark_dialog_reply != -1)
-			{
-				return dark_dialog_reply;
-			}
-		}
-		
 		case WM_INITDIALOG:
 			// dark chrome: title bar and dark explorer control style.
 			_viv_dark_dialog(hwnd);
@@ -9850,19 +9883,19 @@ static void _viv_options_update_sheild(HWND hwnd)
 
 static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
-		{
-			INT_PTR dark_dialog_reply;
-			
-			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-			
-			if (dark_dialog_reply != -1)
-			{
-				return dark_dialog_reply;
-			}
-		}
-		
 		case WM_NOTIFY:
 
 			switch(((NMHDR *)lParam)->idFrom)
@@ -11096,19 +11129,19 @@ static int _viv_is_window_maximized(HWND hwnd)
 
 static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
-		{
-			INT_PTR dark_dialog_reply;
-			
-			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-			
-			if (dark_dialog_reply != -1)
-			{
-				return dark_dialog_reply;
-			}
-		}
-		
 		case WM_INITDIALOG:
 			// dark chrome: title bar and dark explorer control style.
 			_viv_dark_dialog(hwnd);
@@ -11175,19 +11208,19 @@ static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,L
 
 static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
-		{
-			INT_PTR dark_dialog_reply;
-			
-			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-			
-			if (dark_dialog_reply != -1)
-			{
-				return dark_dialog_reply;
-			}
-		}
-		
 		case WM_CTLCOLOREDIT:	
 		case WM_CTLCOLORSTATIC:	
 			if (((HWND)lParam == GetDlgItem(hwnd,IDC_ABOUTBACK)) || ((HWND)lParam == GetDlgItem(hwnd,IDC_ABOUTTITLE)))
@@ -12665,7 +12698,7 @@ static void _viv_status_update(void)
 {
 	if (_viv_status_hwnd)
 	{
-		int part_array[6];
+		int part_array[7];
 		RECT rect;
 		wchar_t widebuf[STRING_SIZE];
 		wchar_t highbuf[STRING_SIZE];
@@ -12674,16 +12707,19 @@ static void _viv_status_update(void)
 		wchar_t pixel_pos_buf[STRING_SIZE];
 		wchar_t pixel_rgb_buf[STRING_SIZE];
 		wchar_t preload_buf[STRING_SIZE];
+		wchar_t zoom_buf[STRING_SIZE];
 		HDC hdc;
 		int dimension_wide;
 		int frame_wide;
 		int preload_wide;
 		int pixel_pos_wide;
 		int pixel_rgb_wide;
+		int zoom_wide;
 		int minwide;
 		
 		GetClientRect(_viv_hwnd,&rect);
 		
+		*zoom_buf = 0;
 		*preload_buf = 0;
 		*pixel_pos_buf = 0;
 		*pixel_rgb_buf = 0;
@@ -12700,6 +12736,12 @@ static void _viv_status_update(void)
 		else
 		{
 			string_copy_utf8_string(dimension_buf,(const utf8_t *)"");
+		}
+
+		// the zoom pane text. shown whenever an image is loaded.
+		if ((_viv_image_wide) && (_viv_image_high))
+		{
+			string_printf(zoom_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),_viv_zoom_percent());
 		}
 
 		if (*_viv_frame_fd->cFileName)
@@ -12784,6 +12826,7 @@ static void _viv_status_update(void)
 		preload_wide = 0;
 		pixel_pos_wide = 0;
 		pixel_rgb_wide = 0;
+		zoom_wide = 0;
 		minwide = (72 * os_logical_wide) / 96;
 
 		hdc = GetDC(_viv_status_hwnd);
@@ -12845,6 +12888,18 @@ static void _viv_status_update(void)
 						pixel_rgb_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 					}
 				}
+				if (*zoom_buf)
+				{
+					if (GetTextExtentPoint32(hdc,zoom_buf,string_get_length(zoom_buf),&size))
+					{
+						zoom_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+						
+						if (zoom_wide < minwide)
+						{
+							zoom_wide = minwide;
+						}
+					}
+				}
 
 				SelectObject(hdc,last_font);
 			}
@@ -12860,7 +12915,13 @@ static void _viv_status_update(void)
 			int part_wide;
 			
 			parti = 0;
-			part_wide = (rect.right - rect.left) - dimension_wide - frame_wide - preload_wide - pixel_pos_wide - pixel_rgb_wide;
+			
+			// the zoom pane is always the leftmost part. the message pane
+			// flexes after it.
+			part_array[parti] = zoom_wide;
+			parti++;
+			
+			part_wide = (rect.right - rect.left) - zoom_wide - dimension_wide - frame_wide - preload_wide - pixel_pos_wide - pixel_rgb_wide;
 
 			part_array[parti] = part_wide;
 			if (part_array[parti] < 0)
@@ -12935,13 +12996,14 @@ static void _viv_status_update(void)
 				text = text_buf;
 			}
 		
-			_viv_status_set(0,text);
+			_viv_status_set(0,zoom_buf);
+			_viv_status_set(1,text);
 		}
 		
 		{
 			int parti;
 			
-			parti = 1;
+			parti = 2;
 			
 			if (*preload_buf)
 			{
@@ -13321,41 +13383,342 @@ static void _viv_status_set_temp_text(wchar_t *text)
 	}
 }
 
-static void _viv_status_update_temp_pos_zoom(void)
+static int _viv_zoom_percent(void)
 {
-	wchar_t wbuf[STRING_SIZE];
-	int percent;
+	// the displayed zoom percent: the average of the x and y render scale,
+	// rounded to the nearest integer. this is exactly the number the status
+	// bar zoom pane shows, so percent based stepping lands on the values
+	// that are displayed.
+	int rw;
+	int rh;
 	
-	percent = 100;
+	if ((!_viv_image_wide) || (!_viv_image_high))
+	{
+		return 100;
+	}
+	
+	_viv_get_render_size(&rw,&rh);
+	
+	if ((!rw) || (!rh))
+	{
+		return 100;
+	}
 	
 	{
-		int rw;
-		int rh;
+		double zoom_x;
+		double zoom_y;
 		
-		_viv_get_render_size(&rw,&rh);
+		zoom_x = (double)rw / (double)_viv_image_wide;
+		zoom_y = (double)rh / (double)_viv_image_high;
 		
-		// show the real zoom factor of the image on screen: the rendered size
-		// divided by the native pixel size. keeping the aspect ratio means both
-		// axes agree; averaging cancels the +-1px rounding of the int sizes.
-		if ((_viv_image_wide) && (_viv_image_high) && (rw) && (rh))
+		return (int)((((zoom_x + zoom_y) / 2.0) * 100.0) + 0.5);
+	}
+}
+
+// the ladder position whose displayed percent is closest to percent.
+// the render size, and so the displayed percent, is monotonic in the
+// position, so a binary search finds it in ~10 measurements instead of
+// walking up to 1024 positions. NOTE: the search runs through
+// _viv_zoom_pos, so the caller must use the returned position.
+static int _viv_zoom_pos_for_percent(int percent,int strict)
+{
+	int lo;
+	int hi;
+	
+	lo = 0;
+	hi = _viv_zoom_pos_max() + 1; // exclusive upper bound
+	
+	while (lo < hi)
+	{
+		int mid;
+		
+		mid = lo + ((hi - lo) / 2);
+		
+		_viv_zoom_pos = mid;
+		
+		if (_viv_zoom_percent() >= percent)
 		{
-			double zoom_x;
-			double zoom_y;
-			
-			zoom_x = (double)rw / (double)_viv_image_wide;
-			zoom_y = (double)rh / (double)_viv_image_high;
-			
-			percent = (int)((((zoom_x + zoom_y) / 2.0) * 100.0) + 0.5);
+			hi = mid;
+		}
+		else
+		{
+			lo = mid + 1;
 		}
 	}
 	
-	// the zoom is shown as an integer percent. pass EXACTLY ONE int for the
-	// ONE %d in the format: the custom string_printf reads varargs with the
-	// exact types given here, so a double first argument would be read as
-	// garbage bits. (beta.6 printed huge negative percents this way.)
-	string_printf(wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),percent);
+	// the target can be above the top of the ladder: clamp.
+	if (lo > _viv_zoom_pos_max())
+	{
+		lo = _viv_zoom_pos_max();
+	}
 	
-	_viv_status_set_temp_text(wbuf);
+	// the search lands on the first position that reaches the target
+	// percent. the position below it may be closer: pick the better one.
+	// strict callers (the force fallback) want the first position that
+	// actually reaches the target so the jump always moves forward.
+	if ((lo > 0) && (!strict))
+	{
+		int below;
+		int at;
+		
+		_viv_zoom_pos = lo - 1;
+		below = _viv_zoom_percent();
+		
+		_viv_zoom_pos = lo;
+		at = _viv_zoom_percent();
+		
+		if ((percent - below) < (at - percent))
+		{
+			lo = lo - 1;
+		}
+	}
+	
+	return lo;
+}
+
+static void _viv_zoom_set_percent(int percent,int screen_x,int screen_y,int force)
+{
+	// set the zoom to the ladder position whose displayed percent is closest
+	// to the requested percent, keeping the image point under the anchor
+	// fixed (the same anchor math as the wheel zoom).
+	int old_zoom_pos;
+	int old_1to1;
+	int old_rw;
+	int old_rh;
+	int rx;
+	int ry;
+	int old_cursor_px;
+	int old_cursor_py;
+	int new_rw;
+	int new_rh;
+	int wide;
+	int high;
+	int old_percent;
+	RECT rect;
+	POINT pt;
+	__int64 new_cursor_x;
+	__int64 new_cursor_y;
+	
+	old_zoom_pos = _viv_zoom_pos;
+	old_1to1 = _viv_1to1;
+	old_percent = _viv_zoom_percent();
+	
+	GetClientRect(_viv_hwnd,&rect);
+	wide = rect.right - rect.left;
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	
+	pt.x = screen_x;
+	pt.y = screen_y;
+	
+	ScreenToClient(_viv_hwnd,&pt);
+	
+	_viv_get_render_size(&old_rw,&old_rh);
+	
+	rx = (wide / 2) - (old_rw / 2) - _viv_view_x;
+	ry = (high / 2) - (old_rh / 2) - _viv_view_y;
+	
+	old_cursor_px = pt.x - rx;
+	old_cursor_py = pt.y - ry;
+	
+	if (percent == 100)
+	{
+		// exact 100% is the 1:1 mode: native, pixel perfect size. entering it
+		// mirrors _viv_view_1to1() so the 1:1 command still toggles back to
+		// the previous zoom.
+		if (!_viv_1to1)
+		{
+			_viv_have_old_zoom = 1;
+			_viv_old_zoom_pos = _viv_zoom_pos;
+			_viv_1to1 = 1;
+			_viv_zoom_pos = 0;
+		}
+	}
+	else
+	{
+		// percent stepping leaves 1:1 mode: the ladder takes over.
+		if (_viv_1to1)
+		{
+			_viv_1to1 = 0;
+		}
+		
+		_viv_zoom_pos = _viv_zoom_pos_for_percent(percent,0);
+	}
+	
+	// clamp to the live ladder range so the percent step never lands in the
+	// dead zone of positions that all render the same size.
+	_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos);
+	
+	// the snap target can be physically undisplayable: the ladder renders
+	// in 1.01x steps, so past ~120% some integers are skipped (and past
+	// ~1400% every value is ~14 apart). when the closest landing is not the
+	// exact target and does not move in the click direction, jump to the
+	// next multiple of 10 in the click direction instead: a button click
+	// always makes a clean, visible step. (a precise landing is accepted
+	// even when the snap moves against the click direction: that is the
+	// "nearest multiple" contract for the click after a wheel gesture.
+	// the dialog passes force 0: a typed value simply lands closest.)
+	if (force && (!_viv_1to1))
+	{
+		int landed;
+		
+		landed = _viv_zoom_percent();
+		
+		if ((landed != percent) && ((force > 0) ? (_viv_zoom_pos <= old_zoom_pos) : (_viv_zoom_pos >= old_zoom_pos)))
+		{
+			int next;
+			
+			next = ((old_percent / 10) * 10) + ((force > 0) ? 10 : -10);
+			
+			if (next < 1)
+			{
+				next = 1;
+			}
+			
+			_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos_for_percent(next,1));
+		}
+	}
+	
+	if ((_viv_zoom_pos != old_zoom_pos) || (_viv_1to1 != old_1to1))
+	{
+		_viv_get_render_size(&new_rw,&new_rh);
+		
+		if (old_rw)
+		{
+			new_cursor_x = ((__int64)old_cursor_px * (__int64)new_rw) / (__int64)old_rw;
+		}
+		else
+		{
+			new_cursor_x = 0;
+		}
+		
+		if (old_rh)
+		{
+			new_cursor_y = ((__int64)old_cursor_py * (__int64)new_rh) / (__int64)old_rh;
+		}
+		else
+		{
+			new_cursor_y = 0;
+		}
+		
+		_viv_view_set((wide / 2) - (new_rw / 2) - pt.x + new_cursor_x,(high / 2) - (new_rh / 2) - pt.y + new_cursor_y,1);
+		
+		InvalidateRect(_viv_hwnd,0,FALSE);
+		
+		_viv_status_update_temp_pos_zoom();
+	}
+}
+
+static int _viv_set_zoom_dialog_percent = 100;
+
+static void _viv_set_zoom_dialog(void)
+{
+	// click target of the status bar zoom pane: type an exact percent.
+	RECT rect;
+	POINT pt;
+	
+	if (!_viv_image_wide)
+	{
+		return;
+	}
+	
+	_viv_set_zoom_dialog_percent = _viv_zoom_percent();
+	
+	if (DialogBox(os_hinstance,MAKEINTRESOURCE(IDD_SET_ZOOM),_viv_hwnd,_viv_set_zoom_proc))
+	{
+		int target;
+		
+		target = _viv_set_zoom_dialog_percent;
+		
+		// the ladder covers 1% .. 1600%: clamp anything above, ignore empty
+		// input (GetDlgItemInt returns 0 for it).
+		if (target > 1600)
+		{
+			target = 1600;
+		}
+		
+		if (target >= 1)
+		{
+			GetClientRect(_viv_hwnd,&rect);
+			pt.x = (rect.right - rect.left) / 2;
+			pt.y = (rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high()) / 2;
+			
+			ClientToScreen(_viv_hwnd,&pt);
+			
+			_viv_zoom_set_percent(target,pt.x,pt.y,0);
+		}
+	}
+}
+
+static INT_PTR CALLBACK _viv_set_zoom_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
+	switch(msg)
+	{
+		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+			
+			{
+				int static_wide;
+				RECT rect;
+				int wide;
+				
+				os_center_dialog(hwnd);
+				GetClientRect(hwnd,&rect);
+				wide = rect.right - rect.left - 12 - 12;
+
+				os_SetWindowText_localization_id(hwnd,LOCALIZATION_ID_SET_ZOOM_CAPTION);
+				
+				os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
+				os_SetDlgItemText_localization_id(hwnd,IDCANCEL,LOCALIZATION_ID_CANCEL_BUTTON);
+				
+				os_SetDlgItemText_localization_id(hwnd,IDC_SET_ZOOM_STATIC,LOCALIZATION_ID_SET_ZOOM_STATIC);
+				static_wide = os_get_static_wide(hwnd,IDC_SET_ZOOM_STATIC);
+				os_set_dialog_item_x_wide(hwnd,IDC_SET_ZOOM_STATIC,12,static_wide+6);
+				
+				os_set_dialog_item_x_wide(hwnd,IDC_SET_ZOOM_EDIT,12 + static_wide+6,wide-(static_wide+6));
+				
+				SetDlgItemInt(hwnd,IDC_SET_ZOOM_EDIT,_viv_set_zoom_dialog_percent,FALSE);
+			}
+
+			return TRUE;
+		
+		case WM_COMMAND:
+		
+			switch(LOWORD(wParam))
+			{
+				case IDOK:
+					_viv_set_zoom_dialog_percent = GetDlgItemInt(hwnd,IDC_SET_ZOOM_EDIT,NULL,FALSE);
+					EndDialog(hwnd,1);
+					break;
+				
+				case IDCANCEL:
+					EndDialog(hwnd,0);
+					break;
+			}
+			
+			break;
+	}
+	
+	return FALSE;
+}
+
+static void _viv_status_update_temp_pos_zoom(void)
+{
+	// the zoom percent now lives in its own always visible status bar pane,
+	// so the old three second temporary text flash is gone: a plain status
+	// refresh repaints the pane.
+	_viv_status_update();
 }
 
 
@@ -13371,6 +13734,20 @@ static void _viv_status_update_temp_animation_rate(void)
 static void _viv_zoom_in(int out,int have_xy,int x,int y)
 {
 	POINT pt;
+	int percent;
+	int target;
+	
+	if (!_viv_image_wide)
+	{
+		return;
+	}
+	
+	// at the bottom of the ladder a zoom out click has nothing below it:
+	// do nothing rather than snapping up to the nearest multiple above.
+	if (out && (!_viv_1to1) && (_viv_zoom_pos == 0))
+	{
+		return;
+	}
 	
 	if (have_xy)
 	{
@@ -13387,9 +13764,41 @@ static void _viv_zoom_in(int out,int have_xy,int x,int y)
 
 	ClientToScreen(_viv_hwnd,&pt);
 	
-	// pass a plain wheel notch delta. the MAKEWPARAM encoding predates the
-	// proportional stepping and made every click jump to a zoom limit.
-	_viv_do_mousewheel_action(0,out ? -120 : 120,pt.x,pt.y);
+	// discrete clicks (toolbar buttons, keyboard, the configured mouse zoom
+	// action) step whole 10% per click: a zoom that is not a multiple of 10
+	// first snaps to the nearest multiple of 10. the wheel and pinch
+	// gestures keep the proportional ladder stepping.
+	percent = _viv_zoom_percent();
+	
+	if ((percent % 10) == 0)
+	{
+		target = percent + (out ? -10 : 10);
+	}
+	else
+	{
+		int lower;
+		int upper;
+		
+		lower = (percent / 10) * 10;
+		upper = lower + 10;
+		
+		if ((percent - lower) < (upper - percent))
+		{
+			target = lower;
+		}
+		else
+		if ((percent - lower) > (upper - percent))
+		{
+			target = upper;
+		}
+		else
+		{
+			// exact midpoint: round toward the click direction.
+			target = out ? lower : upper;
+		}
+	}
+	
+	_viv_zoom_set_percent(target,pt.x,pt.y,out ? -1 : 1);
 }
 
 static void _viv_status_update_slideshow_rate(void)
@@ -14587,9 +14996,23 @@ static void _viv_jumpto_open_sel(HWND hwnd)
 			
 static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+		
 
 			{
 				int cur_index;
@@ -14913,19 +15336,19 @@ static int _viv_nav_compare(const _viv_nav_item_t *a,const _viv_nav_item_t *b)
 
 static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR dark_dialog_reply;
+		
+		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+		
+		if (dark_dialog_reply != -1)
+		{
+			return dark_dialog_reply;
+		}
+	}
+	
 	switch(msg)
 	{
-		{
-			INT_PTR dark_dialog_reply;
-			
-			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-			
-			if (dark_dialog_reply != -1)
-			{
-				return dark_dialog_reply;
-			}
-		}
-		
 		case WM_INITDIALOG:
 			// dark chrome: title bar and dark explorer control style.
 			_viv_dark_dialog(hwnd);

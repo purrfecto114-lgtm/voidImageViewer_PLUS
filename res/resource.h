@@ -27,6 +27,7 @@
 #define IDD_RENAME                      127
 #define IDD_JUMPTO                      128
 #define IDD_EVERYTHING                  129
+#define IDD_SET_ZOOM                   130
 #define IDC_TAB1                        1003
 #define IDC_BMP                         1006
 #define IDC_GIF                         1007
@@ -130,15 +131,17 @@
 #define IDC_LANGUAGE                            1068
 #define IDC_DARKMODE_STATIC                     1069
 #define IDC_DARKMODE                            1070
+#define IDC_SET_ZOOM_EDIT                1071
+#define IDC_SET_ZOOM_STATIC              1072
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        130
+#define _APS_NEXT_RESOURCE_VALUE        131
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1071
+#define _APS_NEXT_CONTROL_VALUE         1073
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif
