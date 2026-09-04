@@ -37,6 +37,12 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.11** adds the image backdrop and fixes the installer language dialog:
+
+- **Image backdrop** — View > Backdrop selects what shows under the transparent pixels of PNG/GIF/WebP images: follow the window background (default, dark ui aware), black, white, a custom color or a checkerboard. Persisted to the ini. Built for the load-thread hot path: cached brushes, and the checkerboard is a single-FillRect pattern brush.
+- **Installer language dialog** — the language selection dialog now always shows (preselecting the remembered language). Upgrade installs used to silently reuse the remembered language with no visible way to switch it.
+- Also a small win for animated images with alpha: the per-frame CreateSolidBrush/FillRect/DeleteObject chain under the alpha frames is now one cached-brush FillRect.
+
 **Version 1.1.0-beta.10** completes the dark mode coverage with dark dialogs:
 
 - **Dark dialogs** — options (and its pages), about, rename, edit key, custom rate and the everything search now draw with the dark palette when the dark ui is active: a dark title bar, the dark explorer control style, dark text/backgrounds for statics, edits and lists, and a dark background fill. No more fully light dialogs popping out of a dark window.

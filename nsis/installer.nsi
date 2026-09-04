@@ -96,6 +96,10 @@ OutFile "voidImageViewer-${VERSION}${BETAVERSION}-${TARGETMACHINE}-Setup.exe"
 !define MUI_ICON "..\res\voidImageViewer.ico"
 
 ; remember the selected installer language for future installs and uninstalls.
+; always show the language dialog too (preselecting the remembered language):
+; without ALWAYSSHOW an upgrade install silently reuses the remembered
+; language and the user never sees a way to switch it.
+!define MUI_LANGDLL_ALWAYSSHOW
 !define MUI_LANGDLL_REGISTRY_ROOT "HKCU"
 !define MUI_LANGDLL_REGISTRY_KEY "Software\voidImageViewer"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"

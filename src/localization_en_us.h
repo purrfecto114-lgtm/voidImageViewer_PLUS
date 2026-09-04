@@ -297,4 +297,12 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Automatic (follow Windows)", // LOCALIZATION_ID_DARK_MODE_AUTO,
 	"Light", // LOCALIZATION_ID_DARK_MODE_LIGHT,
 	"Dark", // LOCALIZATION_ID_DARK_MODE_DARK,
+
+	// backdrop shown under transparent pixels
+	"Back&drop", // LOCALIZATION_ID_BACKDROP,
+	"&Follow window background", // LOCALIZATION_ID_BACKDROP_FOLLOW,
+	"&Black", // LOCALIZATION_ID_BACKDROP_BLACK,
+	"&White", // LOCALIZATION_ID_BACKDROP_WHITE,
+	"&Custom color...", // LOCALIZATION_ID_BACKDROP_CUSTOM,
+	"&Checkerboard", // LOCALIZATION_ID_BACKDROP_CHECKERBOARD,
 };

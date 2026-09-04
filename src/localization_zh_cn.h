@@ -271,4 +271,12 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"自动（跟随 Windows）", // LOCALIZATION_ID_DARK_MODE_AUTO
 	"浅色", // LOCALIZATION_ID_DARK_MODE_LIGHT
 	"深色", // LOCALIZATION_ID_DARK_MODE_DARK
+
+	// backdrop shown under transparent pixels
+	"背景垫层(&D)", // LOCALIZATION_ID_BACKDROP
+	"跟随窗口背景(&F)", // LOCALIZATION_ID_BACKDROP_FOLLOW
+	"黑色(&B)", // LOCALIZATION_ID_BACKDROP_BLACK
+	"白色(&W)", // LOCALIZATION_ID_BACKDROP_WHITE
+	"自定义颜色(&C)...", // LOCALIZATION_ID_BACKDROP_CUSTOM
+	"棋盘格(&K)", // LOCALIZATION_ID_BACKDROP_CHECKERBOARD
 };

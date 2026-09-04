@@ -127,14 +127,21 @@ def t_localization_alignment():
         i = arr.index("LOCALIZATION_ID_VIEW")
         check(f"{name} LAYOUT after VIEW",
               arr[i + 1] == "LOCALIZATION_ID_LAYOUT")
-    # the four dark mode ids must be the LAST four entries everywhere
+    # the last ids must line up everywhere: the dark mode ids followed by
+    # the six backdrop ids.
     tail = ("LOCALIZATION_ID_OPTIONS_DARK_MODE_STATIC",
             "LOCALIZATION_ID_DARK_MODE_AUTO",
             "LOCALIZATION_ID_DARK_MODE_LIGHT",
-            "LOCALIZATION_ID_DARK_MODE_DARK")
-    check("enum ends with the dark mode ids", tuple(ids[-4:]) == tail)
-    check("en ends with the dark mode ids", tuple(en[-4:]) == tail)
-    check("zh ends with the dark mode ids", tuple(zh[-4:]) == tail)
+            "LOCALIZATION_ID_DARK_MODE_DARK",
+            "LOCALIZATION_ID_BACKDROP",
+            "LOCALIZATION_ID_BACKDROP_FOLLOW",
+            "LOCALIZATION_ID_BACKDROP_BLACK",
+            "LOCALIZATION_ID_BACKDROP_WHITE",
+            "LOCALIZATION_ID_BACKDROP_CUSTOM",
+            "LOCALIZATION_ID_BACKDROP_CHECKERBOARD")
+    check("enum ends with the dark+backdrop ids", tuple(ids[-10:]) == tail)
+    check("en ends with the dark+backdrop ids", tuple(en[-10:]) == tail)
+    check("zh ends with the dark+backdrop ids", tuple(zh[-10:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -159,12 +166,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.10 -beta.10",
-          "VERSION_BUILD\t\t10" in vh and '"-beta.10"' in vh)
-    check("rc = 1,1,0,10 + 1.1.0-beta.10",
-          "1,1,0,10" in rc and rc.count("1.1.0-beta.10") >= 2)
-    check("nsh = 1.1.0.10 + -beta.10",
-          '!define VERSION "1.1.0.10"' in nsh and '!define BETAVERSION "-beta.10"' in nsh)
+    check("version.h = 1.1.0.11 -beta.11",
+          "VERSION_BUILD\t\t11" in vh and '"-beta.11"' in vh)
+    check("rc = 1,1,0,11 + 1.1.0-beta.11",
+          "1,1,0,11" in rc and rc.count("1.1.0-beta.11") >= 2)
+    check("nsh = 1.1.0.11 + -beta.11",
+          '!define VERSION "1.1.0.11"' in nsh and '!define BETAVERSION "-beta.11"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -421,6 +428,55 @@ def t_dark_dialogs_wiring():
           "#define TVM_SETTEXTCOLOR (TV_FIRST+30)" in viv)
 
 
+# ---------------------------------------------------------------------------
+# 11. the beta.11 image backdrop + installer language dialog.
+# ---------------------------------------------------------------------------
+def t_backdrop_wiring():
+    viv = read("src/viv.c").decode()
+    vh = read("src/viv.h").decode()
+    ch = read("src/config.h").decode()
+    cc = read("src/config.c").decode()
+    nsi = read("nsis/installer.nsi").decode()
+
+    # config
+    check("config.h defines the backdrop modes",
+          "CONFIG_BACKDROP_MODE_FOLLOW" in ch and
+          "CONFIG_BACKDROP_MODE_CHECKERBOARD" in ch)
+    check("config.c persists the backdrop",
+          '"backdrop_mode"' in cc and '"backdrop_color_r"' in cc)
+    check("config.c default follows the window background",
+          "CONFIG_BACKDROP_MODE_FOLLOW; // backdrop" in cc)
+
+    # menu + commands
+    check("viv.c has the backdrop menu",
+          "_VIV_MENU_VIEW_BACKDROP" in viv)
+    check("five backdrop radio entries exist",
+          viv.count("MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,") == 5)
+    check("five backdrop check radios exist",
+          viv.count("CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_") == 5)
+    check("custom color uses the existing chooser",
+          "os_choose_color(_viv_hwnd,&backdrop_color)" in viv)
+    check("backdrop changes reload the image",
+          "_viv_backdrop_apply();" in viv and "_viv_refresh();" in viv)
+
+    # the paint hook: single cached-brush fill, no per-frame allocation
+    check("the alpha fill hook calls the backdrop",
+          "_viv_fill_backdrop(mem_hdc,load_wide,load_high);" in viv)
+    check("the old per-frame solid brush chain is gone",
+          "CreateSolidBrush(RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b))" not in viv)
+    check("the checkerboard is a pattern brush",
+          "CreatePatternBrush(_viv_backdrop_checker_hbitmap)" in viv)
+    check("the solid brush is cached",
+          "_viv_backdrop_solid_color != color" in viv)
+    check("the brushes are released at kill",
+          "DeleteObject(_viv_backdrop_checker_hbrush);" in viv and
+          "DeleteObject(_viv_backdrop_checker_hbitmap);" in viv)
+
+    # installer: the language dialog always shows
+    check("installer defines MUI_LANGDLL_ALWAYSSHOW",
+          "!define MUI_LANGDLL_ALWAYSSHOW" in nsi)
+
+
 
 if __name__ == "__main__":
     t_panscan_gone()
@@ -433,6 +489,7 @@ if __name__ == "__main__":
     t_ladder_shape()
     t_dark_detection_wiring()
     t_dark_dialogs_wiring()
+    t_backdrop_wiring()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

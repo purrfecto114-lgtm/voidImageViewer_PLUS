@@ -61,6 +61,17 @@ void config_save_settings(int appdata);
 extern BYTE config_appdata;
 extern BYTE config_language; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
 extern BYTE config_dark_mode; // ui theme: 0 = light, 1 = dark, 2 = auto (follow the windows theme).
+
+// backdrop shown under transparent pixels.
+#define CONFIG_BACKDROP_MODE_FOLLOW			0
+#define CONFIG_BACKDROP_MODE_BLACK			1
+#define CONFIG_BACKDROP_MODE_WHITE			2
+#define CONFIG_BACKDROP_MODE_CUSTOM			3
+#define CONFIG_BACKDROP_MODE_CHECKERBOARD	4
+extern BYTE config_backdrop_mode;
+extern BYTE config_backdrop_color_r;
+extern BYTE config_backdrop_color_g;
+extern BYTE config_backdrop_color_b;
 extern BYTE config_keep_centered;
 extern int config_x;
 extern int config_y;

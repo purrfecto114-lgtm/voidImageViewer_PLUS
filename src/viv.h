@@ -208,6 +208,13 @@ enum
 
 	// touch / zoom controls (appended so existing ids are not shifted)
 	VIV_ID_VIEW_ZOOM_CONTROLS,
+
+	// backdrop shown under transparent pixels (appended, ids not shifted)
+	VIV_ID_VIEW_BACKDROP_FOLLOW,
+	VIV_ID_VIEW_BACKDROP_BLACK,
+	VIV_ID_VIEW_BACKDROP_WHITE,
+	VIV_ID_VIEW_BACKDROP_CUSTOM,
+	VIV_ID_VIEW_BACKDROP_CHECKERBOARD,
 	VIV_ID_ZOOMUI,
 };
 

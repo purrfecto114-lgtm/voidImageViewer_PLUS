@@ -359,6 +359,7 @@ enum
 	_VIV_MENU_VIEW_LAYOUT,
 	_VIV_MENU_VIEW_ZOOM,
 	_VIV_MENU_VIEW_ONTOP,
+	_VIV_MENU_VIEW_BACKDROP,
 	_VIV_MENU_SLIDESHOW,
 	_VIV_MENU_SLIDESHOW_RATE,
 	_VIV_MENU_ANIMATION,
@@ -538,6 +539,8 @@ static int _viv_is_association(const char *association);
 static int _viv_get_registry_string(HKEY hkey,const utf8_t *value,wchar_t *wbuf,int size_in_wchars);
 static int _viv_set_registry_string(HKEY hkey,const utf8_t *value,const wchar_t *wbuf);
 static void _viv_check_menus(HMENU hmenu);
+static void _viv_fill_backdrop(HDC hdc,int wide,int high);
+static void _viv_backdrop_apply(void);
 static void _viv_increase_animation_rate(int dec);
 static void _viv_reset_animation_rate(void);
 static void _viv_timer_start(void);
@@ -928,6 +931,13 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_ALWAYS,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_ALWAYS},
 	{LOCALIZATION_ID_WHILE_PLAYING_OR_ANIMATING,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING},
 	{LOCALIZATION_ID_NEVER,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_NEVER},
+	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
+	{LOCALIZATION_ID_BACKDROP,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_BACKDROP},
+	{LOCALIZATION_ID_BACKDROP_FOLLOW,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_FOLLOW},
+	{LOCALIZATION_ID_BACKDROP_BLACK,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_BLACK},
+	{LOCALIZATION_ID_BACKDROP_WHITE,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_WHITE},
+	{LOCALIZATION_ID_BACKDROP_CUSTOM,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_CUSTOM},
+	{LOCALIZATION_ID_BACKDROP_CHECKERBOARD,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_CHECKERBOARD},
 
 	{LOCALIZATION_ID_OPTIONS,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_OPTIONS},
 	{LOCALIZATION_ID_SLIDESHOW_MENU,MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_SLIDESHOW},
@@ -2027,6 +2037,45 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			_viv_zoomui_update();
 			break;
 			
+		case VIV_ID_VIEW_BACKDROP_FOLLOW:
+			config_backdrop_mode = CONFIG_BACKDROP_MODE_FOLLOW;
+			_viv_backdrop_apply();
+			break;
+			
+		case VIV_ID_VIEW_BACKDROP_BLACK:
+			config_backdrop_mode = CONFIG_BACKDROP_MODE_BLACK;
+			_viv_backdrop_apply();
+			break;
+			
+		case VIV_ID_VIEW_BACKDROP_WHITE:
+			config_backdrop_mode = CONFIG_BACKDROP_MODE_WHITE;
+			_viv_backdrop_apply();
+			break;
+			
+		case VIV_ID_VIEW_BACKDROP_CUSTOM:
+		{
+			COLORREF backdrop_color;
+			
+			backdrop_color = RGB(config_backdrop_color_r,config_backdrop_color_g,config_backdrop_color_b);
+			
+			if (os_choose_color(_viv_hwnd,&backdrop_color))
+			{
+				config_backdrop_color_r = GetRValue(backdrop_color);
+				config_backdrop_color_g = GetGValue(backdrop_color);
+				config_backdrop_color_b = GetBValue(backdrop_color);
+				config_backdrop_mode = CONFIG_BACKDROP_MODE_CUSTOM;
+				
+				_viv_backdrop_apply();
+			}
+			
+			break;
+		}
+		
+		case VIV_ID_VIEW_BACKDROP_CHECKERBOARD:
+			config_backdrop_mode = CONFIG_BACKDROP_MODE_CHECKERBOARD;
+			_viv_backdrop_apply();
+			break;
+			
 		case VIV_ID_VIEW_PRESET_1:
 			config_show_menu = 0;
 			config_show_status = 0;
@@ -2568,6 +2617,11 @@ static int _viv_paint_high = 0;
 static HBRUSH _viv_background_hbrush = 0;
 static COLORREF _viv_background_hbrush_color = 0;
 static HBRUSH _viv_dialog_dark_hbrush = 0; // dark dialog background brush, lazy created
+static HBRUSH _viv_backdrop_solid_hbrush = 0; // backdrop solid color brush, cached
+static COLORREF _viv_backdrop_solid_color = 0; // the color the solid brush was created with
+static HBRUSH _viv_backdrop_checker_hbrush = 0; // checkerboard pattern brush, cached
+static HBITMAP _viv_backdrop_checker_hbitmap = 0; // the pattern bitmap (owned while the brush lives)
+static int _viv_backdrop_checker_cell = 0; // the cell size the pattern was built with
 
 // prepare the paint backbuffer for a client area of wide x high pixels.
 // returns 1 when the caller should draw into _viv_paint_hdc instead of the screen dc.
@@ -5906,6 +5960,29 @@ static void _viv_kill(void)
 		_viv_dialog_dark_hbrush = 0;
 	}
 	
+	if (_viv_backdrop_solid_hbrush)
+	{
+		DeleteObject(_viv_backdrop_solid_hbrush);
+		
+		_viv_backdrop_solid_hbrush = 0;
+		_viv_backdrop_solid_color = 0;
+	}
+	
+	if (_viv_backdrop_checker_hbrush)
+	{
+		DeleteObject(_viv_backdrop_checker_hbrush);
+		
+		_viv_backdrop_checker_hbrush = 0;
+	}
+	
+	if (_viv_backdrop_checker_hbitmap)
+	{
+		DeleteObject(_viv_backdrop_checker_hbitmap);
+		
+		_viv_backdrop_checker_hbitmap = 0;
+		_viv_backdrop_checker_cell = 0;
+	}
+	
 	_viv_paint_kill();
 	
 	_viv_key_clear_all(_viv_key_list);
@@ -7564,6 +7641,170 @@ static void _viv_apply_dark_mode(int repaint)
 	}
 }
 
+// the backdrop shown under transparent pixels.
+
+// the solid backdrop brush (follow/black/white/custom), cached like the
+// window background brush: the load thread paints it for every frame that
+// has alpha, so it must not allocate per frame. the follow mode reads the
+// dark-aware windowed background so the backdrop tracks the dark ui.
+static HBRUSH _viv_backdrop_solid_brush(void)
+{
+	COLORREF color;
+	
+	switch(config_backdrop_mode)
+	{
+		case CONFIG_BACKDROP_MODE_BLACK:
+			color = RGB(0,0,0);
+			break;
+		
+		case CONFIG_BACKDROP_MODE_WHITE:
+			color = RGB(255,255,255);
+			break;
+		
+		case CONFIG_BACKDROP_MODE_CUSTOM:
+			color = RGB(config_backdrop_color_r,config_backdrop_color_g,config_backdrop_color_b);
+			break;
+		
+		default:
+			// follow: the windowed background (dark palette aware).
+			color = _viv_windowed_background();
+			break;
+	}
+	
+	if ((!_viv_backdrop_solid_hbrush) || (_viv_backdrop_solid_color != color))
+	{
+		if (_viv_backdrop_solid_hbrush)
+		{
+			DeleteObject(_viv_backdrop_solid_hbrush);
+		}
+		
+		_viv_backdrop_solid_hbrush = CreateSolidBrush(color);
+		_viv_backdrop_solid_color = color;
+	}
+	
+	return _viv_backdrop_solid_hbrush;
+}
+
+// the checkerboard brush: a 2x2 cell pattern bitmap that gdi tiles in a
+// single FillRect. one fill call replaces the loop of per-cell FillRects,
+// and the brush is cached so the load thread allocates nothing per frame.
+static HBRUSH _viv_backdrop_checker_brush(void)
+{
+	int cell;
+	
+	cell = (8 * os_logical_high) / 96;
+	
+	if (cell < 4)
+	{
+		cell = 4;
+	}
+	
+	if ((_viv_backdrop_checker_hbrush) && (_viv_backdrop_checker_cell == cell))
+	{
+		return _viv_backdrop_checker_hbrush;
+	}
+	
+	if (_viv_backdrop_checker_hbrush)
+	{
+		DeleteObject(_viv_backdrop_checker_hbrush);
+		
+		_viv_backdrop_checker_hbrush = 0;
+	}
+	
+	if (_viv_backdrop_checker_hbitmap)
+	{
+		DeleteObject(_viv_backdrop_checker_hbitmap);
+		
+		_viv_backdrop_checker_hbitmap = 0;
+	}
+	
+	_viv_backdrop_checker_cell = cell;
+	
+	{
+		int size;
+		DWORD *bits;
+		
+		size = cell * 2;
+		
+		bits = mem_alloc(size * size * 4);
+		
+		if (bits)
+		{
+			int x;
+			int y;
+			
+			for(y=0;y<size;y++)
+			{
+				DWORD *row;
+				
+				row = (DWORD *)((BYTE *)bits + (y * size * 4));
+				
+				for(x=0;x<size;x++)
+				{
+					// 0xaabbggrr little endian: white and light gray cells.
+					row[x] = (((x / cell) ^ (y / cell)) & 1) ? 0xffcccccc : 0xffffffff;
+				}
+			}
+			
+			_viv_backdrop_checker_hbitmap = CreateBitmap(size,size,1,32,bits);
+			
+			mem_free(bits);
+			
+			if (_viv_backdrop_checker_hbitmap)
+			{
+				_viv_backdrop_checker_hbrush = CreatePatternBrush(_viv_backdrop_checker_hbitmap);
+				
+				if (!_viv_backdrop_checker_hbrush)
+				{
+					DeleteObject(_viv_backdrop_checker_hbitmap);
+					
+					_viv_backdrop_checker_hbitmap = 0;
+					_viv_backdrop_checker_cell = 0;
+				}
+			}
+		}
+	}
+	
+	return _viv_backdrop_checker_hbrush;
+}
+
+// fill the alpha image backdrop: what shows under transparent pixels.
+// called on the load thread for every frame that has alpha (also every
+// animation frame): every mode is a single cached-brush FillRect.
+static void _viv_fill_backdrop(HDC hdc,int wide,int high)
+{
+	RECT rect;
+	HBRUSH hbrush;
+	
+	rect.left = 0;
+	rect.top = 0;
+	rect.right = wide;
+	rect.bottom = high;
+	
+	if (config_backdrop_mode == CONFIG_BACKDROP_MODE_CHECKERBOARD)
+	{
+		hbrush = _viv_backdrop_checker_brush();
+	}
+	else
+	{
+		hbrush = _viv_backdrop_solid_brush();
+	}
+	
+	if (hbrush)
+	{
+		FillRect(hdc,&rect,hbrush);
+	}
+}
+
+// apply a backdrop mode change: update the menu radios and reload the
+// image so alpha images pick up the new backdrop.
+static void _viv_backdrop_apply(void)
+{
+	_viv_check_menus(_viv_hmenu);
+	
+	_viv_refresh();
+}
+
 // dark dialog support: the common dialogs (options and its pages, about,
 // rename, edit key, custom rate and the everything search) get the dark
 // chrome when the dark ui is active. the app mode is already dark app wide
@@ -7772,6 +8013,11 @@ static void _viv_check_menus(HMENU hmenu)
 	CheckMenuItem(hmenu,VIV_ID_VIEW_MENU,config_show_menu ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_CONTROLS,config_show_controls ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ZOOM_CONTROLS,config_show_zoom_controls ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_FOLLOW,config_backdrop_mode == CONFIG_BACKDROP_MODE_FOLLOW ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_BLACK,config_backdrop_mode == CONFIG_BACKDROP_MODE_BLACK ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_WHITE,config_backdrop_mode == CONFIG_BACKDROP_MODE_WHITE ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_CUSTOM,config_backdrop_mode == CONFIG_BACKDROP_MODE_CUSTOM ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_CHECKERBOARD,config_backdrop_mode == CONFIG_BACKDROP_MODE_CHECKERBOARD ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_VIEW_STATUS,config_show_status ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ALLOW_SHRINKING,config_allow_shrinking ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_KEEP_ASPECT_RATIO,config_keep_aspect_ratio ? MF_CHECKED : MF_UNCHECKED);
@@ -11608,21 +11854,9 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 															// ImageFlagsHasAlpha = 0x0002,
 															if (image_flags & 2)
 															{
-																{
-																	RECT rect;
-																	HBRUSH hbrush;
-																	
-																	hbrush = CreateSolidBrush(RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b));
-																	
-																	rect.left = 0;
-																	rect.top = 0;
-																	rect.right = load_wide;
-																	rect.bottom = load_high;
-
-																	FillRect(mem_hdc,&rect,hbrush);
-																	
-																	DeleteObject(hbrush);
-																}
+																// fill the backdrop under the transparent
+															// pixels (cached brushes, a single FillRect).
+															_viv_fill_backdrop(mem_hdc,load_wide,load_high);
 														
 																os_GdipSetCompositingMode(g,0);
 															}

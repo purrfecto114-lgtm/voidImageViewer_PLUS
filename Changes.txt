@@ -1,3 +1,19 @@
+Pre-release, BETA: Version 1.1.0-beta.11 (image backdrop, installer language dialog)
+	transparent pixels no longer have to sit on the plain window background:
+	View > Backdrop selects what is shown under the transparent pixels of
+	PNG/GIF/WebP images - follow the window background (the default, and the
+	previous behavior, dark ui aware), black, white, a custom color or a
+	checkerboard. the choice is remembered in the ini.
+	the backdrop is painted on the load thread for every frame that has
+	alpha, so it is built for that path: the brushes are cached (nothing is
+	allocated per frame) and the checkerboard is a pattern bitmap that gdi
+	tiles in a single FillRect call. this is also faster than the previous
+	per-frame CreateSolidBrush/FillRect/DeleteObject chain for animated
+	images with alpha.
+	the installer now always shows the language selection dialog (preselecting
+	the remembered language): an upgrade install used to silently reuse the
+	remembered language, so there was never a visible way to switch it.
+
 Pre-release, BETA: Version 1.1.0-beta.10 (dark dialogs)
 	the dialogs now follow the dark mode too: opening options (and its
 	pages), about, rename, edit key, custom rate or the everything search

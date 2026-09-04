@@ -33,6 +33,10 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root);
 BYTE config_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
 BYTE config_language = 0; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
 BYTE config_dark_mode = 2; // ui theme: 0 = light, 1 = dark, 2 = auto (follow the windows theme).
+BYTE config_backdrop_mode = CONFIG_BACKDROP_MODE_FOLLOW; // backdrop under transparent pixels: 0 = follow window background, 1 = black, 2 = white, 3 = custom, 4 = checkerboard
+BYTE config_backdrop_color_r = 128; // custom backdrop color
+BYTE config_backdrop_color_g = 128;
+BYTE config_backdrop_color_b = 128;
 BYTE config_keep_centered = 1; // when zooming out, don't recenter the image. (keep cursor under the same pixel)
 int config_x = 0;
 int config_y = 0;
@@ -180,6 +184,10 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 				}
 			}
 		}
+		config_backdrop_mode = ini_get_int(ini,(const utf8_t *)"backdrop_mode",config_backdrop_mode);
+		config_backdrop_color_r = ini_get_int(ini,(const utf8_t *)"backdrop_color_r",config_backdrop_color_r);
+		config_backdrop_color_g = ini_get_int(ini,(const utf8_t *)"backdrop_color_g",config_backdrop_color_g);
+		config_backdrop_color_b = ini_get_int(ini,(const utf8_t *)"backdrop_color_b",config_backdrop_color_b);
 		config_auto_zoom = ini_get_int(ini,(const utf8_t *)"auto_zoom",config_auto_zoom);
 		config_auto_zoom_type = ini_get_int(ini,(const utf8_t *)"auto_zoom_type",config_auto_zoom_type);
 		config_auto_fit_wide_mul = ini_get_int(ini,(const utf8_t *)"auto_fit_wide_mul",config_auto_fit_wide_mul);
@@ -400,6 +408,10 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"show_zoom_controls",config_show_zoom_controls);
 			_config_write_string(h,"language",config_language == 1 ? L"english" : (config_language == 2 ? L"chinese" : L"auto"));
 		_config_write_string(h,"dark_mode",config_dark_mode == 1 ? L"dark" : (config_dark_mode == 0 ? L"light" : L"auto"));
+		_config_write_int(h,"backdrop_mode",config_backdrop_mode);
+		_config_write_int(h,"backdrop_color_r",config_backdrop_color_r);
+		_config_write_int(h,"backdrop_color_g",config_backdrop_color_g);
+		_config_write_int(h,"backdrop_color_b",config_backdrop_color_b);
 			_config_write_int(h,"auto_zoom",config_auto_zoom);
 			_config_write_int(h,"auto_zoom_type",config_auto_zoom_type);
 			_config_write_int(h,"auto_fit_wide_mul",config_auto_fit_wide_mul);
