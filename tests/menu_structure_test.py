@@ -166,12 +166,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.11 -beta.11",
-          "VERSION_BUILD\t\t11" in vh and '"-beta.11"' in vh)
-    check("rc = 1,1,0,11 + 1.1.0-beta.11",
-          "1,1,0,11" in rc and rc.count("1.1.0-beta.11") >= 2)
-    check("nsh = 1.1.0.11 + -beta.11",
-          '!define VERSION "1.1.0.11"' in nsh and '!define BETAVERSION "-beta.11"' in nsh)
+    check("version.h = 1.1.0.12 -beta.12",
+          "VERSION_BUILD\t\t12" in vh and '"-beta.12"' in vh)
+    check("rc = 1,1,0,12 + 1.1.0-beta.12",
+          "1,1,0,12" in rc and rc.count("1.1.0-beta.12") >= 2)
+    check("nsh = 1.1.0.12 + -beta.12",
+          '!define VERSION "1.1.0.12"' in nsh and '!define BETAVERSION "-beta.12"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -477,6 +477,43 @@ def t_backdrop_wiring():
           "!define MUI_LANGDLL_ALWAYSSHOW" in nsi)
 
 
+# ---------------------------------------------------------------------------
+# 12. the beta.12 zoom stall fix + progressive display.
+# ---------------------------------------------------------------------------
+def t_progressive_wiring():
+    viv = read("src/viv.c").decode()
+    osh = read("src/os.h").decode()
+    osc = read("src/os.c").decode()
+
+    # mipmap boundary fix
+    check("the full image is only used when magnified",
+          "if ((render_wide >= image_wide) || (render_high >= image_high))" in viv)
+    check("the top-level half-size boundary is gone",
+          "if ((render_wide >= image_wide) || (render_high >= image_high))" in viv and
+          viv.count("if ((render_wide >= mip_wide) || (render_high >= mip_wide))") == 1)
+
+    # progressive preview plumbing
+    check("os.h exports the thumbnail function",
+          "os_GdipGetImageThumbnailImage" in osh)
+    check("os.c loads GdipGetImageThumbnailImage by name",
+          'GetProcAddress(_os_gdiplus_hmodule,"GdipGetImageThumbnailImage")' in osc or
+          '"GdipGetImageThumbnailImage"' in osc)
+    check("the reply struct carries is_low_res",
+          "BYTE is_low_res; // 1 = progressive preview frame" in viv)
+    check("the thread posts a low res first frame",
+          "low_res_first_frame.is_low_res = 1;" in viv)
+    check("only images with an embedded thumbnail take the path",
+          "os_GdipGetPropertyItemSize(image,0x501A,&thumb_data_size)" in viv)
+    check("big images only (2MP threshold)",
+          "2000000)" in viv)
+    check("the main thread protects the last image slot",
+          "if ((!(first_frame->is_low_res)) && (!(_viv_image_is_low_res)))" in viv)
+    check("the low res flag is tracked globally",
+          "_viv_image_is_low_res = first_frame->is_low_res ? 1 : 0;" in viv)
+    check("the webp first frame is marked full res",
+          "first_frame.is_low_res = 0;" in viv)
+
+
 
 if __name__ == "__main__":
     t_panscan_gone()
@@ -490,6 +527,7 @@ if __name__ == "__main__":
     t_dark_detection_wiring()
     t_dark_dialogs_wiring()
     t_backdrop_wiring()
+    t_progressive_wiring()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

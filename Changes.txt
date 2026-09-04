@@ -1,3 +1,19 @@
+Pre-release, BETA: Version 1.1.0-beta.12 (zoom stall fix, progressive display)
+	fixed the zoom stall when zooming in from around half the image size: the
+	full image entered the mipmap chain exactly at the half size, so a pinch
+	or wheel zoom that crossed it switched from the cheap half mipmap to the
+	full image running the slow shrink filter (HALFTONE by default) over every
+	pixel on every paint. the half mipmap is now magnified up to the full
+	size instead: the full image is only used when it is actually magnified,
+	which is 4x cheaper and looks the same at these zoom levels.
+	big images now appear instantly with a progressive preview: when the file
+	carries an embedded exif thumbnail (cameras and phones) the load thread
+	posts it as a low resolution first frame before the full decode even
+	starts, and the image sharpens when the full frame arrives. images without
+	an embedded thumbnail take the normal path with zero extra cost. the
+	preview never enters the last-image slot, so switching back to the previous
+	image still shows the real image.
+
 Pre-release, BETA: Version 1.1.0-beta.11 (image backdrop, installer language dialog)
 	transparent pixels no longer have to sit on the plain window background:
 	View > Backdrop selects what is shown under the transparent pixels of

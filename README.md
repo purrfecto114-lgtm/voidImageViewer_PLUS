@@ -37,6 +37,11 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.12** fixes the zoom stall around half size and adds progressive display:
+
+- **Zoom stall fix** — zooming in from around half the image size no longer stalls: crossing the half-size mipmap boundary used to switch to the full image running the slow HALFTONE shrink filter over every pixel on every paint. The half mipmap is now magnified up to the full size instead (4x cheaper, looks the same).
+- **Progressive display** — big images with an embedded exif thumbnail (cameras, phones) appear instantly as a low resolution preview while the full decode continues, then sharpen. Images without a thumbnail take the normal path with zero extra cost, and the preview never pollutes the last-image slot.
+
 **Version 1.1.0-beta.11** adds the image backdrop and fixes the installer language dialog:
 
 - **Image backdrop** — View > Backdrop selects what shows under the transparent pixels of PNG/GIF/WebP images: follow the window background (default, dark ui aware), black, white, a custom color or a checkerboard. Persisted to the ini. Built for the load-thread hot path: cached brushes, and the checkerboard is a single-FillRect pattern brush.

@@ -108,6 +108,7 @@ extern int (__stdcall *os_GdipImageGetFrameDimensionsCount)(void *image, UINT* c
 extern int (__stdcall *os_GdipImageGetFrameDimensionsList)(void *image, GUID* dimensionIDs,UINT count);
 extern int (__stdcall *os_GdipImageGetFrameCount)(void *image, const GUID* dimensionID,UINT* count);
 extern int (__stdcall *os_GdipGetPropertyItemSize)(void *image, PROPID propId, UINT* size);
+extern int (__stdcall *os_GdipGetImageThumbnailImage)(void *image,UINT thumb_wide,UINT thumb_high,void *callback,void *callback_data,void **thumb_image);
 extern int (__stdcall *os_GdipGetPropertyItem)(void *image, PROPID propId,UINT propSize,void *buffer);
 extern int (__stdcall *os_GdipImageSelectActiveFrame)(void *image, const GUID* dimensionID,UINT frameIndex);
 extern int (__stdcall *os_GdipGetImageFlags)(void *image, UINT *flags);

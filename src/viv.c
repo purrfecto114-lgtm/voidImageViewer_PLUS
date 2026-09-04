@@ -430,6 +430,7 @@ typedef struct _viv_reply_load_image_first_frame_s
 	UINT high;
 	UINT frame_count;
 	_viv_frame_t frame;
+	BYTE is_low_res; // 1 = progressive preview frame (embedded thumbnail), the full frame follows
 	
 }_viv_reply_load_image_first_frame_t;
 
@@ -736,6 +737,7 @@ static int _viv_zoom_pos = 0; // the current zoom level
 static float _viv_zoom_scales[_VIV_ZOOM_MAX];
 
 static ULONG_PTR os_GdiplusToken; // gdiplus handle
+static BYTE _viv_image_is_low_res = 0; // 1 = the displayed image is a progressive preview frame
 static int _viv_image_wide = 0; // current image width
 static int _viv_image_high = 0; // current image width
 static int _viv_frame_count = 0; // current image frame count, 1 for static image, > 1 for animation
@@ -1324,6 +1326,7 @@ static void _viv_clear(void)
 	_viv_view_iy = 0.0;
 	_viv_1to1 = 0;
 	_viv_have_old_zoom = 0;
+	_viv_image_is_low_res = 0;
 	_viv_image_wide = 0;
 	_viv_image_high = 0;
 	_viv_animation_play = 1;
@@ -3077,9 +3080,17 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 								else
 								{
 									// copy the image, not the filename.
-									viv_copy_current_image_to_last_image();
+									// a low resolution preview must never end up in the last
+									// image slot: the previous image would be lost to a
+									// blurry thumbnail.
+									if ((!(first_frame->is_low_res)) && (!(_viv_image_is_low_res)))
+									{
+										viv_copy_current_image_to_last_image();
+									}
 
 									_viv_clear();
+									
+									_viv_image_is_low_res = first_frame->is_low_res ? 1 : 0;
 
 									_viv_image_wide = first_frame->wide;
 									_viv_image_high = first_frame->high;
@@ -11510,6 +11521,7 @@ static int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 
 				first_frame.wide = viv_webp->wide;
 				first_frame.high = viv_webp->high;
+				first_frame.is_low_res = 0;
 				first_frame.frame.hbitmap = hbitmap;
 				first_frame.frame.mipmap = NULL;
 				first_frame.frame.delay = 0;
@@ -11570,6 +11582,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	first_frame.frame.hbitmap = 0;
 	first_frame.frame.mipmap = 0;
 	first_frame.frame.delay = 0;
+	first_frame.is_low_res = 0;
 
 	ret = 0;
 	stream = NULL;
@@ -11759,6 +11772,145 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 									}
 									break;
 							}
+							// progressive display: post the embedded thumbnail as a
+							// low resolution first frame while the full decode continues.
+							// cameras and phones embed a small thumbnail in the exif data;
+							// gdi+ returns it without decoding a single scanline of the
+							// full image, so a big image appears instantly (blurry) and
+							// sharpens when the full frame arrives.
+							if ((!_viv_load_is_preload) && (os_GdipGetImageThumbnailImage) && (((VIV_UINT64)load_wide * (VIV_UINT64)load_high) > 2000000))
+							{
+								UINT thumb_data_size;
+								
+								// PropertyTagThumbnailData 0x501A: only take this path when an
+								// embedded thumbnail actually exists, otherwise gdi+ would
+								// decode the full image just to build one.
+								thumb_data_size = 0;
+								
+								if ((os_GdipGetPropertyItemSize(image,0x501A,&thumb_data_size) == 0) && (thumb_data_size > 0))
+								{
+									void *thumb_image;
+									
+									thumb_image = NULL;
+									
+									// request at most 160x120: gdi+ serves the embedded thumbnail
+									// without decoding when the request fits inside it.
+									if (os_GdipGetImageThumbnailImage(image,160,120,NULL,NULL,&thumb_image) == 0)
+									{
+										UINT thumb_wide;
+										UINT thumb_high;
+										
+										thumb_wide = 0;
+										thumb_high = 0;
+										
+										if ((os_GdipGetImageWidth(thumb_image,&thumb_wide) == 0) && (os_GdipGetImageHeight(thumb_image,&thumb_high) == 0) && (thumb_wide) && (thumb_high))
+										{
+											HDC screen_hdc;
+											
+											screen_hdc = GetDC(0);
+											
+											if (screen_hdc)
+											{
+												HDC mem_hdc;
+												
+												mem_hdc = CreateCompatibleDC(screen_hdc);
+												
+												if (mem_hdc)
+												{
+													HBITMAP hbitmap;
+													
+													hbitmap = CreateCompatibleBitmap(screen_hdc,(int)thumb_wide,(int)thumb_high);
+													
+													if (hbitmap)
+													{
+														HGDIOBJ last_hbitmap;
+														
+														last_hbitmap = SelectObject(mem_hdc,hbitmap);
+														
+														{
+															void *g;
+															
+															if (os_GdipCreateFromHDC(mem_hdc,&g) == 0)
+															{
+																// thumbnails carry no alpha worth preserving.
+																os_GdipSetCompositingMode(g,1);
+																
+																// Gdiplus::InterpolationModeNearestNeighbor: the thumbnail
+																// is drawn at its own size.
+																os_GdipSetInterpolationMode(g,5);
+																
+																if (os_GdipDrawImageRectI(g,thumb_image,0,0,(int)thumb_wide,(int)thumb_high) == 0)
+																{
+																	// apply orientation: 5-8 swap the axes.
+																	if ((orientation >= 5) && (orientation <= 8))
+																	{
+																		UINT temp;
+																		
+																		temp = thumb_wide;
+																		thumb_wide = thumb_high;
+																		thumb_high = temp;
+																	}
+																	
+																	if (orientation > 1)
+																	{
+																		HBITMAP new_hbitmap;
+																		
+																		new_hbitmap = _viv_orientate_hbitmap(hbitmap,orientation);
+																		
+																		if (new_hbitmap)
+																		{
+																			DeleteObject(hbitmap);
+																			
+																			hbitmap = new_hbitmap;
+																		}
+																	}
+																	
+																	{
+																		_viv_reply_load_image_first_frame_t low_res_first_frame;
+																		
+																		low_res_first_frame.wide = thumb_wide;
+																		low_res_first_frame.high = thumb_high;
+																		low_res_first_frame.frame_count = 1;
+																		low_res_first_frame.frame.hbitmap = hbitmap;
+																		low_res_first_frame.frame.mipmap = NULL; // no mipmap: the full frame provides them
+																		low_res_first_frame.frame.delay = 0;
+																		low_res_first_frame.is_low_res = 1;
+																		
+																		_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_FIRST_FRAME,sizeof(low_res_first_frame),&low_res_first_frame);
+																		
+																		// ownership moved to the reply.
+																		hbitmap = 0;
+																	}
+																}
+																
+																os_GdipDeleteGraphics(g);
+															}
+														}
+														
+														SelectObject(mem_hdc,last_hbitmap);
+													}
+													
+													if (hbitmap)
+													{
+														DeleteObject(hbitmap);
+													}
+												}
+												
+												DeleteDC(mem_hdc);
+											}
+											
+											ReleaseDC(0,screen_hdc);
+										}
+									}
+									
+									if (thumb_image)
+									{
+										os_GdipDisposeImage(thumb_image);
+									}
+								}
+							}
+							
+
 
 							//First of all we should get the number of frame dimensions
 							//Images considered by GDI+ as:
@@ -15776,9 +15928,15 @@ static HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int
 		return hbitmap;
 	}
 	
-	if ((render_wide >= mip_wide) || (render_high >= mip_wide))
+	// use the full image only when it is being magnified (render at or above
+	// the full image size on either axis). between the half size and the full
+	// size the half mipmap is magnified instead: entering the full image there
+	// ran the slow shrink filter (HALFTONE default) over every pixel of the
+	// image on every paint, which was the zoom stall when a pinch or wheel
+	// zoom crossed the half-size boundary. the half mipmap is 4x cheaper and
+	// the difference is invisible at these zoom levels.
+	if ((render_wide >= image_wide) || (render_high >= image_high))
 	{
-//			debug_printf("MIP 0: %d %d\n",mip_wide,mip_high);
 		*pmip_wide = image_wide;
 		*pmip_high = image_high;
 
