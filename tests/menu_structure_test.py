@@ -169,12 +169,35 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.17 -rc.4",
-          "VERSION_BUILD\t\t17" in vh and '"-rc.4"' in vh)
-    check("rc = 1,1,0,17 + 1.1.0-rc.4",
-          "1,1,0,17" in rc and rc.count("1.1.0-rc.4") >= 2)
-    check("nsh = 1.1.0.17 + -rc.4",
-          '!define VERSION "1.1.0.17"' in nsh and '!define BETAVERSION "-rc.4"' in nsh)
+
+    # src/version.h is the single source of truth: rc and nsh derive from it
+    def num(name):
+        m = re.search(r'#define\s+' + name + r'\s+(\d+)', vh)
+        check("version.h defines " + name, m is not None)
+        return m.group(1) if m else None
+    major, minor, rev, build = (num("VERSION_MAJOR"), num("VERSION_MINOR"),
+                                num("VERSION_REVISION"), num("VERSION_BUILD"))
+    tm = re.search(r'#define\s+VERSION_TYPE\s+"([^"]*)"', vh)
+    vtype = tm.group(1) if tm else None
+    sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
+    vstr = sm.group(1) if sm else None
+    check("version.h = 1.1.0.18 -rc.5",
+          (major, minor, rev, build) == ("1", "1", "0", "18") and vtype == "-rc.5")
+    check("VERSION_STRING composes from the numeric macros",
+          vstr == "%s.%s.%s%s" % (major, minor, rev, vtype))
+    check("rc derives everything from version.h",
+          '#include "../src/version.h"' in rc and
+          "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
+          'VALUE "FileVersion", VERSION_STRING' in rc and
+          'VALUE "ProductVersion", VERSION_STRING' in rc)
+    check("rc has no hardcoded version left",
+          "1,1,0," not in rc and '"1.1.0-rc.' not in rc)
+    check("nsh derives from src/version.h at compile time",
+          "!searchparse" in nsh and "..\\src\\version.h" in nsh and
+          '!define VERSION "${VIV_VER_MAJOR}.${VIV_VER_MINOR}.${VIV_VER_REVISION}.${VIV_VER_BUILD}"' in nsh and
+          '!define BETAVERSION "${VIV_VER_TYPE}"' in nsh)
+    check("nsh has no hardcoded version left",
+          '"1.1.0.' not in nsh and '"-rc.' not in nsh)
 
 
 # ---------------------------------------------------------------------------
