@@ -166,12 +166,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.12 -beta.12",
-          "VERSION_BUILD\t\t12" in vh and '"-beta.12"' in vh)
-    check("rc = 1,1,0,12 + 1.1.0-beta.12",
-          "1,1,0,12" in rc and rc.count("1.1.0-beta.12") >= 2)
-    check("nsh = 1.1.0.12 + -beta.12",
-          '!define VERSION "1.1.0.12"' in nsh and '!define BETAVERSION "-beta.12"' in nsh)
+    check("version.h = 1.1.0.13 -beta.13",
+          "VERSION_BUILD\t\t13" in vh and '"-beta.13"' in vh)
+    check("rc = 1,1,0,13 + 1.1.0-beta.13",
+          "1,1,0,13" in rc and rc.count("1.1.0-beta.13") >= 2)
+    check("nsh = 1.1.0.13 + -beta.13",
+          '!define VERSION "1.1.0.13"' in nsh and '!define BETAVERSION "-beta.13"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -494,10 +494,14 @@ def t_progressive_wiring():
 
     # progressive preview plumbing
     check("os.h exports the thumbnail function",
-          "os_GdipGetImageThumbnailImage" in osh)
-    check("os.c loads GdipGetImageThumbnailImage by name",
-          'GetProcAddress(_os_gdiplus_hmodule,"GdipGetImageThumbnailImage")' in osc or
-          '"GdipGetImageThumbnailImage"' in osc)
+          "os_GdipGetImageThumbnail" in osh and
+          "os_GdipGetImageThumbnailImage" not in osh)
+    check("os.c loads the real gdiplus export (no Image suffix)",
+          'GetProcAddress(_os_gdiplus_hmodule,"GdipGetImageThumbnail")' in osc)
+    check("the thumbnail load is non fatal (plain GetProcAddress)",
+          '_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageThumbnail")' not in osc)
+    check("the call passes the out image as the 4th argument",
+          "os_GdipGetImageThumbnail(image,160,120,&thumb_image,NULL,NULL)" in viv)
     check("the reply struct carries is_low_res",
           "BYTE is_low_res; // 1 = progressive preview frame" in viv)
     check("the thread posts a low res first frame",
@@ -514,6 +518,121 @@ def t_progressive_wiring():
           "first_frame.is_low_res = 0;" in viv)
 
 
+# ---------------------------------------------------------------------------
+# beta.13: the thumbnail export name must never regress (GdipGetImageThumbnail
+# exists in real gdiplus.dll, GdipGetImageThumbnailImage exists nowhere).
+# ---------------------------------------------------------------------------
+def t_thumbnail_api():
+    viv = read("src/viv.c").decode()
+    osh = read("src/os.h").decode()
+    osc = read("src/os.c").decode()
+
+    for path, txt in (("src/viv.c", viv), ("src/os.h", osh), ("src/os.c", osc)):
+        check(f"{path} never mentions the bogus export name",
+              "GdipGetImageThumbnailImage" not in txt)
+    check("os.c loads by the real export name",
+          '"GdipGetImageThumbnail"' in osc)
+    check("the load is optional (no fatal helper)",
+          "_os_get_proc_address(_os_gdiplus_hmodule" not in osc or
+          "_os_get_proc_address(_os_gdiplus_hmodule,\"GdipGetImageThumbnail\")" not in osc)
+    check("os.h documents the real parameter order",
+          "void **thumb_image,void *callback,void *callback_data" in osh)
+    check("the guard uses the renamed pointer",
+          "(os_GdipGetImageThumbnail)" in viv)
+
+
+# ---------------------------------------------------------------------------
+# beta.13: the image context menu is regrouped.
+# ---------------------------------------------------------------------------
+def t_context_menu_shape():
+    viv = read("src/viv.c").decode()
+    m = re.search(r"WORD _viv_context_menu_items\[\] = \r?\n\{(.*?)\r?\n\};",
+                  viv, re.S)
+    assert m, "context menu array not found"
+    body = m.group(1)
+
+    items = re.findall(r"(_VIV_MENU_[A-Z0-9_]+|VIV_ID_[A-Z0-9_]+)", body)
+    check("zoom submenu opens and closes (marker twice)",
+          items.count("_VIV_MENU_VIEW_ZOOM") == 2)
+    check("rate submenu opens and closes (marker twice)",
+          items.count("_VIV_MENU_SLIDESHOW_RATE") == 2)
+    check("sort submenu opens and closes (marker twice)",
+          items.count("_VIV_MENU_NAVIGATE_SORT") == 2)
+
+    # the slim rate ladder: 1s/3s/5s/10s/30s/60s + custom only
+    rates = [i for i in items if i.startswith("VIV_ID_SLIDESHOW_RATE_")]
+    wanted = {"VIV_ID_SLIDESHOW_RATE_DEC", "VIV_ID_SLIDESHOW_RATE_INC",
+              "VIV_ID_SLIDESHOW_RATE_1000", "VIV_ID_SLIDESHOW_RATE_3000",
+              "VIV_ID_SLIDESHOW_RATE_5000", "VIV_ID_SLIDESHOW_RATE_10000",
+              "VIV_ID_SLIDESHOW_RATE_30000", "VIV_ID_SLIDESHOW_RATE_60000",
+              "VIV_ID_SLIDESHOW_RATE_CUSTOM"}
+    check("rate ladder is slimmed to the wanted set", set(rates) == wanted,
+          f"{sorted(set(rates) ^ wanted)}")
+
+    # zoom group contents live between the zoom markers
+    zpos = [i for i, x in enumerate(items) if x == "_VIV_MENU_VIEW_ZOOM"]
+    zoom_items = items[zpos[0] + 1:zpos[1]]
+    for want in ("VIV_ID_VIEW_ZOOM_IN", "VIV_ID_VIEW_ZOOM_OUT", "VIV_ID_VIEW_1TO1",
+                 "VIV_ID_VIEW_BESTFIT", "VIV_ID_VIEW_FILL_WINDOW",
+                 "VIV_ID_VIEW_ALLOW_SHRINKING", "VIV_ID_VIEW_KEEP_ASPECT_RATIO"):
+        check(f"{want} lives in the zoom submenu", want in zoom_items)
+
+    check("paste is offered in the context menu",
+          "VIV_ID_EDIT_PASTE" in items)
+    check("the full menu stays navigable (next/prev first)",
+          items[:2] == ["VIV_ID_NAV_NEXT", "VIV_ID_NAV_PREV"])
+    check("the menu bar fallback stays (view menu when the bar is hidden)",
+          "VIV_ID_VIEW_MENU" in items)
+    # top level = the entries outside every submenu span (markers toggle it)
+    top = []
+    inside = None
+    for x in items:
+        if x.startswith("_VIV_MENU_"):
+            if inside == x:
+                inside = None  # pop
+            elif inside is None:
+                inside = x     # push
+            continue
+        if inside is None:
+            top.append(x)
+    check("the top level list is short (<= 26 entries)", len(top) <= 26,
+          f"{len(top)}: {top}")
+
+
+# ---------------------------------------------------------------------------
+# beta.13: paste shows a clipboard image.
+# ---------------------------------------------------------------------------
+def t_paste_wiring():
+    viv = read("src/viv.c").decode()
+
+    check("WM_PASTE falls back to an image branch",
+          re.search(r"else\s*\{\s*// no filenames on the clipboard", viv) is not None)
+    check("the image branch calls the paste helper",
+          "_viv_paste_clipboard_image();" in viv)
+    check("dib is the primary paste format",
+          "GetClipboardData(CF_DIB)" in viv)
+    check("bitmap is the fallback paste format",
+          "GetClipboardData(CF_BITMAP)" in viv)
+    check("the clipboard owns the original, we copy it",
+          "CopyImage(hbitmap,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION)" in viv)
+    check("a pasted image clears the filename",
+          "_viv_current_fd->cFileName[0] = 0;" in viv)
+    check("an in flight load can not clobber a paste",
+          "_viv_load_image_allow_draw = 0;" in viv and
+          "_viv_load_image_terminate = 1;" in viv)
+    check("the pasted frame starts the normal first frame path",
+          "_viv_start_first_frame();" in viv)
+    check("the mipmap is built lazily (NULL is a supported frame state)",
+          "_viv_frames[0].mipmap = 0; // built lazily on the first paint." in viv)
+    check("the paste helpers have prototypes",
+          "static void _viv_paste_clipboard_image(void);" in viv)
+    check("only 40 byte dib headers take the dib path",
+          "bih->biSize == sizeof(BITMAPINFOHEADER)" in viv)
+    check("the dib stride math is overflow safe",
+          "(DWORD)bih->biWidth * (DWORD)bih->biBitCount" in viv)
+
+
+
 
 if __name__ == "__main__":
     t_panscan_gone()
@@ -528,6 +647,9 @@ if __name__ == "__main__":
     t_dark_dialogs_wiring()
     t_backdrop_wiring()
     t_progressive_wiring()
+    t_thumbnail_api()
+    t_context_menu_shape()
+    t_paste_wiring()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

@@ -1,3 +1,22 @@
+Pre-release, BETA: Version 1.1.0-beta.13 (startup crash fix, context menu, clipboard paste)
+	fixed a fatal startup bug introduced in beta.12: the progressive preview
+	loaded the gdi+ thumbnail function by a name that does not exist in any
+	gdiplus.dll (GdipGetImageThumbnailImage instead of GdipGetImageThumbnail)
+	and treated the missing export as fatal, so voidImageViewer.exe died with
+	"missing proc GdipGetImageThumbnailImage" before a single window opened.
+	because the setup runs the exe to install itself (registry, file
+	associations, program files), a broken beta.12 install left nothing in
+	the installed programs list. the load is now optional and uses the real
+	export name with the correct parameter order; on systems without the
+	export the progressive preview simply stays off.
+	the image right click menu is regrouped: zoom commands live in one zoom
+	submenu, the slideshow rate ladder is trimmed to the rates people use
+	(1/3/5/10/30/60 seconds + custom, the full list stays in the menu bar),
+	and paste joins the copy group.
+	pasting now shows an image from the clipboard: ctrl+v with an image (no
+	file names) on the clipboard displays it, completing the paste groundwork
+	that was already wired for menus and shortcuts.
+
 Pre-release, BETA: Version 1.1.0-beta.12 (zoom stall fix, progressive display)
 	fixed the zoom stall when zooming in from around half the image size: the
 	full image entered the mipmap chain exactly at the half size, so a pinch

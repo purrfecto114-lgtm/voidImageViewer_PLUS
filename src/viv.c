@@ -511,6 +511,8 @@ static void _viv_copy(int cut);
 static void _viv_copy_filename(void);
 static void _viv_set_clipboard_image(void);
 static void _viv_copy_image(void);
+static void _viv_paste_clipboard_image(void);
+static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high);
 static void _viv_save_image_as(void);
 static int _viv_is_key_state(int control,int shift,int alt);
 static CLIPFORMAT _viv_get_CF_PREFERREDDROPEFFECT(void);
@@ -1091,10 +1093,23 @@ WORD _viv_context_menu_items[] =
 	VIV_ID_NAV_NEXT,
 	VIV_ID_NAV_PREV,
 	0,
+	// one zoom submenu groups the zoom commands instead of a flat pile
+	// of them at the top level. the submenu markers push/pop the same way
+	// the rate and sort submenus always have.
+	_VIV_MENU_VIEW_ZOOM,
 	VIV_ID_VIEW_ZOOM_IN,
 	VIV_ID_VIEW_ZOOM_OUT,
+	0,
 	VIV_ID_VIEW_1TO1,
 	VIV_ID_VIEW_BESTFIT,
+	VIV_ID_VIEW_FILL_WINDOW,
+	0,
+	VIV_ID_VIEW_ALLOW_SHRINKING,
+	VIV_ID_VIEW_KEEP_ASPECT_RATIO,
+	_VIV_MENU_VIEW_ZOOM,
+	0,
+	VIV_ID_EDIT_ROTATE_90,
+	VIV_ID_EDIT_ROTATE_270,
 	0,
 	VIV_ID_VIEW_FULLSCREEN,
 	VIV_ID_SLIDESHOW_PAUSE,
@@ -1102,32 +1117,18 @@ WORD _viv_context_menu_items[] =
 	VIV_ID_SLIDESHOW_RATE_DEC,
 	VIV_ID_SLIDESHOW_RATE_INC,
 	0,
-	VIV_ID_SLIDESHOW_RATE_250,
-	VIV_ID_SLIDESHOW_RATE_500,
+	// keep the handful of rates people actually use here; the complete
+	// ladder still lives in the menu bar slideshow submenu.
 	VIV_ID_SLIDESHOW_RATE_1000,
-	VIV_ID_SLIDESHOW_RATE_2000,
 	VIV_ID_SLIDESHOW_RATE_3000,
-	VIV_ID_SLIDESHOW_RATE_4000,
 	VIV_ID_SLIDESHOW_RATE_5000,
-	VIV_ID_SLIDESHOW_RATE_6000,
-	VIV_ID_SLIDESHOW_RATE_7000,
-	VIV_ID_SLIDESHOW_RATE_8000,
-	VIV_ID_SLIDESHOW_RATE_9000,
 	VIV_ID_SLIDESHOW_RATE_10000,
-	VIV_ID_SLIDESHOW_RATE_20000,
 	VIV_ID_SLIDESHOW_RATE_30000,
-	VIV_ID_SLIDESHOW_RATE_40000,
-	VIV_ID_SLIDESHOW_RATE_50000,
 	VIV_ID_SLIDESHOW_RATE_60000,
 	VIV_ID_SLIDESHOW_RATE_CUSTOM,
 	_VIV_MENU_SLIDESHOW_RATE,
 	0,
 	VIV_ID_VIEW_MENU,
-	0,
-	VIV_ID_VIEW_ALLOW_SHRINKING,
-	VIV_ID_VIEW_KEEP_ASPECT_RATIO,
-	VIV_ID_VIEW_FILL_WINDOW,
-//	VIV_ID_VIEW_SLIDESHOW,
 	0,
 	_VIV_MENU_NAVIGATE_SORT,
 	VIV_ID_NAV_SORT_NAME,
@@ -1146,12 +1147,10 @@ WORD _viv_context_menu_items[] =
 	VIV_ID_FILE_PRINT,
 	VIV_ID_FILE_PREVIEW,
 	0,
-	VIV_ID_EDIT_ROTATE_90,
-	VIV_ID_EDIT_ROTATE_270,
-	0,
 	VIV_ID_EDIT_CUT,
 	VIV_ID_EDIT_COPY,
 	VIV_ID_EDIT_COPY_IMAGE,
+	VIV_ID_EDIT_PASTE,
 	0,
 	VIV_ID_FILE_DELETE,
 	VIV_ID_FILE_RENAME,
@@ -4322,6 +4321,13 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 
 						GlobalUnlock(hglobal);
 					}
+				}
+				else
+				{
+					// no filenames on the clipboard: show an image copied from
+					// another application instead (paint, a browser, a screenshot
+					// tool, ...).
+					_viv_paste_clipboard_image();
 				}
 
 				CloseClipboard();
@@ -8468,6 +8474,147 @@ static void _viv_copy_image(void)
 	}
 }
 
+// show a bitmap that came from the clipboard.
+// pasted images have no filename: the title falls back to the application
+// name and every filename based command (save as, delete, rename, copy to,
+// ...) already checks for an empty filename and quietly does nothing.
+static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high)
+{
+	// stop an in flight file load from clobbering the pasted image.
+	_viv_load_image_allow_draw = 0;
+	_viv_load_image_terminate = 1;
+	
+	// the current image moves to the last image slot, exactly like
+	// navigating to a new image does.
+	viv_copy_current_image_to_last_image();
+	
+	_viv_clear();
+	
+	_viv_image_wide = wide;
+	_viv_image_high = high;
+	_viv_frame_count = 1;
+	_viv_frame_loaded_count = 1;
+	_viv_frames = (_viv_frame_t *)mem_alloc(sizeof(_viv_frame_t));
+	
+	_viv_frames[0].hbitmap = hbitmap;
+	_viv_frames[0].mipmap = 0; // built lazily on the first paint.
+	_viv_frames[0].delay = 0;
+	
+	// a clipboard image has no filename.
+	_viv_current_fd->cFileName[0] = 0;
+	
+	_viv_update_title();
+	
+	_viv_start_first_frame();
+	
+	_viv_process_pending_clear();
+}
+
+// the clipboard must already be open by the caller.
+// dib first: the system synthesizes a CF_DIB for nearly every image
+// source. a plain bitmap handle is the fallback.
+static void _viv_paste_clipboard_image(void)
+{
+	HGLOBAL hglobal;
+	
+	hglobal = GetClipboardData(CF_DIB);
+	
+	if (hglobal)
+	{
+		BITMAPINFOHEADER *bih;
+		
+		bih = (BITMAPINFOHEADER *)GlobalLock(hglobal);
+		if (bih)
+		{
+			// only the classic 40 byte header with an uncompressed (or
+			// bitfields) layout is handled here, anything else falls through
+			// to the CF_BITMAP copy below.
+			if ((bih->biSize == sizeof(BITMAPINFOHEADER)) && (bih->biPlanes == 1) && (bih->biWidth > 0) && (bih->biHeight != 0) && ((bih->biCompression == 0 /* BI_RGB */) || (bih->biCompression == 3 /* BI_BITFIELDS */)) && ((bih->biBitCount == 1) || (bih->biBitCount == 4) || (bih->biBitCount == 8) || (bih->biBitCount == 16) || (bih->biBitCount == 24) || (bih->biBitCount == 32)))
+			{
+				HDC screen_hdc;
+				
+				screen_hdc = GetDC(0);
+				if (screen_hdc)
+				{
+					void *bits;
+					HBITMAP hbitmap;
+					
+					hbitmap = CreateDIBSection(screen_hdc,(BITMAPINFO *)bih,DIB_RGB_COLORS,&bits,NULL,0);
+					if (hbitmap)
+					{
+						DWORD color_count;
+						int mask_size;
+						const char *src;
+						int height;
+						int stride;
+						
+						// the clipboard dib layout: header, bitfield masks (40 byte
+						// headers with BI_BITFIELDS only), palette, bits.
+						color_count = 0;
+						if (bih->biBitCount <= 8)
+						{
+							color_count = bih->biClrUsed ? bih->biClrUsed : (1 << bih->biBitCount);
+						}
+						
+						mask_size = ((bih->biCompression == 3 /* BI_BITFIELDS */) && ((bih->biBitCount == 16) || (bih->biBitCount == 32))) ? 12 : 0;
+						
+						src = (const char *)bih + bih->biSize + mask_size + color_count * 4;
+						
+						height = bih->biHeight;
+						if (height < 0)
+						{
+							height = -height;
+						}
+						
+						stride = (int)(((DWORD)bih->biWidth * (DWORD)bih->biBitCount + 31) / 32) * 4;
+						
+						os_copy_memory(bits,src,(int)((SIZE_T)stride * (SIZE_T)height));
+						
+						_viv_show_clipboard_image(hbitmap,(int)bih->biWidth,height);
+						
+						ReleaseDC(0,screen_hdc);
+						GlobalUnlock(hglobal);
+						
+						return;
+					}
+					
+					ReleaseDC(0,screen_hdc);
+				}
+			}
+			
+			GlobalUnlock(hglobal);
+		}
+	}
+	
+	// fall back to a plain bitmap handle.
+	{
+		HBITMAP hbitmap;
+		
+		hbitmap = (HBITMAP)GetClipboardData(CF_BITMAP);
+		
+		if (hbitmap)
+		{
+			HBITMAP hbitmap_copy;
+			BITMAP bm;
+			
+			// the clipboard owns the original: make a private dib copy.
+			hbitmap_copy = (HBITMAP)CopyImage(hbitmap,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
+			
+			if (hbitmap_copy)
+			{
+				if ((GetObject(hbitmap_copy,sizeof(BITMAP),&bm)) && (bm.bmWidth > 0) && (bm.bmHeight > 0))
+				{
+					_viv_show_clipboard_image(hbitmap_copy,bm.bmWidth,bm.bmHeight);
+					
+					return;
+				}
+				
+				DeleteObject(hbitmap_copy);
+			}
+		}
+	}
+}
+
 // ascii, case-insensitive wide string compare. returns 0 if equal.
 static int _viv_icompare_w(const wchar_t *a,const wchar_t *b)
 {
@@ -11778,7 +11925,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 							// gdi+ returns it without decoding a single scanline of the
 							// full image, so a big image appears instantly (blurry) and
 							// sharpens when the full frame arrives.
-							if ((!_viv_load_is_preload) && (os_GdipGetImageThumbnailImage) && (((VIV_UINT64)load_wide * (VIV_UINT64)load_high) > 2000000))
+							if ((!_viv_load_is_preload) && (os_GdipGetImageThumbnail) && (((VIV_UINT64)load_wide * (VIV_UINT64)load_high) > 2000000))
 							{
 								UINT thumb_data_size;
 								
@@ -11795,7 +11942,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 									
 									// request at most 160x120: gdi+ serves the embedded thumbnail
 									// without decoding when the request fits inside it.
-									if (os_GdipGetImageThumbnailImage(image,160,120,NULL,NULL,&thumb_image) == 0)
+									if (os_GdipGetImageThumbnail(image,160,120,&thumb_image,NULL,NULL) == 0)
 									{
 										UINT thumb_wide;
 										UINT thumb_high;

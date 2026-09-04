@@ -37,6 +37,12 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.13** fixes the beta.12 startup crash and regroups the right click menu:
+
+- **Startup crash fix** - beta.12 called the gdi+ thumbnail API by a name that does not exist in any gdiplus.dll and treated the missing export as fatal: the exe died at startup with "missing proc GdipGetImageThumbnailImage", which also broke the installer (setup runs the exe to install itself, so nothing landed in the installed programs list). The load is now optional, uses the real export name and the correct parameter order.
+- **Right click menu** - the image context menu is regrouped: zoom commands in one Zoom submenu, a slim slideshow rate ladder (the full list stays in the menu bar) and paste in the copy group.
+- **Clipboard paste** - Ctrl+V with an image on the clipboard (from a browser, screenshot tool or paint) now displays it. Pasted images have no filename, so file commands (save as, delete, rename) stay disabled while it is shown.
+
 **Version 1.1.0-beta.12** fixes the zoom stall around half size and adds progressive display:
 
 - **Zoom stall fix** — zooming in from around half the image size no longer stalls: crossing the half-size mipmap boundary used to switch to the full image running the slow HALFTONE shrink filter over every pixel on every paint. The half mipmap is now magnified up to the full size instead (4x cheaper, looks the same).

@@ -133,7 +133,7 @@ int (__stdcall *os_GdipImageGetFrameDimensionsCount)(void *image, UINT* count) =
 int (__stdcall *os_GdipImageGetFrameDimensionsList)(void *image, GUID* dimensionIDs,UINT count) = 0;
 int (__stdcall *os_GdipImageGetFrameCount)(void *image, const GUID* dimensionID,UINT* count) = 0;
 int (__stdcall *os_GdipGetPropertyItemSize)(void *image, PROPID propId, UINT* size) = 0;
-int (__stdcall *os_GdipGetImageThumbnailImage)(void *image,UINT thumb_wide,UINT thumb_high,void *callback,void *callback_data,void **thumb_image) = 0;
+int (__stdcall *os_GdipGetImageThumbnail)(void *image,UINT thumb_wide,UINT thumb_high,void **thumb_image,void *callback,void *callback_data) = 0;
 int (__stdcall *os_GdipGetPropertyItem)(void *image, PROPID propId,UINT propSize,void *buffer) = 0;
 int (__stdcall *os_GdipImageSelectActiveFrame)(void *image, const GUID* dimensionID,UINT frameIndex) = 0;
 int (__stdcall *os_GdipGetImageFlags)(void *image, UINT *flags) = 0;
@@ -973,7 +973,11 @@ void os_init(void)
 		os_GdipImageGetFrameDimensionsList = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipImageGetFrameDimensionsList");
 		os_GdipImageGetFrameCount = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipImageGetFrameCount");
 		os_GdipGetPropertyItemSize = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetPropertyItemSize");
-		os_GdipGetImageThumbnailImage = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageThumbnailImage");
+		// optional: gdi+ serves the embedded exif thumbnail without decoding
+		// the full image, but not every gdiplus.dll exports GdipGetImageThumbnail.
+		// a missing export must never be fatal at startup (it would kill the
+		// /install self-install step), the progressive preview quietly turns off.
+		os_GdipGetImageThumbnail = (void *)GetProcAddress(_os_gdiplus_hmodule,"GdipGetImageThumbnail");
 		os_GdipGetPropertyItem = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetPropertyItem");
 		os_GdipImageSelectActiveFrame = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipImageSelectActiveFrame");
 		os_GdipGetImageFlags = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageFlags");
