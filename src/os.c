@@ -167,7 +167,9 @@ static OS_RefreshImmersiveColorPolicyState_fn _os_RefreshImmersiveColorPolicySta
 static OS_ShouldAppsUseDarkMode_fn _os_ShouldAppsUseDarkMode = 0;
 static OS_AllowDarkModeForWindow_fn _os_AllowDarkModeForWindow = 0;
 static OS_DwmSetWindowAttribute_fn _os_DwmSetWindowAttribute = 0;
-// registry reads for a stable dark mode detection: the undocumented uxtheme
+
+typedef HRESULT (__stdcall *OS_SetWindowTheme_fn)(HWND hwnd,const wchar_t *sub_app_name,const wchar_t *sub_id_list);
+static OS_SetWindowTheme_fn _os_SetWindowTheme = 0;// registry reads for a stable dark mode detection: the undocumented uxtheme
 // probe returns wrong values on some windows 10 1903+ builds, the personalize
 // registry value is the documented source the shell itself follows.
 typedef LONG (__stdcall *OS_RegOpenKeyExW_fn)(HKEY key,const wchar_t *name,DWORD options,DWORD access,HKEY *result);
@@ -910,6 +912,9 @@ void os_init(void)
 	{
 		os_EnableThemeDialogTexture = (void *)GetProcAddress(_os_UxTheme_hmodule,"EnableThemeDialogTexture");
 		
+		// the dark explorer visual style for dialog controls (named export).
+		_os_SetWindowTheme = (void *)GetProcAddress(_os_UxTheme_hmodule,"SetWindowTheme");
+		
 		// windows 10 dark mode: uxtheme exports these by ordinal only. on
 		// windows 7/8 and pre-1809 builds they do not resolve and every dark
 		// function below quietly does nothing.
@@ -1259,6 +1264,20 @@ void os_dark_invalidate(void)
 	_os_dark_cache_valid = 0;
 }
 
+// set the dark explorer visual style on a window (dialog controls and tab
+// controls draw dark with it). returns 1 when the style was applied.
+int os_dark_window_theme(HWND hwnd)
+{
+	if (_os_SetWindowTheme)
+	{
+		if (_os_SetWindowTheme(hwnd,L"DarkMode_Explorer",0) == 0)
+		{
+			return 1;
+		}
+	}
+	
+	return 0;
+}
 // set the app menu theme. mode 0 = light, 1 = dark, 2 = follow the system.
 void os_dark_set_app_mode(int mode)
 {

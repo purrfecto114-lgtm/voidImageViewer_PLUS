@@ -37,6 +37,12 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this beta
 --------
+**Version 1.1.0-beta.10** completes the dark mode coverage with dark dialogs:
+
+- **Dark dialogs** — options (and its pages), about, rename, edit key, custom rate and the everything search now draw with the dark palette when the dark ui is active: a dark title bar, the dark explorer control style, dark text/backgrounds for statics, edits and lists, and a dark background fill. No more fully light dialogs popping out of a dark window.
+- **Options navigation** — the tree view gets dark item colors, the tab controls switch to the dark explorer style, and the light tab dialog texture is skipped while dark (it would clash).
+- **Cheap replies** — the dark replies use the cached dark state (beta.9) and a single reused background brush; the light path is untouched.
+
 **Version 1.1.0-beta.9** makes the dark mode detection reliable and follows the theme live in more situations:
 
 - **Registry-based detection** — the system theme is read from the documented `AppsUseLightTheme` registry value (the source the shell itself follows) instead of the undocumented uxtheme ordinal 132 probe, which is known to return wrong values on some Windows 10 1903+ builds. The probe stays as a fallback.

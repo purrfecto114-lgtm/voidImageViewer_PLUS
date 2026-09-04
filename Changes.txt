@@ -1,3 +1,21 @@
+Pre-release, BETA: Version 1.1.0-beta.10 (dark dialogs)
+	the dialogs now follow the dark mode too: opening options (and its
+	pages), about, rename, edit key, custom rate or the everything search
+	in dark mode used to pop a fully light dialog out of a dark window.
+	every dialog now gets a dark title bar, the dark explorer control
+	style, dark text and backgrounds for its statics, edits and lists, and
+	a dark background fill.
+	the options navigation follows as well: the tree view gets dark item
+	colors (TVM_SETBKCOLOR/TVM_SETTEXTCOLOR), the tab controls switch to
+	the dark explorer style, and the light tab dialog texture is skipped
+	while the dark ui is active (it would clash with the dark chrome).
+	the about dialog paints its upper area with the dark palette instead
+	of white.
+	the dark replies are cheap: they are computed from the cached dark
+	state (beta.9), the dark background brush is created once and reused
+	across dialogs, and the light path is untouched (0 reply keeps the
+	default system painting).
+
 Pre-release, BETA: Version 1.1.0-beta.9 (reliable dark mode detection)
 	dark mode detection is now reliable: the system theme is read from the
 	documented AppsUseLightTheme registry value (the source the shell

@@ -316,6 +316,14 @@
 #define TTM_SETTIPTEXTCOLOR (WM_USER+20)
 #endif
 
+#ifndef TVM_SETBKCOLOR
+#define TVM_SETBKCOLOR (TV_FIRST+29)
+#endif
+
+#ifndef TVM_SETTEXTCOLOR
+#define TVM_SETTEXTCOLOR (TV_FIRST+30)
+#endif
+
 enum
 {
 	_VIV_COPYDATA_COMMAND_LINE,
@@ -2559,6 +2567,7 @@ static int _viv_paint_high = 0;
 // instead of one per paint.
 static HBRUSH _viv_background_hbrush = 0;
 static COLORREF _viv_background_hbrush_color = 0;
+static HBRUSH _viv_dialog_dark_hbrush = 0; // dark dialog background brush, lazy created
 
 // prepare the paint backbuffer for a client area of wide x high pixels.
 // returns 1 when the caller should draw into _viv_paint_hdc instead of the screen dc.
@@ -5890,6 +5899,13 @@ static void _viv_kill(void)
 		_viv_background_hbrush = 0;
 	}
 	
+	if (_viv_dialog_dark_hbrush)
+	{
+		DeleteObject(_viv_dialog_dark_hbrush);
+		
+		_viv_dialog_dark_hbrush = 0;
+	}
+	
 	_viv_paint_kill();
 	
 	_viv_key_clear_all(_viv_key_list);
@@ -7548,6 +7564,107 @@ static void _viv_apply_dark_mode(int repaint)
 	}
 }
 
+// dark dialog support: the common dialogs (options and its pages, about,
+// rename, edit key, custom rate and the everything search) get the dark
+// chrome when the dark ui is active. the app mode is already dark app wide
+// (the comctl controls draw dark), so what is missing is the dialog title
+// bar, the control visual style, the control color replies and the
+// background fill.
+
+// the dark dialog background brush (lazy created, deleted at kill).
+static HBRUSH _viv_dialog_dark_brush(void)
+{
+	if (!_viv_dialog_dark_hbrush)
+	{
+		_viv_dialog_dark_hbrush = CreateSolidBrush(RGB(0x20,0x20,0x20));
+	}
+	
+	return _viv_dialog_dark_hbrush;
+}
+
+// give a dialog the dark chrome: a dark title bar and the dark explorer
+// control style. call from WM_INITDIALOG.
+static void _viv_dark_dialog(HWND hwnd)
+{
+	if (_viv_is_dark())
+	{
+		os_dark_titlebar(hwnd,1);
+		
+		os_dark_window_theme(hwnd);
+	}
+}
+
+// dark color reply for the dialog control color messages (statics, edits
+// and lists). returns the brush, or 0 to keep the default light painting.
+static INT_PTR _viv_dialog_dark_ctlcolor(HDC hdc)
+{
+	if (_viv_is_dark())
+	{
+		SetTextColor(hdc,RGB(0xE8,0xE8,0xE8));
+		SetBkColor(hdc,RGB(0x20,0x20,0x20));
+		
+		return (INT_PTR)_viv_dialog_dark_brush();
+	}
+	
+	return 0;
+}
+
+// erase a dialog background with the dark palette. call from
+// WM_ERASEBKGND; returns 1 when the background was painted.
+static int _viv_dialog_dark_erase(HWND hwnd,HDC hdc)
+{
+	if (_viv_is_dark())
+	{
+		RECT rect;
+		
+		GetClientRect(hwnd,&rect);
+		
+		FillRect(hdc,&rect,_viv_dialog_dark_brush());
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
+// shared dark handling for the dialog messages: WM_CTLCOLORSTATIC,
+// WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX and WM_ERASEBKGND. returns the
+// dialog proc reply, or -1 when the caller should run its own switch.
+static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	switch(msg)
+	{
+		case WM_CTLCOLORSTATIC:
+		case WM_CTLCOLOREDIT:
+		case WM_CTLCOLORLISTBOX:
+		{
+			INT_PTR dark_reply;
+			
+			dark_reply = _viv_dialog_dark_ctlcolor((HDC)wParam);
+			
+			if (dark_reply)
+			{
+				return dark_reply;
+			}
+			
+			break;
+		}
+		
+		case WM_ERASEBKGND:
+		
+			if (_viv_dialog_dark_erase(hwnd,(HDC)wParam))
+			{
+				return 1;
+			}
+			
+			break;
+	}
+	
+	(void)lParam;
+	
+	return -1;
+}
+
 static void _viv_set_custom_rate(void)
 {
 	if (DialogBox(os_hinstance,MAKEINTRESOURCE(IDD_CUSTOM_RATE),_viv_hwnd,_viv_custom_rate_proc))
@@ -7764,7 +7881,21 @@ static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 {
 	switch(msg)
 	{
+		{
+			INT_PTR dark_dialog_reply;
+			
+			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+			
+			if (dark_dialog_reply != -1)
+			{
+				return dark_dialog_reply;
+			}
+		}
+		
 		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+			
 		{
 			wchar_t name[STRING_SIZE];
 			
@@ -8640,7 +8771,21 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 {
 	switch(msg)
 	{
+		{
+			INT_PTR dark_dialog_reply;
+			
+			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+			
+			if (dark_dialog_reply != -1)
+			{
+				return dark_dialog_reply;
+			}
+		}
+		
 		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+			
 		{
 			int exti;
 
@@ -8836,7 +8981,21 @@ static INT_PTR CALLBACK _viv_edit_key_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 {
 	switch(msg)
 	{
+		{
+			INT_PTR dark_dialog_reply;
+			
+			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+			
+			if (dark_dialog_reply != -1)
+			{
+				return dark_dialog_reply;
+			}
+		}
+		
 		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+			
 		{
 			WNDPROC last_proc;
 			wchar_t caption_wbuf[STRING_SIZE];
@@ -8947,7 +9106,21 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 {
 	switch(msg)
 	{
+		{
+			INT_PTR dark_dialog_reply;
+			
+			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+			
+			if (dark_dialog_reply != -1)
+			{
+				return dark_dialog_reply;
+			}
+		}
+		
 		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+			
 		{
 			os_SetDlgItemText_localization_id(hwnd,IDC_LEFT_CLICK_ACTION_STATIC,LOCALIZATION_ID_LEFT_CLICK_ACTION_STATIC);
 			os_ComboBox_AddString_localization_id(hwnd,IDC_LEFTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_SCROLL_COMBOBOXITEM);
@@ -9064,7 +9237,21 @@ static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,
 {
 	switch(msg)
 	{
+		{
+			INT_PTR dark_dialog_reply;
+			
+			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+			
+			if (dark_dialog_reply != -1)
+			{
+				return dark_dialog_reply;
+			}
+		}
+		
 		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+			
 			
 			os_SetDlgItemText_localization_id(hwnd,IDC_SHRINK_BLIT_MODE_STATIC,LOCALIZATION_ID_SHRINK_BLIT_MODE_STATIC);
 			os_ComboBox_AddString_localization_id(hwnd,IDC_SHRINK_BLIT_MODE_COMBOBOX,LOCALIZATION_ID_BLIT_MODE_NEAREST_COMBOBOXITEM);
@@ -9261,6 +9448,17 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 {
 	switch(msg)
 	{
+		{
+			INT_PTR dark_dialog_reply;
+			
+			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+			
+			if (dark_dialog_reply != -1)
+			{
+				return dark_dialog_reply;
+			}
+		}
+		
 		case WM_NOTIFY:
 
 			switch(((NMHDR *)lParam)->idFrom)
@@ -9286,6 +9484,31 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			return 0;
 			
 		case WM_INITDIALOG:
+			// dark chrome: title bar, dark explorer control style and the
+			// options navigation (tree + tabs).
+			_viv_dark_dialog(hwnd);
+			
+			if (_viv_is_dark())
+			{
+				HWND tree_hwnd;
+				int tabi;
+				
+				tree_hwnd = GetDlgItem(hwnd,IDC_TREE1);
+				
+				if (tree_hwnd)
+				{
+					os_dark_window_theme(tree_hwnd);
+					
+					SendMessage(tree_hwnd,TVM_SETBKCOLOR,0,RGB(0x20,0x20,0x20));
+					SendMessage(tree_hwnd,TVM_SETTEXTCOLOR,0,RGB(0xE8,0xE8,0xE8));
+				}
+				
+				for(tabi=0;tabi<(int)_VIV_OPTIONS_PAGE_COUNT;tabi++)
+				{
+					os_dark_window_theme(GetDlgItem(hwnd,_viv_options_tab_ids[tabi]));
+				}
+			}
+			
 
 			// update text.
 			os_SetWindowText_localization_id(hwnd,LOCALIZATION_ID_OPTIONS_CAPTION);
@@ -9338,7 +9561,11 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					
 					if (os_EnableThemeDialogTexture)
 					{
-						os_EnableThemeDialogTexture(page_hwnd,ETDT_ENABLETAB);
+						// the light tab texture would clash with the dark chrome.
+						if (!_viv_is_dark())
+						{
+							os_EnableThemeDialogTexture(page_hwnd,ETDT_ENABLETAB);
+						}
 					}
 
 					SetWindowPos(page_hwnd,HWND_TOP,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,SWP_NOSIZE|SWP_NOACTIVATE);
@@ -10467,7 +10694,21 @@ static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,L
 {
 	switch(msg)
 	{
+		{
+			INT_PTR dark_dialog_reply;
+			
+			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+			
+			if (dark_dialog_reply != -1)
+			{
+				return dark_dialog_reply;
+			}
+		}
+		
 		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+			
 
 			{
 				int static_wide;
@@ -10532,6 +10773,17 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 {
 	switch(msg)
 	{
+		{
+			INT_PTR dark_dialog_reply;
+			
+			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+			
+			if (dark_dialog_reply != -1)
+			{
+				return dark_dialog_reply;
+			}
+		}
+		
 		case WM_CTLCOLOREDIT:	
 		case WM_CTLCOLORSTATIC:	
 			if (((HWND)lParam == GetDlgItem(hwnd,IDC_ABOUTBACK)) || ((HWND)lParam == GetDlgItem(hwnd,IDC_ABOUTTITLE)))
@@ -10555,7 +10807,14 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			GetClientRect(hwnd,&rect);
 			BeginPaint(hwnd,&ps);
 			rect.bottom -= (48 * os_logical_high) / 96;
-			FillRect(ps.hdc,&rect,(HBRUSH)GetStockObject(WHITE_BRUSH));
+			if (_viv_is_dark())
+			{
+				FillRect(ps.hdc,&rect,_viv_dialog_dark_brush());
+			}
+			else
+			{
+				FillRect(ps.hdc,&rect,(HBRUSH)GetStockObject(WHITE_BRUSH));
+			}
 			rect.top = rect.bottom;
 			rect.bottom++;
 			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_BTNSHADOW + 1));
@@ -10570,6 +10829,9 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 		}
 			
 		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+			
 		{
 			HFONT hfont;
 			LOGFONT lf;
@@ -14120,7 +14382,21 @@ static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wP
 {
 	switch(msg)
 	{
+		{
+			INT_PTR dark_dialog_reply;
+			
+			dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
+			
+			if (dark_dialog_reply != -1)
+			{
+				return dark_dialog_reply;
+			}
+		}
+		
 		case WM_INITDIALOG:
+			// dark chrome: title bar and dark explorer control style.
+			_viv_dark_dialog(hwnd);
+			
 			
 			os_center_dialog(hwnd);
 			

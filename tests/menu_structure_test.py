@@ -159,12 +159,12 @@ def t_version():
     vh = read("src/version.h").decode()
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
     nsh = read("nsis/version.nsh").decode()
-    check("version.h = 1.1.0.9 -beta.9",
-          "VERSION_BUILD\t\t9" in vh and '"-beta.9"' in vh)
-    check("rc = 1,1,0,9 + 1.1.0-beta.9",
-          "1,1,0,9" in rc and rc.count("1.1.0-beta.9") >= 2)
-    check("nsh = 1.1.0.9 + -beta.9",
-          '!define VERSION "1.1.0.9"' in nsh and '!define BETAVERSION "-beta.9"' in nsh)
+    check("version.h = 1.1.0.10 -beta.10",
+          "VERSION_BUILD\t\t10" in vh and '"-beta.10"' in vh)
+    check("rc = 1,1,0,10 + 1.1.0-beta.10",
+          "1,1,0,10" in rc and rc.count("1.1.0-beta.10") >= 2)
+    check("nsh = 1.1.0.10 + -beta.10",
+          '!define VERSION "1.1.0.10"' in nsh and '!define BETAVERSION "-beta.10"' in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +363,64 @@ def t_dark_detection_wiring():
           viv.find("_viv_apply_dark_mode(0);",
                    viv.find("_viv_controls_show(config_show_controls);")) != -1)
 
+# ---------------------------------------------------------------------------
+# 10. the beta.10 dark dialogs: shared dispatcher wiring, options navigation,
+#     about paint and the light texture skip.
+# ---------------------------------------------------------------------------
+def t_dark_dialogs_wiring():
+    viv = read("src/viv.c").decode()
+    osh = read("src/os.h").decode()
+    osc = read("src/os.c").decode()
+
+    # os support
+    check("os.h exports os_dark_window_theme",
+          "extern int os_dark_window_theme(HWND hwnd);" in osh)
+    check("os.c loads SetWindowTheme by name",
+          'GetProcAddress(_os_UxTheme_hmodule,"SetWindowTheme")' in osc)
+    check("os.c implements os_dark_window_theme",
+          "int os_dark_window_theme(HWND hwnd)" in osc)
+    check("os.c applies the DarkMode_Explorer style",
+          'L"DarkMode_Explorer"' in osc)
+
+    # shared helpers + dispatcher in all 9 dialog procs
+    check("viv.c has the dark dialog helpers",
+          "_viv_dialog_dark_ctlcolor" in viv and
+          "_viv_dialog_dark_erase" in viv and
+          "_viv_dialog_dark_brush" in viv)
+    check("all 9 dialog procs route through the dispatcher",
+          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 9)
+    check("all 9 dialogs get the dark chrome at init",
+          viv.count("_viv_dark_dialog(hwnd);") == 9)
+    check("the dispatcher handles the color and erase messages",
+          "case WM_CTLCOLORSTATIC:" in viv and
+          "case WM_CTLCOLOREDIT:" in viv and
+          "case WM_CTLCOLORLISTBOX:" in viv and
+          "_viv_dialog_dark_erase(hwnd,(HDC)wParam)" in viv)
+
+    # options navigation
+    check("options tree gets dark colors",
+          "SendMessage(tree_hwnd,TVM_SETBKCOLOR,0,RGB(0x20,0x20,0x20));" in viv and
+          "SendMessage(tree_hwnd,TVM_SETTEXTCOLOR,0,RGB(0xE8,0xE8,0xE8));" in viv)
+    check("options tabs switch to the dark style",
+          "os_dark_window_theme(GetDlgItem(hwnd,_viv_options_tab_ids[tabi]));" in viv)
+    check("the light tab texture is skipped while dark",
+          viv.find("if (!_viv_is_dark())",
+                   viv.find("os_EnableThemeDialogTexture(page_hwnd,ETDT_ENABLETAB);") - 200) != -1)
+
+    # about paint
+    check("about paints the dark palette",
+          "FillRect(ps.hdc,&rect,_viv_dialog_dark_brush());" in viv)
+
+    # brush lifetime
+    check("the dialog brush is deleted at kill",
+          "DeleteObject(_viv_dialog_dark_hbrush);" in viv)
+
+    # TVM fallback defines for older SDKs
+    check("viv.c defines the TVM color message fallbacks",
+          "#define TVM_SETBKCOLOR (TV_FIRST+29)" in viv and
+          "#define TVM_SETTEXTCOLOR (TV_FIRST+30)" in viv)
+
+
 
 if __name__ == "__main__":
     t_panscan_gone()
@@ -374,6 +432,7 @@ if __name__ == "__main__":
     t_dark_mode_wiring()
     t_ladder_shape()
     t_dark_detection_wiring()
+    t_dark_dialogs_wiring()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
