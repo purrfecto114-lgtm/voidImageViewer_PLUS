@@ -1189,8 +1189,8 @@ def t_release_engineering_round5():
           "runs-on: windows-latest" not in ty and "runs-on: windows-latest" not in ry)
     check("the daily schedule skips the python suites",
           "if: github.event_name != 'schedule'" in ty)
-    check("tags run the tests workflow too",
-          "tags: ['v*']" in ty)
+    check("tags run the tests workflow too (both styles)",
+          "tags: ['v*', '[0-9]*']" in ty)
     check("actions are pinned to commit shas",
           "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" in ty and
           "microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57" in ty)
