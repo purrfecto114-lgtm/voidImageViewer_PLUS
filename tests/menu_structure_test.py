@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Structure regression tests: menu table, pan&scan removal, localization
-alignment, dark mode wiring, status-bar call safety. Guards the beta.6 and
-beta.7 changes against regressions.
+alignment, dark mode wiring, status-bar call safety, then one guard group
+per development stage (beta foundation -> engineering rc rounds -> dark UI
+completion -> the two full-codebase audit rounds), each frozen against
+regression. The version guards pin src/version.h as the single source of
+truth for the release identity.
 
 Run:  python3 tests/menu_structure_test.py
 Exit 0 = pass.
@@ -186,17 +189,17 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.0.23 stable",
-          (major, minor, rev, build) == ("1", "1", "0", "23") and vtype == "")
+    check("version.h = 1.0.1.24 stable (the fork line restarts at 1.0.01)",
+          (major, minor, rev, build) == ("1", "0", "1", "24") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.03")
+          vstr == "1.0.01")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
           'VALUE "FileVersion", VERSION_STRING' in rc and
           'VALUE "ProductVersion", VERSION_STRING' in rc)
     check("rc has no hardcoded version left",
-          "1,1,0," not in rc and '"1.1.0-rc.' not in rc)
+          "1,1,0," not in rc and "1,0,1," not in rc and '"1.1.0-rc.' not in rc)
     check("nsh derives from src/version.h at compile time",
           "!searchparse" in nsh and "..\\src\\version.h" in nsh and
           '!define VERSION "${VIV_VER_MAJOR}.${VIV_VER_MINOR}.${VIV_VER_REVISION}.${VIV_VER_BUILD}"' in nsh and
@@ -204,7 +207,8 @@ def t_version():
     check("nsh parses VERSION_STRING for the release identity",
           '`#define VERSION_STRING "` VIV_VER_STRING' in nsh)
     check("nsh has no hardcoded version left",
-          '"1.1.0.' not in nsh and '"-rc.' not in nsh and '"1.1.01"' not in nsh)
+          '"1.1.0.' not in nsh and '"-rc.' not in nsh and '"1.1.01"' not in nsh
+          and '"1.0.01"' not in nsh)
 
 
 # ---------------------------------------------------------------------------
