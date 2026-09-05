@@ -37,6 +37,14 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this release candidate
 --------
+**Version 1.1.0-rc.7** is the field-feedback round for rc.6 (six fixes, each root-caused first):
+
+- **Pinch-zoom spike fixed** - a pinch whose fingers collapse together used to explode the zoom to max instantly (a tiny baseline distance made the next sample's ratio enormous). Distances below ~9.5mm (36 logical px, DPI-scaled) are now treated as a collapsed pinch: the zoom freezes and re-baselines when the fingers separate again.
+- **Zoom ceiling = 1600%** - the ladder tops out at 16x the native image size instead of 16x-the-larger-of-fit-and-native (a window larger than the image, or fill window, could push the old ceiling past 24x - the 2478% report). Fill window keeps its upscale at the floor.
+- **File -> Options, complete View -> Layout** - Options moves to the File menu (before Exit, the Windows convention); the Layout submenu gets its Caption and Frame toggles back.
+- **Status bar layout** - the preload indicator sits in the left cluster (on demand, width-capped); the resolution stays pinned bottom-right and is never dropped: on huge images the optional pixel/RGB/frame panes give way first and the resolution ellipsizes. Part coordinates are now truly cumulative (fixes a one-pane shift from rc.1).
+- **Dark menu bar + dark strips** - the manifest declares the supportedOS list (the Windows 10 GUID gates the immersive dark menus; without it the menu bar stays light while everything else is dark) and `dpiAwareness` moved to the SMI/2016 namespace (the 2005 namespace it sat in does not define it - the rc.6 PMv2 declaration was silently ignored). The toolbar strip and status panes (now owner-drawn) follow the dark palette, fixing the invisible rc.6 glyphs in dark mode. Pre-1903 Windows keeps a light menu bar; the strips and panes still go dark.
+
 **Version 1.1.0-rc.6** implements the corrected modern-GUI roadmap (an external design report was first audited claim-by-claim; its already-delivered items were rejected, its real gaps were built):
 
 - **PerMonitorV2 DPI** - the manifest now declares `PerMonitorV2` (with a `PerMonitor` fallback). Previously the app was system-DPI-aware, so a window dragged to a monitor with a different scale was bitmap-stretched by Windows (blurry). The new `WM_DPICHANGED` handler re-reads the DPI, resizes to the system-suggested rectangle, and rebuilds every scaled resource (toolbar icon list, zoom bar metrics, layout).

@@ -5,11 +5,13 @@ The formulas are mirrored here exactly (see the cited viv.c functions).
 Run:  python3 tests/zoom_math_test.py
 Exit 0 = pass.
 
-beta.7 model: the ladder is geometric (render = fit * 1.01^pos) and each
-axis is capped at 16x the LARGER of the best fit and the native size
-(upstream semantics: deep zoom for large photos, exactly 1600% for images
-that fit the window). the live top position _viv_zoom_pos_max() is the
-first ladder entry that reaches the cap.
+rc.7 model: the ladder is geometric (render = fit * 1.01^pos) and each
+axis is capped at 16x the NATIVE size (exactly 1600% on the status bar),
+never below the pos 0 fit (fill window keeps its upscale). the rc.6
+ceiling of 16x-the-LARGER-of-fit-and-native let a window larger than
+the image push the cap past 24x (the 2478% report). the live top
+position _viv_zoom_pos_max() is the first ladder entry that reaches
+the cap.
 """
 import math
 import sys
@@ -20,12 +22,12 @@ STEPS_PER_NOTCH = 10   # _VIV_ZOOM_STEPS_PER_NOTCH
 
 
 # ---------------------------------------------------------------------------
-# viv.c _viv_get_render_size(): render = fit * 1.01^pos, per axis capped at
-# 16 * max(fit, native), each truncated with (int).
+# viv.c _viv_get_render_size(): render = fit * 1.01^pos, per axis capped
+# at max(16 * native, fit), each truncated with (int).
 # ---------------------------------------------------------------------------
 def render_axis(fit, native, pos):
     value = fit * (STEP ** pos)
-    cap = 16 * max(fit, native)
+    cap = max(16 * native, fit)
     if value > cap:
         value = cap
     return int(value)
@@ -57,8 +59,8 @@ def fit_size(image_w, image_h, client_w, client_h, fill_window=0,
 
 def pos_max(fit_w, fit_h, image_w, image_h):
     """viv.c _viv_zoom_pos_max(): the first pos that reaches the cap."""
-    cap_w = 16 * max(fit_w, image_w)
-    cap_h = 16 * max(fit_h, image_h)
+    cap_w = max(16 * image_w, fit_w)
+    cap_h = max(16 * image_h, fit_h)
     for pos in range(ZOOM_MAX):
         if fit_w * (STEP ** pos) >= cap_w:
             return pos
@@ -151,11 +153,15 @@ def t_geometric_ladder():
 
 
 def t_sixteen_x_cap():
-    """The zoom ceiling is exactly 16x the LARGER of fit and native:
+    """The zoom ceiling is exactly 1600% of NATIVE (rc.7):
     - a photo that fits the window tops out at exactly 1600% (beta.6 showed
       a confusing 1590% = 1.01^278)
     - a photo larger than the window keeps deep zoom: 1600% of native
-      (beta.6 lost this: a 4000px photo in a 1600px window capped at 477%)"""
+      (beta.6 lost this: a 4000px photo in a 1600px window capped at 477%)
+    - fill window (fit upscaled past native) also tops out at 1600% - the
+      rc.6 16x-the-LARGER rule let it reach 16x the fit (the 2478% report)
+    - an absurd fill (fit already past 16x native) keeps the fit as its
+      cap floor: the pos 0 size is a layout decision, not a zoom level"""
     # small image: fit == native -> 1600% exactly
     iw, ih, cw, ch = 800, 600, 1600, 900
     fw, fh = fit_size(iw, ih, cw, ch)
@@ -172,14 +178,31 @@ def t_sixteen_x_cap():
     pct = rw / iw * 100
     check("large photo deep zoom restored (1600%)", pct == 1600.0, f"{pct:.1f}%")
 
+    # fill window: fit upscaled past native -> still 1600% (the 2478% bug)
+    iw, ih, cw, ch = 500, 400, 1600, 900
+    fw, fh = fit_size(iw, ih, cw, ch, fill_window=1)
+    top = pos_max(fw, fh, iw, ih)
+    rw, rh = render(fw, fh, top, iw, ih)
+    pct = (rw / iw + rh / ih) / 2 * 100
+    check("fill window tops out at 1600% (was 2478%-class)",
+          pct == 1600.0, f"{pct:.1f}% (fit {fw}x{fh})")
+
+    # absurd fill: fit already past 16x native -> the cap floors at the fit
+    iw, ih, cw, ch = 40, 30, 1600, 900
+    fw, fh = fit_size(iw, ih, cw, ch, fill_window=1)
+    top = pos_max(fw, fh, iw, ih)
+    rw, rh = render(fw, fh, top, iw, ih)
+    check("absurd fill keeps the fit as the cap floor",
+          (rw, rh) == (fw, fh), f"top {top} render {rw}x{rh} fit {fw}x{fh}")
+
     # the ladder is long enough for extreme cases
     for (iw, ih, cw, ch) in GEOMETRIES:
         fw, fh = fit_size(iw, ih, cw, ch)
         top = pos_max(fw, fh, iw, ih)
         rw, rh = render(fw, fh, top, iw, ih)
-        assert rw == 16 * max(fw, iw), (iw, ih, top, rw)
-        assert rh == 16 * max(fh, ih), (iw, ih, top, rh)
-    check("cap = 16x max(fit, native) for every geometry", True)
+        assert rw == max(16 * iw, fw), (iw, ih, top, rw)
+        assert rh == max(16 * ih, fh), (iw, ih, top, rh)
+    check("cap = max(16x native, fit) for every geometry", True)
 
 
 def t_pos_max_no_dead_zone():

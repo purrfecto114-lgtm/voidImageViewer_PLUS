@@ -582,6 +582,8 @@ static void _viv_controls_show(int show);
 static void _viv_status_show(int show);
 static void _viv_status_update(void);
 static void _viv_status_set(int part,const wchar_t *text);
+static HBRUSH _viv_dark_chrome_brush(int which);
+static int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item);
 static int _viv_get_status_high(void);
 static int _viv_get_controls_high(void);
 static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
@@ -726,6 +728,14 @@ static LARGE_INTEGER _viv_playlist_id = {0};
 static HWND _viv_hwnd = 0;
 static HWND _viv_status_hwnd = 0;
 static HWND _viv_toolbar_hwnd = 0;
+
+// the status pane texts. the panes are owner drawn (dark ui support):
+// the control hands the pane index back in each WM_DRAWITEM item data
+// and the text is drawn from this store. declared here: the status bar
+// creation (_viv_status_show) flushes it long before _viv_status_set is
+// reached in the file.
+#define _VIV_STATUS_PART_MAX 7
+static wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];
 static HWND _viv_rebar_hwnd = 0;
 //static HWND _viv_tooltip_hwnd = 0;
 static HIMAGELIST _viv_toolbar_image_list = 0;
@@ -889,6 +899,7 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_DELETE_PERMANENTLY,MF_STRING|MF_OWNERDRAW,_VIV_MENU_FILE,VIV_ID_FILE_DELETE_PERMANENTLY},
 	{LOCALIZATION_ID_RENAME,MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_RENAME},
 	{LOCALIZATION_ID_PROPERTIES,MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_PROPERTIES},
+	{LOCALIZATION_ID_OPTIONS,MF_STRING,_VIV_MENU_FILE,VIV_ID_VIEW_OPTIONS},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_FILE,0},
 	{LOCALIZATION_ID_EXIT,MF_STRING,_VIV_MENU_FILE,VIV_ID_FILE_EXIT},
 	
@@ -909,8 +920,8 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_VIEW,MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_VIEW},
 	
 	{LOCALIZATION_ID_LAYOUT,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_LAYOUT},
-	{LOCALIZATION_ID_CAPTION,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_CAPTION},
-	{LOCALIZATION_ID_FRAME,MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_THICKFRAME},
+	{LOCALIZATION_ID_CAPTION,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_CAPTION},
+	{LOCALIZATION_ID_FRAME,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_THICKFRAME},
 	{LOCALIZATION_ID_MENU,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_MENU},
 	{LOCALIZATION_ID_STATUS_BAR,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_STATUS},
 	{LOCALIZATION_ID_CONTROLS,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_CONTROLS},
@@ -957,7 +968,6 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_BACKDROP_CUSTOM,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_CUSTOM},
 	{LOCALIZATION_ID_BACKDROP_CHECKERBOARD,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_CHECKERBOARD},
 
-	{LOCALIZATION_ID_OPTIONS,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_OPTIONS},
 	{LOCALIZATION_ID_SLIDESHOW_MENU,MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_SLIDESHOW},
 	{LOCALIZATION_ID_PLAY_PAUSE,MF_STRING,_VIV_MENU_SLIDESHOW,VIV_ID_SLIDESHOW_PAUSE},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_SLIDESHOW,0},
@@ -2641,6 +2651,28 @@ static int _viv_paint_high = 0;
 static HBRUSH _viv_background_hbrush = 0;
 static COLORREF _viv_background_hbrush_color = 0;
 static HBRUSH _viv_dialog_dark_hbrush = 0; // dark dialog background brush, lazy created
+// a cached dark chrome brush for the toolbar strip. which: 0 = the strip
+// face (0x252525, one step above the canvas), 1 = the separator shadow
+// line (0x454545), 2 = the separator highlight line (0x707070). the zoom
+// bar uses the same palette. created lazily, freed with the process.
+static HBRUSH _viv_dark_chrome_brush(int which)
+{
+	static HBRUSH hbrushes[3];
+	static const COLORREF colors[3] = {RGB(0x25,0x25,0x25),RGB(0x45,0x45,0x45),RGB(0x70,0x70,0x70)};
+	
+	if ((which < 0) || (which > 2))
+	{
+		return 0;
+	}
+	
+	if (!hbrushes[which])
+	{
+		hbrushes[which] = CreateSolidBrush(colors[which]);
+	}
+	
+	return hbrushes[which];
+}
+
 static HBRUSH _viv_backdrop_solid_hbrush = 0; // backdrop solid color brush, cached
 static COLORREF _viv_backdrop_solid_color = 0; // the color the solid brush was created with
 static HBRUSH _viv_backdrop_checker_hbrush = 0; // checkerboard pattern brush, cached
@@ -4199,6 +4231,17 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			break;
 		}
 			
+		case WM_DRAWITEM:
+		{
+			// the status panes are owner drawn: draw them (dark ui support).
+			if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))
+			{
+				return TRUE;
+			}
+			
+			break;
+		}
+		
 		case WM_SETTINGCHANGE:
 		
 			// system settings changed (theme, high contrast, ...). the uxtheme
@@ -7519,10 +7562,13 @@ static void _viv_get_render_size(int *prw,int *prh)
 	}		
 	
 	// the zoom ladder is geometric: each step multiplies the best fit size
-	// by 1.01. the ladder tops out at 16x the LARGER of the best fit and
-	// the native size per axis (upstream semantics: deep zoom stays reachable
-	// for photos much larger than the window, and small images can grow to
-	// 1600%), and the last reachable step snaps exactly to the cap.
+	// by 1.01. the ladder tops out at 16x the NATIVE image size per axis
+	// (exactly 1600% on the status bar; deep zoom stays reachable for photos
+	// much larger than the window), and the last reachable step snaps
+	// exactly to the cap. the cap never drops below the pos 0 fit, so fill
+	// window keeps its upscale (rc.7: the old 16x-the-LARGER rule let a
+	// window larger than the image, or fill window, push the ceiling to
+	// 16x the fit - the 2478% report).
 	if (_viv_zoom_pos)
 	{
 		double scale;
@@ -7533,8 +7579,20 @@ static void _viv_get_render_size(int *prw,int *prh)
 		
 		// the caps are computed in double space: an int cap could itself
 		// overflow for an absurd panorama.
-		max_w = 16.0 * (double)((rw > _viv_image_wide) ? rw : _viv_image_wide);
-		max_h = 16.0 * (double)((rh > _viv_image_high) ? rh : _viv_image_high);
+		max_w = 16.0 * (double)_viv_image_wide;
+		max_h = 16.0 * (double)_viv_image_high;
+		
+		// never shrink below the pos 0 size: the fill window upscale is a
+		// layout decision, not a zoom level.
+		if (max_w < (double)rw)
+		{
+			max_w = (double)rw;
+		}
+		
+		if (max_h < (double)rh)
+		{
+			max_h = (double)rh;
+		}
 		
 		rw = (int)_viv_clamp_double((double)rw * scale,max_w);
 		rh = (int)_viv_clamp_double((double)rh * scale,max_h);
@@ -7558,7 +7616,7 @@ static int _viv_zoom_pos_max_cache_fill_window = -1;
 static int _viv_zoom_pos_max_cache_keep_aspect = -1;
 static int _viv_zoom_pos_max_cache_allow_shrinking = -1;
 
-// the first ladder position that reaches the 16x size cap. positions
+// the first ladder position that reaches the 16x native cap. positions
 // beyond this render identically (capped), so the wheel clamps here
 // instead of spinning in a dead zone of identical sizes.
 static int _viv_zoom_pos_max(void)
@@ -7628,8 +7686,20 @@ static int _viv_zoom_pos_max(void)
 		double max_w;
 		double max_h;
 		
-		max_w = 16.0 * (double)((rw > _viv_image_wide) ? rw : _viv_image_wide);
-		max_h = 16.0 * (double)((rh > _viv_image_high) ? rh : _viv_image_high);
+		// 16x native (1600%), never below the measured pos 0 fit (fill
+		// window keeps its upscale): mirrors _viv_get_render_size.
+		max_w = 16.0 * (double)_viv_image_wide;
+		max_h = 16.0 * (double)_viv_image_high;
+		
+		if (max_w < (double)rw)
+		{
+			max_w = (double)rw;
+		}
+		
+		if (max_h < (double)rh)
+		{
+			max_h = (double)rh;
+		}
 		
 		// walk the ladder for the first position that hits the cap on
 		// either axis.
@@ -7720,14 +7790,40 @@ static void _viv_apply_dark_mode(int repaint)
 	// matches the canvas. a silent no-op on windows 10 and older.
 	os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
 	
+	// the common controls follow the immersive dark flag per window:
+	// flag the control windows too so the status bar and the toolbars
+	// retheme natively (pre windows 10 1903 the flags are no-ops and the
+	// owner drawn panes / our strip painting carry the dark ui alone).
+	if (_viv_status_hwnd)
+	{
+		os_dark_titlebar(_viv_status_hwnd,dark);
+		
+		os_dark_window_theme(_viv_status_hwnd);
+		
+		InvalidateRect(_viv_status_hwnd,0,FALSE);
+	}
+	
+	if (_viv_rebar_hwnd)
+	{
+		os_dark_titlebar(_viv_rebar_hwnd,dark);
+		
+		InvalidateRect(_viv_rebar_hwnd,0,FALSE);
+	}
+	
+	if (_viv_toolbar_hwnd)
+	{
+		os_dark_titlebar(_viv_toolbar_hwnd,dark);
+		
+		InvalidateRect(_viv_toolbar_hwnd,0,FALSE);
+	}
+	
 	// the toolbar glyphs bake the theme color into the icons: rebuild
 	// the image list so the palette follows the theme.
 	_viv_toolbar_build_image_list();
 	
-	if (_viv_status_hwnd)
-	{
-		InvalidateRect(_viv_status_hwnd,0,FALSE);
-	}
+	// retheme the menu bar: a frame change repaints the non client area
+	// after the app mode switch (the menus retheme on the next open).
+	SetWindowPos(_viv_hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE|SWP_FRAMECHANGED);
 	
 	zoomui_set_dark(dark);
 	
@@ -12569,6 +12665,20 @@ static void _viv_status_show(int show)
 				_viv_hwnd,(HMENU)VIV_ID_STATUS,os_hinstance,NULL);
 				
 			_viv_old_status_proc = os_set_window_proc(_viv_status_hwnd,_viv_status_proc);
+			
+			// a fresh bar starts with empty panes: flush the text store
+			// (handles can be recycled, so the identity check alone is not
+			// enough).
+			os_zero_memory(_viv_status_part_text,sizeof(_viv_status_part_text));
+			
+			// pick up the current dark flags: the bar can be created long
+			// after the last theme switch.
+			if (_viv_is_dark())
+			{
+				os_dark_titlebar(_viv_status_hwnd,1);
+				
+				os_dark_window_theme(_viv_status_hwnd);
+			}
 		}
 	}
 	else
@@ -12578,6 +12688,8 @@ static void _viv_status_show(int show)
 			DestroyWindow(_viv_status_hwnd);
 
 			_viv_status_hwnd = 0;
+
+			os_zero_memory(_viv_status_part_text,sizeof(_viv_status_part_text));
 		}	
 	}
 	
@@ -13029,49 +13141,103 @@ static void _viv_status_update(void)
 		
 		{
 			int parti;
-			int part_wide;
+			int avail_wide;
+			int flex_wide;
 			
 			parti = 0;
 			
-			// the zoom pane is always the leftmost part. the message pane
-			// flexes after it.
+			avail_wide = rect.right - rect.left;
+			
+			if (avail_wide < 0)
+			{
+				avail_wide = 0;
+			}
+			
+			// the preload pane joins the zoom pane in the left cluster only
+			// while a preload is actually running, and is capped at a quarter
+			// of the bar: a long localization must never eat the message pane.
+			if (preload_wide > (avail_wide / 4))
+			{
+				preload_wide = avail_wide / 4;
+			}
+			
+			// the resolution pane is pinned to the bottom right and is never
+			// dropped. when a huge image (or a tiny window) makes the panes
+			// wider than the bar, the optional right panes give way, widest
+			// last, so the dimension text clips instead of vanishing off the
+			// edge of the window.
+			while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide > avail_wide)
+			&& (frame_wide || pixel_rgb_wide || pixel_pos_wide))
+			{
+				if (frame_wide)
+				{
+					frame_wide = 0;
+				}
+				else
+				if (pixel_rgb_wide)
+				{
+					pixel_rgb_wide = 0;
+				}
+				else
+				{
+					pixel_pos_wide = 0;
+				}
+			}
+			
+			if (zoom_wide + preload_wide + dimension_wide > avail_wide)
+			{
+				// last resort: clip the resolution pane itself. it stays
+				// visible at the bottom right with an ellipsized text.
+				dimension_wide = avail_wide - zoom_wide - preload_wide;
+				
+				if (dimension_wide < 0)
+				{
+					dimension_wide = 0;
+				}
+			}
+			
+			// pane 0: the zoom pane (the status bar drag anchor).
 			part_array[parti] = zoom_wide;
 			parti++;
 			
-			part_wide = (rect.right - rect.left) - zoom_wide - dimension_wide - frame_wide - preload_wide - pixel_pos_wide - pixel_rgb_wide;
-
-			part_array[parti] = part_wide;
-			if (part_array[parti] < 0)
+			// pane 1 (when preloading): the preload indicator, on the left.
+			if (preload_wide)
 			{
-				part_array[parti] = 0;
-			}
-			parti++;
-		
-			if (*preload_buf)
-			{
-				part_wide += preload_wide;
-				part_array[parti] = part_wide;
+				part_array[parti] = part_array[parti - 1] + preload_wide;
 				parti++;
 			}
 			
-			if (*pixel_pos_buf)
+			// the message pane flexes between the left and right clusters.
+			flex_wide = avail_wide - zoom_wide - preload_wide - dimension_wide - frame_wide - pixel_pos_wide - pixel_rgb_wide;
+			
+			if (flex_wide < 0)
 			{
-				part_wide += pixel_pos_wide;
-				part_array[parti] = part_wide;
-				parti++;
+				flex_wide = 0;
 			}
 			
-			if (*pixel_rgb_buf)
-			{
-				part_wide += pixel_rgb_wide;
-				part_array[parti] = part_wide;
-				parti++;
-			}
-			
-			part_wide += frame_wide;
-			part_array[parti] = part_wide;
+			part_array[parti] = part_array[parti - 1] + flex_wide;
 			parti++;
 			
+			if (pixel_pos_wide)
+			{
+				part_array[parti] = part_array[parti - 1] + pixel_pos_wide;
+				parti++;
+			}
+			
+			if (pixel_rgb_wide)
+			{
+				part_array[parti] = part_array[parti - 1] + pixel_rgb_wide;
+				parti++;
+			}
+			
+			if (frame_wide)
+			{
+				part_array[parti] = part_array[parti - 1] + frame_wide;
+				parti++;
+			}
+			
+			// the last pane: the resolution, pinned to the bottom right (a
+			// -1 right edge extends to the window edge).
 			part_array[parti] = -1;
 			parti++;
 			
@@ -13113,35 +13279,48 @@ static void _viv_status_update(void)
 				text = text_buf;
 			}
 		
+			// pane 0 is the zoom pane; the preload pane (when active)
+			// follows it and the message pane takes the rest of the left
+			// cluster.
 			_viv_status_set(0,zoom_buf);
-			_viv_status_set(1,text);
+			
+			if (preload_wide)
+			{
+				_viv_status_set(1,preload_buf);
+				
+				_viv_status_set(2,text);
+			}
+			else
+			{
+				_viv_status_set(1,text);
+			}
 		}
 		
 		{
 			int parti;
 			
-			parti = 2;
+			// the right cluster starts after the message pane; the widths
+			// (not the buffers) decide which panes exist so the layout and
+			// the texts can never drift apart.
+			parti = preload_wide ? 3 : 2;
 			
-			if (*preload_buf)
-			{
-				_viv_status_set(parti,preload_buf);
-				parti++;
-			}
-			
-			if (*pixel_pos_buf)
+			if (pixel_pos_wide)
 			{
 				_viv_status_set(parti,pixel_pos_buf);
 				parti++;
 			}
 			
-			if (*pixel_rgb_buf)
+			if (pixel_rgb_wide)
 			{
 				_viv_status_set(parti,pixel_rgb_buf);
 				parti++;
 			}
 			
-			_viv_status_set(parti,frame_buf);
-			parti++;
+			if (frame_wide)
+			{
+				_viv_status_set(parti,frame_buf);
+				parti++;
+			}
 			
 			_viv_status_set(parti,dimension_buf);
 			parti++;
@@ -13151,14 +13330,102 @@ static void _viv_status_update(void)
 
 static void _viv_status_set(int part,const wchar_t *text)
 {
-	wchar_t oldtext[STRING_SIZE];
+	static HWND part_text_hwnd;
 	
-	SendMessage(_viv_status_hwnd,SB_GETTEXTW,(WPARAM)part,(LPARAM)oldtext);
-	
-	if (string_compare(oldtext,text) != 0)
-	{	
-		SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)part,(LPARAM)text);
+	if ((part < 0) || (part >= _VIV_STATUS_PART_MAX))
+	{
+		return;
 	}
+	
+	// the store must match the live control: a recreated status bar (or a
+	// hidden one: updates keep flowing) starts with empty panes, so the
+	// store flushes whenever the window identity changes - otherwise an
+	// unchanged text would skip its SB_SETTEXTW and leave the pane blank.
+	if (part_text_hwnd != _viv_status_hwnd)
+	{
+		part_text_hwnd = _viv_status_hwnd;
+		
+		os_zero_memory(_viv_status_part_text,sizeof(_viv_status_part_text));
+	}
+	
+	if (string_compare(_viv_status_part_text[part],text) != 0)
+	{
+		// SBT_OWNERDRAW: the pane text lives in our store; the item data
+		// carries the pane index to WM_DRAWITEM.
+		string_copy(_viv_status_part_text[part],text);
+		
+		SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);
+	}
+}
+
+// owner draw one status pane: the dark palette for the dark ui, a
+// faithful light replica otherwise. the texts come from the pane store;
+// an overlong text (a capped resolution pane) ellipsizes instead of
+// bleeding into the next pane.
+static int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
+{
+	HDC hdc;
+	RECT text_rect;
+	HFONT hfont;
+	HGDIOBJ last_font;
+	COLORREF text_color;
+	int part;
+	
+	if (!draw_item)
+	{
+		return 0;
+	}
+	
+	hdc = draw_item->hDC;
+	
+	if (!hdc)
+	{
+		return 0;
+	}
+	
+	part = (int)draw_item->itemData;
+	
+	if ((part < 0) || (part >= _VIV_STATUS_PART_MAX))
+	{
+		return 0;
+	}
+	
+	if (_viv_is_dark())
+	{
+		FillRect(hdc,&draw_item->rcItem,_viv_dialog_dark_brush());
+		
+		text_color = RGB(0xE8,0xE8,0xE8);
+	}
+	else
+	{
+		FillRect(hdc,&draw_item->rcItem,(HBRUSH)(COLOR_BTNFACE + 1));
+		
+		text_color = GetSysColor(COLOR_BTNTEXT);
+	}
+	
+	// draw the text inset like the native panes.
+	text_rect = draw_item->rcItem;
+	text_rect.left += GetSystemMetrics(SM_CXEDGE) * 2;
+	
+	hfont = (HFONT)SendMessage(_viv_status_hwnd,WM_GETFONT,0,0);
+	last_font = 0;
+	
+	if (hfont)
+	{
+		last_font = SelectObject(hdc,hfont);
+	}
+	
+	SetBkMode(hdc,TRANSPARENT);
+	SetTextColor(hdc,text_color);
+	
+	DrawTextW(hdc,_viv_status_part_text[part],-1,&text_rect,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS);
+	
+	if (last_font)
+	{
+		SelectObject(hdc,last_font);
+	}
+	
+	return 1;
 }
 
 static int _viv_get_status_high(void)
@@ -13223,7 +13490,8 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 									{
 										RECT rect;
 										GetClientRect(_viv_toolbar_hwnd,&rect);
-										FillRect(((NMTBCUSTOMDRAW *)lParam)->nmcd.hdc,&rect,(HBRUSH)(COLOR_BTNFACE+1));
+										// the strip follows the theme: a light button face, or the dark chrome face.
+										FillRect(((NMTBCUSTOMDRAW *)lParam)->nmcd.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));
 										return CDRF_NOTIFYITEMDRAW;
 									}
 								}
@@ -13255,13 +13523,16 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 
 			BeginPaint(hwnd,&ps);
 			
+			// the strip and its two separator lines follow the theme. the
+			// dark palette matches the zoom bar (face 0x252525, lines
+			// 0x454545 shadow / 0x707070 highlight).
 			rect.left = 0;
 			rect.top = 0;
 			rect.right = wide;
 			rect.bottom = 1;
 			
 //			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_3DSHADOW + 1));
+			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(1) : (HBRUSH)(COLOR_3DSHADOW + 1));
 			
 			rect.left = 0;
 			rect.top = 1;
@@ -13269,7 +13540,7 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			rect.bottom = 2;
 			
 //			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_3DHIGHLIGHT + 1));
+			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(2) : (HBRUSH)(COLOR_3DHIGHLIGHT + 1));
 			
 			rect.left = 0;
 			rect.top = 2;
@@ -13277,7 +13548,7 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			rect.bottom = high;
 			
 //			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_BTNFACE + 1));
+			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE + 1));
 			
 			EndPaint(hwnd,&ps);
 			
@@ -13295,6 +13566,16 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 {
 	switch (msg) 
 	{	
+		case WM_DRAWITEM:
+		
+			// the owner drawn panes (defensive route: see _viv_status_draw_item).
+			if (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam))
+			{
+				return 1;
+			}
+		
+			break;
+		
 		case WM_LBUTTONDOWN:
 		
 			if (config_toolbar_move_window)
@@ -16262,6 +16543,26 @@ static int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 				}
 			}
 
+			// two fingers closer than ~9.5mm (36 logical px) report a distance
+			// made of digitizer quantization noise: the ratio of two tiny
+			// distances can be anything, so a small wobble while the fingers
+			// are almost touching used to explode the accumulated pinch ratio
+			// (pinch collapse, then spread: instant max zoom). freeze the zoom
+			// below the floor and drop the baseline: the next valid sample
+			// re-baselines with no ratio applied.
+			{
+				DWORD min_dist;
+
+				min_dist = (DWORD)((36 * os_logical_wide) / 96);
+
+				if ((dist) && (dist < min_dist))
+				{
+					_viv_gesture_zoom_dist = 0;
+
+					break;
+				}
+			}
+
 			if (gesture_info.dwFlags & 0x01) // GF_BEGIN
 			{
 				_viv_gesture_zoom_dist = dist;
@@ -17664,7 +17965,7 @@ static int _viv_clamp_zoom_pos(int zoom_pos)
 	{
 		
 		// the top of the ladder depends on the image, the window and the fill
-		// settings (the 16x size cap), so it is measured, not hardcoded.
+		// settings (the 16x native cap), so it is measured, not hardcoded.
 		pos_max = _viv_zoom_pos_max();
 		
 		if (zoom_pos > pos_max)

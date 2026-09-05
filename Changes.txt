@@ -1,3 +1,43 @@
+Release candidate: Version 1.1.0-rc.7 (field feedback round: pinch zoom floor, 1600% ceiling, file options, hud layout, dark menu bar)
+	six fixes from rc.6 field use, each root caused before coding:
+	touch: a pinch whose fingers collapse close together used to explode
+	the zoom (the tiny baseline distance made the next sample ratio huge;
+	the 2x per message clamp still accumulated 2x per message = instant
+	max zoom). distances below ~9.5mm (36 logical px, dpi scaled) are now
+	a collapsed pinch: the zoom freezes and the baseline drops, so
+	spreading the fingers again re-baselines with no jump.
+	zoom: the ladder tops out at 16x the NATIVE size (exactly 1600%)
+	instead of 16x the larger of fit and native. a window larger than
+	the image (or fill window) could push the old ceiling past 24x (the
+	2478% report). the cap never drops below the pos 0 fit, so fill
+	window keeps its upscale.
+	menus: Options moves from the tail of the View menu to File > Options
+	(Properties / Exit, the windows convention); View > Layout is
+	completed by unhiding the Caption and Frame toggles the old declutter
+	rounds hid.
+	status bar: the preload indicator moved next to the zoom pane in the
+	left cluster (on demand, capped at a quarter of the bar); the
+	resolution pane stays pinned to the bottom right and is never dropped
+	- on a huge image (or a tiny window) the optional pixel / rgb / frame
+	panes give way first and the resolution text ellipsizes instead of
+	vanishing. the part coordinates are now truly cumulative (the rc.1
+	zoom pane had introduced a one pane shift).
+	dark ui: the toolbar strip was still painted with the light button
+	face while the rc.6 glyphs switched to light strokes for the dark
+	theme (invisible icons); the strip, its separator lines and the
+	status panes (now owner drawn) all follow the dark palette. the
+	manifest gained the supportedOS list (the windows 10 guid is the gate
+	for the immersive dark menus: without it the menu bar stays light
+	while everything else is dark) and the dpiAwareness element moved to
+	the SMI/2016 namespace - the 2005 namespace it sat in does not define
+	it, so the rc.6 per monitor v2 declaration was silently ignored and
+	the app stayed system dpi aware. pre-1903 windows keep the light menu
+	bar (the flags are no-ops there); the strips and panes still go dark.
+	tests: t_round7 guards (gesture floor, cap semantics in both copies,
+	menu rows, status pane layout + owner draw wiring, manifest
+	compatibility + namespace, dark chrome palette, version 1.1.0.20);
+	the zoom math cap model updated to max(16x native, fit).
+
 Release candidate: Version 1.1.0-rc.6 (modern gui round: the audited roadmap - per monitor v2, win11 chrome, vector glyphs, fullscreen overlay fade)
 	the external "modern gui" report was audited first: 11 current
 	state claims came back 4 wrong / 4 half right / 3 true (it had

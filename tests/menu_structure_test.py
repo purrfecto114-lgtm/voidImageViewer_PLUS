@@ -77,11 +77,16 @@ def t_view_menu_shape():
                  "LOCALIZATION_ID_PRESET"):
         check(f"{want} lives in Layout",
               any(r[0] == want for r in layout_rows))
-    check("View top level is decluttered (<= 13 rows)",
-          len(view_rows) <= 13, f"{len(view_rows)} rows")
-    for want in ("LOCALIZATION_ID_FULLSCREEN", "LOCALIZATION_ID_SLIDESHOW",
-                 "LOCALIZATION_ID_OPTIONS"):
+    check("View top level is decluttered (<= 12 rows)",
+          len(view_rows) <= 12, f"{len(view_rows)} rows")
+    for want in ("LOCALIZATION_ID_FULLSCREEN", "LOCALIZATION_ID_SLIDESHOW"):
         check(f"{want} stays in View", any(r[0] == want for r in view_rows))
+    check("Options left the View menu for the File menu (rc.7)",
+          not any(r[0] == "LOCALIZATION_ID_OPTIONS" for r in view_rows))
+    for want in ("LOCALIZATION_ID_CAPTION", "LOCALIZATION_ID_FRAME"):
+        check(f"{want} is visible in Layout (rc.7 unhide)",
+              any(r[0] == want and "MF_OWNERDRAW" not in r[1]
+                  for r in layout_rows))
     zoom_rows = [r for r in rows if r[2].strip() == "_VIV_MENU_VIEW_ZOOM"]
     for want in ("LOCALIZATION_ID_ZOOM_IN", "LOCALIZATION_ID_ZOOM_OUT",
                  "LOCALIZATION_ID_RESET"):
@@ -181,8 +186,8 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.0.19 -rc.6",
-          (major, minor, rev, build) == ("1", "1", "0", "19") and vtype == "-rc.6")
+    check("version.h = 1.1.0.20 -rc.7",
+          (major, minor, rev, build) == ("1", "1", "0", "20") and vtype == "-rc.7")
     check("VERSION_STRING composes from the numeric macros",
           vstr == "%s.%s.%s%s" % (major, minor, rev, vtype))
     check("rc derives everything from version.h",
@@ -332,8 +337,8 @@ def t_ladder_shape():
     check("background brush cached across paints",
           "static HBRUSH _viv_background_hbrush = 0;" in viv
           and "CreateSolidBrush(brush_color)" in viv)
-    check("render capped at 16x max(fit, native) in double space",
-          "max_w = 16.0 * (double)((rw > _viv_image_wide) ? rw : _viv_image_wide);" in viv)
+    check("render capped at 16x native in double space (rc.7)",
+          "max_w = 16.0 * (double)_viv_image_wide;" in viv)
     check("int overflow guard for extreme panoramas",
           "_viv_clamp_double" in viv)
 
@@ -747,8 +752,8 @@ def t_zoom_percent_wiring():
           "GetTextExtentPoint32(hdc,zoom_buf,string_get_length(zoom_buf),&size)" in viv)
     check("the message pane moved to part 1",
           "_viv_status_set(1,text);" in viv and "_viv_status_set(0,zoom_buf);" in viv)
-    check("the right parts start at index 2",
-          "parti = 2;" in viv)
+    check("the right parts start after the message pane (rc.7 layout)",
+          "parti = preload_wide ? 3 : 2;" in viv)
     check("the pane width is never below the minimum",
           "if (zoom_wide < minwide)" in viv)
 
@@ -882,11 +887,15 @@ def t_review_fixes():
           "GlobalSize(hglobal)" in viv)
 
     # M7: the status panes test the buffer content, not the pointer
+    # (rc.7: the pane EXISTENCE is width driven - the layout can drop a
+    #  pane to make room - but the buffer content still decides the text.)
     check("pos/rgb panes dereference their buffers",
-          viv.count("if (*pixel_pos_buf)") == 3 and
-          viv.count("if (*pixel_rgb_buf)") == 3 and
+          viv.count("if (*pixel_pos_buf)") >= 1 and
+          viv.count("if (*pixel_rgb_buf)") >= 1 and
           "if (pixel_pos_buf)" not in viv and
-          "if (pixel_rgb_buf)" not in viv)
+          "if (pixel_rgb_buf)" not in viv and
+          "if (pixel_pos_wide)" in viv and
+          "if (pixel_rgb_wide)" in viv)
 
     # preload OOB: the additional frame write is bounds checked
     check("preload additional frame write is bounds checked",
@@ -1348,6 +1357,106 @@ def t_modernization_round6():
         check(f"{name} in all three localization lines",
               name in lh and name in le and name in lz)
 
+
+# ---------------------------------------------------------------------------
+# rc.7 field feedback round: pinch floor, 1600% ceiling, File > Options +
+# complete Layout, the status hud layout, the owner drawn dark panes, the
+# manifest compatibility section and the SMI/2016 namespace.
+# ---------------------------------------------------------------------------
+def t_round7():
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+    mf = read("res/voidImageViewer.Manifest").decode()
+
+    # the pinch floor: a collapsed pinch freezes and re-baselines.
+    check("gesture floor uses 36 logical px, dpi scaled",
+          "min_dist = (DWORD)((36 * os_logical_wide) / 96);" in viv)
+    check("collapsed pinch drops the baseline and skips the sample",
+          viv.count("_viv_gesture_zoom_dist = 0;") >= 3)
+    i = viv.find("case 3: // GID_ZOOM")
+    zoom_case = viv[i:viv.find("case 4: // GID_PAN", i)]
+    check("the floor sits inside the GID_ZOOM case before GF_BEGIN",
+          "min_dist" in zoom_case and
+          zoom_case.find("min_dist") < zoom_case.find("GF_BEGIN"))
+
+    # the ceiling: 16x native in BOTH copies of the cap math.
+    check("render size cap = 16x native",
+          "max_w = 16.0 * (double)_viv_image_wide;" in viv)
+    check("pos_max cap mirrors the render size cap",
+          viv.count("max_w = 16.0 * (double)_viv_image_wide;") == 2)
+    check("the cap floors at the pos 0 fit (fill window)",
+          viv.count("if (max_w < (double)rw)") == 2)
+    check("the old 16x-the-LARGER rule is gone",
+          "16.0 * (double)((rw > _viv_image_wide)" not in viv)
+
+    # the menu restoration.
+    check("File > Options row exists (before the Exit separator)",
+          "{LOCALIZATION_ID_OPTIONS,MF_STRING,_VIV_MENU_FILE,VIV_ID_VIEW_OPTIONS}," in viv)
+    check("the View > Options row is gone",
+          "{LOCALIZATION_ID_OPTIONS,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_OPTIONS}" not in viv)
+    check("Caption/Frame rows carry no MF_OWNERDRAW",
+          "MF_STRING|MF_OWNERDRAW,_VIV_MENU_VIEW_LAYOUT" not in viv)
+
+    # the status hud layout: preload left, resolution pinned right.
+    check("the preload pane is capped at a quarter of the bar",
+          "if (preload_wide > (avail_wide / 4))" in viv)
+    check("the right cluster gives way (frame, rgb, pos)",
+          "while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide > avail_wide)" in viv)
+    check("the resolution pane clips instead of vanishing",
+          "dimension_wide = avail_wide - zoom_wide - preload_wide;" in viv)
+    check("the panes use cumulative coordinates",
+          "part_array[parti] = part_array[parti - 1] + flex_wide;" in viv)
+    check("the message pane index follows the preload pane",
+          "parti = preload_wide ? 3 : 2;" in viv)
+    check("right cluster panes are width driven, not buffer driven",
+          "if (pixel_pos_wide)\n" in viv.replace("\r\n", "\n"))
+
+    # the owner drawn dark panes.
+    check("the pane text store exists",
+          "static wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];" in viv)
+    check("SB_SETTEXTW uses SBT_OWNERDRAW with the pane index as data",
+          "SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);" in viv)
+    check("the old SB_GETTEXTW compare is gone",
+          "SB_GETTEXTW" not in viv)
+    check("the draw function paints both palettes",
+          "_viv_status_draw_item(DRAWITEMSTRUCT" in viv and
+          "RGB(0xE8,0xE8,0xE8)" in viv)
+    check("the main proc routes WM_DRAWITEM for the status bar",
+          "if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))" in viv)
+    check("the status subclass routes WM_DRAWITEM too",
+          viv.count("case WM_DRAWITEM:") == 2)
+
+    # the dark chrome strips.
+    check("the dark chrome brush palette exists",
+          "static const COLORREF colors[3] = {RGB(0x25,0x25,0x25),RGB(0x45,0x45,0x45),RGB(0x70,0x70,0x70)};" in viv)
+    check("the rebar paint and the toolbar fill follow the theme",
+          viv.count("_viv_is_dark() ? _viv_dark_chrome_brush(") == 4)
+    check("apply_dark flags the control windows",
+          "os_dark_titlebar(_viv_status_hwnd,dark);" in viv and
+          "os_dark_titlebar(_viv_rebar_hwnd,dark);" in viv and
+          "os_dark_titlebar(_viv_toolbar_hwnd,dark);" in viv)
+    check("apply_dark nudges a frame change for the menu bar",
+          "SWP_FRAMECHANGED" in viv)
+    check("the status bar creation picks up the dark flags",
+          viv.find("os_dark_titlebar(_viv_status_hwnd,1);",
+                   viv.find("_viv_status_show(int show)")) != -1)
+
+    # the manifest: supportedOS list + the real PMv2 namespace.
+    check("manifest declares the windows 10 supportedOS guid",
+          "{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" in mf)
+    check("manifest declares windows 7 / 8 / 8.1 too",
+          all(g in mf for g in ("{35138b9a-5d96-4fbd-8e2d-a2440225f93a}",
+                                "{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}",
+                                "{1f676c76-3e4d-4f03-ac22-34155b000000}")))
+    check("manifest has a compatibility section",
+          "<compatibility" in mf and mf.count("<supportedOS") == 4)
+    check("dpiAwareness lives in the SMI/2016 namespace",
+          'xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings"' in mf)
+    check("the legacy dpiAware tag is gone",
+          "<dpiAware>true</dpiAware>" not in mf)
+    check("PerMonitorV2 declaration retained",
+          "<dpiAwareness>PerMonitorV2, PerMonitor</dpiAwareness>" in mf)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -1370,6 +1479,7 @@ if __name__ == "__main__":
     t_review_fixes_round4()
     t_release_engineering_round5()
     t_modernization_round6()
+    t_round7()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
