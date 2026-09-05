@@ -37,6 +37,12 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new
 --------
+**Version 1.1.02 (the menu bar follows the dark UI)** closes the last white strip in a dark session:
+
+- **Dark menu bar, everywhere** - Windows 11 and pre-1903 builds never darken a Win32 menu bar: the immersive dark app mode repaints the title bar but the bar keeps the system light color, so a dark session showed a white strip between the dark title bar and the dark canvas. The top-level items are now owner-drawn while the dark UI is active - the system keeps the layout, click tracking, keyboard navigation and dropdown menus, while each item paints with the dark chrome palette (face `0x202020`, hover `0x454545`, label `0xE8E8E8`) and the empty strip right of the last item is filled in the non-client paint pass. Light mode hands the items back to the system draw (zero light-UI change).
+- **DPI-aware menu font** - the item labels measure with `SystemParametersInfoForDpi` when available (PerMonitorV2), and a DPI change re-measures the bar, so the text always matches the bar the system sized for the current monitor.
+- **Toolbar strip erase fix** - the strip's background erase now paints the strip face instead of claiming an erase without painting: the comctl transparent toolbar and its back buffers ask the parent for the background, and a claim-only erase could leave a fresh white buffer behind the buttons on some builds.
+
 **Version 1.1.01 (first stable release)** completes the field-feedback work and moves the project out of pre-release:
 
 - **Dark dialogs, completed** - the dark explorer style does not cascade from a dialog to its child controls, so the options pages showed a dark background with light comboboxes, check glyphs and push buttons. Every dialog (options and its pages, about, rename, edit key, custom rate, jump-to, everything search) now opts each child control in at `WM_INITDIALOG`: buttons, comboboxes, listboxes, edits and group boxes all draw dark. Windows older than 1809 keeps the light controls.

@@ -159,6 +159,9 @@ extern int os_logical_high;
 // (per monitor v2). returns 1 when the values changed.
 int os_window_update_dpi(HWND hwnd);
 
+// the system menu font at the current window dpi (menu bar owner draw).
+int os_menu_font(LOGFONTW *lf);
+
 // windows 11 chrome: rounded corners + a caption color matching the canvas.
 // silently ignored on windows 10 and older.
 void os_window_modern_chrome(HWND hwnd,COLORREF caption_color);

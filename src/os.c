@@ -193,6 +193,9 @@ static HMONITOR (WINAPI *_os_MonitorFromPoint)(POINT pt,DWORD dwFlags) = 0;
 // windows 10 1607+: per window dpi query, used by os_window_update_dpi().
 static UINT (WINAPI *_os_GetDpiForWindow)(HWND hwnd) = 0;
 
+// windows 10 1607+: dpi aware system parameters, used by os_menu_font().
+static BOOL (WINAPI *_os_SystemParametersInfoForDpi)(UINT action,UINT param,void *pvparam,UINT winini,UINT dpi) = 0;
+
 int os_logical_wide = 96;
 int os_logical_high = 96;
 static const GUID _os_IID_IShellItem = {0x43826d1e,0xe718,0x42ee,{0xbc,0x55,0xa1,0xe2,0x61,0xc3,0x7b,0xfe}};
@@ -910,6 +913,7 @@ void os_init(void)
 		_os_MonitorFromRect = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromRect");
 		_os_MonitorFromPoint = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromPoint");
 		_os_GetDpiForWindow = (void *)GetProcAddress(_os_user32_hmodule,"GetDpiForWindow");
+		_os_SystemParametersInfoForDpi = (void *)GetProcAddress(_os_user32_hmodule,"SystemParametersInfoForDpi");
 	}
 
 	_os_UxTheme_hmodule = LoadLibraryA("UxTheme.dll");
@@ -1397,6 +1401,44 @@ int os_window_update_dpi(HWND hwnd)
 	os_logical_high = (int)dpi;
 	
 	return 1;
+}
+
+// fill lf with the menu font the system metrics use for the current
+// window dpi (per monitor v2 aware so the menu bar text matches the
+// bar the system sized for this dpi). returns 1 on success.
+int os_menu_font(LOGFONTW *lf)
+{
+	NONCLIENTMETRICSW ncm;
+	
+	if (!lf)
+	{
+		return 0;
+	}
+	
+	os_zero_memory(&ncm,sizeof(ncm));
+	
+	ncm.cbSize = sizeof(ncm);
+	
+	if (_os_SystemParametersInfoForDpi)
+	{
+		// uiParam must match cbSize for the metric queries.
+		if (_os_SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS,sizeof(ncm),&ncm,0,(UINT)os_logical_wide))
+		{
+			*lf = ncm.lfMenuFont;
+			
+			return 1;
+		}
+	}
+	
+	// pre 1607 systems (and any ForDpi refusal): the plain query.
+	if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS,sizeof(ncm),&ncm,0))
+	{
+		*lf = ncm.lfMenuFont;
+		
+		return 1;
+	}
+	
+	return 0;
 }
 
 // windows 11 chrome: rounded window corners (attribute 33, round)

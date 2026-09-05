@@ -1,3 +1,23 @@
+Stable: Version 1.1.02 (the menu bar follows the dark ui: owner drawn top level items, dpi aware menu font)
+	menus: windows 11 and pre 1903 builds never darken a win32 menu bar
+	(the immersive dark app mode repaints the title bar but the menu bar
+	keeps the system light color, so a dark session showed a white strip
+	between the dark title bar and the dark canvas - the field report).
+	the top level items are now owner drawn while the dark ui is active:
+	the system still owns the layout, the click tracking, the keyboard
+	navigation and the dropdown menus, but each item paints with the dark
+	chrome palette (face 0x202020, hover 0x454545, label 0xE8E8E8) and
+	the empty strip right of the last item is filled in the non client
+	paint pass. light mode hands the items back to the system draw (zero
+	light ui change). the labels measure with the dpi aware menu font
+	(SystemParametersInfoForDpi when available) and a per monitor v2 dpi
+	change re-measures the bar.
+	chrome: the toolbar strip background erase paints the strip face
+	instead of claiming an erase without painting - the comctl transparent
+	toolbar and its back buffers ask the parent for the background, and a
+	claim-only erase could leave a fresh white buffer behind the buttons
+	on some builds.
+
 Stable: Version 1.1.01 (first stable release: complete dark dialogs, auto language default, faster navigation, upstream style tags)
 	dark ui: the explorer dark style does not cascade from a dialog to its
 	child controls, so the options pages showed a dark background with light

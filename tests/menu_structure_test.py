@@ -186,10 +186,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.0.21 stable",
-          (major, minor, rev, build) == ("1", "1", "0", "21") and vtype == "")
+    check("version.h = 1.1.0.22 stable",
+          (major, minor, rev, build) == ("1", "1", "0", "22") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.01")
+          vstr == "1.1.02")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1428,10 +1428,10 @@ def t_round7():
           viv.count("case WM_DRAWITEM:") == 2)
 
     # the dark chrome strips.
-    check("the dark chrome brush palette exists",
-          "static const COLORREF colors[3] = {RGB(0x25,0x25,0x25),RGB(0x45,0x45,0x45),RGB(0x70,0x70,0x70)};" in viv)
-    check("the rebar paint and the toolbar fill follow the theme",
-          viv.count("_viv_is_dark() ? _viv_dark_chrome_brush(") == 4)
+    check("the dark chrome brush palette exists (4 faces incl the menu bar)",
+          "static const COLORREF colors[4] = {RGB(0x25,0x25,0x25),RGB(0x45,0x45,0x45),RGB(0x70,0x70,0x70),RGB(0x20,0x20,0x20)};" in viv)
+    check("the rebar paint, the toolbar fill and the erase follow the theme",
+          viv.count("_viv_is_dark() ? _viv_dark_chrome_brush(") == 5)
     check("apply_dark flags the control windows",
           "os_dark_titlebar(_viv_status_hwnd,dark);" in viv and
           "os_dark_titlebar(_viv_rebar_hwnd,dark);" in viv and
@@ -1532,6 +1532,138 @@ def t_stable_round():
     check("VERSION_TYPE is empty for the stable line",
           '#define VERSION_TYPE ""' in vh)
 
+def t_dark_menu_bar():
+    viv = read("src/viv.c").decode()
+    osh = read("src/os.h").decode()
+    osc = read("src/os.c").decode()
+
+    # os layer: the dpi aware menu font.
+    check("os.c resolves SystemParametersInfoForDpi",
+          'GetProcAddress(_os_user32_hmodule,"SystemParametersInfoForDpi")' in osc)
+    check("os.h exports os_menu_font",
+          "int os_menu_font(LOGFONTW *lf);" in osh)
+    i = osc.find("int os_menu_font(LOGFONTW *lf)")
+    seg = osc[i:osc.find("\n}", i)]
+    check("os_menu_font asks at the current window dpi",
+          "os_logical_wide))" in seg and "SPI_GETNONCLIENTMETRICS" in seg)
+    check("the ForDpi path runs before the plain fallback",
+          seg.find("_os_SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS") <
+          seg.find("SystemParametersInfoW(SPI_GETNONCLIENTMETRICS"))
+    check("the menu font is the lfMenuFont metric",
+          seg.count("*lf = ncm.lfMenuFont;") == 2)
+
+    # the menu font cache: dpi keyed, dropped on theme and dpi change.
+    check("the menu font cache is dpi keyed",
+          "_viv_menu_font_dpi != os_logical_wide" in viv)
+    i = viv.find("case WM_THEMECHANGED:")
+    seg = viv[i:viv.find("case WM_SETCURSOR:", i)]
+    check("WM_THEMECHANGED drops the cached menu font",
+          "_viv_menu_font_drop();" in seg)
+    i = viv.find("case WM_DPICHANGED:")
+    seg = viv[i:viv.find("case WM_MOVE:", i)]
+    check("WM_DPICHANGED drops the menu font with the glyph cache",
+          seg.count("_viv_menu_font_drop();") == 1)
+    check("WM_DPICHANGED forces the menu bar re-measure",
+          "_viv_menu_bar_remeasure();" in seg)
+
+    # the owner draw routes in the main window proc.
+    i = viv.find("case WM_DRAWITEM:")
+    seg = viv[i:viv.find("case WM_SETTINGCHANGE:", i)]
+    check("WM_DRAWITEM routes the menu items before the status panes",
+          seg.find("_viv_menu_draw_root_item((DRAWITEMSTRUCT *)lParam)") <
+          seg.find("_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)") and
+          "wParam == 0" in seg)
+    check("WM_MEASUREITEM routes the menu bar items",
+          "_viv_menu_measure_root_item((MEASUREITEMSTRUCT *)lParam);" in seg and
+          "ODT_MENU" in seg)
+    check("WM_NCPAINT lets the system draw first, then fills the tail",
+          seg.find("DefWindowProc(hwnd,msg,wParam,lParam);") <
+          seg.find("_viv_menu_bar_nc_fill();") and
+          "if (_viv_is_dark())" in seg)
+
+    # the drawing and measuring helpers.
+    i = viv.find("static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)")
+    i = viv.find("static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the dark draw uses the chrome palette",
+          "_viv_dark_chrome_brush(1)" in seg and "_viv_dark_chrome_brush(3)" in seg)
+    check("the dark label color is the light stroke",
+          "RGB(0xE8,0xE8,0xE8)" in seg)
+    check("inactive windows dim the label",
+          "RGB(0x9A,0x9A,0x9A)" in seg and "ODS_INACTIVE" in seg)
+    check("the underline follows the system no-accel policy",
+          "ODS_NOACCEL" in seg and "DT_HIDEPREFIX" in seg)
+    check("a stale owner draw state falls back to the system colors",
+          "GetSysColorBrush" in seg and "COLOR_MENUTEXT" in seg)
+    i = viv.find("static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)")
+    i = viv.find("static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the measure reads the label at the menu font",
+          "GetTextExtentPoint32W(hdc,text,string_get_length(text),&size);" in seg)
+    check("the measure pads the label dpi scaled",
+          "pad = (8 * os_logical_wide) / 96;" in seg)
+    check("the height keeps the system bar height unless missing",
+          "if (!measure_item->itemHeight)" in seg)
+
+    # the non client tail fill and the theme toggle.
+    i = viv.find("static void _viv_menu_bar_nc_fill(void)")
+    i = viv.find("static void _viv_menu_bar_nc_fill(void)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the tail fill covers the strip past the last item",
+          "right < mbi.rcBar.right" in seg)
+    check("the tail fill converts the screen rect to the window dc",
+          "GetWindowRect(_viv_hwnd,&window_rect);" in seg and
+          "GetWindowDC(_viv_hwnd);" in seg)
+    check("the tail fill only runs with an attached menu",
+          "GetMenu(_viv_hwnd)" in seg)
+    i = viv.find("static void _viv_menu_bar_theme(void)")
+    i = viv.find("static void _viv_menu_bar_theme(void)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("dark mode owner draws only the top level popups",
+          "if (!mii.hSubMenu)" in seg and "mii.fType = MFT_OWNERDRAW;" in seg)
+    check("light mode hands the items back to the system",
+          "mii.fType = MFT_STRING;" in seg)
+    check("the toggle state is remembered",
+          "_viv_menu_bar_state = dark;" in seg)
+
+    # the wiring: create menu tagging, apply dark, rebuild.
+    i = viv.find("static HMENU _viv_create_menu(void)")
+    i = viv.find("static HMENU _viv_create_menu(void)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the root items carry their label id for the owner draw",
+          "mii.fMask = MIIM_DATA;" in seg and
+          "mii.dwItemData = _viv_commands[i].localization_id;" in seg and
+          "_viv_commands[i].menu_id == _VIV_MENU_ROOT" in seg)
+    check("a fresh menu forces the owner draw re-apply",
+          "_viv_menu_bar_state = -1;" in seg)
+    i = viv.find("static void _viv_apply_dark_mode(int repaint)")
+    i = viv.find("static void _viv_apply_dark_mode(int repaint)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("apply dark toggles the menu bar owner draw",
+          "_viv_menu_bar_theme();" in seg)
+    check("the options rebuild re-applies the menu bar theme",
+          viv.count("_viv_menu_bar_theme();") == 2)
+
+    # the chrome palette and the rebar erase hardening.
+    check("the chrome brush cache carries the menu bar face",
+          "RGB(0x70,0x70,0x70),RGB(0x20,0x20,0x20)}" in viv and
+          "hbrushes[4]" in viv)
+    i = viv.find("static LRESULT CALLBACK _viv_rebar_proc")
+    i = viv.find("static LRESULT CALLBACK _viv_rebar_proc", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the rebar erase paints the strip face",
+          "FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));" in seg)
+    check("no claim-only erase is left in the rebar proc",
+          seg.count("case WM_ERASEBKGND:") == 1 and
+          "return 1;" in seg[seg.find("case WM_ERASEBKGND:"):])
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -1556,6 +1688,7 @@ if __name__ == "__main__":
     t_modernization_round6()
     t_round7()
     t_stable_round()
+    t_dark_menu_bar()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
