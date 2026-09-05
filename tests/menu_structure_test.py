@@ -1738,7 +1738,7 @@ def t_dark_layers_round():
     check("the owner drawn combos measure and paint",
           "case WM_MEASUREITEM:" in viv and
           "_viv_dialog_dark_combo_item_height" in viv and
-          "SendMessageW(draw_item->hwndItem,CB_GETLBTEXTW" in viv)
+          "SendMessageW(draw_item->hwndItem,CB_GETLBTEXT" in viv)
     check("the open dialogs re-theme on a live switch",
           "EnumThreadWindows(GetCurrentThreadId(),_viv_dark_dialogs_enum,0);" in viv and
           "_viv_dark_dialogs_refresh();" in viv)

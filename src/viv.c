@@ -601,12 +601,17 @@ static void _viv_status_update_temp_animation_rate(void);
 static int _viv_zoom_pos_max(void);
 static int _viv_is_dark(void);
 static void _viv_apply_dark_mode(int repaint);
+static void _viv_dark_dialogs_refresh(void);
 static HFONT _viv_menu_font(void);
 static void _viv_menu_font_drop(void);
 static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item);
 static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item);
 static void _viv_menu_bar_nc_fill(void);
+static void _viv_menu_bar_fill_gap(HDC hdc,int left,int top,int right,int bottom);
 static void _viv_menu_bar_theme(void);
+static RECT _viv_menu_bar_items_rect; // the union of the drawn item rects (window coordinates)
+static int _viv_menu_bar_items_valid = 0; // an item was drawn since the last layout reset
+static int _viv_menu_bar_nc_force = 0; // reentrancy guard for the no item repaint path
 static void _viv_menu_bar_remeasure(void);
 static COLORREF _viv_windowed_background(void);
 static void _viv_zoom_in(int out,int have_xy,int x,int y);
@@ -7890,9 +7895,6 @@ static COLORREF _viv_windowed_background(void)
 static HFONT _viv_menu_font_handle = 0; // the cached menu bar font
 static int _viv_menu_font_dpi = 0; // the dpi the menu bar font was created for
 static int _viv_menu_bar_state = -1; // the owner draw state of the bar items
-static RECT _viv_menu_bar_items_rect; // the union of the drawn item rects (window coordinates)
-static int _viv_menu_bar_items_valid = 0; // an item was drawn since the last layout reset
-static int _viv_menu_bar_nc_force = 0; // reentrancy guard for the no item repaint path
 
 // the menu bar font: the system menu font at the window's current dpi,
 // cached until the dpi or the theme changes. freed with the process.
@@ -9003,12 +9005,12 @@ static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 				
 				if (cur != -1)
 				{
-					SendMessageW(draw_item->hwndItem,CB_GETLBTEXTW,cur,(LPARAM)text);
+					SendMessageW(draw_item->hwndItem,CB_GETLBTEXT,cur,(LPARAM)text);
 				}
 			}
 			else
 			{
-				SendMessageW(draw_item->hwndItem,CB_GETLBTEXTW,draw_item->itemID,(LPARAM)text);
+				SendMessageW(draw_item->hwndItem,CB_GETLBTEXT,draw_item->itemID,(LPARAM)text);
 			}
 			
 			CopyRect(&rect,&draw_item->rcItem);
