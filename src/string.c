@@ -90,6 +90,12 @@ void string_copy_with_bufsize(wchar_t *d,SIZE_T bufsize,const wchar_t *s)
 {
 	uintptr_t size;
 	
+	// bufsize 0 would wrap to SIZE_MAX below.
+	if (!bufsize)
+	{
+		return;
+	}
+	
 	size = bufsize - 1;
 	
 	while(*s)
@@ -108,7 +114,12 @@ void string_copy_with_bufsize(wchar_t *d,SIZE_T bufsize,const wchar_t *s)
 
 void string_copy_utf8_string(wchar_t *buf,const utf8_t *s)
 {
-	MultiByteToWideChar(CP_UTF8,0,s,-1,buf,STRING_SIZE);
+	// MultiByteToWideChar leaves the output unterminated when the
+	// conversion fails: make sure the buffer is always a string.
+	if (!MultiByteToWideChar(CP_UTF8,0,s,-1,buf,STRING_SIZE))
+	{
+		buf[0] = 0;
+	}
 }
 
 void string_cat(wchar_t *buf,const wchar_t *s)

@@ -729,6 +729,7 @@ static void _viv_open_preload(void);
 //static void _viv_tooltip_update(void);
 //static void _viv_tooltip_update_track_position(void);
 static int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *dst,SIZE_T dst_size);
+static UINT _viv_frame_delay_at(const os_PropertyItem_t *pd,SIZE_T pd_size,DWORD i);
 
 static HMODULE _viv_stobject_hmodule = 0;
 static _viv_playlist_t *_viv_playlist_start = 0;
@@ -9625,7 +9626,12 @@ static void _viv_set_clipboard_image(void)
 							SelectObject(mem2_hdc,last_mem2_hbitmap);
 							SelectObject(mem1_hdc,last_mem1_hbitmap);
 							
-							SetClipboardData(CF_BITMAP,mem1_hbitmap);
+							// if SetClipboardData fails we keep ownership
+							// and must free the bitmap ourselves.
+							if (!SetClipboardData(CF_BITMAP,mem1_hbitmap))
+							{
+								DeleteObject(mem1_hbitmap);
+							}
 						}
 
 						DeleteDC(mem2_hdc);
@@ -9981,7 +9987,8 @@ static void _viv_save_image_as(void)
 					string_cat(tobuf,(format == 1) ? L".jpg" : ((format == 2) ? L".bmp" : L".png"));
 				}
 				
-				if (!os_save_hbitmap(_viv_frames[0].hbitmap,tobuf,format))
+				// save the frame on screen, not frame 0.
+				if (!os_save_hbitmap(_viv_frames[_viv_frame_position].hbitmap,tobuf,format))
 				{
 					wchar_t message_wbuf[STRING_SIZE];
 					
@@ -13398,17 +13405,31 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 								if (first_frame.frame_count > 1)
 								{
 									UINT size;
-
-									// PropertyTagFrameDelay 0x5100
-									os_GdipGetPropertyItemSize(image,0x5100,&size);
-
-									debug_printf("frame delay size %d\n",size);
-
-									frame_delay = (os_PropertyItem_t *)mem_alloc(size);
-									frame_delay_size = size;
 									
-									// PropertyTagFrameDelay 0x5100
-									os_GdipGetPropertyItem(image,0x5100,size,frame_delay);
+									size = 0;
+									
+									// PropertyTagFrameDelay 0x5100: gdi+ leaves *size untouched
+									// when the property is absent, so seed it and check the return.
+									if ((os_GdipGetPropertyItemSize(image,0x5100,&size) == 0) && (size >= sizeof(os_PropertyItem_t)))
+									{
+										frame_delay = (os_PropertyItem_t *)mem_alloc(size);
+										
+										if (frame_delay)
+										{
+											frame_delay_size = size;
+											
+											// PropertyTagFrameDelay 0x5100: only trust the buffer when
+											// gdi+ actually filled it.
+											if (os_GdipGetPropertyItem(image,0x5100,size,frame_delay) != 0)
+											{
+												mem_free(frame_delay);
+												frame_delay = 0;
+												frame_delay_size = 0;
+											}
+										}
+									}
+									
+									debug_printf("frame delay size %d\n",frame_delay_size);
 								}
 
 								// draw frames.
@@ -13515,10 +13536,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 														
 														// therube: we are accessing bad data here for some images.
 														// just use a value of 0 for bad data.
-														if (!_viv_safe_copy_data(frame_delay,frame_delay_size,&(((UINT *)frame_delay[0].value)[i]),&frame_data_value,sizeof(UINT)))
-														{
-															frame_data_value = 0;
-														}
+														frame_data_value = _viv_frame_delay_at(frame_delay,frame_delay_size,i);
 														
 														frame.delay = frame_data_value * 10;
 															
@@ -13545,10 +13563,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 														{
 															// therube: we are accessing bad data here for some images.
 															// just use a value of 0 for bad data.
-															if (!_viv_safe_copy_data(frame_delay,frame_delay_size,&(((UINT *)frame_delay[0].value)[i]),&frame_data_value,sizeof(UINT)))
-															{
-																frame_data_value = 0;
-															}
+															frame_data_value = _viv_frame_delay_at(frame_delay,frame_delay_size,i);
 															
 															first_frame.frame.delay = frame_data_value * 10;
 															
@@ -16394,7 +16409,10 @@ static void _viv_install_add_remove_programs(const wchar_t *install_path)
 		DWORD no_modify_repair;
 		
 		uninstall_wbuf[0] = L'"';
-		string_copy_with_bufsize(uninstall_wbuf + 1,STRING_SIZE - 1,install_path);
+		// string_cat budgets against the whole STRING_SIZE and ignores
+		// the quote we already placed: reserve the suffix so a long
+		// install path can never truncate it mid-way.
+		string_copy_with_bufsize(uninstall_wbuf + 1,STRING_SIZE - 1 - 16,install_path);
 		string_cat_utf8(uninstall_wbuf,(const utf8_t *)"\\Uninstall.exe\"");
 		
 		string_copy(icon_wbuf,install_path);
@@ -19283,6 +19301,46 @@ static void _viv_tooltip_update_track_position(void)
 	}
 }
 */
+
+// read the 10ms delay of frame i. returns 0 on any failure, the caller
+// falls back to 100ms. the gdi+ value pointer is validated against the
+// property buffer before it is used, and the delay array may hold fewer
+// entries than there are frames (the gif GCE block is optional), so delays
+// are reused modulo the available count.
+static UINT _viv_frame_delay_at(const os_PropertyItem_t *pd,SIZE_T pd_size,DWORD i)
+{
+	UINT value;
+	UINT count;
+	const BYTE *v;
+	
+	value = 0;
+	
+	if ((!pd) || (pd_size <= sizeof(os_PropertyItem_t)))
+	{
+		return 0;
+	}
+	
+	// gdi+ points value into the property buffer: keep the dereference
+	// inside the buffer we actually own.
+	v = (const BYTE *)pd->value;
+	
+	if ((v < (const BYTE *)pd) || ((SIZE_T)(v - (const BYTE *)pd) >= pd_size))
+	{
+		return 0;
+	}
+	
+	if (!(count = pd->length / sizeof(UINT)))
+	{
+		return 0;
+	}
+	
+	if (!_viv_safe_copy_data(pd,pd_size,&(((const UINT *)v)[i % count]),&value,sizeof(UINT)))
+	{
+		value = 0;
+	}
+	
+	return value;
+}
 
 static int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *dst,SIZE_T dst_size)
 {

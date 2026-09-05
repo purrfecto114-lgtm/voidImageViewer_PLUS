@@ -930,9 +930,11 @@ def t_review_fixes_round2():
           'GID_TWOFINGERTAP 6 (5 is GID_ROTATE' in viv and
           'gesture_configs[2].dwID = 6;' in viv)
 
-    # R4: the quoted uninstall string copy is bounded to the remaining space
+    # R4: the quoted uninstall string copy is bounded to the remaining space,
+    # and (round 14) reserves the trailing suffix so string_cat can never
+    # truncate "\Uninstall.exe\"" mid-way on a long install path.
     check("arp uninstall path copy is bounded",
-          "string_copy_with_bufsize(uninstall_wbuf + 1,STRING_SIZE - 1,install_path);" in viv and
+          "string_copy_with_bufsize(uninstall_wbuf + 1,STRING_SIZE - 1 - 16,install_path);" in viv and
           "string_copy(uninstall_wbuf + 1" not in viv)
 
     # L5: the jumpto modal pump re-injects a consumed WM_QUIT
@@ -1758,6 +1760,69 @@ def t_dark_layers_round():
           "{3,4,_glyphs_zoomin_plus}" in glyphs)
 
 
+
+
+def t_audit_round14():
+    """User-audited fix round: frame delay hardening, save-current-frame,
+    uninstall suffix reservation, string terminators, ini size check,
+    clipboard ownership. Each guard locks one audited fix in place."""
+    viv = read("src/viv.c").decode("latin-1")
+    stringc = read("src/string.c").decode("latin-1")
+    ini = read("src/ini.c").decode("latin-1")
+
+    # issue 1: the gdi+ frame-delay read must seed size and check both
+    # return values, and roll the buffer back when gdi+ did not fill it.
+    check("frame delay size is seeded before the query",
+          "\t\t\t\t\t\t\t\t\tsize = 0;" in viv)
+    check("frame delay size query return is checked",
+          "(os_GdipGetPropertyItemSize(image,0x5100,&size) == 0)" in viv and
+          "(size >= sizeof(os_PropertyItem_t))" in viv)
+    check("frame delay fetch return is checked with rollback",
+          "os_GdipGetPropertyItem(image,0x5100,size,frame_delay) != 0" in viv and
+          "mem_free(frame_delay);" in viv)
+
+    # issue 4 + pointer validation live in the helper
+    check("frame delay helper validates the value pointer",
+          "static UINT _viv_frame_delay_at(const os_PropertyItem_t *pd,SIZE_T pd_size,DWORD i)" in viv and
+          "(SIZE_T)(v - (const BYTE *)pd) >= pd_size" in viv)
+    check("frame delay helper reuses short delay arrays",
+          "i % count" in viv)
+    check("both consumers go through the helper",
+          viv.count("_viv_frame_delay_at(frame_delay,frame_delay_size,i)") == 2 and
+          "frame_delay[0].value" not in viv)
+
+    # issue 2: save-as must save the frame on screen
+    check("save-as saves the current frame",
+          "os_save_hbitmap(_viv_frames[_viv_frame_position].hbitmap,tobuf,format)" in viv and
+          "os_save_hbitmap(_viv_frames[0].hbitmap" not in viv)
+
+    # issue 3: the uninstall suffix is reserved
+    check("uninstall copy reserves the suffix",
+          "string_copy_with_bufsize(uninstall_wbuf + 1,STRING_SIZE - 1 - 16,install_path);" in viv)
+
+    # issue 5: failed utf8 conversions still terminate
+    check("string_copy_utf8_string terminates on failure",
+          "if (!MultiByteToWideChar(CP_UTF8,0,s,-1,buf,STRING_SIZE))" in stringc and
+          "buf[0] = 0;" in stringc)
+
+    # issue 6: bufsize 0 must not wrap
+    check("string_copy_with_bufsize guards bufsize 0",
+          "void string_copy_with_bufsize(wchar_t *d,SIZE_T bufsize,const wchar_t *s)\r\n{\r\n\tuintptr_t size;\r\n\t\r\n\t// bufsize 0 would wrap to SIZE_MAX below.\r\n\tif (!bufsize)\r\n\t{\r\n\t\treturn;\r\n\t}" in stringc)
+
+    # issue 7a: GetFileSize failure must not become an allocation size
+    check("ini rejects INVALID_FILE_SIZE",
+          "(size != INVALID_FILE_SIZE) && (size)" in ini)
+
+    # issue 7b: clipboard ownership on failure
+    check("clipboard bitmap freed when SetClipboardData fails",
+          "if (!SetClipboardData(CF_BITMAP,mem1_hbitmap))" in viv and
+          "DeleteObject(mem1_hbitmap);" in viv)
+
+    # the recalled findings stay recalled: no churn was added around them
+    check("config write buffer untouched (recalled item)",
+          read("src/config.c").decode("latin-1").count("WideCharToMultiByte(CP_UTF8,0,s,-1,(char *)buf,STRING_SIZE*3,0,0);") == 1)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -1784,6 +1849,7 @@ if __name__ == "__main__":
     t_stable_round()
     t_dark_menu_bar()
     t_dark_layers_round()
+    t_audit_round14()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
