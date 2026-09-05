@@ -68,7 +68,9 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 							
 							if (WebPAnimDecoderGetInfo(anim_decoder,&anim_info))
 							{
-								if (info_callback(user_data,anim_info.frame_count,anim_info.canvas_width,anim_info.canvas_height,features.has_alpha))
+								// pixel budget: refuse a hostile canvas before libwebp
+								// allocates the frame buffers of the animation.
+								if ((safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height) <= VIV_MAX_IMAGE_PIXELS) && (info_callback(user_data,anim_info.frame_count,anim_info.canvas_width,anim_info.canvas_height,features.has_alpha)))
 								{
 									uint8_t *frame;
 									int timestamp;
@@ -149,22 +151,28 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 				}
 				else
 				{
-					BYTE *pixels;
-					int width;
-					int height;
-
-					pixels = WebPDecodeRGBA(data_ptr,data_size,&width,&height);
-					if (pixels)
+					// pixel budget: refuse a hostile canvas before libwebp
+					// allocates the rgba buffer (the decode itself is the
+					// multi gigabyte allocation the budget exists for).
+					if (safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height) <= VIV_MAX_IMAGE_PIXELS)
 					{
-						if (info_callback(user_data,1,width,height,features.has_alpha))
+						BYTE *pixels;
+						int width;
+						int height;
+
+						pixels = WebPDecodeRGBA(data_ptr,data_size,&width,&height);
+						if (pixels)
 						{
-							if (frame_callback(user_data,pixels,0))
+							if (info_callback(user_data,1,width,height,features.has_alpha))
 							{
-								ret = 1;
+								if (frame_callback(user_data,pixels,0))
+								{
+									ret = 1;
+								}
 							}
-						}
 					
-						WebPFree(pixels);
+							WebPFree(pixels);
+						}
 					}
 				}
 			}

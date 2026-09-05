@@ -18,6 +18,12 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
+**1.0.02 — third audit round: decode budget + real machine smoke test:**
+
+- **Pixel budget** — both decoders refuse canvases over 100 MP *before* any allocation. A 428 KB hostile header claiming 20000×20000 used to hit the allocator and die with a fatal dialog; it now fails like any unloadable file.
+- **Uninstaller identity** — closing the old instance verifies the process image name (`voidImageViewer.exe`) instead of trusting the window class name alone; a foreign program reusing the class name is left alone.
+- **Anomaly samples + Windows smoke test** — `tests/make_anomaly_samples.py` generates 37 hostile samples (truncation, lying headers, zero-delay animation, frame floods, broken chunk order, trailing garbage, over-budget canvases); `tests/smoke_test.ps1` opens every one on a real machine and fails on any crash.
+
 **1.0.01 — the fork restarts its version line:**
 
 - **A clean public history** — the retired 1.1.x tags and releases (3 stables, 7 RCs, 13 betas) are removed; the fork now numbers from **1.0.01** and records one entry per development stage. No code change ships with the reset: these binaries are the twice-audited tree.

@@ -1,3 +1,20 @@
+Stable: Version 1.0.02 (third audit round closed)
+	pixel budget: both decoders (gdi+ and webp, animation and
+	still) now refuse a canvas over 100 mp before any allocation
+	happens - a 428 kb hostile header asking for a 20000 x 20000
+	decode used to reach the allocator and die with a fatal
+	dialog; it now fails like any unloadable file.
+	uninstaller identity: closing the old instance no longer trusts
+	the window class name alone - the process image name is
+	verified as voidImageViewer.exe before any close or terminate
+	is sent, so a foreign program reusing the class name is left
+	alone.
+	third audit delivery: a generated anomaly sample set (37
+	samples across truncation, lying headers, zero delay, frame
+	floods, broken chunk order, trailing garbage and over budget
+	canvases) plus a windows smoke test script, so a passing
+	suite can be followed by a real machine run.
+
 Stable: Version 1.0.01 (the fork restarts its version line at a clean 1.0.01)
 	version line: the public version sequence restarts here. the retired
 	1.1.x line (three stables, seven release candidates, thirteen betas)

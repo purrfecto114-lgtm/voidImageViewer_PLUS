@@ -13230,7 +13230,11 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 				{
 					if (os_GdipGetImageWidth(image,&first_frame.wide) == 0)
 					{
-						if (os_GdipGetImageHeight(image,&first_frame.high) == 0)
+						// pixel budget: a hostile or corrupted header can claim
+						// a canvas that decodes to gigabytes of rgba. refuse the
+						// load before any frame allocation happens; the dispose
+						// below still runs so this fails like an unloadable file.
+						if ((os_GdipGetImageHeight(image,&first_frame.high) == 0) && (safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high) <= VIV_MAX_IMAGE_PIXELS))
 						{
 							UINT count;
 							int load_wide;
@@ -13457,7 +13461,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 										}
 									}
 									
-									debug_printf("frame delay size %d\n",frame_delay_size);
+									debug_printf("frame delay size %u\n",(unsigned int)frame_delay_size);
 								}
 
 								// draw frames.
@@ -16255,6 +16259,80 @@ static void _viv_edit_key_remove_currently_used_by(_viv_key_list_t *keylist,DWOR
 // FIXME: we should check for the process name voidImageViewer.exe rather than the
 // window class name. -be careful when uninstalling as the non-admin process will be
 // waiting for the admin process to exit.
+static int _viv_is_voidimageviewer_process(DWORD process_id)
+{
+	HANDLE process_handle;
+	int ret;
+	
+	// conservative default: if the image name can not be queried we
+	// assume the window is ours. in an uninstall context closing a
+	// real instance is preferred over leaving a locked file behind.
+	ret = 1;
+	
+	process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,process_id);
+	
+	if (process_handle)
+	{
+		wchar_t image_name[STRING_SIZE];
+		DWORD image_name_length;
+		
+		image_name_length = STRING_SIZE;
+		
+		if (QueryFullProcessImageNameW(process_handle,0,image_name,&image_name_length))
+		{
+			const wchar_t *basename;
+			const wchar_t *wanted;
+			
+			// the name past the last separator is the image file name.
+			basename = image_name + image_name_length;
+			while ((basename > image_name) && (basename[-1] != L'\\') && (basename[-1] != L':'))
+			{
+				basename--;
+			}
+			
+			// case insensitive compare against voidImageViewer.exe.
+			wanted = L"voidImageViewer.exe";
+			
+			while ((*basename) && (*wanted))
+			{
+				wchar_t c1;
+				wchar_t c2;
+				
+				c1 = *basename;
+				c2 = *wanted;
+				
+				if ((c1 >= L'A') && (c1 <= L'Z'))
+				{
+					c1 += (L'a' - L'A');
+				}
+				
+				if ((c2 >= L'A') && (c2 <= L'Z'))
+				{
+					c2 += (L'a' - L'A');
+				}
+				
+				if (c1 != c2)
+				{
+					break;
+				}
+				
+				basename++;
+				wanted++;
+			}
+			
+			if ((*basename) || (*wanted))
+			{
+					// the image is not voidImageViewer.exe: not our window.
+					ret = 0;
+				}
+		}
+		
+		CloseHandle(process_handle);
+	}
+	
+	return ret;
+}
+
 static void _viv_close_existing_process(void)
 {
 	int attempts;
@@ -16282,6 +16360,16 @@ static void _viv_close_existing_process(void)
 		
 		process_id = 0;
 		GetWindowThreadProcessId(hwnd,&process_id);
+		
+		// the window class is a weak identity: any program can register
+		// the same class name and the uninstaller would then close a
+		// window it does not own. verify the process image name first.
+		if ((process_id) && (!_viv_is_voidimageviewer_process(process_id)))
+		{
+			// the window belongs to another program: leave it alone and
+			// stop looking (findwindow would return the same window).
+			break;
+		}
 		
 		process_handle = 0;
 		

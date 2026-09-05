@@ -189,10 +189,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.0.1.24 stable (the fork line restarts at 1.0.01)",
-          (major, minor, rev, build) == ("1", "0", "1", "24") and vtype == "")
+    check("version.h = 1.0.2.25 stable (the fork line continues from the restart)",
+          (major, minor, rev, build) == ("1", "0", "2", "25") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.0.01")
+          vstr == "1.0.02")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1896,6 +1896,50 @@ def t_audit_round16():
     check("shuffle seeds mix both counter halves",
           viv.count("srand((unsigned int)(counter.LowPart ^ counter.HighPart));") == 2)
 
+def t_audit_round18():
+    """Third user audit round: a decode time pixel budget on both loader
+    paths (gdi+ and webp, animation and still), the uninstaller checks
+    the process image name instead of trusting the window class alone,
+    and the debug frame delay print matches its size_t cast. The audit
+    also ships a generated anomaly sample set and a windows smoke test
+    so a passing suite can be followed by proof on a real machine."""
+    viv = read("src/viv.c").decode("latin-1")
+    vivh = read("src/viv.h").decode("latin-1")
+    webpc = read("src/webp.c").decode("latin-1")
+
+    # issue 1: a single image pixel budget guards both decode paths
+    check("pixel budget constant is defined once in viv.h",
+          vivh.count("#define VIV_MAX_IMAGE_PIXELS\t100000000") == 1)
+    check("gdi+ path checks the budget before any frame allocation",
+          "(os_GdipGetImageHeight(image,&first_frame.high) == 0) && (safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high) <= VIV_MAX_IMAGE_PIXELS)" in viv)
+    check("webp animation path checks the canvas budget before decoding",
+          "safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height) <= VIV_MAX_IMAGE_PIXELS" in webpc)
+    check("webp still path checks the budget before the decode allocates",
+          "safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height) <= VIV_MAX_IMAGE_PIXELS" in webpc)
+
+    # issue 2: the uninstaller verifies the process image name
+    check("process image name verification helper exists",
+          "static int _viv_is_voidimageviewer_process(DWORD process_id)" in viv)
+    check("image name query uses the limited information right",
+          "OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,process_id)" in viv and
+          "QueryFullProcessImageNameW(process_handle,0,image_name,&image_name_length)" in viv)
+    check("close existing process refuses foreign windows",
+          "if ((process_id) && (!_viv_is_voidimageviewer_process(process_id)))" in viv)
+
+    # low: the debug format spec matches the cast
+    check("frame delay debug print casts to unsigned with a matching spec",
+          'debug_printf("frame delay size %u\\n",(unsigned int)frame_delay_size);' in viv)
+
+    # delivery: the anomaly samples and the real machine smoke test exist
+    samples = read("tests/make_anomaly_samples.py").decode("latin-1")
+    smoke = read("tests/smoke_test.ps1").decode("latin-1")
+    check("anomaly sample generator writes the audit classes",
+          samples.count("def make_") >= 3 and samples.count("emit(") >= 30 and
+          "def self_check" in samples)
+    check("windows smoke test opens each sample and reports pass or fail",
+          "Start-Process" in smoke and "ExitCode" in smoke and
+          "make_anomaly_samples" in smoke)
+
 
 if __name__ == "__main__":
     t_panscan_gone()
@@ -1925,6 +1969,7 @@ if __name__ == "__main__":
     t_dark_layers_round()
     t_audit_round14()
     t_audit_round16()
+    t_audit_round18()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

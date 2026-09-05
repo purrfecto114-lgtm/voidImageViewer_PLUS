@@ -49,6 +49,16 @@ extern "C" {
 #define VIV_UINT64_MAX	0xFFFFFFFFFFFFFFFFUI64
 #define VIV_DWORD_MAX	0xffffffff
 
+// single image pixel budget: a corrupted or hostile header can
+// claim dimensions that decode to gigabytes of rgba (a 428 kb png
+// can ask for 20000 x 20000). the loaders refuse the file before
+// any allocation happens so a huge canvas fails like any other
+// unloadable file instead of dying inside the allocator. 100 mp
+// (400 mb of rgba, plus mipmaps and rotation copies on top) keeps
+// every real photo, scan and panorama loadable while bounding the
+// decode inside the 32 bit address space.
+#define VIV_MAX_IMAGE_PIXELS	100000000
+
 typedef unsigned char utf8_t;
 
 typedef unsigned __int64 VIV_UINT64;
