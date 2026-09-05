@@ -2,6 +2,6 @@
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 1
 #define VERSION_REVISION 0
-#define VERSION_BUILD 18
-#define VERSION_TYPE "-rc.5"
-#define VERSION_STRING "1.1.0-rc.5"
+#define VERSION_BUILD 19
+#define VERSION_TYPE "-rc.6"
+#define VERSION_STRING "1.1.0-rc.6"

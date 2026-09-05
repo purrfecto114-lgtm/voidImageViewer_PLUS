@@ -74,6 +74,8 @@
     <ClCompile Include="..\libwebp\src\utils\utils.c" />
     <ClCompile Include="..\src\config.c" />
     <ClCompile Include="..\src\debug.c" />
+
+    <ClCompile Include="..\src\glyphs.c" />
     <ClCompile Include="..\src\ini.c" />
     <ClCompile Include="..\src\mem.c" />
     <ClCompile Include="..\src\localization.c" />
@@ -120,6 +122,8 @@
     <ClInclude Include="..\res\resource.h" />
     <ClInclude Include="..\src\config.h" />
     <ClInclude Include="..\src\debug.h" />
+
+    <ClInclude Include="..\src\glyphs.h" />
     <ClInclude Include="..\src\everything_ipc.h" />
     <ClInclude Include="..\src\ini.h" />
     <ClInclude Include="..\src\mem.h" />
@@ -138,12 +142,6 @@
     <ClInclude Include="..\src\zoomui.h" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="..\res\1to1-8bit.ico" />
-    <Image Include="..\res\bestfit.ico" />
-    <Image Include="..\res\next.ico" />
-    <Image Include="..\res\pause.ico" />
-    <Image Include="..\res\play.ico" />
-    <Image Include="..\res\prev.ico" />
     <Image Include="..\res\voidImageViewer.ico" />
   </ItemGroup>
   <ItemGroup>

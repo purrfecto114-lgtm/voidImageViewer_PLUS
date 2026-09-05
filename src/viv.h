@@ -216,6 +216,9 @@ enum
 	VIV_ID_VIEW_BACKDROP_CUSTOM,
 	VIV_ID_VIEW_BACKDROP_CHECKERBOARD,
 	VIV_ID_ZOOMUI,
+
+	// zoom overlay auto hide (appended so existing ids are not shifted)
+	VIV_ID_VIEW_ZOOM_AUTO_HIDE,
 };
 
 #include "version.h"
@@ -229,6 +232,7 @@ enum
 #include "ini.h"
 #include "config.h"
 #include "zoomui.h"
+#include "glyphs.h"
 #include "webp.h"
 #include "small_pool.h"
 #include "safe_size.h"

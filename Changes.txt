@@ -1,3 +1,45 @@
+Release candidate: Version 1.1.0-rc.6 (modern gui round: the audited roadmap - per monitor v2, win11 chrome, vector glyphs, fullscreen overlay fade)
+	the external "modern gui" report was audited first: 11 current
+	state claims came back 4 wrong / 4 half right / 3 true (it had
+	audited the upstream repo, not this fork - the dark mode chain
+	it listed as missing has shipped since beta.9). only the real
+	gaps were implemented.
+	dpi: the manifest now declares PerMonitorV2 (with a PerMonitor
+	fallback). the app was system dpi aware, so on a mixed dpi
+	multi monitor setup windows bitmap stretched the window on
+	every secondary monitor (blurry). WM_DPICHANGED is now handled:
+	re-read the dpi (GetDpiForWindow, dynamically resolved, 96
+	floor), resize to the suggested rectangle, rebuild every scaled
+	resource (toolbar image list, zoom bar metrics, layout).
+	win11 chrome: rounded corners (DWMWA 33) + a caption color
+	matched to the canvas (DWMWA 35) applied with the dark mode
+	switch; both attributes are silent no-ops on windows 10.
+	icons: the eight toolbar/zoom icons are drawn at runtime as
+	vector line art (48 grid, round capped strokes, gdi+ flat api
+	into a 32bpp argb bitmap -> HICON) in the current theme color
+	at any size. the eight .ico frames (net ~34kb) are deleted in
+	a 4 layer sync: files + rc icon lines + resource.h defines +
+	props image entries. the application icon stays.
+	fullscreen overlay: the floating zoom bar grows to six buttons
+	(prev/play/pause/next/zoom out/zoom in) centered at the bottom
+	on a WS_EX_LAYERED child window. after 2 idle seconds it fades
+	out in 15ms alpha steps (a fully transparent layered window
+	still eats clicks, so it is hidden for real at zero); mouse,
+	key, image switch and command activity fade it back. win7 has
+	no layered child windows: the bar hides without the fade.
+	windowed mode keeps the two button pill. new menu item
+	View > Layout > Auto-Hide Zoom Controls (zoom_auto_hide=1,
+	default on: the auto hide only applies in fullscreen).
+	extraction: the toolbar image list build moved into its own
+	function so dpi and theme changes can rebuild it (also fixes
+	the old LoadImage leak: the zoom icons were never destroyed
+	after ImageList_AddIcon copied them).
+	tests: t_modernization_round6 adds ~40 guards (manifest,
+	message define + handler, dpi floor, chrome attributes, glyph
+	api table + cache, 4 layer icon sync, overlay buttons/layering/
+	fade constants, config/menu/localization three line sync);
+	props counts 81/49; version guards 1.1.0.19 -rc.6.
+
 Release candidate: Version 1.1.0-rc.5 (release engineering batch 2: the approved D1-D8 decisions, one consolidated release)
 	the full decision set was approved and executed in a single
 	release (one tag, gate-verified, instead of the previous

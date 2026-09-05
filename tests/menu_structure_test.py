@@ -181,8 +181,8 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.0.18 -rc.5",
-          (major, minor, rev, build) == ("1", "1", "0", "18") and vtype == "-rc.5")
+    check("version.h = 1.1.0.19 -rc.6",
+          (major, minor, rev, build) == ("1", "1", "0", "19") and vtype == "-rc.6")
     check("VERSION_STRING composes from the numeric macros",
           vstr == "%s.%s.%s%s" % (major, minor, rev, vtype))
     check("rc derives everything from version.h",
@@ -1142,11 +1142,12 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 80)
+          len(re.findall(r"<ClCompile ", fp)) == 81)
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
-    check("shared props has the resource script and icons",
-          "voidImageViewer.rc" in fp and "1to1-8bit.ico" in fp)
+    check("shared props has the resource script and the app icon only",
+          "voidImageViewer.rc" in fp and "voidImageViewer.ico" in fp
+          and "1to1-8bit.ico" not in fp and "prev.ico" not in fp)
     for proj, toolset in (("vs2019/voidImageViewer.vcxproj", "v143"),
                           ("vs2026/voidImageViewer.vcxproj", "v145")):
         p = read(proj).decode("utf-8", errors="replace")
@@ -1184,6 +1185,169 @@ def t_release_engineering_round5():
           "microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57" in ty)
 
 
+
+
+# ---------------------------------------------------------------------------
+# rc.6 modernization round: per monitor v2, win11 chrome, vector glyphs,
+# the fullscreen overlay bar with the idle fade, and the 4-layer icon sync.
+# ---------------------------------------------------------------------------
+def t_modernization_round6():
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+    vh = read("src/viv.h").decode()
+    osc = read("src/os.c").decode("utf-8", errors="replace")
+    osh = read("src/os.h").decode()
+    zc = read("src/zoomui.c").decode("utf-8", errors="replace")
+    zh_ = read("src/zoomui.h").decode()
+    gc = read("src/glyphs.c").decode("utf-8", errors="replace")
+    gh = read("src/glyphs.h").decode()
+    mf = read("res/voidImageViewer.Manifest").decode()
+    rh = read("res/resource.h").decode()
+    rct = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
+    fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
+    cc = read("src/config.c").decode()
+    ch = read("src/config.h").decode()
+    lh = read("src/localization.h").decode()
+    le = read("src/localization_en_us.h").decode("utf-8", errors="replace")
+    lz = read("src/localization_zh_cn.h").decode("utf-8", errors="replace")
+
+    # per monitor v2 (the real mixed-dpi fix)
+    check("manifest declares PerMonitorV2 with the PerMonitor fallback",
+          "PerMonitorV2, PerMonitor" in mf and "dpiAwareness" in mf)
+    check("viv.c defines the WM_DPICHANGED fallback",
+          "#define WM_DPICHANGED 0x02E0" in viv)
+    check("viv.c handles WM_DPICHANGED",
+          "case WM_DPICHANGED:" in viv)
+    check("the handler accepts the suggested rect",
+          "suggested_rect" in viv and "os_window_update_dpi(hwnd)" in viv)
+    check("the handler rebuilds the toolbar after a dpi change",
+          viv.find("_viv_toolbar_build_image_list();",
+                   viv.find("case WM_DPICHANGED:")) != -1)
+    check("os.c loads GetDpiForWindow from user32",
+          'GetProcAddress(_os_user32_hmodule,"GetDpiForWindow")' in osc)
+    check("os.c implements os_window_update_dpi with the 96 floor",
+          "int os_window_update_dpi(HWND hwnd)" in osc and "dpi < 96" in osc)
+    check("os.h exports os_window_update_dpi",
+          "int os_window_update_dpi(HWND hwnd);" in osh)
+
+    # win11 chrome
+    check("os.c implements os_window_modern_chrome",
+          "void os_window_modern_chrome(HWND hwnd,COLORREF caption_color)" in osc)
+    check("chrome sets corner preference 33 to round",
+          "_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner));" in osc
+          and "corner = 2;" in osc)
+    check("chrome sets caption color 35",
+          "_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));" in osc)
+    check("os.h exports os_window_modern_chrome",
+          "void os_window_modern_chrome(HWND hwnd,COLORREF caption_color);" in osh)
+    check("viv.c applies the chrome from apply_dark_mode",
+          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv)
+
+    # vector glyphs
+    check("glyphs.c/h exist and are in the shared props",
+          os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
+          and "glyphs.c" in fp and "glyphs.h" in fp)
+    check("the props counts grew by the glyphs pair",
+          len(re.findall(r"<ClCompile ", fp)) == 81
+          and len(re.findall(r"<ClInclude ", fp)) == 49)
+    check("glyphs.c loads its own gdi+ flat api table",
+          '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
+          and '"GdipCreateBitmapFromScan0"' in gc
+          and '"GdipCreateHICONFromBitmap"' in gc)
+    check("glyphs.c renders through an alpha bitmap",
+          "0x26200A" in gc and "mem_alloc" in gc)
+    check("glyphs.c bakes both theme colors",
+          "0xFFE8E8E8" in gc and "0xFF3C4043" in gc)
+    check("glyphs.c uses round caps and antialiasing",
+          "_glyphs_gdipSetPenStartCap(pen,_GLYPHS_LINE_CAP_ROUND)" in gc
+          and "_glyphs_gdipSetSmoothingMode(graphics,_GLYPHS_SMOOTHING_ANTIALIAS)" in gc
+          and "#define _GLYPHS_LINE_CAP_ROUND 2" in gc
+          and "#define _GLYPHS_SMOOTHING_ANTIALIAS 4" in gc)
+    check("glyphs.h exports the icon cache api",
+          "HICON glyphs_icon(int glyph_id,int dark,int size);" in gh
+          and "void glyphs_flush_cache(void);" in gh and "GLYPH_COUNT" in gh)
+    check("the toolbar image list is built from glyphs",
+          "glyphs_icon(glyphi,dark," in viv and "GLYPH_COUNT;glyphi++" in viv)
+    check("the old ico frames are gone from disk",
+          all(not os.path.exists("res/" + n + ".ico") for n in
+              ("1to1-8bit", "bestfit", "next", "pause", "play", "prev",
+               "zoomin", "zoomout")))
+    check("the app icon stays",
+          os.path.exists("res/voidImageViewer.ico"))
+    check("the rc keeps exactly one icon resource",
+          len(re.findall(r"^\s*IDI_[A-Z0-9_]+\s+ICON", rct, re.M)) == 1
+          and "IDI_ICON1               ICON" in rct)
+    check("resource.h drops the 9 toolbar icon defines",
+          all(("#define IDI_" + n + " ") not in rh for n in
+              ("PREV", "PLAY", "NEXT", "PAUSE", "ICON2", "1TO1",
+               "BESTFIT", "ZOOMOUT", "ZOOMIN"))
+          and "#define IDI_ICON1" in rh)
+    check("the props image list keeps only the app icon",
+          len(re.findall(r"<Image Include=", fp)) == 1
+          and "voidImageViewer.ico" in fp)
+    check("the extracted image list builder rebuilds on demand",
+          "static void _viv_toolbar_build_image_list(void)" in viv
+          and viv.count("_viv_toolbar_build_image_list();") >= 3)
+    check("the old LoadIcon toolbar icons are gone",
+          "LoadIcon(os_hinstance,(LPCTSTR)IDI_PREV)" not in viv
+          and "MAKEINTRESOURCE(IDI_ZOOMOUT)" not in viv)
+
+    # the zoomui rewrite
+    check("zoomui master table carries the six fullscreen buttons",
+          "VIV_ID_NAV_PREV" in zc and "VIV_ID_SLIDESHOW_PLAY_ONLY" in zc
+          and "VIV_ID_SLIDESHOW_PAUSE_ONLY" in zc and "VIV_ID_NAV_NEXT" in zc)
+    check("windowed mode keeps the two button pill",
+          "#define _ZOOMUI_WINDOWED_COUNT 2" in zc)
+    check("zoomui declares the fullscreen switch",
+          "void zoomui_set_fullscreen(int fullscreen);" in zh_
+          and "void zoomui_set_fullscreen(int fullscreen)" in zc)
+    check("zoomui declares the activity hook",
+          "void zoomui_activity(void);" in zh_
+          and "void zoomui_activity(void)" in zc)
+    check("viv.c syncs the fullscreen mode",
+          "zoomui_set_fullscreen(_viv_is_fullscreen);" in viv)
+    check("the bar is layered with alpha fading",
+          "WS_EX_LAYERED" in zc and "LWA_ALPHA" in zc)
+    check("the layered probe removes the style on failure",
+          "~WS_EX_LAYERED" in zc)
+    check("the fade timer steps the alpha",
+          "SetTimer(_zoomui_hwnd,_ZOOMUI_TIMER_ID,_ZOOMUI_FADE_INTERVAL,0)" in zc
+          and "#define _ZOOMUI_ALPHA_STEP 17" in zc
+          and "#define _ZOOMUI_IDLE_MS 2000" in zc)
+    check("a fully transparent bar is hidden for real (it still eats clicks)",
+          zc.find("ShowWindow(_zoomui_hwnd,SW_HIDE);",
+                  zc.find("_zoomui_alpha == 0")) != -1)
+    check("glyph icons feed the zoom buttons",
+          "glyphs_icon(" in zc and "glyphs_flush_cache();" in zc)
+    check("fullscreen centers the bar at the bottom",
+          "(wide - container_wide) / 2" in zc)
+    check("config gates the auto hide",
+          "config_zoom_auto_hide" in zc)
+    check("mouse, key and command activity wake the bar",
+          viv.count("zoomui_activity();") >= 3)
+
+    # config / menu / localization three line sync
+    check("config.c defaults zoom_auto_hide to 1",
+          "BYTE config_zoom_auto_hide = 1;" in cc)
+    check("config.c persists zoom_auto_hide",
+          '"zoom_auto_hide"' in cc
+          and cc.count('_config_write_int(h,"zoom_auto_hide"') == 1)
+    check("config.h externs zoom_auto_hide",
+          "extern BYTE config_zoom_auto_hide;" in ch)
+    check("the menu gains the auto hide row",
+          "LOCALIZATION_ID_ZOOM_AUTO_HIDE,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_ZOOM_AUTO_HIDE" in viv)
+    check("the command and check states exist",
+          "case VIV_ID_VIEW_ZOOM_AUTO_HIDE:" in viv
+          and "CheckMenuItem(hmenu,VIV_ID_VIEW_ZOOM_AUTO_HIDE," in viv)
+    check("viv.h appends the command id",
+          "VIV_ID_VIEW_ZOOM_AUTO_HIDE," in vh)
+    for name in ("LOCALIZATION_ID_ZOOMUI_TOOLTIP_PREV",
+                 "LOCALIZATION_ID_ZOOMUI_TOOLTIP_PLAY",
+                 "LOCALIZATION_ID_ZOOMUI_TOOLTIP_PAUSE",
+                 "LOCALIZATION_ID_ZOOMUI_TOOLTIP_NEXT",
+                 "LOCALIZATION_ID_ZOOM_AUTO_HIDE"):
+        check(f"{name} in all three localization lines",
+              name in lh and name in le and name in lz)
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -1205,6 +1369,7 @@ if __name__ == "__main__":
     t_review_fixes_round2()
     t_review_fixes_round4()
     t_release_engineering_round5()
+    t_modernization_round6()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

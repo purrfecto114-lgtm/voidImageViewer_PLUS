@@ -134,6 +134,7 @@ extern BYTE config_orientation;
 extern BYTE config_title_bar_format;
 extern int config_add_command_line_timeout;
 extern BYTE config_show_zoom_controls;
+extern BYTE config_zoom_auto_hide;
 
 #ifdef __cplusplus
 }

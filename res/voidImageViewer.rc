@@ -209,14 +209,6 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_ICON1               ICON                    "voidImageViewer.ico"
-IDI_PREV                ICON                    "prev.ico"
-IDI_PLAY                ICON                    "play.ico"
-IDI_NEXT                ICON                    "next.ico"
-IDI_PAUSE               ICON                    "pause.ico"
-IDI_1TO1                ICON                    "1to1-8bit.ico"
-IDI_BESTFIT             ICON                    "bestfit.ico"
-IDI_ZOOMOUT             ICON                    "zoomout.ico"
-IDI_ZOOMIN              ICON                    "zoomin.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //

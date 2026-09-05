@@ -13,17 +13,8 @@
 #define IDD_CUSTOM_RATE                 109
 #define IDD_CONTROLS                    110
 #define IDB_BITMAP1                     112
-#define IDI_PREV                        116
-#define IDI_PLAY                        117
-#define IDI_NEXT                        118
-#define IDI_PAUSE                       119
 #define IDD_ABOUT                       121
 #define IDD_EDIT_KEY                    123
-#define IDI_ICON2                       124
-#define IDI_1TO1                        124
-#define IDI_BESTFIT                     126
-#define IDI_ZOOMOUT                     130
-#define IDI_ZOOMIN                      131
 #define IDD_RENAME                      127
 #define IDD_JUMPTO                      128
 #define IDD_EVERYTHING                  129

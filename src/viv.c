@@ -302,6 +302,11 @@
 #define WM_THEMECHANGED 0x031A
 #endif
 
+// per monitor dpi change message. (not defined in older SDKs)
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
 #ifndef TB_GETTOOLTIPS
 #define TB_GETTOOLTIPS (WM_USER+35)
 #endif
@@ -484,6 +489,7 @@ typedef struct _viv_name_mapping_s
 
 static void _viv_update_title(void);
 static void _viv_on_size(void);
+static void _viv_toolbar_build_image_list(void);
 static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static LRESULT CALLBACK _viv_fullscreen_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _viv_command_with_is_key_repeat(int command,int is_key_repeat);
@@ -909,6 +915,7 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_STATUS_BAR,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_STATUS},
 	{LOCALIZATION_ID_CONTROLS,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_CONTROLS},
 	{LOCALIZATION_ID_ZOOM_CONTROLS,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_ZOOM_CONTROLS},
+	{LOCALIZATION_ID_ZOOM_AUTO_HIDE,MF_STRING,_VIV_MENU_VIEW_LAYOUT,VIV_ID_VIEW_ZOOM_AUTO_HIDE},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW_LAYOUT,0},
 	{LOCALIZATION_ID_PRESET,MF_POPUP,_VIV_MENU_VIEW_LAYOUT,_VIV_MENU_VIEW_PRESET},
 	{LOCALIZATION_ID_MINIMAL,MF_STRING,_VIV_MENU_VIEW_PRESET,VIV_ID_VIEW_PRESET_1},
@@ -1716,6 +1723,9 @@ static void _viv_command(int command_id)
 static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 {
 	// Parse the menu selections:
+	// any user command counts as activity for the overlay idle timer.
+	zoomui_activity();
+
 	switch (command_id)
 	{
 		case VIV_ID_VIEW_ZOOM_IN:
@@ -2043,6 +2053,11 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 
 		case VIV_ID_VIEW_ZOOM_CONTROLS:
 			config_show_zoom_controls = !config_show_zoom_controls;
+			_viv_zoomui_update();
+			break;
+			
+		case VIV_ID_VIEW_ZOOM_AUTO_HIDE:
+			config_zoom_auto_hide = !config_zoom_auto_hide;
 			_viv_zoomui_update();
 			break;
 			
@@ -3792,6 +3807,9 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			
 		case WM_MOUSEMOVE:
 
+			// mouse motion is overlay activity (idle fade timer).
+			zoomui_activity();
+
 			if (!_viv_is_tracking_mouse)
 			{
 				TRACKMOUSEEVENT tme;
@@ -4129,6 +4147,37 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 
 			break;
 			 
+		case WM_DPICHANGED:
+		{
+			const RECT *suggested_rect;
+			int dpi_changed;
+			
+			// refresh the dpi derived metrics before the resize below
+			// triggers any layout work.
+			dpi_changed = os_window_update_dpi(hwnd);
+			
+			if (dpi_changed)
+			{
+				glyphs_flush_cache();
+			}
+			
+			// accept the suggested rectangle: it keeps the window at its
+			// logical size at the new dpi.
+			suggested_rect = (const RECT *)lParam;
+			
+			SetWindowPos(hwnd,0,suggested_rect->left,suggested_rect->top,suggested_rect->right - suggested_rect->left,suggested_rect->bottom - suggested_rect->top,SWP_NOZORDER|SWP_NOACTIVATE);
+			
+			if (dpi_changed)
+			{
+				// rebuild the dpi scaled toolbar icons and relayout.
+				_viv_toolbar_build_image_list();
+				
+				_viv_on_size();
+			}
+			
+			return 0;
+		}
+			
 		case WM_MOVE:
 		{
 			if (!IsIconic(hwnd))
@@ -6837,6 +6886,9 @@ static int _viv_is_msg(MSG *msg)
 				{
 					int key_index;
 
+					// key presses are overlay activity (idle fade timer).
+					zoomui_activity();
+
 /*
 					if (msg->wParam == VK_MENU)
 					{
@@ -7664,6 +7716,14 @@ static void _viv_apply_dark_mode(int repaint)
 	
 	os_dark_titlebar(_viv_hwnd,dark);
 	
+	// windows 11 chrome: rounded corners and a caption color that
+	// matches the canvas. a silent no-op on windows 10 and older.
+	os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
+	
+	// the toolbar glyphs bake the theme color into the icons: rebuild
+	// the image list so the palette follows the theme.
+	_viv_toolbar_build_image_list();
+	
 	if (_viv_status_hwnd)
 	{
 		InvalidateRect(_viv_status_hwnd,0,FALSE);
@@ -8072,6 +8132,7 @@ static void _viv_check_menus(HMENU hmenu)
 	CheckMenuItem(hmenu,VIV_ID_VIEW_MENU,config_show_menu ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_CONTROLS,config_show_controls ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ZOOM_CONTROLS,config_show_zoom_controls ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_ZOOM_AUTO_HIDE,config_zoom_auto_hide ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_FOLLOW,config_backdrop_mode == CONFIG_BACKDROP_MODE_FOLLOW ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_BLACK,config_backdrop_mode == CONFIG_BACKDROP_MODE_BLACK ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_WHITE,config_backdrop_mode == CONFIG_BACKDROP_MODE_WHITE ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
@@ -12523,6 +12584,68 @@ static void _viv_status_show(int show)
 	_viv_on_size();
 }
 
+// build (or rebuild) the toolbar image list. extracted from the toolbar
+// creation so it can run again when the window dpi or the theme changes:
+// the glyph icons are vector drawn at the exact size in the current theme
+// color. this also removes the old leak where the LoadImage icons were
+// never destroyed after ImageList_AddIcon copied them.
+static void _viv_toolbar_build_image_list(void)
+{
+	int icon_size;
+	HIMAGELIST old_image_list;
+	
+	if (!_viv_toolbar_hwnd)
+	{
+		return;
+	}
+	
+	old_image_list = _viv_toolbar_image_list;
+	_viv_toolbar_image_list = 0;
+	
+	// larger toolbar icons on touch devices.
+	icon_size = os_is_touch_available() ? 24 : 16;
+	
+	_viv_toolbar_image_list = ImageList_Create((icon_size * os_logical_wide) / 96,(icon_size * os_logical_high) / 96,ILC_COLOR24|ILC_MASK,0,0);
+	
+	if (_viv_toolbar_image_list)
+	{
+		int icon_wide;
+		int icon_high;
+		int dark;
+		
+		dark = _viv_is_dark();
+		
+		// the bitmap order matches the button table: prev, play, pause,
+		// next, bestfit, 1to1, zoom out, zoom in.
+		if (ImageList_GetIconSize(_viv_toolbar_image_list,&icon_wide,&icon_high))
+		{
+			int glyphi;
+			int glyph_size;
+			
+			glyph_size = (icon_wide < icon_high) ? icon_wide : icon_high;
+			
+			for(glyphi=0;glyphi<GLYPH_COUNT;glyphi++)
+			{
+				ImageList_AddIcon(_viv_toolbar_image_list,glyphs_icon(glyphi,dark,glyph_size));
+			}
+		}
+		
+		SendMessage(_viv_toolbar_hwnd,TB_SETIMAGELIST,0,(LPARAM)_viv_toolbar_image_list);
+	}
+	
+	// destroy the old list only after the toolbar owns the new one.
+	if (old_image_list)
+	{
+		ImageList_Destroy(old_image_list);
+	}
+	
+	// larger buttons on touch devices.
+	if (os_is_touch_available())
+	{
+		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONSIZE,0,MAKELPARAM((44 * os_logical_wide) / 96,(36 * os_logical_high) / 96));
+	}
+}
+
 static void _viv_controls_show(int show)
 {
 	if (show)
@@ -12557,36 +12680,9 @@ static void _viv_controls_show(int show)
 			SendMessage(_viv_toolbar_hwnd,TB_SETEXTENDEDSTYLE,0,TBSTYLE_EX_MIXEDBUTTONS|TBSTYLE_EX_HIDECLIPPEDBUTTONS|TBSTYLE_EX_DOUBLEBUFFER);
 			SendMessage(_viv_toolbar_hwnd,TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON),0);
 			
-			{
-				int icon_size;
-
-				// larger toolbar icons on touch devices.
-				icon_size = os_is_touch_available() ? 24 : 16;
-
-				_viv_toolbar_image_list = ImageList_Create((icon_size * os_logical_wide) / 96,(icon_size * os_logical_high) / 96,ILC_COLOR24|ILC_MASK,0,0);
-			}
-			
-			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_PREV));
-			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_PLAY));
-			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_PAUSE));
-			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_NEXT));
-			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_BESTFIT));
-			ImageList_AddIcon(_viv_toolbar_image_list,LoadIcon(os_hinstance,(LPCTSTR)IDI_1TO1));
-
-
-			// zoom icons: load at the exact image list size.
-			{
-				int icon_wide;
-				int icon_high;
-
-				if (ImageList_GetIconSize(_viv_toolbar_image_list,&icon_wide,&icon_high))
-				{
-					ImageList_AddIcon(_viv_toolbar_image_list,(HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ZOOMOUT),IMAGE_ICON,icon_wide,icon_high,LR_DEFAULTCOLOR));
-					ImageList_AddIcon(_viv_toolbar_image_list,(HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ZOOMIN),IMAGE_ICON,icon_wide,icon_high,LR_DEFAULTCOLOR));
-				}
-			}
-
-			SendMessage(_viv_toolbar_hwnd,TB_SETIMAGELIST,0,(LPARAM)_viv_toolbar_image_list);
+			// the image list is built by _viv_toolbar_build_image_list() so it
+			// can be rebuilt when the window dpi or the theme changes.
+			_viv_toolbar_build_image_list();
 
 			{
 				TBBUTTON buttons[11];
@@ -16075,6 +16171,10 @@ static void _viv_zoomui_update(void)
 		// layout the new zoom controls.
 		_viv_on_size();
 	}
+
+	// fullscreen shows the six button overlay bar (auto hiding when
+	// idle); windowed mode keeps the two button pill.
+	zoomui_set_fullscreen(_viv_is_fullscreen);
 
 	zoomui_show(config_show_zoom_controls);
 }

@@ -37,6 +37,14 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 What's new in this release candidate
 --------
+**Version 1.1.0-rc.6** implements the corrected modern-GUI roadmap (an external design report was first audited claim-by-claim; its already-delivered items were rejected, its real gaps were built):
+
+- **PerMonitorV2 DPI** - the manifest now declares `PerMonitorV2` (with a `PerMonitor` fallback). Previously the app was system-DPI-aware, so a window dragged to a monitor with a different scale was bitmap-stretched by Windows (blurry). The new `WM_DPICHANGED` handler re-reads the DPI, resizes to the system-suggested rectangle, and rebuilds every scaled resource (toolbar icon list, zoom bar metrics, layout).
+- **Windows 11 chrome** - rounded window corners (DWMWA 33) and a caption color matched to the window canvas (DWMWA 35), applied with the dark mode switch. Silent no-ops on Windows 10.
+- **Vector toolbar icons** - the eight toolbar/zoom icons (prev / play / pause / next / best fit / 1:1 / zoom in / zoom out) are drawn at runtime as vector line art (48-unit design grid, round-capped strokes) in the current theme color at any size, through the GDI+ flat API. The eight `.ico` frames (net ~34KB) are deleted from the tree in a 4-layer sync (files + RC lines + resource.h defines + props entries); the application icon stays.
+- **Fullscreen overlay bar with idle fade** - in fullscreen the floating zoom bar grows to six buttons (prev / play / pause / next / zoom out / zoom in) centered at the bottom, drawn on a `WS_EX_LAYERED` child window: after 2 idle seconds it fades out (15ms alpha steps); any mouse, key, image or command activity fades it back. On Windows 7 (no layered child windows) it hides without the fade. Windowed mode keeps the two-button pill. New menu item **View -> Layout -> Auto-Hide Zoom Controls** (`zoom_auto_hide` in the ini, default on - the auto-hide only applies in fullscreen).
+- **Leak fix** - the toolbar zoom icons were loaded with `LoadImage` and never destroyed after `ImageList_AddIcon` copied them; the rebuilt image-list builder now cleans up properly on every rebuild.
+
 **Version 1.1.0-rc.5** executes the approved release-engineering decision set (D1-D8) in one consolidated release:
 
 - **CI runner pinning** - `windows-latest` is mid-migration to the Windows Server 2025 + VS2026 image (which has no v143 toolset and no NSIS). The shipping compile is pinned to `windows-2022` (v143) with a `windows-2025` (v145, the vs2026 project) compatibility leg, so the migration can not break CI by surprise. The daily schedule runs only the Windows compile matrix (the real drift detector); all actions are pinned to exact commit SHAs.
@@ -193,13 +201,13 @@ Touch & zoom controls
 | Two finger tap | Reset zoom |
 | Double tap (touch) | Toggle 1:1 / best fit |
 | Toolbar zoom buttons | Zoom in / out |
-| Floating zoom bar | Zoom out / zoom in — visible in windowed and fullscreen modes |
+| Floating zoom bar | Windowed: zoom out / zoom in pill. Fullscreen: prev / play / pause / next / zoom bar (bottom centered), auto-hides when idle with a fade |
 
 Notes:
 
 - Gestures require Windows 7 or later with touch hardware.
 - Single finger touch input is intentionally translated to mouse input so existing click actions (`left_click_action`, `right_click_action`...) are unaffected.
-- The floating zoom controls can be toggled from the **View → Zoom Controls** menu item.
+- The floating zoom controls can be toggled from the **View -> Zoom Controls** menu item; the fullscreen bar's idle auto-hide is **View -> Layout -> Auto-Hide Zoom Controls** (`zoom_auto_hide` in the ini).
 <br/><br/><br/>
 
 

@@ -190,6 +190,9 @@ static HMONITOR (WINAPI *_os_MonitorFromWindow)(HWND hwnd,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromRect)(LPCRECT lprc,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromPoint)(POINT pt,DWORD dwFlags) = 0;
 
+// windows 10 1607+: per window dpi query, used by os_window_update_dpi().
+static UINT (WINAPI *_os_GetDpiForWindow)(HWND hwnd) = 0;
+
 int os_logical_wide = 96;
 int os_logical_high = 96;
 static const GUID _os_IID_IShellItem = {0x43826d1e,0xe718,0x42ee,{0xbc,0x55,0xa1,0xe2,0x61,0xc3,0x7b,0xfe}};
@@ -906,6 +909,7 @@ void os_init(void)
 		_os_MonitorFromWindow = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromWindow");
 		_os_MonitorFromRect = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromRect");
 		_os_MonitorFromPoint = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromPoint");
+		_os_GetDpiForWindow = (void *)GetProcAddress(_os_user32_hmodule,"GetDpiForWindow");
 	}
 
 	_os_UxTheme_hmodule = LoadLibraryA("UxTheme.dll");
@@ -1341,6 +1345,68 @@ void os_dark_titlebar(HWND hwnd,int dark)
 		// E_INVALIDARG: retry with the older attribute.
 		_os_DwmSetWindowAttribute(hwnd,19,&value,sizeof(value));
 	}
+}
+
+// refresh os_logical_wide / os_logical_high from the window's current
+// monitor dpi (per monitor v2). returns 1 when the values changed.
+// when the api is missing (pre windows 10 1607) or reports nothing the
+// init time constants stay and the caller keeps the old scaling.
+int os_window_update_dpi(HWND hwnd)
+{
+	UINT dpi;
+	
+	if ((!hwnd) || (!_os_GetDpiForWindow))
+	{
+		return 0;
+	}
+	
+	dpi = _os_GetDpiForWindow(hwnd);
+	
+	if (!dpi)
+	{
+		return 0;
+	}
+	
+	// never scale below 96 dpi: sub 96 values would shrink every metric.
+	if (dpi < 96)
+	{
+		dpi = 96;
+	}
+	
+	if (((int)dpi == os_logical_wide) && ((int)dpi == os_logical_high))
+	{
+		return 0;
+	}
+	
+	os_logical_wide = (int)dpi;
+	os_logical_high = (int)dpi;
+	
+	return 1;
+}
+
+// windows 11 chrome: rounded window corners (attribute 33, round)
+// and a caption color that matches the canvas (attribute 35). both
+// attributes fail with E_INVALIDARG on windows 10 and older and are
+// silently ignored: the classic title bar stays.
+void os_window_modern_chrome(HWND hwnd,COLORREF caption_color)
+{
+	DWORD corner;
+	COLORREF color;
+	
+	if ((!hwnd) || (!_os_DwmSetWindowAttribute))
+	{
+		return;
+	}
+	
+	// DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2.
+	corner = 2;
+	_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner));
+	
+	// DWMWA_CAPTION_COLOR = 35: the windowed canvas color gives a
+	// seamless title bar in both themes (the dark mode attribute above
+	// keeps the caption text readable).
+	color = caption_color;
+	_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));
 }
 
 // re-read the system theme after a WM_SETTINGCHANGE.

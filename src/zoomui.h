@@ -22,6 +22,8 @@
 // Floating zoom controls (touch friendly)
 // Provides zoom out / zoom in buttons that remain available in fullscreen
 // mode and on touch devices where the mouse wheel is unavailable.
+// In fullscreen the bar grows to six buttons (prev / play / pause / next
+// / zoom out / zoom in) centered at the bottom and auto hides when idle.
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,6 +52,15 @@ int zoomui_is_created(void);
 // wide,high = the image area of the parent client (status bar / toolbar excluded).
 void zoomui_layout(int wide,int high);
 
+// switch between the windowed two button pill and the fullscreen six
+// button overlay bar. call on every fullscreen toggle.
+void zoomui_set_fullscreen(int fullscreen);
+
+// notify user activity (mouse motion, key press, command): keeps the
+// fullscreen overlay awake and shows it again when it auto hid.
+void zoomui_activity(void);
+
 #ifdef __cplusplus
 }
 #endif
+

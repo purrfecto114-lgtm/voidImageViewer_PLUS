@@ -154,6 +154,14 @@ extern LANGID (WINAPI *os_GetUserDefaultUILanguage)(void);
 extern int os_logical_wide;
 extern int os_logical_high;
 
+// refresh os_logical_wide / os_logical_high from the window's monitor dpi
+// (per monitor v2). returns 1 when the values changed.
+int os_window_update_dpi(HWND hwnd);
+
+// windows 11 chrome: rounded corners + a caption color matching the canvas.
+// silently ignored on windows 10 and older.
+void os_window_modern_chrome(HWND hwnd,COLORREF caption_color);
+
 // touch / gesture support (Windows 7+)
 // self-declared, binary compatible structures.
 // (avoids _WIN32_WINNT gating in older SDKs)
