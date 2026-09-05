@@ -367,10 +367,16 @@ jobs:
                   break
           if body is None:
               raise SystemExit('::error::no Changes.txt section for version %s' % tag)
+          # the banner follows the phase: pre-releases say so, the stable
+          # line presents itself as what it is.
+          if phase:
+              banner = "> **Pre-release**: this is an experimental fork of voidtools/voidImageViewer adding touch optimizations, on-screen zoom controls and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker."
+          else:
+              banner = "> A stable fork of voidtools/voidImageViewer: touch optimizations, on-screen zoom controls, a dark UI, and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker."
           notes = textwrap.dedent("""\
               # voidImageViewer {v} - Touch, Zoom & Languages{p}
 
-              > **Pre-release**: this is an experimental fork of voidtools/voidImageViewer adding touch optimizations, on-screen zoom controls and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker.
+              {banner}
 
               ## What's new
 
@@ -390,7 +396,7 @@ jobs:
               Requires Windows 7 or later. Gestures require touch hardware.
 
               See `Changes.txt` in the repository for the full history. Based on upstream voidtools/voidImageViewer 1.0.0.15 (MIT license).
-              """).format(v=tag, p=phase, body=body)
+              """).format(v=tag, p=phase, banner=banner, body=body)
           with open('release-notes.md', 'w', encoding='utf-8') as f:
               f.write(notes)
           print(notes)
