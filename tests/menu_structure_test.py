@@ -433,8 +433,8 @@ def t_dark_dialogs_wiring():
           "_viv_dialog_dark_brush" in viv)
     check("all 11 dialog procs route through the dispatcher",
           viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 11)
-    check("all 11 dialogs get the dark chrome at init",
-          viv.count("_viv_dark_dialog(hwnd);") == 11)
+    check("all 11 dialogs get the dark chrome at init (plus the live refresh enum)",
+          viv.count("_viv_dark_dialog(hwnd);") == 12)
     # rc.1 regression guard: the dispatcher must NOT sit inside switch(msg)
     # before the first case label - that placement is unreachable dead code
     # (the beta.10 bug: gcc warned "statement will never be executed").
@@ -452,8 +452,10 @@ def t_dark_dialogs_wiring():
     check("options tree gets dark colors",
           "SendMessage(tree_hwnd,TVM_SETBKCOLOR,0,RGB(0x20,0x20,0x20));" in viv and
           "SendMessage(tree_hwnd,TVM_SETTEXTCOLOR,0,RGB(0xE8,0xE8,0xE8));" in viv)
-    check("options tabs switch to the dark style",
-          "os_dark_window_theme(GetDlgItem(hwnd,_viv_options_tab_ids[tabi]));" in viv)
+    check("options tabs are subclassed for the dark body and items",
+          "(LONG_PTR)_viv_options_tab_proc);" in viv and
+          "SetWindowLongPtr(tab_hwnd,GWLP_USERDATA,(LONG_PTR)last_proc);" in viv and
+          "os_dark_window_theme(tab_hwnd);" in viv)
     check("the light tab texture is skipped while dark",
           viv.find("if (!_viv_is_dark())",
                    viv.find("os_EnableThemeDialogTexture(page_hwnd,ETDT_ENABLETAB);") - 200) != -1)
@@ -1424,8 +1426,8 @@ def t_round7():
           "RGB(0xE8,0xE8,0xE8)" in viv)
     check("the main proc routes WM_DRAWITEM for the status bar",
           "if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))" in viv)
-    check("the status subclass routes WM_DRAWITEM too",
-          viv.count("case WM_DRAWITEM:") == 2)
+    check("the status subclass routes WM_DRAWITEM too (the dialog dispatcher adds the third site)",
+          viv.count("case WM_DRAWITEM:") == 3)
 
     # the dark chrome strips.
     check("the dark chrome brush palette exists (4 faces incl the menu bar)",
@@ -1612,8 +1614,9 @@ def t_dark_menu_bar():
     i = viv.find("static void _viv_menu_bar_nc_fill(void)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
-    check("the tail fill covers the strip past the last item",
-          "right < mbi.rcBar.right" in seg)
+    check("the tail fill covers the gaps around the drawn items union",
+          "_viv_menu_bar_fill_gap(hdc,items.right,rect.top,rect.right,rect.bottom);" in seg and
+          "_viv_menu_bar_fill_gap(hdc,rect.left,rect.top,items.left,rect.bottom);" in seg)
     check("the tail fill converts the screen rect to the window dc",
           "GetWindowRect(_viv_hwnd,&window_rect);" in seg and
           "GetWindowDC(_viv_hwnd);" in seg)
@@ -1664,6 +1667,97 @@ def t_dark_menu_bar():
           seg.count("case WM_ERASEBKGND:") == 1 and
           "return 1;" in seg[seg.find("case WM_ERASEBKGND:"):])
 
+
+
+# ---------------------------------------------------------------------------
+# round 13 (1.1.02 re-release): the missed dark layers. the field report:
+# the menu bar kept a white right half after a theme switch (the stale
+# getmenubarinfo item rects), the options dialog showed a white tab strip
+# and light controls on pre 1903 builds, the toolbar button states drew
+# the light blue highlight over the dark strip, and the two magnifier
+# glyphs rendered as a blur (integer quantized points + sub pixel
+# strokes).
+# ---------------------------------------------------------------------------
+def t_dark_layers_round():
+    viv = read("src/viv.c").decode("latin-1")
+    osc = read("src/os.c").decode("latin-1")
+    glyphs = read("src/glyphs.c").decode("latin-1")
+
+    # os: the build number decides whether the dark explorer control
+    # classes exist (1903 = 18362).
+    check("os.c records the real build number",
+          "os_build_number = osvi.dwBuildNumber;" in osc)
+    check("os.c gates the dark control classes on build 18362",
+          "os_build_number >= 18362" in osc and
+          "int os_dark_controls_supported(void)" in osc)
+    check("os.h declares the capability probe",
+          "int os_dark_controls_supported(void);" in read("src/os.h").decode("latin-1"))
+
+    # menu bar: the item rect union is recorded while the items draw.
+    check("the drawn item rects are recorded as a union",
+          "UnionRect(&_viv_menu_bar_items_rect,&_viv_menu_bar_items_rect,&draw_item->rcItem);" in viv)
+    check("the union is reset when the layout changes",
+          viv.count("SetRectEmpty(&_viv_menu_bar_items_rect);") == 3)
+    check("the no item pass forces one full frame repaint",
+          "RedrawWindow(_viv_hwnd,0,0,RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW);" in viv and
+          "_viv_menu_bar_nc_force" in viv)
+    check("the fill clamps the union into the bar strip",
+          "if (items.right > rect.right)" in viv)
+
+    # toolbar: the button states paint with the dark palette.
+    check("the toolbar item prepaint paints the dark states",
+          "case CDDS_ITEMPREPAINT:" in viv and
+          "state & (CDIS_HOT | CDIS_SELECTED | CDIS_CHECKED)" in viv and
+          "FillRect(draw->nmcd.hdc,&draw->nmcd.rc,_viv_dark_chrome_brush(1));" in viv)
+    check("the light toolbar highlight is suppressed",
+          "return CDRF_DODEFAULT | 0x00010000 | 0x00080000 | 0x00400000;" in viv)
+    check("separators keep the system painting",
+          "(_viv_is_dark()) && (draw->nmcd.dwItemSpec)" in viv)
+
+    # options tabs: subclassed body + custom drawn items.
+    check("the options tab body erases dark",
+          "FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(3));" in viv and
+          "_viv_options_tab_proc" in viv)
+    check("the options tab items custom draw dark",
+          "_viv_options_tab_draw((NMCUSTOMDRAW *)lParam);" in viv and
+          "TabCtrl_GetItem(draw->hdr.hwndFrom,(int)draw->dwItemSpec,&tcitem)" in viv)
+
+    # pre 1903 dialog fallback: owner drawn buttons and combos.
+    check("the dialog children flip to owner draw below 1903",
+          "(!os_dark_controls_supported())" in viv and
+          "| BS_OWNERDRAW);" in viv and
+          "| CBS_OWNERDRAWFIXED);" in viv)
+    check("the flip carries the original button type",
+          "SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)((style & BS_TYPEMASK) + 1));" in viv)
+    check("the light ui unflips the owner draw fallback",
+          "(style & ~((LONG_PTR)BS_TYPEMASK)) | type" in viv and
+          "style & ~((LONG_PTR)CBS_OWNERDRAWFIXED)" in viv)
+    check("the owner drawn buttons paint the dark palette",
+          "_viv_dialog_dark_draw_item(hwnd,(DRAWITEMSTRUCT *)lParam);" in viv and
+          "CreatePen(PS_SOLID,(2 * os_logical_wide) / 96,RGB(0xE8,0xE8,0xE8))" in viv)
+    check("the owner drawn combos measure and paint",
+          "case WM_MEASUREITEM:" in viv and
+          "_viv_dialog_dark_combo_item_height" in viv and
+          "SendMessageW(draw_item->hwndItem,CB_GETLBTEXTW" in viv)
+    check("the open dialogs re-theme on a live switch",
+          "EnumThreadWindows(GetCurrentThreadId(),_viv_dark_dialogs_enum,0);" in viv and
+          "_viv_dark_dialogs_refresh();" in viv)
+    check("the color swatch buttons are excluded from the flip",
+          "case BS_AUTOCHECKBOX:" in viv and
+          "case BS_DEFPUSHBUTTON:" in viv)
+
+    # glyphs: float coordinates + the stroke width floor.
+    check("the glyph drawing uses the float point api",
+          "_glyphs_gdipDrawLinesF" in glyphs and
+          "pts[pi].x = ((float)stroke->points[pi].x) * scale;" in glyphs)
+    check("no stroke renders below 1.25 device pixels",
+          "if (pen_width < 1.25f)" in glyphs)
+    check("the magnifier strokes carry visible widths",
+          "{21,6,_glyphs_circle_points}," in glyphs and
+          "{3,5,_glyphs_zoomout_handle}," in glyphs and
+          "{3,4,_glyphs_zoomin_plus}" in glyphs)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -1689,6 +1783,7 @@ if __name__ == "__main__":
     t_round7()
     t_stable_round()
     t_dark_menu_bar()
+    t_dark_layers_round()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

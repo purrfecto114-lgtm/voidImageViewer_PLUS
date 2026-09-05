@@ -4,211 +4,38 @@
 [![release](https://img.shields.io/github/v/release/purrfecto114-lgtm/voidImageViewer_PLUS&display_name=tag)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **Stable** — A fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with **touch optimizations**, **on-screen zoom controls**, a **dark UI**, and a **bilingual installer + UI language switcher**. Please report issues in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/issues).
+> A stable fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with **touch optimizations**, **on-screen zoom controls**, a **complete dark UI**, and a **bilingual installer + UI language switcher**. Issues welcome in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/issues).
 
-A lightweight image viewer for Windows with animated GIF/WEBP support.  
-Opens and displays BMP, GIF, ICO, PNG, JPG, TIF and WEBP images as fast as possible.  
-Animate GIF/WEBP files as accurately as possible.  
+A lightweight Windows image viewer (BMP, GIF, ICO, PNG, JPG, TIF, WEBP — animated GIF/WEBP included) that opens and displays images as fast as possible.
 
-[Download](#download)<br/>
-[What's new](#whats-new)<br/>
-[Touch & zoom controls](#touch--zoom-controls)<br/>
-[Languages](#languages)<br/>
-[Build from source](#build-from-source)<br/>
-[See also](#see-also)<br/>
-<br/><br/><br/>
-
-
+[Download](#download) · [What's new](#whats-new) · [Touch & zoom](#touch--zoom-controls) · [Languages](#languages) · [Build](#build-from-source)
 
 Download
 --------
-Binaries are published on the GitHub Releases page:
+Stable binaries (setup + zip, x86/x64, SHA-256 checksums):
 
 https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
-Latest stable release of the upstream project:
-
-https://github.com/voidtools/voidImageViewer/releases
-
-https://www.voidtools.com/forum/viewtopic.php?t=5623
-<br/><br/><br/>
-
-
-
 What's new
 --------
-**Version 1.1.02 (the menu bar follows the dark UI)** closes the last white strip in a dark session:
+**1.1.02 — the dark UI reaches the last white strips:**
 
-- **Dark menu bar, everywhere** - Windows 11 and pre-1903 builds never darken a Win32 menu bar: the immersive dark app mode repaints the title bar but the bar keeps the system light color, so a dark session showed a white strip between the dark title bar and the dark canvas. The top-level items are now owner-drawn while the dark UI is active - the system keeps the layout, click tracking, keyboard navigation and dropdown menus, while each item paints with the dark chrome palette (face `0x202020`, hover `0x454545`, label `0xE8E8E8`) and the empty strip right of the last item is filled in the non-client paint pass. Light mode hands the items back to the system draw (zero light-UI change).
-- **DPI-aware menu font** - the item labels measure with `SystemParametersInfoForDpi` when available (PerMonitorV2), and a DPI change re-measures the bar, so the text always matches the bar the system sized for the current monitor.
-- **Toolbar strip erase fix** - the strip's background erase now paints the strip face instead of claiming an erase without painting: the comctl transparent toolbar and its back buffers ask the parent for the background, and a claim-only erase could leave a fresh white buffer behind the buttons on some builds.
+- **Dark menu bar (all builds)** — Windows 11 and pre-1903 never darken a Win32 menu bar. The top-level items are owner-drawn in the dark palette (face `0x202020`, hover `0x454545`); the system keeps layout, clicks, keyboard and dropdowns. The bar gaps now fill from the *drawn item rects*, so a theme switch no longer leaves a white right half.
+- **Complete dark options dialog (pre-1903 too)** — the tab strip, checkboxes, buttons and combo boxes paint dark even on builds without the dark explorer control classes (owner-draw fallback), and an open dialog re-themes live when the dark setting changes.
+- **Dark toolbar button states** — hover/checked no longer flash the light-blue highlight over the dark strip.
+- **Crisp toolbar icons** — glyphs draw as float-point line art with a minimum stroke width; the two magnifiers are redrawn with visible strokes.
+- **DPI-aware menu font** — labels measure with `SystemParametersInfoForDpi`; a DPI change re-measures the bar.
 
-**Version 1.1.01 (first stable release)** completes the field-feedback work and moves the project out of pre-release:
+**Earlier releases, one line each:**
 
-- **Dark dialogs, completed** - the dark explorer style does not cascade from a dialog to its child controls, so the options pages showed a dark background with light comboboxes, check glyphs and push buttons. Every dialog (options and its pages, about, rename, edit key, custom rate, jump-to, everything search) now opts each child control in at `WM_INITDIALOG`: buttons, comboboxes, listboxes, edits and group boxes all draw dark. Windows older than 1809 keeps the light controls.
-- **Language defaults to auto** - a fresh install now starts in *auto* (follows the system language). The installer no longer pins the application language to the installer language; the auto detection also covers the remaining Chinese UI locales (Singapore, Macau). Language stays switchable in the options (auto / English / 简体中文).
-- **Faster navigation on large folders** - the next/previous/preload scans no longer pay one collation compare per file for the wrap target: it is deferred to a second pass that only runs when the current image sits at the end of the sorted view. With the natural (Explorer-like) name sort this removes ~40% of the compare volume on every navigation.
-- **Upstream-style release tags** - the release identity is now the plain version string `1.1.01` (no `v` prefix, like upstream's `1.0.0.15`); the installer names, the version resource and the tag all display the same string. The release workflow accepts both the new style and the legacy `v`-prefixed tags.
+- **1.1.01** — first stable: dark dialogs, auto language default, faster folder navigation, upstream-style tags.
+- **1.1.0-rc.7** — field feedback: pinch floor, 1600% zoom ceiling, dark status bar/toolbar, manifest GUID fixes.
+- **1.1.0-rc.6** — modern chrome: PerMonitorV2 DPI, Win11 rounded corners, vector toolbar icons, fullscreen overlay fade.
+- **1.1.0-rc.5** — engineering: CI pinned runners, four-stage release pipeline, single-source version, libwebp 1.6.0.
+- **1.1.0-rc.1..4** — zoom/save gestures, robustness fixes, installer autodetect.
+- **1.1.0-beta.1..13** — touch gestures, floating zoom bar, 1% zoom steps, bilingual installer, language switcher, Save As, single-instance fix.
 
-**Version 1.1.0-rc.7** was the field-feedback round for rc.6 (six fixes, each root-caused first):
-
-- **Pinch-zoom spike fixed** - a pinch whose fingers collapse together used to explode the zoom to max instantly (a tiny baseline distance made the next sample's ratio enormous). Distances below ~9.5mm (36 logical px, DPI-scaled) are now treated as a collapsed pinch: the zoom freezes and re-baselines when the fingers separate again.
-- **Zoom ceiling = 1600%** - the ladder tops out at 16x the native image size instead of 16x-the-larger-of-fit-and-native (a window larger than the image, or fill window, could push the old ceiling past 24x - the 2478% report). Fill window keeps its upscale at the floor.
-- **File -> Options, complete View -> Layout** - Options moves to the File menu (before Exit, the Windows convention); the Layout submenu gets its Caption and Frame toggles back.
-- **Status bar layout** - the preload indicator sits in the left cluster (on demand, width-capped); the resolution stays pinned bottom-right and is never dropped: on huge images the optional pixel/RGB/frame panes give way first and the resolution ellipsizes. Part coordinates are now truly cumulative (fixes a one-pane shift from rc.1).
-- **Dark menu bar + dark strips** - the manifest declares the supportedOS list (the Windows 10 GUID gates the immersive dark menus; without it the menu bar stays light while everything else is dark) and `dpiAwareness` moved to the SMI/2016 namespace (the 2005 namespace it sat in does not define it - the rc.6 PMv2 declaration was silently ignored). The toolbar strip and status panes (now owner-drawn) follow the dark palette, fixing the invisible rc.6 glyphs in dark mode. Pre-1903 Windows keeps a light menu bar; the strips and panes still go dark.
-
-**Version 1.1.0-rc.6** implements the corrected modern-GUI roadmap (an external design report was first audited claim-by-claim; its already-delivered items were rejected, its real gaps were built):
-
-- **PerMonitorV2 DPI** - the manifest now declares `PerMonitorV2` (with a `PerMonitor` fallback). Previously the app was system-DPI-aware, so a window dragged to a monitor with a different scale was bitmap-stretched by Windows (blurry). The new `WM_DPICHANGED` handler re-reads the DPI, resizes to the system-suggested rectangle, and rebuilds every scaled resource (toolbar icon list, zoom bar metrics, layout).
-- **Windows 11 chrome** - rounded window corners (DWMWA 33) and a caption color matched to the window canvas (DWMWA 35), applied with the dark mode switch. Silent no-ops on Windows 10.
-- **Vector toolbar icons** - the eight toolbar/zoom icons (prev / play / pause / next / best fit / 1:1 / zoom in / zoom out) are drawn at runtime as vector line art (48-unit design grid, round-capped strokes) in the current theme color at any size, through the GDI+ flat API. The eight `.ico` frames (net ~34KB) are deleted from the tree in a 4-layer sync (files + RC lines + resource.h defines + props entries); the application icon stays.
-- **Fullscreen overlay bar with idle fade** - in fullscreen the floating zoom bar grows to six buttons (prev / play / pause / next / zoom out / zoom in) centered at the bottom, drawn on a `WS_EX_LAYERED` child window: after 2 idle seconds it fades out (15ms alpha steps); any mouse, key, image or command activity fades it back. On Windows 7 (no layered child windows) it hides without the fade. Windowed mode keeps the two-button pill. New menu item **View -> Layout -> Auto-Hide Zoom Controls** (`zoom_auto_hide` in the ini, default on - the auto-hide only applies in fullscreen).
-- **Leak fix** - the toolbar zoom icons were loaded with `LoadImage` and never destroyed after `ImageList_AddIcon` copied them; the rebuilt image-list builder now cleans up properly on every rebuild.
-
-**Version 1.1.0-rc.5** executes the approved release-engineering decision set (D1-D8) in one consolidated release:
-
-- **CI runner pinning** - `windows-latest` is mid-migration to the Windows Server 2025 + VS2026 image (which has no v143 toolset and no NSIS). The shipping compile is pinned to `windows-2022` (v143) with a `windows-2025` (v145, the vs2026 project) compatibility leg, so the migration can not break CI by surprise. The daily schedule runs only the Windows compile matrix (the real drift detector); all actions are pinned to exact commit SHAs.
-- **Release pipeline rebuilt** - four jobs (`validate` -> `tests` -> `build` -> `publish`) with least-privilege permissions. The tag must pass a whitelist regex *and* match `src/version.h`; both Python suites must pass on the exact tag commit before anything is built; every asset's SHA-256 is exported as build outputs, re-verified after the artifact download, and published as `sha256.txt`; the `--clobber` overwrite path is gone; release notes are generated from `Changes.txt` at the tag; user input reaches shells only through env, after validation.
-- **libwebp 1.3.2 -> 1.6.0, decode-only** - the vendored tree is upgraded and pruned in one change (the file audit is paid once): `webp_js/`, `examples/`, `imageio/`, `swig/`, `man/`, `gradle/`, `infra/`, `extras/`, `sharpyuv/`, `src/enc/`, `src/mux/` and 24 encoder-side files in `src/dsp`/`src/utils` are gone, and the projects now compile upstream's own 66-file decode-only set (dec + demux + decode dsp + decode utils). *Correction found while executing the plan:* the old 89-file list actually compiled those 24 encoder-side files (they `#include` src/enc headers, so deleting only src/enc would have broken the build) - the encoder is now genuinely absent from the tree and the binary. Verified locally: the 66-file set round-trips a lossless still, a lossy still and a two-frame animation byte-exact through the `WebPAnimDecoder` API; provenance is recorded in `libwebp/VERSION.imported`.
-- **Real code fixes from the review** - the frame array allocations multiply through `safe_size_mul` (a 32-bit `sizeof*count` could wrap before reaching the allocator), and the Everything FILE_SIZE request branch no longer also requests DATE_MODIFIED (a typo, present in both search senders).
-- **GPL file deleted** - `src/crt.c` (GPL v2, uncompiled) is removed: it was one accidental project re-add away from importing the GPL into an MIT binary.
-- **Structure** - the vs2005 project (dead Pocket PC platform, 7 files drifted behind vs2019) is deleted; the ALPHA/BETA/LITE (unofficial) configuration families are removed (24 -> 8 configurations); all compiled files move to one shared `voidImageViewer.files.props` so the vs2019/vs2026 lists can not drift apart again; the vs2019 project declares v143 (what CI actually compiles - v142 remains an explicit, documented override).
-- **Version single source** - `src/version.h` is now the only place a version lives: the RC resource uses its macros, `nsis/version.nsh` parses it at compile time, the tests cross-check it, and a release can not be published from a tag that does not match it.
-- **Beta tags deleted** - all thirteen `v1.1.0-beta.*` tags are removed from the repository; the releases page now shows the RC line only.
-
-**Version 1.1.0-rc.4** is the release-engineering pass, batch 1 (user path fixes, no decisions required):
-
-- **No more exit/uninstall hangs** - closing existing instances (the step that runs before install, uninstall and reinstall) used a synchronous send and two infinite waits, so one hung instance blocked setup forever (the upstream author had left a FIXME about it). Now the close request gives up on unresponsive windows instead of blocking, the waits are bounded, a refusing instance is force-terminated as a last resort, and the loop stops retrying a window that survives. The exit path's wait for the image load thread is bounded too (10 seconds, then the thread is stopped where it stands).
-- **build_installer.ps1 auto-detect fixed** - it always picked vs2026, because the repository *contains* a vs2026 directory (the repo ships all three project dirs, so directory existence says nothing about your toolchain). Auto-detection now prefers a project directory that already contains a built executable, then falls back to the installed Visual Studio reported by vswhere; pass `-VsVersion` to override.
-- **Installer copyright string repaired** - the resource's LegalCopyright had lost its © to a U+FFFD replacement character in an early lossy conversion; restored as plain ASCII `Copyright (C) 2026 voidtools`, matching the upstream resource style.
-- **Repository hygiene** - 357 tar `PaxHeaders.X` metadata files, the binary resource editor state (`res/voidImageViewer.aps`) and the unreferenced `res/1to1-32bit.ico` are no longer tracked; `.gitignore` now covers VS user state, `*.aps`, incremental link intermediates, pax header directories and OS junk.
-- **Hardening** - the Everything IPC reply item count is clamped to what the message can actually hold (a lying `numitems` would spin billions of iterations of failing validations), the first frame count is clamped to a sane maximum before its UINT→int store, and the EXIF-rotate buffer allocations cast to `SIZE_T` before multiplying.
-
-**Version 1.1.0-rc.3** is the second review pass (every re-review claim re-verified against evidence before touching code):
-
-- **One re-review claim rejected with evidence** - the two finger tap gesture id was claimed wrong (`GID_TWOFINGERTAP` "should be 5"). Verified against the real winuser.h and Microsoft Learn: it really is 6 (5 is `GID_ROTATE`, 7 is `GID_PRESSANDTAP`), so the rc.2 values were already correct. A comment now guards the value so the claim does not resurface. The `last_stretch_mode` warning suppression was also verified harmless (every read is guarded).
-- **WebP + transposed EXIF orientation** - webp files with orientation 5-8 reported the un-rotated canvas dimensions while the bitmap was already rotated; the status bar showed swapped sizes and the mipmap picked the wrong aspect. The dimensions now swap exactly like the GDI+ path.
-- **Uninstall string bounds** - the quoted uninstall command was copied at a +1 offset with the full buffer size, which could write one wchar past the buffer for a maximum length install path.
-- **Jump-to dialog no longer swallows WM_QUIT** - if Windows asks the app to exit while the jump-to dialog is open, the quit request is re-posted so the app actually terminates instead of blocking forever.
-- **Zero-file drops** - a drop with zero files (a cancelled drag) no longer clears the current playlist.
-
-**Version 1.1.0-rc.2** is a review-fixes release (external code audit, every fix verified against the source):
-
-- **Touch gestures actually enabled** - the SetGestureConfig wrapper had shifted parameter types, so the app asked Windows to configure *zero* gestures, and the gesture ids were wrong (2 is GID_END, not a gesture). Pinch zoom, two finger pan (with inertia, single finger pan still the mouse) and two finger tap are now really configured.
-- **Installed programs list** - the app now writes its own uninstall key (display name, version, icon, quoted uninstall command; HKLM for admin installs, HKCU otherwise) during /install and removes it on uninstall. This completes the beta.13 fix: the crash was fixed then, but the registration itself was never written anywhere.
-- **Security hardening** - all 10 find-data filename copies are bounded to MAX_PATH (deep directories could smash the stack), the command line word parser takes a buffer size, Everything IPC WM_COPYDATA replies are validated field by field before trusting sender offsets, and the pasted CF_DIB is checked against the clipboard global size before its bits are read.
-- **WebP transparency honors the backdrop** - transparent WebP pixels are composited over the selected backdrop (checkerboard, black, white, custom color, or the dark-aware window background) exactly like PNG/GIF, instead of being pre-flattened onto the plain window background color.
-- **Smaller fixes** - zero duration frames can no longer stall the animation jump loop, the mipmap stop condition compares the height axis (wide images at 50-99% zoom were one level too blurry), the status POS/RGB panes test their content instead of the pointer, save-as refuses to save the progressive preview thumbnail, stale preload events can not write past the frame array, and the RTL layout query loads GetLayout from gdi32 (it was loaded from user32 and never resolved).
-
-**Version 1.1.0-rc.1** adds percent based zoom stepping, an always visible zoom pane and fixes the dark dialogs:
-
-- **Zoom percent stepping** - the zoom in/out buttons now step whole 10 percents. If the current zoom is not a multiple of 10 (after a wheel or pinch gesture), the first click snaps to the nearest multiple of 10. The wheel and gestures keep their smooth proportional stepping.
-- **Zoom pane** - the zoom percent is always visible as the leftmost status bar pane. Clicking it (hand cursor) opens a small dialog to type an exact percent; typing 100 enters the pixel perfect 1:1 mode.
-- **Dark dialogs fix** - the beta.10 dark dialog color handler was dead code (placed before the first case label inside switch(msg), unreachable in C), so dialog backgrounds and text never actually painted dark. It now runs on every message, and the Jump To dialog is wired too.
-- **Translations** - the two new zoom strings are translated in both languages (254/254 aligned).
-
-**Version 1.1.0-beta.13** fixes the beta.12 startup crash and regroups the right click menu:
-
-- **Startup crash fix** - beta.12 called the gdi+ thumbnail API by a name that does not exist in any gdiplus.dll and treated the missing export as fatal: the exe died at startup with "missing proc GdipGetImageThumbnailImage", which also broke the installer (setup runs the exe to install itself, so nothing landed in the installed programs list). The load is now optional, uses the real export name and the correct parameter order.
-- **Right click menu** - the image context menu is regrouped: zoom commands in one Zoom submenu, a slim slideshow rate ladder (the full list stays in the menu bar) and paste in the copy group.
-- **Clipboard paste** - Ctrl+V with an image on the clipboard (from a browser, screenshot tool or paint) now displays it. Pasted images have no filename, so file commands (save as, delete, rename) stay disabled while it is shown.
-
-**Version 1.1.0-beta.12** fixes the zoom stall around half size and adds progressive display:
-
-- **Zoom stall fix** — zooming in from around half the image size no longer stalls: crossing the half-size mipmap boundary used to switch to the full image running the slow HALFTONE shrink filter over every pixel on every paint. The half mipmap is now magnified up to the full size instead (4x cheaper, looks the same).
-- **Progressive display** — big images with an embedded exif thumbnail (cameras, phones) appear instantly as a low resolution preview while the full decode continues, then sharpen. Images without a thumbnail take the normal path with zero extra cost, and the preview never pollutes the last-image slot.
-
-**Version 1.1.0-beta.11** adds the image backdrop and fixes the installer language dialog:
-
-- **Image backdrop** — View > Backdrop selects what shows under the transparent pixels of PNG/GIF/WebP images: follow the window background (default, dark ui aware), black, white, a custom color or a checkerboard. Persisted to the ini. Built for the load-thread hot path: cached brushes, and the checkerboard is a single-FillRect pattern brush.
-- **Installer language dialog** — the language selection dialog now always shows (preselecting the remembered language). Upgrade installs used to silently reuse the remembered language with no visible way to switch it.
-- Also a small win for animated images with alpha: the per-frame CreateSolidBrush/FillRect/DeleteObject chain under the alpha frames is now one cached-brush FillRect.
-
-**Version 1.1.0-beta.10** completes the dark mode coverage with dark dialogs:
-
-- **Dark dialogs** — options (and its pages), about, rename, edit key, custom rate and the everything search now draw with the dark palette when the dark ui is active: a dark title bar, the dark explorer control style, dark text/backgrounds for statics, edits and lists, and a dark background fill. No more fully light dialogs popping out of a dark window.
-- **Options navigation** — the tree view gets dark item colors, the tab controls switch to the dark explorer style, and the light tab dialog texture is skipped while dark (it would clash).
-- **Cheap replies** — the dark replies use the cached dark state (beta.9) and a single reused background brush; the light path is untouched.
-
-**Version 1.1.0-beta.9** makes the dark mode detection reliable and follows the theme live in more situations:
-
-- **Registry-based detection** — the system theme is read from the documented `AppsUseLightTheme` registry value (the source the shell itself follows) instead of the undocumented uxtheme ordinal 132 probe, which is known to return wrong values on some Windows 10 1903+ builds. The probe stays as a fallback.
-- **Live in more situations** — any `WM_SETTINGCHANGE` (not only `ImmersiveColorSet`) and `WM_THEMECHANGED` re-read the theme; high contrast on/off updates the chrome immediately; and an elevated (run-as-admin) viewer now receives the theme broadcasts too — the UIPI message filter used to block them.
-- **Cached detection** — the UI used to call `SystemParametersInfo` and the uxtheme probe on every paint and status bar custom draw. The system is now probed once and the cache drops on setting changes (also a small paint-path performance win). Repaints on a theme flip are gated on the dark state actually changing.
-- **Dark tooltips** — the floating zoom controls and the toolbar hover hints now tint dark with the palette (comctl tooltips have no dark theme of their own); the tint survives the toolbar recreation on a language switch.
-
-**Version 1.1.0-beta.8** makes zooming cheaper on the input path (performance):
-
-- **Ladder-top cache** — the reachable top of the zoom ladder is now cached behind an O(1) signature (image + viewport + layout settings), so every wheel tick and window resize stops re-walking the 1024-entry ladder and saving/restoring the zoom globals.
-- **Binary-search 1:1 exits** — leaving 1:1 mode with the wheel finds the re-entry zoom level with ~10 render measurements instead of up to 1024 full render-size computations (the old linear scan was measurable work right when the zoom started moving).
-- **Cached background brush** — paints no longer allocate and free a GDI brush each frame; it is rebuilt only when its color changes (config or dark theme switch).
-- No behavior change: the regression tests prove the binary searches return exactly what the linear scans returned for every tested geometry.
-
-**Version 1.1.0-beta.7** fixes the zoom display, widens the zoom range, and adds dark mode:
-
-- **Zoom percent fixed** — the status bar showed garbage (a huge negative percent): a double pan position was passed where the printf read an int. It now always shows the real zoom (rendered pixels ÷ native pixels); 1:1 reads 100%.
-- **Zoom range: exactly 1600%, and deep zoom restored** — the cap was 16× the *best fit* size: a confusing "1590%" for images that fit the window, and photos larger than the window lost deep zoom entirely (a 4000 px photo in a 1600 px window topped out at 477%). The cap is now 16× the native size for every image, the ladder is long enough to reach it, and the wheel never spins in a dead zone (the live top of the ladder is measured).
-- **Dark mode (Windows 10 1809+)** — follows the Windows light/dark theme live, no restart: dark title bar, dark menus, dark status bar, dark floating zoom controls, and a dark image canvas (unless you picked your own background color). Choose Automatic / Light / Dark in Options → General. High-contrast themes and older Windows keep the light UI. Known limits: the toolbar band and the options dialog contents stay light (a dark icon set is future work), and the status-bar size grip is theme-drawn.
-- **Daily scheduled regression tests** — a GitHub Actions workflow runs the zoom math, menu structure and dark-mode wiring test suites on every push and once a day.
-
-**Version 1.1.0-beta.6** fixes the aspect ratio, zoom lag, and declutters the menus:
-
-- **Aspect ratio can no longer change while zooming** — the legacy *Pan && Scan* feature could stretch the image independently in x and y (19 confusing menu entries such as "Increase Width" and 18 numpad shortcuts). It is now removed: the zoom ladder always scales both axes together, so the aspect stays locked at every zoom level.
-- **No more ~0.5 s zoom lag at deep zoom** — a magnified paint used to stretch the *entire* destination rectangle (up to 16× the window ≈ hundreds of megapixels) even though only the visible part mattered (GDI's magnified `StretchBlt` ignores the clip region). The stretch is now limited to the visible area; every zoom step repaints in milliseconds.
-- **Regrouped the View menu** — the UI toggles (caption, frame, menu bar, status bar, toolbar, zoom controls and layout presets) now live in a **View → Layout** submenu, leaving a short, scannable top level: fullscreen, slideshow and refresh sit together, zoom keeps its own submenu, and the pan && scan submenu is gone.
-- **One honest zoom percent** — the status bar used to print two separate x/y percents (which read as if the aspect ratio could drift). It now shows a single zoom percentage.
-- **Clearer Chinese translations** — "允许缩小图片" (was misleadingly "允许窗口缩小"), "拉伸填满窗口" (now says it stretches), interpolation filter labels are less technical, and several status strings read more naturally.
-- Note: custom hotkeys for commands that moved into View → Layout reset to defaults once (hotkeys are stored by menu path); default hotkeys are unaffected.
-- Regression test suite added under `tests/` (zoom math + menu structure) — run `python3 tests/zoom_math_test.py && python3 tests/menu_structure_test.py`.
-
-**Version 1.1.0-beta.5** fixes the zoom experience:
-
-- **Pinch zoom follows your fingers** — the zoom now exactly tracks the finger movement, in or out. The beta.3/beta.4 zoom steps were accidentally 3–4× larger than intended on images larger than the window, so fast pinches overshot wildly. Corrupted gesture distances (a Windows multi-monitor quirk) are rejected, no single gesture message can change the zoom by more than 2×, and zoom updates are applied in one pass per message so fast pinches stay smooth.
-- **Fixed the zoom buttons** — a single click on the toolbar or floating zoom buttons used to jump all the way to the maximum or minimum zoom (a delta-encoding bug). Each click is now one visible ~10% step, and mouse-wheel notches step ~10% too.
-- **Simplified floating zoom bar** — just two clear buttons now: zoom out and zoom in, drawn with the same icons as the toolbar. The 1:1, best fit and close buttons are gone (those commands remain in View → Zoom and the right-click menu; hide the bar via View → Zoom Controls).
-- **JPEG Save As really uses quality 90** — the encoder parameter GUID was wrong, so Windows silently used its default quality.
-- The status bar no longer shows garbage for extreme aspect-ratio images.
-
-**Version 1.1.0-beta.4** adds quality of life improvements:
-
-- **Save As (Ctrl+S)** — save the current image as **PNG, JPEG or BMP** from the File menu. Uses the built-in Windows GDI+ encoders: no new dependencies, no size cost. In-memory rotations are included, and JPEG saves at quality 90.
-- **Intuitive default sort** — images are now sorted **by filename in natural order** (upstream default was: newest first). Next/previous now walks the folder in the same order you see in Explorer. Existing installations keep their saved setting (View → Navigation → Sort).
-- **Hover feedback on the floating zoom bar** — the button under the cursor is highlighted. Repaints are limited to a single button and no image resources were added, keeping the executable small.
-
-**Version 1.1.0-beta.3** makes zooming smooth and fixes drag tearing:
-
-- **Fine 1% zoom steps** — the mouse wheel, toolbar buttons, menu commands and pinch zoom now step the zoom by 1% instead of the old coarse jumps. Fast wheel flicks zoom proportionally further in one event.
-- **Smoother pinch zoom** — pinch zooming now follows your fingers with the same 1% granularity.
-- **Real zoom level in the status bar** — the status bar now shows the actual zoom percentage of the image on screen, and it updates live while you zoom.
-- **No more tearing while dragging** — the area exposed by a drag is repainted immediately instead of lingering stale, every frame is composed in a double buffer and presented in a single blit, and scrolling no longer smears the status bar or toolbar.
-- **Closable floating zoom bar** — the floating zoom controls now have a close (X) button. Re-enable them from **View → Zoom Controls**.
-- **Cleaner menus** — all zoom commands now live in one **View → Zoom** submenu (zoom in, zoom out, 1:1, best fit, reset), best fit is visible in the menu again, and the right click menu gained a zoom section.
-
-**Version 1.1.0-beta.2** adds a bilingual installer and a UI language switcher:
-
-- **Bilingual installer** — one setup for everyone: the first page lets you pick **English or 简体中文**. All pages, messages and the license are localized, and the choice is remembered for future installs and the uninstaller.
-- **Language follows the installer** — the application starts in the language you picked in the setup.
-- **In-app language switcher** — *Options → General → Language*: Auto (system), English or 简体中文. The change is applied immediately, no restart needed.
-- **`language` ini setting** and a `/language auto|english|chinese` command line option for unattended installs.
-- **Refreshed Simplified Chinese translation** — the entire UI now uses plain, natural Chinese (menus, dialogs, status bar and Explorer file type descriptions).
-- **Run after setup** — the installer offers to launch void Image Viewer when it finishes.
-
-**Version 1.1.0-beta.1** adds touch and zoom UI improvements on top of upstream 1.0.0.15:
-
-- **Pinch to zoom** — two finger pinch zooms in and out, anchored at the pinch center. Uses the same zoom steps as the mouse wheel for consistent behavior.
-- **Two finger pan** — drag with two fingers to scroll around a zoomed image, with inertia.
-- **Two finger tap** — tap with two fingers to reset the zoom.
-- **Double tap** — double tap on a touch screen to toggle between 1:1 and best fit.
-- **Single finger stays mouse compatible** — single finger taps, drags and clicks keep their existing mouse semantics, so all configured click actions continue to work.
-- **Zoom buttons on the toolbar** — dedicated zoom in / zoom out buttons have been added to the toolbar.
-- **Floating zoom controls** — a touch friendly zoom control bar (zoom out, zoom in, 1:1, best fit) that is also available in fullscreen mode where the toolbar is hidden.
-- **Touch aware toolbar** — toolbar buttons and icons are automatically enlarged on touch devices.
-- **View → Zoom Controls menu setting** — show or hide the floating zoom controls, persisted in the `show_zoom_controls` ini setting (defaults to on for touch devices).
-- Simplified Chinese and English localization for all new UI.
-<br/><br/><br/>
-
-
+Full history: [Changes.txt](Changes.txt).
 
 Touch & zoom controls
 --------
@@ -220,76 +47,30 @@ Touch & zoom controls
 | Two finger tap | Reset zoom |
 | Double tap (touch) | Toggle 1:1 / best fit |
 | Toolbar zoom buttons | Zoom in / out |
-| Floating zoom bar | Windowed: zoom out / zoom in pill. Fullscreen: prev / play / pause / next / zoom bar (bottom centered), auto-hides when idle with a fade |
+| Floating zoom bar | Windowed: zoom pill. Fullscreen: prev / play / pause / next / zoom (bottom center, idle fade) |
 
-Notes:
-
-- Gestures require Windows 7 or later with touch hardware.
-- Single finger touch input is intentionally translated to mouse input so existing click actions (`left_click_action`, `right_click_action`...) are unaffected.
-- The floating zoom controls can be toggled from the **View -> Zoom Controls** menu item; the fullscreen bar's idle auto-hide is **View -> Layout -> Auto-Hide Zoom Controls** (`zoom_auto_hide` in the ini).
-<br/><br/><br/>
-
-
+Gestures need Windows 7+ with touch hardware. Single-finger input stays mouse-compatible, so configured click actions are unaffected. Toggle the floating controls via **View → Zoom Controls**.
 
 Languages
 --------
-The UI ships with English and Simplified Chinese.
+English and 简体中文 ship built-in.
 
-- The **setup** asks for the language on its first page and installs the app in that language.
-- Inside the app, **Options → General → Language** switches between Auto (system), English and 简体中文 on the fly.
-- The setting is stored as `language=auto|english|chinese` in `voidImageViewer.ini`.
-- Unattended installs can pass `/language english` (or `chinese` / `auto`) to `voidImageViewer.exe`.
-
-<br/><br/>
-
-
+- The setup picks the language on its first page.
+- **Options → General → Language** switches Auto / English / 简体中文 on the fly (no restart).
+- Stored as `language=auto|english|chinese` in `voidImageViewer.ini`; unattended installs may pass `/language english|chinese|auto`.
 
 Build from source
 --------
-The project is plain C + Win32 API and builds with Visual Studio:
+Plain C + Win32 API, Visual Studio:
 
-1. Open `vs2019/voidImageViewer.sln` (VS2022+, v143 toolset) or `vs2026/voidImageViewer.sln` (VS2026, v145 toolset). The two projects share one file list (`voidImageViewer.files.props`); only the toolset differs. To build with VS2019, override the toolset: `msbuild /p:PlatformToolset=v142` (not covered by CI).
+1. Open `vs2019/voidImageViewer.sln` (VS2022+, v143 toolset) or `vs2026/voidImageViewer.sln` (v145 toolset). Both share one file list (`voidImageViewer.files.props`). VS2019 works with `/p:PlatformToolset=v142` (not CI-covered).
 2. Build the `voidImageViewer` project (x64 or Win32).
-3. `voidImageViewer.exe` is output to the configured output directory.
-4. Optional: build the setup with NSIS 3 — `nsis\build_installer.ps1` (see `nsis\` for details). It auto-detects the Visual Studio version: it prefers a project directory that already contains a built executable, then falls back to your installed Visual Studio (vswhere); pass `-VsVersion vs2019` to override. The source files are compiled with `/utf-8`, so localized strings build correctly on any system locale.
+3. Optional setup: NSIS 3 via `nsis\build_installer.ps1` (auto-detects the VS version; sources compile with `/utf-8`).
 
-GitHub Actions builds the executable automatically: `tests.yml` compiles both shipping configurations on every push (pinned `windows-2022` for the v143 shipping path plus a `windows-2025` v145 compatibility leg), and `release.yml` (tag push) runs the tests, builds on `windows-2022`, verifies SHA-256 checksums end to end and attaches the assets to GitHub releases.
-<br/><br/><br/>
-
-
-
-void Image Viewer main window:
+GitHub Actions compiles every push (pinned `windows-2022`/v143 + `windows-2025`/v145 legs); tag pushes run the tests, verify SHA-256 end to end and publish the release assets.
 
 ![Void Image Viewer Image View](https://www.voidtools.com/voidImageViewer.Image.View10.gif)
-<br/><br/><br/>
-
-
-
-void Image Viewer General Options:
-
-![Void Image Viewer Options General](https://www.voidtools.com/voidImageViewer.Options.General10.png)
-<br/><br/><br/>
-
-
-
-void Image Viewer View Options:
-
-![Void Image Viewer Options View](https://www.voidtools.com/voidImageViewer.Options.View10.png)
-<br/><br/><br/>
-
-
-
-void Image Viewer Controls Options:
-
-![Void Image Viewer Image Controls](https://www.voidtools.com/voidImageViewer.Options.Controls10.png)
-<br/><br/><br/>
-
-
 
 See also
 --------
-Upstream project:
-
-https://github.com/voidtools/voidImageViewer
-
-https://www.voidtools.com/forum/viewtopic.php?t=5623
+Upstream project: https://github.com/voidtools/voidImageViewer

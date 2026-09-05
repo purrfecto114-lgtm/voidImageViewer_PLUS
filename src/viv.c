@@ -4340,6 +4340,11 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			// menu font and force a re-measure of the menu bar.
 			_viv_menu_font_drop();
 			
+			// the item extents may follow the font: the recorded union is
+			// stale until the bar redraws.
+			SetRectEmpty(&_viv_menu_bar_items_rect);
+			_viv_menu_bar_items_valid = 0;
+			
 			if (GetMenu(hwnd))
 			{
 				DrawMenuBar(hwnd);
@@ -7885,6 +7890,9 @@ static COLORREF _viv_windowed_background(void)
 static HFONT _viv_menu_font_handle = 0; // the cached menu bar font
 static int _viv_menu_font_dpi = 0; // the dpi the menu bar font was created for
 static int _viv_menu_bar_state = -1; // the owner draw state of the bar items
+static RECT _viv_menu_bar_items_rect; // the union of the drawn item rects (window coordinates)
+static int _viv_menu_bar_items_valid = 0; // an item was drawn since the last layout reset
+static int _viv_menu_bar_nc_force = 0; // reentrancy guard for the no item repaint path
 
 // the menu bar font: the system menu font at the window's current dpi,
 // cached until the dpi or the theme changes. freed with the process.
@@ -7985,6 +7993,19 @@ static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)
 		SelectObject(draw_item->hDC,old_font);
 	}
 	
+	// record the item extent for the non client fill: the union of
+	// the drawn items marks the bar area the system actually painted
+	// (the getmenubarinfo item rects can be stale after a layout change).
+	if (_viv_menu_bar_items_valid)
+	{
+		UnionRect(&_viv_menu_bar_items_rect,&_viv_menu_bar_items_rect,&draw_item->rcItem);
+	}
+	else
+	{
+		CopyRect(&_viv_menu_bar_items_rect,&draw_item->rcItem);
+		_viv_menu_bar_items_valid = 1;
+	}
+	
 	return 1;
 }
 
@@ -8040,21 +8061,35 @@ static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)
 	}
 }
 
+// fill one menu bar gap with the dark chrome face. degenerate gaps are
+// skipped.
+static void _viv_menu_bar_fill_gap(HDC hdc,int left,int top,int right,int bottom)
+{
+	RECT rect;
+	
+	if ((right > left) && (bottom > top))
+	{
+		rect.left = left;
+		rect.top = top;
+		rect.right = right;
+		rect.bottom = bottom;
+		
+		FillRect(hdc,&rect,_viv_dark_chrome_brush(3));
+	}
+}
+
 // fill the menu bar area the system leaves in its light color: the empty
-// strip right of the last top level item (and any left inset). the bar
-// rect comes in screen coordinates; the window dc origin is the frame
-// top left.
+// strip right of the last item (and any left inset). the item extents come
+// from the rects recorded while the items were drawn (the getmenubarinfo
+// item rects can be stale after a layout change, which left the right half
+// of the bar white after a theme switch - the field report).
 static void _viv_menu_bar_nc_fill(void)
 {
 	MENUBARINFO mbi;
-	MENUBARINFO mbi_item;
 	RECT rect;
 	RECT window_rect;
 	HDC hdc;
-	int index;
-	int count;
-	int left;
-	int right;
+	int force;
 	
 	if ((!_viv_hwnd) || (!_viv_hmenu) || (!GetMenu(_viv_hwnd)))
 	{
@@ -8074,58 +8109,101 @@ static void _viv_menu_bar_nc_fill(void)
 		return;
 	}
 	
-	// the covered span: from the first item's left to the last item's
-	// right (a wrapped bar on a very narrow window only tracks the last
-	// row's extent).
-	left = mbi.rcBar.left;
-	right = mbi.rcBar.left;
-	
-	count = GetMenuItemCount(_viv_hmenu);
-	
-	os_zero_memory(&mbi_item,sizeof(mbi_item));
-	mbi_item.cbSize = sizeof(mbi_item);
-	
-	for (index = 0; index < count; index++)
+	if ((mbi.rcBar.right <= mbi.rcBar.left) || (mbi.rcBar.bottom <= mbi.rcBar.top))
 	{
-		if (GetMenuBarInfo(_viv_hwnd,OBJID_MENU,index + 1,&mbi_item))
-		{
-			if ((!index) || (mbi_item.rcBar.left < left))
-			{
-				left = mbi_item.rcBar.left;
-			}
-			
-			if (mbi_item.rcBar.right > right)
-			{
-				right = mbi_item.rcBar.right;
-			}
-		}
+		// a degenerate bar rect means the layout is not available yet.
+		return;
 	}
 	
 	GetWindowRect(_viv_hwnd,&window_rect);
 	
+	// the bar strip in window coordinates (this fill runs on the window dc).
+	rect.left = mbi.rcBar.left - window_rect.left;
+	rect.top = mbi.rcBar.top - window_rect.top;
+	rect.right = mbi.rcBar.right - window_rect.left;
+	rect.bottom = mbi.rcBar.bottom - window_rect.top;
+	
+	force = 0;
+	
 	hdc = GetWindowDC(_viv_hwnd);
 	
-	if (left > mbi.rcBar.left)
+	if (_viv_menu_bar_items_valid)
 	{
-		rect.left = mbi.rcBar.left - window_rect.left;
-		rect.top = mbi.rcBar.top - window_rect.top;
-		rect.right = left - window_rect.left;
-		rect.bottom = mbi.rcBar.bottom - window_rect.top;
+		RECT items;
+		RECT clip;
 		
-		FillRect(hdc,&rect,_viv_dark_chrome_brush(3));
+		CopyRect(&items,&_viv_menu_bar_items_rect);
+		
+		// the union rides in the item draw dc space (the window dc): a
+		// record that does not overlap the bar strip at all is treated as
+		// unusable rather than filling a wrong area.
+		if ((items.left >= rect.right) || (items.right <= rect.left) ||
+		(items.top >= rect.bottom) || (items.bottom <= rect.top))
+		{
+			force = 1;
+		}
+		
+		if (!force)
+		{
+			// clamp the recorded union into the bar strip: the fill must never
+			// leave the bar (a stale or partial record stays contained).
+		
+		if (items.left < rect.left)
+		{
+			items.left = rect.left;
+		}
+		
+		if (items.top < rect.top)
+		{
+			items.top = rect.top;
+		}
+		
+		if (items.right > rect.right)
+		{
+			items.right = rect.right;
+		}
+		
+		if (items.bottom > rect.bottom)
+		{
+			items.bottom = rect.bottom;
+		}
+		
+		if ((items.right > items.left) && (items.bottom > items.top))
+		{
+			// the empty strip left of the first item.
+			_viv_menu_bar_fill_gap(hdc,rect.left,rect.top,items.left,rect.bottom);
+			
+			// the empty strip right of the last item.
+			_viv_menu_bar_fill_gap(hdc,items.right,rect.top,rect.right,rect.bottom);
+			
+			// the rows above and below the items (a single row bar: none).
+			clip.left = (items.left > rect.left) ? items.left : rect.left;
+			clip.right = (items.right < rect.right) ? items.right : rect.right;
+				_viv_menu_bar_fill_gap(hdc,clip.left,rect.top,clip.right,items.top);
+				_viv_menu_bar_fill_gap(hdc,clip.left,items.bottom,clip.right,rect.bottom);
+			}
+		}
 	}
-	
-	if (right < mbi.rcBar.right)
+	else
 	{
-		rect.left = right - window_rect.left;
-		rect.top = mbi.rcBar.top - window_rect.top;
-		rect.right = mbi.rcBar.right - window_rect.left;
-		rect.bottom = mbi.rcBar.bottom - window_rect.top;
-		
-		FillRect(hdc,&rect,_viv_dark_chrome_brush(3));
+		// no item was drawn in this paint pass: the update region skipped
+		// the menu bar, so the system kept its light strip and the recorded
+		// rects are stale. ask for one full frame repaint: the next pass
+		// draws the items and fills the gaps (the guard keeps it to one
+		// extra pass, no repaint storm).
+		force = 1;
 	}
 	
 	ReleaseDC(_viv_hwnd,hdc);
+	
+	if ((force) && (!_viv_menu_bar_nc_force))
+	{
+		_viv_menu_bar_nc_force = 1;
+		
+		RedrawWindow(_viv_hwnd,0,0,RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW);
+		
+		_viv_menu_bar_nc_force = 0;
+	}
 }
 
 // toggle the owner draw on the top level menu items. dark ui draws them
@@ -8205,6 +8283,10 @@ static void _viv_menu_bar_theme(void)
 	
 	if (changed)
 	{
+		// the item layout is about to change: the recorded union is stale.
+		SetRectEmpty(&_viv_menu_bar_items_rect);
+		_viv_menu_bar_items_valid = 0;
+		
 		DrawMenuBar(_viv_hwnd);
 	}
 }
@@ -8248,6 +8330,10 @@ static void _viv_menu_bar_remeasure(void)
 		mii.fType = MFT_OWNERDRAW;
 		SetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii);
 	}
+	
+	// the item widths are about to change: the recorded union is stale.
+	SetRectEmpty(&_viv_menu_bar_items_rect);
+	_viv_menu_bar_items_valid = 0;
 	
 	DrawMenuBar(_viv_hwnd);
 }
@@ -8301,6 +8387,10 @@ static void _viv_apply_dark_mode(int repaint)
 	// the toolbar glyphs bake the theme color into the icons: rebuild
 	// the image list so the palette follows the theme.
 	_viv_toolbar_build_image_list();
+	
+	// the open dialogs re-theme live: the options dialog is usually on
+	// screen when its own dark mode combo changes the setting.
+	_viv_dark_dialogs_refresh();
 	
 	// retheme the menu bar: a frame change repaints the non client area
 	// after the app mode switch (the menus retheme on the next open).
@@ -8527,13 +8617,139 @@ static HBRUSH _viv_dialog_dark_brush(void)
 // drawing with the light visual style on the dark background. this is
 // what made the options pages look half themed (dark background, light
 // comboboxes and check glyphs).
+// the owner drawn combo item height at the control font.
+static int _viv_dialog_dark_combo_item_height(HWND hwnd)
+{
+	HDC hdc;
+	HFONT font;
+	HFONT old_font;
+	TEXTMETRICW tm;
+	int high;
+	
+	high = (16 * os_logical_high) / 96;
+	
+	hdc = GetDC(hwnd);
+	
+	if (hdc)
+	{
+		font = (HFONT)SendMessage(hwnd,WM_GETFONT,0,0);
+		
+		old_font = font ? (HFONT)SelectObject(hdc,font) : 0;
+		
+		os_zero_memory(&tm,sizeof(tm));
+		
+		if (GetTextMetricsW(hdc,&tm))
+		{
+			high = tm.tmHeight + ((6 * os_logical_high) / 96);
+		}
+		
+		if (old_font)
+		{
+			SelectObject(hdc,old_font);
+		}
+		
+		ReleaseDC(hwnd,hdc);
+	}
+	
+	return high;
+}
+
+// the property that marks the controls this module flipped to owner
+// drawn (the flip is undone when the ui goes back to light).
+#define _VIV_DARK_OWNERDRAW_PROP L"VIV_DARK_OD"
+
 static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 {
+	wchar_t class_name[64];
+	LONG_PTR style;
+	
 	(void)lParam;
 	
 	os_allow_dark_mode_for_window(hwnd,1);
 	
 	os_dark_window_theme(hwnd);
+	
+	class_name[0] = 0;
+	
+	if (GetClassNameW(hwnd,class_name,64))
+	{
+		if (_viv_is_dark())
+		{
+			if ((string_compare(class_name,L"Button") == 0) && (!os_dark_controls_supported()))
+			{
+				style = GetWindowLongPtr(hwnd,GWL_STYLE);
+				
+				// only the classic text controls: the bitmap color swatches keep
+				// their own painting.
+				switch ((UINT)style & BS_TYPEMASK)
+				{
+					case BS_AUTOCHECKBOX:
+					case BS_AUTORADIOBUTTON:
+					case BS_PUSHBUTTON:
+					case BS_DEFPUSHBUTTON:
+						if ((style & BS_TYPEMASK) != BS_OWNERDRAW)
+						{
+							SetWindowLongPtr(hwnd,GWL_STYLE,(style & ~((LONG_PTR)BS_TYPEMASK)) | BS_OWNERDRAW);
+							
+							// the prop carries the original button type (the owner draw bit
+							// overwrites the type field, so the way back needs it). the guard
+							// keeps a re-run from overwriting it with the owner draw type.
+							SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)((style & BS_TYPEMASK) + 1));
+							InvalidateRect(hwnd,0,TRUE);
+						}
+						break;
+				}
+			}
+			else
+			if ((string_compare(class_name,L"ComboBox") == 0) && (!os_dark_controls_supported()))
+			{
+				style = GetWindowLongPtr(hwnd,GWL_STYLE);
+				
+				if (!(style & CBS_OWNERDRAWFIXED))
+				{
+					SetWindowLongPtr(hwnd,GWL_STYLE,style | CBS_OWNERDRAWFIXED);
+					
+					// a runtime flip does not resend the measure item message: set
+					// the item height directly (the selected field and the list rows).
+					SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)-1,_viv_dialog_dark_combo_item_height(hwnd));
+					SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)0,_viv_dialog_dark_combo_item_height(hwnd));
+					
+					SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)0x100);
+					
+					InvalidateRect(hwnd,0,TRUE);
+				}
+			}
+		}
+		else
+		{
+			// the ui went back to light: restore the system painting on the
+			// controls this module flipped.
+			if (GetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP))
+			{
+				style = GetWindowLongPtr(hwnd,GWL_STYLE);
+				
+				if ((string_compare(class_name,L"Button") == 0) && (((int)(LONG_PTR)GetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP)) < 0x100))
+				{
+					LONG_PTR type;
+					
+					type = (LONG_PTR)GetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP) - 1;
+					
+					// restore the original button type (the owner draw bit sat in
+					// the type field).
+					SetWindowLongPtr(hwnd,GWL_STYLE,(style & ~((LONG_PTR)BS_TYPEMASK)) | type);
+				}
+				else
+				if ((string_compare(class_name,L"ComboBox") == 0) && (((int)(LONG_PTR)GetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP)) >= 0x100))
+				{
+					SetWindowLongPtr(hwnd,GWL_STYLE,style & ~((LONG_PTR)CBS_OWNERDRAWFIXED));
+				}
+				
+				RemovePropW(hwnd,_VIV_DARK_OWNERDRAW_PROP);
+				
+				InvalidateRect(hwnd,0,TRUE);
+			}
+		}
+	}
 	
 	return TRUE;
 }
@@ -8551,6 +8767,38 @@ static void _viv_dark_dialog(HWND hwnd)
 		
 		EnumChildWindows(hwnd,_viv_dark_dialog_children,0);
 	}
+	else
+	{
+		// the light ui hands the flipped controls back to the system.
+		EnumChildWindows(hwnd,_viv_dark_dialog_children,0);
+	}
+}
+
+// re-theme the open dialogs when the dark state changes: the options
+// dialog itself is usually on screen when its own dark mode combo
+// changes the setting (the field report: the open dialog kept its
+// light controls after the switch).
+static BOOL CALLBACK _viv_dark_dialogs_enum(HWND hwnd,LPARAM lParam)
+{
+	wchar_t class_name[16];
+	
+	(void)lParam;
+	
+	// the thread enumerator guarantees these windows belong to us: only
+	// the dialog windows need the refresh.
+	if ((GetClassNameW(hwnd,class_name,16)) && (string_compare(class_name,L"#32770") == 0))
+	{
+		_viv_dark_dialog(hwnd);
+		
+		InvalidateRect(hwnd,0,TRUE);
+	}
+	
+	return TRUE;
+}
+
+static void _viv_dark_dialogs_refresh(void)
+{
+	EnumThreadWindows(GetCurrentThreadId(),_viv_dark_dialogs_enum,0);
 }
 
 // dark color reply for the dialog control color messages (statics, edits
@@ -8589,10 +8837,239 @@ static int _viv_dialog_dark_erase(HWND hwnd,HDC hdc)
 // shared dark handling for the dialog messages: WM_CTLCOLORSTATIC,
 // WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX and WM_ERASEBKGND. returns the
 // dialog proc reply, or -1 when the caller should run its own switch.
+// owner drawn dialog controls (the pre 1903 dark fallback): paint the
+// buttons and combo boxes with the dark palette. the light ui never
+// flips the owner draw styles (and unflips them on the way back), so
+// this only runs while the dark ui is active.
+static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
+{
+	wchar_t text[STRING_SIZE];
+	
+	if (!_viv_is_dark())
+	{
+		return 0;
+	}
+	
+	(void)hwnd;
+	
+	switch(draw_item->CtlType)
+	{
+		case ODT_BUTTON:
+		{
+			UINT style;
+			RECT rect;
+			HBRUSH face_brush;
+			HGDIOBJ old_pen;
+			COLORREF text_color;
+			int pressed;
+			int box;
+			int left;
+			int top;
+			
+			// the original button type rides in the flip property (the owner
+			// draw bit occupies the type field while it is set).
+			style = (UINT)((LONG_PTR)GetPropW(draw_item->hwndItem,_VIV_DARK_OWNERDRAW_PROP) - 1);
+			
+			// only the classic text controls were flipped.
+			if ((style != BS_AUTOCHECKBOX) && (style != BS_AUTORADIOBUTTON) && (style != BS_PUSHBUTTON) && (style != BS_DEFPUSHBUTTON))
+			{
+				return 0;
+			}
+			
+			text[0] = 0;
+			GetWindowTextW(draw_item->hwndItem,text,STRING_SIZE);
+			
+			CopyRect(&rect,&draw_item->rcItem);
+			
+			pressed = (draw_item->itemState & ODS_SELECTED) ? 1 : 0;
+			
+			if ((style == BS_AUTOCHECKBOX) || (style == BS_AUTORADIOBUTTON))
+			{
+				// the control background is the dialog face.
+				FillRect(draw_item->hDC,&rect,_viv_dialog_dark_brush());
+				
+				box = (13 * os_logical_high) / 96;
+				
+				if (rect.bottom - rect.top < box)
+				{
+					box = rect.bottom - rect.top;
+				}
+				
+				left = rect.left;
+				top = rect.top + ((rect.bottom - rect.top - box) / 2);
+				
+				// the glyph box: a dark fill with a light frame.
+				if (style == BS_AUTORADIOBUTTON)
+				{
+					old_pen = SelectObject(draw_item->hDC,GetStockObject(DC_PEN));
+					
+					SetDCPenColor(draw_item->hDC,RGB(0x70,0x70,0x70));
+					
+					SelectObject(draw_item->hDC,_viv_dialog_dark_brush());
+					
+					Ellipse(draw_item->hDC,left,top,left + box,top + box);
+					
+					SelectObject(draw_item->hDC,old_pen);
+				}
+				else
+				{
+					RECT box_rect;
+					
+					box_rect.left = left;
+					box_rect.top = top;
+					box_rect.right = left + box;
+					box_rect.bottom = top + box;
+					
+					FillRect(draw_item->hDC,&box_rect,_viv_dark_chrome_brush(3));
+					FrameRect(draw_item->hDC,&box_rect,_viv_dark_chrome_brush(2));
+				}
+				
+				// the check mark.
+				if (draw_item->itemState & ODS_CHECKED)
+				{
+					old_pen = SelectObject(draw_item->hDC,CreatePen(PS_SOLID,(2 * os_logical_wide) / 96,RGB(0xE8,0xE8,0xE8)));
+					
+					MoveToEx(draw_item->hDC,left + ((box * 3) / 13),top + ((box * 7) / 13),0);
+					LineTo(draw_item->hDC,left + ((box * 5) / 13),top + ((box * 9) / 13));
+					LineTo(draw_item->hDC,left + ((box * 10) / 13),top + ((box * 3) / 13));
+					
+					DeleteObject(SelectObject(draw_item->hDC,old_pen));
+				}
+				
+				// the label right of the box.
+				rect.left = left + box + ((6 * os_logical_wide) / 96);
+				text_color = (draw_item->itemState & ODS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
+				
+				SetBkMode(draw_item->hDC,TRANSPARENT);
+				SetTextColor(draw_item->hDC,text_color);
+				
+				DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+				
+				if (draw_item->itemState & ODS_FOCUS)
+				{
+					DrawFocusRect(draw_item->hDC,&draw_item->rcItem);
+				}
+				
+				return TRUE;
+			}
+			
+			// push buttons: the lifted face with a light frame.
+			face_brush = _viv_dark_chrome_brush(1);
+			
+			FillRect(draw_item->hDC,&rect,face_brush);
+			FrameRect(draw_item->hDC,&rect,_viv_dark_chrome_brush(2));
+			
+			if (style == BS_DEFPUSHBUTTON)
+			{
+				RECT outer;
+				
+				CopyRect(&outer,&draw_item->rcItem);
+				
+				InflateRect(&outer,-2,-2);
+				
+				FrameRect(draw_item->hDC,&outer,_viv_dark_chrome_brush(2));
+			}
+			
+			if (pressed)
+			{
+				OffsetRect(&rect,1,1);
+			}
+			
+			text_color = (draw_item->itemState & ODS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
+			
+			SetBkMode(draw_item->hDC,TRANSPARENT);
+			SetTextColor(draw_item->hDC,text_color);
+			
+			DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER);
+			
+			return TRUE;
+		}
+		
+		case ODT_COMBOBOX:
+		{
+			RECT rect;
+			HBRUSH face_brush;
+			COLORREF text_color;
+			int selected;
+			
+			text[0] = 0;
+			
+			if (draw_item->itemID == (UINT)-1)
+			{
+				// the closed field: the current selection.
+				int cur;
+				
+				cur = (int)SendMessage(draw_item->hwndItem,CB_GETCURSEL,0,0);
+				
+				if (cur != -1)
+				{
+					SendMessageW(draw_item->hwndItem,CB_GETLBTEXTW,cur,(LPARAM)text);
+				}
+			}
+			else
+			{
+				SendMessageW(draw_item->hwndItem,CB_GETLBTEXTW,draw_item->itemID,(LPARAM)text);
+			}
+			
+			CopyRect(&rect,&draw_item->rcItem);
+			
+			// the closed field and the highlighted list rows take the hover
+			// tone, the plain rows take the dialog face.
+			selected = (draw_item->itemState & (ODS_SELECTED | ODS_COMBOBOXEDIT)) ? 1 : 0;
+			
+			face_brush = selected ? _viv_dark_chrome_brush(1) : _viv_dark_chrome_brush(3);
+			text_color = (draw_item->itemState & ODS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
+			
+			FillRect(draw_item->hDC,&rect,face_brush);
+			
+			SetBkMode(draw_item->hDC,TRANSPARENT);
+			SetTextColor(draw_item->hDC,text_color);
+			
+			DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+			
+			if ((draw_item->itemState & ODS_FOCUS) && (!(draw_item->itemState & ODS_COMBOBOXEDIT)))
+			{
+				DrawFocusRect(draw_item->hDC,&rect);
+			}
+			
+			return TRUE;
+		}
+	}
+	
+	return 0;
+}
+
 static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch(msg)
 	{
+		case WM_DRAWITEM:
+		{
+			INT_PTR dark_reply;
+			
+			// the owner drawn fallback controls (pre 1903 builds): the
+			// buttons and combo boxes paint here.
+			dark_reply = _viv_dialog_dark_draw_item(hwnd,(DRAWITEMSTRUCT *)lParam);
+			
+			if (dark_reply)
+			{
+				return dark_reply;
+			}
+			
+			break;
+		}
+		
+		case WM_MEASUREITEM:
+		{
+			if ((((MEASUREITEMSTRUCT *)lParam)->CtlType == ODT_COMBOBOX) && (_viv_is_dark()))
+			{
+				((MEASUREITEMSTRUCT *)lParam)->itemHeight = _viv_dialog_dark_combo_item_height(GetDlgItem(hwnd,(int)wParam));
+				
+				return TRUE;
+			}
+			
+			break;
+		}
 		case WM_CTLCOLORSTATIC:
 		case WM_CTLCOLOREDIT:
 		case WM_CTLCOLORLISTBOX:
@@ -10572,6 +11049,89 @@ static void _viv_options_update_sheild(HWND hwnd)
 	}
 }
 
+// the dark options tab body: the tab control never follows the dark
+// explorer style (no dark variant on any build), so the body face is
+// painted here. the tab items draw in the custom draw pass.
+static LRESULT CALLBACK _viv_options_tab_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	WNDPROC last_proc;
+	
+	if ((msg == WM_ERASEBKGND) && (_viv_is_dark()))
+	{
+		RECT rect;
+		
+		GetClientRect(hwnd,&rect);
+		
+		FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(3));
+		
+		return 1;
+	}
+	
+	last_proc = (WNDPROC)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+	
+	if (last_proc)
+	{
+		return CallWindowProc(last_proc,hwnd,msg,wParam,lParam);
+	}
+	
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+// paint one options tab item with the dark palette: the selected tab
+// takes the body face (it reads as connected to the page), the others
+// sit one step darker and lift on hover.
+static INT_PTR _viv_options_tab_draw(NMCUSTOMDRAW *draw)
+{
+	TCITEM tcitem;
+	wchar_t text[STRING_SIZE];
+	RECT rect;
+	HBRUSH face_brush;
+	
+	switch(draw->dwDrawStage)
+	{
+		case CDDS_PREPAINT:
+			return CDRF_NOTIFYITEMDRAW;
+		
+		case CDDS_ITEMPREPAINT:
+			break;
+		
+		default:
+			return CDRF_DODEFAULT;
+	}
+	
+	os_zero_memory(&tcitem,sizeof(tcitem));
+	tcitem.mask = TCIF_TEXT;
+	tcitem.pszText = text;
+	tcitem.cchTextMax = STRING_SIZE;
+	
+	text[0] = 0;
+	
+	if ((!TabCtrl_GetItem(draw->hdr.hwndFrom,(int)draw->dwItemSpec,&tcitem)) || (!text[0]))
+	{
+		return CDRF_DODEFAULT;
+	}
+	
+	CopyRect(&rect,&draw->rc);
+	
+	if (draw->uItemState & CDIS_SELECTED)
+	{
+		face_brush = _viv_dark_chrome_brush(3);
+	}
+	else
+	{
+		face_brush = (draw->uItemState & CDIS_HOT) ? _viv_dark_chrome_brush(1) : _viv_dark_chrome_brush(0);
+	}
+	
+	FillRect(draw->hdc,&rect,face_brush);
+	
+	SetBkMode(draw->hdc,TRANSPARENT);
+	SetTextColor(draw->hdc,RGB(0xE8,0xE8,0xE8));
+	
+	DrawTextW(draw->hdc,text,-1,&rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER);
+	
+	return CDRF_SKIPDEFAULT;
+}
+
 static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	{
@@ -10591,6 +11151,19 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 
 			switch(((NMHDR *)lParam)->idFrom)
 			{
+				case IDC_TAB1:
+				case IDC_TAB2:
+				case IDC_TAB3:
+				
+					// the tab strip never follows the dark explorer style (the class
+					// has no dark variant on any build): the items paint here.
+					if ((((NMHDR *)lParam)->code == NM_CUSTOMDRAW) && (_viv_is_dark()))
+					{
+						return _viv_options_tab_draw((NMCUSTOMDRAW *)lParam);
+					}
+				
+				break;
+				
 				case IDC_TREE1:
 
 					switch(((NMHDR *)lParam)->code)
@@ -10633,7 +11206,19 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				
 				for(tabi=0;tabi<(int)_VIV_OPTIONS_PAGE_COUNT;tabi++)
 				{
-					os_dark_window_theme(GetDlgItem(hwnd,_viv_options_tab_ids[tabi]));
+					HWND tab_hwnd;
+					WNDPROC last_proc;
+					
+					tab_hwnd = GetDlgItem(hwnd,_viv_options_tab_ids[tabi]);
+					
+					os_dark_window_theme(tab_hwnd);
+					
+					// the tab body never follows the dark style: subclass the tab so
+					// the dark body face paints (the items paint in the custom draw
+					// pass in the dialog proc).
+					last_proc = (WNDPROC)SetWindowLongPtr(tab_hwnd,GWLP_WNDPROC,(LONG_PTR)_viv_options_tab_proc);
+					
+					SetWindowLongPtr(tab_hwnd,GWLP_USERDATA,(LONG_PTR)last_proc);
 				}
 			}
 			
@@ -13999,6 +14584,36 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 										// the strip follows the theme: a light button face, or the dark chrome face.
 										FillRect(((NMTBCUSTOMDRAW *)lParam)->nmcd.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));
 										return CDRF_NOTIFYITEMDRAW;
+									}
+									case CDDS_ITEMPREPAINT:
+									{
+										NMTBCUSTOMDRAW *draw;
+										DWORD state;
+										
+										draw = (NMTBCUSTOMDRAW *)lParam;
+										
+										// the button states (hover, pressed, checked) draw with the light
+										// toolbar theme on every build: the comctl toolbar has no dark
+										// explorer variant, so the play/pause toggle showed the light
+										// blue highlight over the dark strip (the field report). paint
+										// the states ourselves and hand the icon back to the control.
+										if ((_viv_is_dark()) && (draw->nmcd.dwItemSpec))
+										{
+											state = draw->nmcd.uItemState;
+											
+											if (state & (CDIS_HOT | CDIS_SELECTED | CDIS_CHECKED))
+											{
+												FillRect(draw->nmcd.hdc,&draw->nmcd.rc,_viv_dark_chrome_brush(1));
+											}
+											
+											// TBCDRF_NOEDGES (0x00010000) | TBCDRF_NOMARK (0x00080000) |
+											// TBCDRF_NOBACKGROUND (0x00400000): keep the control from drawing
+											// its light edges, highlight mark and button background over
+											// the dark strip. the icon draws on our fill.
+											return CDRF_DODEFAULT | 0x00010000 | 0x00080000 | 0x00400000;
+										}
+										
+										break;
 									}
 								}
 								

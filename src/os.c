@@ -110,6 +110,7 @@ static IShellItem *_os_get_shellitem(const ITEMIDLIST *pidl);
 HINSTANCE os_hinstance = 0;
 DWORD os_major_version = 0; // 4 = 9x/nt, 5 = xp,2k,server2k3, 6 = vista
 DWORD os_minor_version = 0;
+DWORD os_build_number = 0; // the real build number (valid with the supportedOS manifest guid list)
 char os_is_nt = 0;
 BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags) = 0;
 BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent) = 0;
@@ -849,6 +850,7 @@ void os_init(void)
 
 		os_major_version = (char)osvi.dwMajorVersion;
 		os_minor_version = (char)osvi.dwMinorVersion;
+		os_build_number = osvi.dwBuildNumber;
 		os_is_nt = (osvi.dwPlatformId == VER_PLATFORM_WIN32_NT);
 
 		debug_printf("os %d\n",os_major_version);
@@ -1979,6 +1981,30 @@ int os_is_windows_8_or_later(void)
 	
 	return 0;
 }
+// true when the comctl dark explorer control classes actually render dark:
+// windows 10 1903 (build 18362) and later. older builds accept the calls
+// but keep the light control rendering, so the dialog fallbacks (owner
+// drawn buttons and combos) carry the dark ui alone on those builds.
+int os_dark_controls_supported(void)
+{
+	if (!os_is_nt)
+	{
+		return 0;
+	}
+	
+	if (os_major_version > 10)
+	{
+		return 1;
+	}
+	
+	if (os_major_version == 10)
+	{
+		return (os_build_number >= 18362) ? 1 : 0;
+	}
+	
+	return 0;
+}
+
 
 // windows creates funky regions if left > right
 HRGN os_CreateRectRgn(int left,int top,int right,int bottom)

@@ -78,6 +78,7 @@ WNDPROC os_set_window_proc(HWND hwnd,WNDPROC proc);
 int os_statusbar_index_from_x(HWND statusbar_hwnd,int x);
 int os_is_windows_7_or_later(void);
 int os_is_windows_8_or_later(void);
+int os_dark_controls_supported(void);
 HRGN os_CreateRectRgn(int left,int top,int right,int bottom);
 HRGN os_mirror_region(HRGN hrgn,int wide);
 void os_fill_clamped_rect(HDC hdc,int left,int top,int right,int bottom,int clamp_left,int clamp_top,int clamp_right,int clamp_bottom,HBRUSH hbrush);

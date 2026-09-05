@@ -1,4 +1,4 @@
-Stable: Version 1.1.02 (the menu bar follows the dark ui: owner drawn top level items, dpi aware menu font)
+Stable: Version 1.1.02 (the dark ui reaches every strip: menu bar tail, options tabs, dialog controls, toolbar states, crisp glyphs)
 	menus: windows 11 and pre 1903 builds never darken a win32 menu bar
 	(the immersive dark app mode repaints the title bar but the menu bar
 	keeps the system light color, so a dark session showed a white strip
@@ -18,6 +18,48 @@ Stable: Version 1.1.02 (the menu bar follows the dark ui: owner drawn top level 
 	claim-only erase could leave a fresh white buffer behind the buttons
 	on some builds.
 
+	release: the 1.1.02 tag was re-cut after this round (same version, the
+
+	white tail and the missed layers arrived in the same re-release).
+
+	
+	bar tail: the non client fill now takes the item extents from the rects
+	recorded while the owner drawn items painted. the getmenubarinfo item
+	rects can be stale after a layout change (a theme switch re-measures the
+	owner drawn items, the cached system rects kept the old extent), so the
+	fill missed the strip past the last item and a dark session showed the
+	white right half after the switch (the field report). the union resets
+	when the layout changes (theme, dpi, measure, menu rebuild) and a paint
+	pass that drew no items forces one full frame repaint.
+	options: the tab strip never follows the dark explorer style (the class
+	has no dark variant on any build), so the options dialog showed a white
+	band across the tab area. the tabs are subclassed for the dark body face
+	and the items custom draw with the dark palette (selected = body face,
+	idle one step darker, hover lifts).
+	dialogs: builds without the dark explorer control classes (windows 10
+	1809 and older) accepted the theme calls but kept the light control
+	rendering, so the options pages showed light combo boxes, check boxes
+	and push buttons on the dark pages. the classic text controls now flip
+	to owner drawn below build 18362 and paint the dark palette (the
+	original button type rides in a window property so the light ui can
+	flip them back), and the open dialogs re-theme live when the dark
+	setting itself changes in the options dialog.
+	toolbar: the comctl toolbar has no dark explorer variant, so the button
+	states (hover, pressed, checked) drew the light blue highlight over the
+	dark strip on every build (the play/pause toggle was the visible one).
+	the item pre paint now fills the states with the dark hover tone and
+	suppresses the light edges, mark and background (TBCDRF_NOEDGES |
+	TBCDRF_NOMARK | TBCDRF_NOBACKGROUND), the icon keeps the control draw.
+	glyphs: the toolbar icons drew on the integer lattice (the int point
+	api quantized the 48 grid to the icon size, lumpy circles) with sub
+	pixel strokes (the magnifier handle and the plus/minus at two grid
+	units render at 0.67 device pixels at the 16px toolbar size - a faint
+	gray blur). the strokes now draw as float point line art with a 1.25
+	pixel width floor and the two magnifiers carry visible stroke widths
+	(circle 6, handle and signs 3 grid units).
+	readme: condensed (the version by version narrative moved to the one
+	line history, the options screenshots folded into the single window
+	view).
 Stable: Version 1.1.01 (first stable release: complete dark dialogs, auto language default, faster navigation, upstream style tags)
 	dark ui: the explorer dark style does not cascade from a dialog to its
 	child controls, so the options pages showed a dark background with light

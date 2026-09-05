@@ -35,6 +35,12 @@ typedef struct _glyphs_point_s
 	int y;
 }_glyphs_point_t;
 
+typedef struct _glyphs_point_f_s
+{
+	float x;
+	float y;
+}_glyphs_point_f_t;
+
 // one stroke: a polyline with a round capped pen of the given grid width.
 typedef struct _glyphs_stroke_s
 {
@@ -55,6 +61,7 @@ static int (__stdcall *_glyphs_gdipSetPenStartCap)(void *pen,int cap) = 0;
 static int (__stdcall *_glyphs_gdipSetPenEndCap)(void *pen,int cap) = 0;
 static int (__stdcall *_glyphs_gdipDeletePen)(void *pen) = 0;
 static int (__stdcall *_glyphs_gdipDrawLinesI)(void *graphics,void *pen,const _glyphs_point_t *points,int count) = 0;
+static int (__stdcall *_glyphs_gdipDrawLinesF)(void *graphics,void *pen,const _glyphs_point_f_t *points,int count) = 0;
 static int (__stdcall *_glyphs_gdipCreateBitmapFromScan0)(int wide,int high,int stride,int format,unsigned char *scan0,void **bitmap) = 0;
 static int (__stdcall *_glyphs_gdipGetImageGraphicsContext)(void *image,void **graphics) = 0;
 static int (__stdcall *_glyphs_gdipSetSmoothingMode)(void *graphics,int mode) = 0;
@@ -172,9 +179,9 @@ static const _glyphs_point_t _glyphs_zoomout_handle[] = { {29,29},{38,38} };
 static const _glyphs_point_t _glyphs_zoomout_minus[] = { {16,21},{26,21} };
 static const _glyphs_stroke_t _glyphs_zoomout_strokes[] =
 {
-	{21,4,_glyphs_circle_points},
-	{2,5,_glyphs_zoomout_handle},
-	{2,4,_glyphs_zoomout_minus}
+	{21,6,_glyphs_circle_points},
+	{3,5,_glyphs_zoomout_handle},
+	{3,4,_glyphs_zoomout_minus}
 };
 
 // zoom in: magnifier with a plus.
@@ -183,10 +190,10 @@ static const _glyphs_point_t _glyphs_zoomin_minus[] = { {16,21},{26,21} };
 static const _glyphs_point_t _glyphs_zoomin_plus[] = { {21,16},{21,26} };
 static const _glyphs_stroke_t _glyphs_zoomin_strokes[] =
 {
-	{21,4,_glyphs_circle_points},
-	{2,5,_glyphs_zoomin_handle},
-	{2,4,_glyphs_zoomin_minus},
-	{2,4,_glyphs_zoomin_plus}
+	{21,6,_glyphs_circle_points},
+	{3,5,_glyphs_zoomin_handle},
+	{3,4,_glyphs_zoomin_minus},
+	{3,4,_glyphs_zoomin_plus}
 };
 
 static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
@@ -227,6 +234,7 @@ static int _glyphs_load(void)
 	_glyphs_gdipSetPenEndCap = (void *)GetProcAddress(module,"GdipSetPenEndCap");
 	_glyphs_gdipDeletePen = (void *)GetProcAddress(module,"GdipDeletePen");
 	_glyphs_gdipDrawLinesI = (void *)GetProcAddress(module,"GdipDrawLinesI");
+	_glyphs_gdipDrawLinesF = (void *)GetProcAddress(module,"GdipDrawLines");
 	_glyphs_gdipCreateBitmapFromScan0 = (void *)GetProcAddress(module,"GdipCreateBitmapFromScan0");
 	_glyphs_gdipGetImageGraphicsContext = (void *)GetProcAddress(module,"GdipGetImageGraphicsContext");
 	_glyphs_gdipSetSmoothingMode = (void *)GetProcAddress(module,"GdipSetSmoothingMode");
@@ -235,7 +243,8 @@ static int _glyphs_load(void)
 	_glyphs_gdipCreateHICONFromBitmap = (void *)GetProcAddress(module,"GdipCreateHICONFromBitmap");
 
 	if ((!_glyphs_gdipCreatePen1) || (!_glyphs_gdipSetPenStartCap) || (!_glyphs_gdipSetPenEndCap) ||
-		(!_glyphs_gdipDeletePen) || (!_glyphs_gdipDrawLinesI) || (!_glyphs_gdipCreateBitmapFromScan0) ||
+		(!_glyphs_gdipDeletePen) || (!_glyphs_gdipDrawLinesI) || (!_glyphs_gdipDrawLinesF) ||
+		(!_glyphs_gdipCreateBitmapFromScan0) ||
 		(!_glyphs_gdipGetImageGraphicsContext) || (!_glyphs_gdipSetSmoothingMode) ||
 		(!_glyphs_gdipDeleteGraphics) || (!_glyphs_gdipDisposeImage) || (!_glyphs_gdipCreateHICONFromBitmap))
 	{
@@ -310,33 +319,49 @@ static HICON _glyphs_build(int glyph_id,int dark,int size)
 
 				pen = 0;
 
-				if (_glyphs_gdipCreatePen1(argb,(float)stroke->width * scale,_GLYPHS_UNIT_PIXEL,&pen) == 0)
 				{
-					_glyphs_point_t *pts;
+					float pen_width;
+					
+					pen_width = ((float)stroke->width) * scale;
+					
+					// a sub pixel stroke renders as a faint gray blur at the small
+					// toolbar sizes: keep every stroke at least 1.25 device pixels wide.
+					if (pen_width < 1.25f)
+					{
+						pen_width = 1.25f;
+					}
+					
+					if (_glyphs_gdipCreatePen1(argb,pen_width,_GLYPHS_UNIT_PIXEL,&pen) == 0)
+					{
+						_glyphs_point_f_t *pts;
 
 					// round caps: the strokes end in soft dots instead of
 					// square cuts, the signature of the glyph family.
 					_glyphs_gdipSetPenStartCap(pen,_GLYPHS_LINE_CAP_ROUND);
 					_glyphs_gdipSetPenEndCap(pen,_GLYPHS_LINE_CAP_ROUND);
 
-					pts = (_glyphs_point_t *)mem_alloc(sizeof(_glyphs_point_t) * (size_t)stroke->point_count);
+						pts = (_glyphs_point_f_t *)mem_alloc(sizeof(_glyphs_point_f_t) * (size_t)stroke->point_count);
 
-					if (pts)
-					{
-						int pi;
-
-						for(pi=0;pi<stroke->point_count;pi++)
+						if (pts)
 						{
-							pts[pi].x = (int)((((float)stroke->points[pi].x) * scale) + 0.5f);
-							pts[pi].y = (int)((((float)stroke->points[pi].y) * scale) + 0.5f);
-						}
+							int pi;
 
-						_glyphs_gdipDrawLinesI(graphics,pen,pts,stroke->point_count);
+							for(pi=0;pi<stroke->point_count;pi++)
+							{
+								pts[pi].x = ((float)stroke->points[pi].x) * scale;
+								pts[pi].y = ((float)stroke->points[pi].y) * scale;
+							}
 
-						mem_free(pts);
+							// float coordinates: the float draw api keeps the 48 grid
+							// geometry off the pixel lattice, so the small icons stay
+							// round instead of lumpy.
+							_glyphs_gdipDrawLinesF(graphics,pen,pts,stroke->point_count);
+
+							mem_free(pts);
 					}
 
-					_glyphs_gdipDeletePen(pen);
+						_glyphs_gdipDeletePen(pen);
+					}
 				}
 			}
 
