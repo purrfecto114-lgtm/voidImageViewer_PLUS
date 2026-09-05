@@ -45,7 +45,7 @@ wchar_t *string_alloc(const wchar_t *s)
 	wchar_t *p;
 	
 	wlen = string_get_length(s);
-	p = (wchar_t *)mem_alloc((wlen + 1) * sizeof(wchar_t));
+	p = (wchar_t *)mem_alloc(safe_size_mul_sizeof_wchar(safe_size_add_one(wlen)));
 	
 	CopyMemory(p,s,(wlen + 1) * sizeof(wchar_t));
 		
@@ -59,7 +59,7 @@ wchar_t *string_alloc_utf8(const utf8_t *s)
 	
 	wlen = MultiByteToWideChar(CP_UTF8,0,s,-1,0,0);
 	
-	p = (wchar_t *)mem_alloc((wlen + 1) * sizeof(wchar_t));
+	p = (wchar_t *)mem_alloc(safe_size_mul_sizeof_wchar(safe_size_add_one(wlen)));
 	
 	MultiByteToWideChar(CP_UTF8,0,s,-1,p,wlen+1);
 		

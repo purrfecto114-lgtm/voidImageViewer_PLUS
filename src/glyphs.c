@@ -285,7 +285,7 @@ static HICON _glyphs_build(int glyph_id,int dark,int size)
 
 	stride = size * 4;
 
-	bits = (unsigned char *)mem_alloc((size_t)stride * (size_t)size);
+	bits = (unsigned char *)mem_alloc(safe_size_mul((size_t)stride,(size_t)size));
 
 	if (!bits)
 	{
@@ -340,7 +340,7 @@ static HICON _glyphs_build(int glyph_id,int dark,int size)
 					_glyphs_gdipSetPenStartCap(pen,_GLYPHS_LINE_CAP_ROUND);
 					_glyphs_gdipSetPenEndCap(pen,_GLYPHS_LINE_CAP_ROUND);
 
-						pts = (_glyphs_point_f_t *)mem_alloc(sizeof(_glyphs_point_f_t) * (size_t)stroke->point_count);
+						pts = (_glyphs_point_f_t *)mem_alloc(safe_size_mul(sizeof(_glyphs_point_f_t),(size_t)stroke->point_count));
 
 						if (pts)
 						{

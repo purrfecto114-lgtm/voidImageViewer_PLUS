@@ -186,10 +186,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.0.22 stable",
-          (major, minor, rev, build) == ("1", "1", "0", "22") and vtype == "")
+    check("version.h = 1.1.0.23 stable",
+          (major, minor, rev, build) == ("1", "1", "0", "23") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.02")
+          vstr == "1.1.03")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1037,9 +1037,10 @@ def t_review_fixes_round4():
           "first_frame->frame_count = 0x10000;" in viv)
 
     # F1: the rotate buffer allocations multiply in SIZE_T
-    check("rotate buffer allocations cast to SIZE_T before multiplying",
-          "mem_alloc((SIZE_T)bitmap.bmWidth * (SIZE_T)bitmap.bmHeight * sizeof(DWORD));" in viv and
-          "mem_alloc((SIZE_T)ret_wide * (SIZE_T)ret_high * sizeof(DWORD));" in viv)
+    # (round 16 upgraded the multiplication to the checked safe_size helpers)
+    check("rotate buffer allocations multiply through the checked helpers",
+          "mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)bitmap.bmWidth,(SIZE_T)bitmap.bmHeight),sizeof(DWORD)));" in viv and
+          "mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)ret_wide,(SIZE_T)ret_high),sizeof(DWORD)));" in viv)
     check("the uncast rotate allocations are gone",
           "mem_alloc(bitmap.bmWidth * bitmap.bmHeight" not in viv and
           "mem_alloc(ret_wide * ret_high" not in viv)
@@ -1823,6 +1824,75 @@ def t_audit_round14():
           read("src/config.c").decode("latin-1").count("WideCharToMultiByte(CP_UTF8,0,s,-1,(char *)buf,STRING_SIZE*3,0,0);") == 1)
 
 
+
+def t_audit_round16():
+    """Second user audit round (all 30 source files rescanned): frame
+    dimensions count validation, safe_size wiring at every allocation
+    arithmetic, dark chrome brush release, shuffle old array release,
+    save-as extension reservation, wider shuffle seeds. Each guard locks
+    one audited fix in place."""
+    viv = read("src/viv.c").decode("latin-1")
+    stringc = read("src/string.c").decode("latin-1")
+    ini = read("src/ini.c").decode("latin-1")
+    utf8c = read("src/utf8.c").decode("latin-1")
+    glyphs = read("src/glyphs.c").decode("latin-1")
+
+    # issue 1: the frame dimensions count is validated before set #0 is read
+    check("frame dimensions count is validated",
+          "if ((count >= 1) && (count <= (SIZE_MAX / sizeof(GUID))))" in viv)
+    check("frame dimensions dead guid string removed",
+          "StringFromGUID2" not in viv and "strGuid" not in viv)
+    check("frame dimensions alloc and free stay inside the guard",
+          "DimensionIDs = mem_alloc(sizeof(GUID) * count);" in viv and
+          viv.count("mem_free(DimensionIDs);") == 1)
+
+    # issue 2: every allocation arithmetic goes through the safe size helpers
+    check("playlist pointer arrays multiply through the helper",
+          viv.count("mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)_viv_playlist_shuffle_allocated))") == 2)
+    check("nav pointer array multiplies through the helper",
+          "mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)_viv_nav_item_count))" in viv)
+    check("rotate pixel buffers multiply through the helper",
+          "mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)bitmap.bmWidth,(SIZE_T)bitmap.bmHeight),sizeof(DWORD)))" in viv and
+          "mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)ret_wide,(SIZE_T)ret_high),sizeof(DWORD)))" in viv)
+    check("ipc reply and query sizes go through the helpers",
+          "mem_alloc(safe_size_add(sizeof(_viv_reply_t),size))" in viv and
+          viv.count("safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(new_search)))") == 2)
+    check("relaunch size and backdrop bits go through the helpers",
+          "safe_size_add_one(string_get_length(cwd))" in viv and
+          "mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)size,(SIZE_T)size),4))" in viv)
+    check("clipboard globals multiply and add through the helpers",
+          "GlobalAlloc(GMEM_MOVEABLE,safe_size_add(safe_size_mul_sizeof_wchar(safe_size_add(safe_size_add_one(wlen),1)),sizeof(DROPFILES)))" in viv and
+          "GlobalAlloc(GMEM_MOVEABLE,safe_size_mul_sizeof_wchar(safe_size_add_one(wlen)))" in viv)
+    check("string allocs multiply through the wchar helper",
+          stringc.count("mem_alloc(safe_size_mul_sizeof_wchar(safe_size_add_one(wlen)))") == 2)
+    check("utf8 and ini allocations add through the helpers",
+          "mem_alloc(safe_size_add_one(size_in_bytes))" in utf8c and
+          "mem_alloc(safe_size_add_one(size))" in ini and
+          "mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)count))" in ini)
+    check("glyph buffers multiply through the helper",
+          "mem_alloc(safe_size_mul((size_t)stride,(size_t)size))" in glyphs and
+          "mem_alloc(safe_size_mul(sizeof(_glyphs_point_f_t),(size_t)stroke->point_count))" in glyphs)
+
+    # issue 3: the dark chrome brushes release on shutdown
+    check("dark chrome brushes live at file scope and release on kill",
+          "static HBRUSH _viv_dark_chrome_hbrushes[4];" in viv and
+          "DeleteObject(_viv_dark_chrome_hbrushes[i]);" in viv and
+          "static HBRUSH hbrushes[4];" not in viv)
+
+    # issue 4: the initial shuffle releases the previous index array
+    check("initial shuffle frees the old index array",
+          viv.count("mem_free(_viv_playlist_shuffle_indexes);") == 4)
+
+    # issue 5: the save-as extension always fits
+    check("save-as reserves room for the extension",
+          "tobuf[(STRING_SIZE - 1) - string_get_length(extension)] = 0;" in viv and
+          "string_cat(tobuf,extension);" in viv)
+
+    # low: the shuffle seeds mix both counter halves (two sites)
+    check("shuffle seeds mix both counter halves",
+          viv.count("srand((unsigned int)(counter.LowPart ^ counter.HighPart));") == 2)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -1850,6 +1920,7 @@ if __name__ == "__main__":
     t_dark_menu_bar()
     t_dark_layers_round()
     t_audit_round14()
+    t_audit_round16()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

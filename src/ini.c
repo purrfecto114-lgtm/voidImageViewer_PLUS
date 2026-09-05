@@ -86,7 +86,7 @@ ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section)
 			char *buf;
 			DWORD numread;
 			
-			buf = mem_alloc(size + 1);
+			buf = mem_alloc(safe_size_add_one(size));
 			
 			if (ReadFile(h,buf,size,&numread,NULL))
 			{
@@ -298,7 +298,7 @@ next_line:
 		ini = mem_alloc(sizeof(_ini_t));
 		
 		// allocate indexes		
-		indexes = mem_alloc(sizeof(_ini_keyvalue_t *) * count);
+		indexes = mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)count));
 
 		// fill in indexes
 		// and conect next to index

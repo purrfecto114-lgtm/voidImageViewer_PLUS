@@ -18,6 +18,12 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
+**1.1.03 — second security audit round:**
+
+- **Safe-size wiring completed** — the overflow-checked `safe_size` helpers now guard every allocation arithmetic in the codebase (playlist/nav pointer arrays, rotate pixel buffers, backdrop bits, Everything IPC query/reply sizes, relaunch buffer, string/utf8/ini/glyph buffers, clipboard globals). A wrap now fails the allocation cleanly instead of producing an undersized block.
+- **GDI+ frame-dimension count validated** — the same trust gap as the 1.1.02 frame-delay fix, 15 lines apart in the same function: a zero or oversized count from GDI+ is rejected before the dimension list is read, and the dead GUID diagnostic string is gone.
+- **Smaller hardening** — the four dark-chrome brushes release on shutdown, the initial playlist shuffle frees the previous index array, save-as trims the base name so the filter extension always fits on a full buffer, and the shuffle/random-search seeds mix both halves of the performance counter.
+
 **1.1.02 — the dark UI reaches the last white strips:**
 
 - **Dark menu bar (all builds)** — Windows 11 and pre-1903 never darken a Win32 menu bar. The top-level items are owner-drawn in the dark palette (face `0x202020`, hover `0x454545`); the system keeps layout, clicks, keyboard and dropdowns. The bar gaps now fill from the *drawn item rects*, so a theme switch no longer leaves a white right half.

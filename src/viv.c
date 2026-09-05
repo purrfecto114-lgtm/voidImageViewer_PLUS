@@ -2668,11 +2668,12 @@ static HBRUSH _viv_dialog_dark_hbrush = 0; // dark dialog background brush, lazy
 // face (0x252525, one step above the canvas), 1 = the separator shadow
 // line (0x454545), 2 = the separator highlight line (0x707070),
 // 3 = the menu bar face (0x202020: the canvas and dark system menu
-// color). the zoom bar uses the same palette. created lazily, freed
-// with the process.
+// color). the zoom bar uses the same palette. created lazily, released
+// in _viv_kill with the other cached brushes.
+static HBRUSH _viv_dark_chrome_hbrushes[4];
+
 static HBRUSH _viv_dark_chrome_brush(int which)
 {
-	static HBRUSH hbrushes[4];
 	static const COLORREF colors[4] = {RGB(0x25,0x25,0x25),RGB(0x45,0x45,0x45),RGB(0x70,0x70,0x70),RGB(0x20,0x20,0x20)};
 	
 	if ((which < 0) || (which > 3))
@@ -2680,12 +2681,12 @@ static HBRUSH _viv_dark_chrome_brush(int which)
 		return 0;
 	}
 	
-	if (!hbrushes[which])
+	if (!_viv_dark_chrome_hbrushes[which])
 	{
-		hbrushes[which] = CreateSolidBrush(colors[which]);
+		_viv_dark_chrome_hbrushes[which] = CreateSolidBrush(colors[which]);
 	}
 	
-	return hbrushes[which];
+	return _viv_dark_chrome_hbrushes[which];
 }
 
 static HBRUSH _viv_backdrop_solid_hbrush = 0; // backdrop solid color brush, cached
@@ -5897,7 +5898,7 @@ static int _viv_init(int nCmdShow)
 				}
 				
 				// calc size
-				size = sizeof(DWORD) + (((int)string_get_length(command_line) + 1) * sizeof(wchar_t)) + (((int)string_get_length(cwd) + 1) * sizeof(wchar_t));
+				size = (int)safe_size_add(safe_size_add(sizeof(DWORD),safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(command_line)))),safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(cwd))));
 				buf = (char *)mem_alloc(size);
 				
 				// fill in
@@ -6183,6 +6184,20 @@ static void _viv_kill(void)
 		DeleteObject(_viv_dialog_dark_hbrush);
 		
 		_viv_dialog_dark_hbrush = 0;
+	}
+	
+	{
+		int i;
+		
+		for(i=0;i<4;i++)
+		{
+			if (_viv_dark_chrome_hbrushes[i])
+			{
+				DeleteObject(_viv_dark_chrome_hbrushes[i]);
+				
+				_viv_dark_chrome_hbrushes[i] = 0;
+			}
+		}
 	}
 	
 	if (_viv_backdrop_solid_hbrush)
@@ -8515,7 +8530,7 @@ static HBRUSH _viv_backdrop_checker_brush(void)
 		
 		size = cell * 2;
 		
-		bits = mem_alloc(size * size * 4);
+		bits = mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)size,(SIZE_T)size),4));
 		
 		if (bits)
 		{
@@ -9493,7 +9508,7 @@ static void _viv_copy(int cut)
 				
 				wlen = string_get_length(_viv_current_fd->cFileName);
 				
-				hmem = GlobalAlloc(GMEM_MOVEABLE,(wlen + 1 + 1) * sizeof(wchar_t) + sizeof(DROPFILES));
+				hmem = GlobalAlloc(GMEM_MOVEABLE,safe_size_add(safe_size_mul_sizeof_wchar(safe_size_add(safe_size_add_one(wlen),1)),sizeof(DROPFILES)));
 				if (hmem)
 				{
 					DROPFILES *df;
@@ -9563,7 +9578,7 @@ static void _viv_copy_filename(void)
 				
 				wlen = string_get_length(_viv_current_fd->cFileName);
 				
-				hmem = GlobalAlloc(GMEM_MOVEABLE,(wlen + 1) * sizeof(wchar_t));
+				hmem = GlobalAlloc(GMEM_MOVEABLE,safe_size_mul_sizeof_wchar(safe_size_add_one(wlen)));
 				if (hmem)
 				{
 					wchar_t *wstring;
@@ -9977,6 +9992,8 @@ static void _viv_save_image_as(void)
 				
 				if (format == -1)
 				{
+					const wchar_t *extension;
+					
 					format = (int)ofn.nFilterIndex - 1;
 					
 					if ((format < 0) || (format > 2))
@@ -9984,7 +10001,17 @@ static void _viv_save_image_as(void)
 						format = 0;
 					}
 					
-					string_cat(tobuf,(format == 1) ? L".jpg" : ((format == 2) ? L".bmp" : L".png"));
+					extension = (format == 1) ? L".jpg" : ((format == 2) ? L".bmp" : L".png");
+					
+					// make room for the extension: string_cat stops at the
+					// STRING_SIZE budget, a full buffer would silently save
+					// the file without its extension.
+					if (string_get_length(tobuf) > ((STRING_SIZE - 1) - string_get_length(extension)))
+					{
+						tobuf[(STRING_SIZE - 1) - string_get_length(extension)] = 0;
+					}
+					
+					string_cat(tobuf,extension);
 				}
 				
 				// save the frame on screen, not frame 0.
@@ -12262,7 +12289,7 @@ static _viv_playlist_t *_viv_playlist_add(const WIN32_FIND_DATA *fd)
 				_viv_playlist_shuffle_allocated = _VIV_DEFAULT_SHUFFLE_ALLOCATED;
 			}
 			
-			new_indexes = mem_alloc(_viv_playlist_shuffle_allocated * sizeof(_viv_playlist_t *));
+			new_indexes = mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)_viv_playlist_shuffle_allocated));
 			
 			os_copy_memory(new_indexes,_viv_playlist_shuffle_indexes,_viv_playlist_count * sizeof(_viv_playlist_t *));
 			
@@ -13385,20 +13412,21 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 								{
 									GUID *DimensionIDs;
 									
-									DimensionIDs = mem_alloc(sizeof(GUID) * count);
-									
-									if (os_GdipImageGetFrameDimensionsList(image,DimensionIDs,count) == 0)
+									// validate the count from gdi+ before trusting it: a zero count
+									// would read dimension set #0 outside a zero length allocation and
+									// an oversized count would wrap the size multiplication.
+									if ((count >= 1) && (count <= (SIZE_MAX / sizeof(GUID))))
 									{
-										//For gif image , we only care about animation set#0
-										WCHAR strGuid[39];
+										DimensionIDs = mem_alloc(sizeof(GUID) * count);
 										
-										StringFromGUID2(&DimensionIDs[0], strGuid, 39);
+										if (os_GdipImageGetFrameDimensionsList(image,DimensionIDs,count) == 0)
+										{
+											//For gif image , we only care about animation set#0
+											os_GdipImageGetFrameCount(image,&DimensionIDs[0],&first_frame.frame_count);
+										}
 										
-										os_GdipImageGetFrameCount(image,&DimensionIDs[0],&first_frame.frame_count);
-
+										mem_free(DimensionIDs);
 									}
-
-									mem_free(DimensionIDs);
 								}
 
 								// get frame delays.
@@ -13701,7 +13729,7 @@ static _viv_reply_t *_viv_reply_add(DWORD type,DWORD size,void *data)
 	
 	is_first = 0;
 	
-	e = (_viv_reply_t *)mem_alloc(sizeof(_viv_reply_t) + size);
+	e = (_viv_reply_t *)mem_alloc(safe_size_add(sizeof(_viv_reply_t),size));
 	
 	e->type = type;
 	e->size = size;
@@ -16470,7 +16498,7 @@ static void _viv_shuffle_playlist(void)
 			
 			QueryPerformanceCounter(&counter);
 			
-			srand(counter.LowPart);
+			srand((unsigned int)(counter.LowPart ^ counter.HighPart));
 		}
 		
 		_viv_playlist_shuffle_allocated = _VIV_DEFAULT_SHUFFLE_ALLOCATED;
@@ -16481,7 +16509,17 @@ static void _viv_shuffle_playlist(void)
 		}
 		
 		// allocate indexes.
-		_viv_playlist_shuffle_indexes = mem_alloc(_viv_playlist_shuffle_allocated * sizeof(_viv_playlist_t *));
+		// release the previous indexes first: the grow path in
+		// _viv_playlist_add_item frees before replacing, the initial
+		// shuffle must not leak the old block.
+		if (_viv_playlist_shuffle_indexes)
+		{
+			mem_free(_viv_playlist_shuffle_indexes);
+			
+			_viv_playlist_shuffle_indexes = 0;
+		}
+		
+		_viv_playlist_shuffle_indexes = mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)_viv_playlist_shuffle_allocated));
 		
 		// fill in indexes
 		{
@@ -16732,7 +16770,7 @@ static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 					_viv_nav_item_t **d;
 					_viv_nav_item_t *navitem;
 					
-					_viv_nav_items = (_viv_nav_item_t **)mem_alloc(_viv_nav_item_count * sizeof(_viv_nav_item_t *));
+					_viv_nav_items = (_viv_nav_item_t **)mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)_viv_nav_item_count));
 					d = _viv_nav_items;
 					
 					navitem = __viv_nav_item_start;
@@ -17071,7 +17109,7 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 			
 			QueryPerformanceCounter(&counter);
 			
-			srand(counter.LowPart);
+			srand((unsigned int)(counter.LowPart ^ counter.HighPart));
 		}
 									
 		_viv_home(0,0);
@@ -17102,7 +17140,7 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 			string_cat(new_search,search);
 			string_cat_utf8(new_search,">");
 
-			size = (DWORD)(sizeof(EVERYTHING_IPC_QUERY2) + (string_get_length(new_search) + 1) * sizeof(wchar_t));
+			size = (DWORD)safe_size_add(sizeof(EVERYTHING_IPC_QUERY2),safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(new_search))));
 			
 			_viv_everything_request_flags = EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME; 
 					
@@ -17408,8 +17446,8 @@ static HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int orientation)
 										
 					// SIZE_T casts: the 32 bit int intermediate can overflow
 					// before it ever reaches mem_alloc's uintptr_t parameter.
-					old_pixels = mem_alloc((SIZE_T)bitmap.bmWidth * (SIZE_T)bitmap.bmHeight * sizeof(DWORD));
-					new_pixels = mem_alloc((SIZE_T)ret_wide * (SIZE_T)ret_high * sizeof(DWORD));
+					old_pixels = mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)bitmap.bmWidth,(SIZE_T)bitmap.bmHeight),sizeof(DWORD)));
+					new_pixels = mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)ret_wide,(SIZE_T)ret_high),sizeof(DWORD)));
 				
 					if (GetDIBits(mem_hdc,hbitmap,0,bitmap.bmHeight,old_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS))
 					{
@@ -17569,7 +17607,7 @@ static void _viv_send_random_everything_search(void)
 		string_cat(new_search,_viv_random);
 		string_cat_utf8(new_search,">");
 
-		size = (DWORD)(sizeof(EVERYTHING_IPC_QUERY2) + (string_get_length(new_search) + 1) * sizeof(wchar_t));
+		size = (DWORD)safe_size_add(sizeof(EVERYTHING_IPC_QUERY2),safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(new_search))));
 		
 		_viv_everything_request_flags = EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME; 
 				

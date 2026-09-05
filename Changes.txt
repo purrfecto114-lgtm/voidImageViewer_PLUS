@@ -1,3 +1,36 @@
+Stable: Version 1.1.03 (the second user audit lands: the safe size helpers now guard every allocation arithmetic)
+	audit: the second full-codebase user audit (all 30 source files, the
+	viv.c playlist, rotation, mipmap, gesture, save as and ipc paths
+	rescanned) found no new high severity issue. two defensive gaps and
+	one architectural gap were confirmed and fixed.
+	safe size: the safe_size helpers existed since the fork began but
+	almost no allocation used them (4 of about 40 sites, none of the
+	fixed ones). every allocation with arithmetic now goes through them:
+	the playlist and navigation pointer arrays, the rotate pixel buffers,
+	the backdrop checker bits, the everything ipc query and reply sizes,
+	the relaunch copydata size, the string, utf8, ini and glyph buffers
+	and the clipboard globals. an overflow now returns SIZE_MAX and
+	fails the allocation cleanly instead of wrapping to an undersized
+	block.
+	frame dimensions: the gdi+ frame dimension count is validated before
+	the dimension list is read: a zero count would read dimension set #0
+	outside a zero length allocation and an oversized count would wrap
+	the size multiplication (the same trust gap as the 1.1.02 frame
+	delay fix, 15 lines apart). the guid diagnostic string that was
+	written and never read is gone.
+	brushes: the four dark chrome brushes now live at file scope and
+	are released in the kill path with the other cached brushes instead
+	of leaking for the process lifetime.
+	playlist: the initial shuffle releases the previous index array
+	before replacing it (the grow path already did, the initial path
+	did not).
+	save as: the base name is trimmed when the typed path fills the
+	buffer so the filter extension always fits, a full buffer used to
+	silently save the file with no extension.
+	shuffle: the seeds mix both halves of the performance counter
+	instead of the low 32 bits only (the playlist shuffle and the random
+	everything search).
+
 Stable: Version 1.1.02 (the dark ui reaches every strip: menu bar tail, options tabs, dialog controls, toolbar states, crisp glyphs)
 	menus: windows 11 and pre 1903 builds never darken a win32 menu bar
 	(the immersive dark app mode repaints the title bar but the menu bar
