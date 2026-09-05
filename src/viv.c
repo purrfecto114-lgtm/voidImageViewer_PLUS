@@ -16259,6 +16259,12 @@ static void _viv_edit_key_remove_currently_used_by(_viv_key_list_t *keylist,DWOR
 // FIXME: we should check for the process name voidImageViewer.exe rather than the
 // window class name. -be careful when uninstalling as the non-admin process will be
 // waiting for the admin process to exit.
+// QueryFullProcessImageNameW (Vista+) is resolved lazily right here:
+// the install/uninstall path runs before os_init so the central
+// runtime table is not populated yet, and the headers gate the
+// declaration behind a newer _WIN32_WINNT than the project targets.
+static BOOL (WINAPI *_viv_query_full_process_image_name)(HANDLE,DWORD,wchar_t *,DWORD *);
+
 static int _viv_is_voidimageviewer_process(DWORD process_id)
 {
 	HANDLE process_handle;
@@ -16276,9 +16282,14 @@ static int _viv_is_voidimageviewer_process(DWORD process_id)
 		wchar_t image_name[STRING_SIZE];
 		DWORD image_name_length;
 		
+		if (!_viv_query_full_process_image_name)
+		{
+			_viv_query_full_process_image_name = (void *)GetProcAddress(GetModuleHandleA("kernel32.dll"),"QueryFullProcessImageNameW");
+		}
+		
 		image_name_length = STRING_SIZE;
 		
-		if (QueryFullProcessImageNameW(process_handle,0,image_name,&image_name_length))
+		if ((_viv_query_full_process_image_name) && (_viv_query_full_process_image_name(process_handle,0,image_name,&image_name_length)))
 		{
 			const wchar_t *basename;
 			const wchar_t *wanted;

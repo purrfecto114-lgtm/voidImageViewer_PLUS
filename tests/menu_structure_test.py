@@ -1922,7 +1922,10 @@ def t_audit_round18():
           "static int _viv_is_voidimageviewer_process(DWORD process_id)" in viv)
     check("image name query uses the limited information right",
           "OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,process_id)" in viv and
-          "QueryFullProcessImageNameW(process_handle,0,image_name,&image_name_length)" in viv)
+          "_viv_query_full_process_image_name(process_handle,0,image_name,&image_name_length)" in viv)
+    check("the image name query is resolved at run time like every other modern api",
+          'GetProcAddress(GetModuleHandleA("kernel32.dll"),"QueryFullProcessImageNameW")' in viv and
+          "static BOOL (WINAPI *_viv_query_full_process_image_name)(HANDLE,DWORD,wchar_t *,DWORD *);" in viv)
     check("close existing process refuses foreign windows",
           "if ((process_id) && (!_viv_is_voidimageviewer_process(process_id)))" in viv)
 
