@@ -83,14 +83,14 @@ Var existing_ini_filename
 Var admin_install_options
 Var user_install_options
 
-BrandingText "void Image Viewer ${VERSION}${BETAVERSION} (${TARGETMACHINE}) Setup"
+BrandingText "void Image Viewer ${DISPLAYVERSION} (${TARGETMACHINE}) Setup"
 
 ; settings /SOLID will save a few KBs
 SetCompressor /SOLID lzma
 Name "void Image Viewer"
 
 ; unified output file. the installer is bilingual, no language code in the name.
-OutFile "voidImageViewer-${VERSION}${BETAVERSION}-${TARGETMACHINE}-Setup.exe"
+OutFile "voidImageViewer-${DISPLAYVERSION}-${TARGETMACHINE}-Setup.exe"
 
 ; MUI settings
 !define MUI_ICON "..\res\voidImageViewer.ico"
@@ -159,8 +159,8 @@ VIAddVersionKey "LegalTrademarks" ""
 VIAddVersionKey "LegalCopyright" "Copyright (c) 2025 David Carpenter"
 VIAddVersionKey "FileDescription" "void Image Viewer Setup"
 
-VIAddVersionKey "FileVersion" "${VERSION}${BETAVERSION}.${TARGETMACHINE}"
-VIAddVersionKey "ProductVersion" "${VERSION}${BETAVERSION}.${TARGETMACHINE}"
+VIAddVersionKey "FileVersion" "${DISPLAYVERSION}.${TARGETMACHINE}"
+VIAddVersionKey "ProductVersion" "${DISPLAYVERSION}.${TARGETMACHINE}"
 
 Function .onInit
 
@@ -292,18 +292,10 @@ no_app_data:
         
 skip_app_data:  
 
-        ; forward the installer language to the application so that it
-        ; starts in the same language that was selected in this installer.
-        ; silent installs are skipped, the application then follows its own
-        ; "auto" (system language) detection.
-        IfSilent skip_language_forward 0
-                StrCmp $LANGUAGE ${LANG_SIMPCHINESE} 0 forward_english
-                        StrCpy $admin_install_options "$admin_install_options /language chinese"
-                        Goto forward_language_done
-                forward_english:
-                        StrCpy $admin_install_options "$admin_install_options /language english"
-                forward_language_done:
-        skip_language_forward:
+        ; the application language is intentionally NOT forwarded from the
+        ; installer any more: a fresh install starts in "auto" (follows the
+        ; system language; the viewer options offer auto/english/chinese).
+        ; the installer language only localizes the installer itself.
 
         ; startmenu
         !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 1" "State"

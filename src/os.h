@@ -145,7 +145,8 @@ extern void os_dark_refresh(void);
 // call re-reads it (WM_SETTINGCHANGE / WM_THEMECHANGED).
 // set the DarkMode_Explorer visual style on a window (dialog controls and
 // tabs draw dark with it). returns 1 when the style was applied.
-extern int os_dark_window_theme(HWND hwnd);
+extern int os_dark_window_theme(HWND hwnd);
+extern int os_allow_dark_mode_for_window(HWND hwnd,int allow);
 extern void os_dark_invalidate(void);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);
 extern DWORD (WINAPI *os_GetLayout)(HDC hdc);

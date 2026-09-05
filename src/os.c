@@ -1287,7 +1287,22 @@ int os_dark_window_theme(HWND hwnd)
 	}
 	
 	return 0;
-}
+}
+
+// opt a single window (usually a dialog child control) into the dark
+// comctl styles. must be called before os_dark_window_theme for the
+// control. returns 1 when the dark mode api is available.
+int os_allow_dark_mode_for_window(HWND hwnd,int allow)
+{
+	if (_os_AllowDarkModeForWindow)
+	{
+		_os_AllowDarkModeForWindow(hwnd,allow);
+		
+		return 1;
+	}
+	
+	return 0;
+}
 // set the app menu theme. mode 0 = light, 1 = dark, 2 = follow the system.
 void os_dark_set_app_mode(int mode)
 {

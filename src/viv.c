@@ -6534,29 +6534,48 @@ debug_printf("next %d\n",config_shuffle);
 									}		
 								}
 							}
+							// the wrap target is only needed when the primary direction
+							// found no candidate (the current image sits at the end of the
+							// sorted view). tracking it inside this scan costs one collation
+							// compare per file on every navigation (the natural name sort
+							// calls CompareString); the deferred second pass after the scan
+							// only runs in the wrap case.
 							
-							// compare with start..
-							if (prev)
-							{
-								if ((!got_start) || (_viv_fd_compare(&d->fd,&start_fd) > 0))
-								{
-									os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-									
-									got_start = 1;
-								}
-							}
-							else
-							{
-								if ((!got_start) || (_viv_fd_compare(&d->fd,&start_fd) < 0))
-								{
-									os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-									got_start = 1;
-								}
-							}					
 						}
 					
 						d = d->next;
 					}
+					if (!got_best)
+					{
+						d = _viv_playlist_start;
+						
+						while(d)
+						{
+							if (d != current_d)
+							{
+								if (prev)
+								{
+									if ((!got_start) || (_viv_fd_compare(&d->fd,&start_fd) > 0))
+									{
+										os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
+										
+										got_start = 1;
+									}
+								}
+								else
+								{
+									if ((!got_start) || (_viv_fd_compare(&d->fd,&start_fd) < 0))
+									{
+										os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
+										got_start = 1;
+									}
+								}
+							}
+							
+							d = d->next;
+						}
+					}
+					
 	debug_printf("gotbest %d %d\n",got_best,got_start);
 				}
 			}
@@ -6617,29 +6636,9 @@ debug_printf("FIND next\n");
 									}		
 								}
 							}
+							// (the wrap target tracking was deferred: see the second
+							// pass after the scan, it only runs in the wrap case.)
 							
-							// compare with start..
-							if (prev)
-							{
-								if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) > 0))
-								{
-									string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-									string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
-									os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
-									
-									got_start = 1;
-								}
-							}
-							else
-							{
-								if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) < 0))
-								{
-									string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-									string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
-									os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
-									got_start = 1;
-								}
-							}
 						}
 						
 						if (!FindNextFile(h,&fd)) break;
@@ -6647,6 +6646,51 @@ debug_printf("FIND next\n");
 
 					FindClose(h);
 				}
+					if (!got_best)
+					{
+						// deferred wrap target. the search pattern is rebuilt first:
+						// the scan above reuses search_wbuf for candidate paths.
+						string_copy(search_wbuf,path_wbuf);
+						string_cat_utf8(search_wbuf,(const utf8_t *)"\\*.*");
+						
+						h = FindFirstFile(search_wbuf,&fd);
+						
+						if (h != INVALID_HANDLE_VALUE)
+						{
+							for(;;)
+							{
+								if (_viv_is_valid_filename(&fd))
+								{
+									if (prev)
+									{
+										if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) > 0))
+										{
+											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+											string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
+											os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
+											
+											got_start = 1;
+										}
+									}
+									else
+									{
+										if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) < 0))
+										{
+											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+											string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
+											os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
+											got_start = 1;
+										}
+									}
+								}
+								
+								if (!FindNextFile(h,&fd)) break;
+							}
+							
+							FindClose(h);
+						}
+					}
+					
 			}
 
 			if (got_best)
@@ -8040,6 +8084,26 @@ static HBRUSH _viv_dialog_dark_brush(void)
 
 // give a dialog the dark chrome: a dark title bar and the dark explorer
 // control style. call from WM_INITDIALOG.
+// the dark explorer style does not cascade from a dialog to its child
+// controls: every button, combobox, listbox and edit must opt in
+// individually (allow dark mode, then the dark theme class) or it keeps
+// drawing with the light visual style on the dark background. this is
+// what made the options pages look half themed (dark background, light
+// comboboxes and check glyphs).
+static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
+{
+	(void)lParam;
+	
+	os_allow_dark_mode_for_window(hwnd,1);
+	
+	os_dark_window_theme(hwnd);
+	
+	return TRUE;
+}
+
+// give a dialog the dark chrome: a dark title bar, the dark explorer
+// control style and the same style on every child control. call from
+// WM_INITDIALOG (the dialog manager creates the children before it).
 static void _viv_dark_dialog(HWND hwnd)
 {
 	if (_viv_is_dark())
@@ -8047,6 +8111,8 @@ static void _viv_dark_dialog(HWND hwnd)
 		os_dark_titlebar(hwnd,1);
 		
 		os_dark_window_theme(hwnd);
+		
+		EnumChildWindows(hwnd,_viv_dark_dialog_children,0);
 	}
 }
 

@@ -5,8 +5,9 @@ name: release
 #
 # Gates, in order:
 #   1. validate: the effective tag (input or pushed ref) must match the
-#      whitelist regex, the tag must check out, and the tag must match
-#      src/version.h (the single source of truth for the version).
+#      whitelist regex (upstream style 1.1.01 or legacy v-prefixed), the tag
+#      must check out, and the tag must match src/version.h VERSION_STRING
+#      (the single source of truth for the version).
 #   2. tests: both Python regression suites must pass on the tag's commit.
 #      A release can never be published without the tests being green on
 #      the exact bits being shipped.
@@ -28,10 +29,11 @@ on:
   push:
     tags:
       - 'v*'
+      - '[0-9]*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to release (e.g. v1.1.0-rc.5). Required for manual runs; tag pushes use the pushed tag.'
+        description: 'Tag to release (e.g. 1.1.01 or v1.1.0-rc.7). Required for manual runs; tag pushes use the pushed tag.'
         required: false
         default: ''
 
@@ -58,12 +60,13 @@ jobs:
             tag="${REF_NAME}"
           fi
           if [ -z "$tag" ]; then
-            echo "::error::no tag: push a v* tag or provide the tag input for manual runs"
+            echo "::error::no tag: push a version tag or provide the tag input for manual runs"
             exit 1
           fi
-          case "$tag" in v*) ;; *) tag="v$tag" ;; esac
-          # 3 or 4 numeric segments, optional -beta.N / -rc.N phase
-          if ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+(\.[0-9]+){1,2}(-(beta|rc)\.[0-9]+)?$'; then
+          # upstream style tags carry no v prefix (1.1.01); our legacy tags do
+          # (v1.1.0-rc.7). both are accepted, the tag is used exactly as pushed.
+          # 3 or 4 numeric segments, optional -beta.N / -rc.N phase.
+          if ! printf '%s' "$tag" | grep -Eq '^v?[0-9]+\.[0-9]+(\.[0-9]+){1,2}(-(beta|rc)\.[0-9]+)?$'; then
             echo "::error::tag '$tag' does not match the release tag whitelist"
             exit 1
           fi
@@ -115,17 +118,16 @@ jobs:
           import re, sys
           tag = sys.argv[1]
           src = open('src/version.h', encoding='utf-8-sig').read()
-          def num(name):
-              m = re.search(r'#define\s+' + name + r'\s+(\d+)', src)
-              if not m:
-                  sys.exit('::error::src/version.h does not define ' + name)
-              return m.group(1)
-          m = re.search(r'#define\s+VERSION_TYPE\s+"([^"]*)"', src)
-          vtype = m.group(1) if m else ''
-          expected = 'v%s.%s.%s%s' % (num('VERSION_MAJOR'), num('VERSION_MINOR'), num('VERSION_REVISION'), vtype)
-          if tag != expected:
-              sys.exit('::error::tag %s does not match src/version.h (expected %s). Bump src/version.h to match the tag.' % (tag, expected))
-          print('tag matches src/version.h: %s' % expected)
+          # the release identity is VERSION_STRING (what the tag, the
+          # installer names and the version resource display); the numeric
+          # quad is the internal build identity and is not part of the tag.
+          m = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', src)
+          if not m:
+              sys.exit('::error::src/version.h does not define VERSION_STRING')
+          expected = m.group(1)
+          if tag.lstrip('v') != expected:
+              sys.exit('::error::tag %s does not match src/version.h VERSION_STRING (expected %s). Bump src/version.h to match the tag.' % (tag, expected))
+          print('tag matches src/version.h VERSION_STRING: %s' % expected)
           EOF
 
   tests:

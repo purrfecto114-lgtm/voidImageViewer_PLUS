@@ -85,11 +85,15 @@ void localization_init(void)
 	
 		langid = os_GetUserDefaultUILanguage();
 
-		// Check if it's Chinese (Simplified or Traditional)
+		// Check if it's Chinese (Simplified or Traditional).
+		// the simplified table is the only chinese table we ship, so every
+		// chinese ui locale maps to it (best effort for traditional readers).
 		// 0x0804 = Chinese (Simplified, PRC)
+		// 0x1004 = Chinese (Simplified, Singapore)
 		// 0x0404 = Chinese (Traditional, Taiwan)
 		// 0x0C04 = Chinese (Traditional, Hong Kong)
-		if ((langid == 0x0804) || (langid == 0x0404) || (langid == 0x0C04))
+		// 0x1404 = Chinese (Traditional, Macau)
+		if ((langid == 0x0804) || (langid == 0x1004) || (langid == 0x0404) || (langid == 0x0C04) || (langid == 0x1404))
 		{
 			localization_language = LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED;
 		}

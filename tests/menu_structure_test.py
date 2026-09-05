@@ -186,10 +186,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.0.20 -rc.7",
-          (major, minor, rev, build) == ("1", "1", "0", "20") and vtype == "-rc.7")
-    check("VERSION_STRING composes from the numeric macros",
-          vstr == "%s.%s.%s%s" % (major, minor, rev, vtype))
+    check("version.h = 1.1.0.21 stable",
+          (major, minor, rev, build) == ("1", "1", "0", "21") and vtype == "")
+    check("VERSION_STRING is the release identity (the stable tag)",
+          vstr == "1.1.01")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -200,9 +200,11 @@ def t_version():
     check("nsh derives from src/version.h at compile time",
           "!searchparse" in nsh and "..\\src\\version.h" in nsh and
           '!define VERSION "${VIV_VER_MAJOR}.${VIV_VER_MINOR}.${VIV_VER_REVISION}.${VIV_VER_BUILD}"' in nsh and
-          '!define BETAVERSION "${VIV_VER_TYPE}"' in nsh)
+          '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
+    check("nsh parses VERSION_STRING for the release identity",
+          '`#define VERSION_STRING "` VIV_VER_STRING' in nsh)
     check("nsh has no hardcoded version left",
-          '"1.1.0.' not in nsh and '"-rc.' not in nsh)
+          '"1.1.0.' not in nsh and '"-rc.' not in nsh and '"1.1.01"' not in nsh)
 
 
 # ---------------------------------------------------------------------------
@@ -1095,7 +1097,7 @@ def t_release_engineering_round5():
     check("artifact hashes are re-verified after download",
           "Re-verify artifact SHA-256" in ry and "sha256sum -c sha256.txt" in ry)
     check("tag whitelist regex accepts 3 or 4 numeric segments",
-          "grep -Eq '^v[0-9]+\\.[0-9]+(\\.[0-9]+){1,2}(-(beta|rc)\\.[0-9]+)?$'" in ry)
+          "grep -Eq '^v?[0-9]+\\.[0-9]+(\\.[0-9]+){1,2}(-(beta|rc)\\.[0-9]+)?$'" in ry)
     check("tag must match src/version.h",
           "Verify the tag matches src/version.h" in ry)
     check("release notes are generated from Changes.txt, not embedded",
@@ -1457,6 +1459,79 @@ def t_round7():
           "<dpiAwareness>PerMonitorV2, PerMonitor</dpiAwareness>" in mf)
 
 
+
+
+# ---------------------------------------------------------------------------
+# stable round (1.1.01): dark dialog child controls, language default auto,
+# navigation scan cost, upstream style release tags.
+# ---------------------------------------------------------------------------
+def t_stable_round():
+    viv = read("src/viv.c").decode()
+    osh = read("src/os.h").decode()
+    osc = read("src/os.c").decode()
+    loc = read("src/localization.c").decode()
+    ins = read("nsis/installer.nsi").decode()
+    nsh = read("nsis/version.nsh").decode()
+    ry = read(".github/workflows/release.yml").decode()
+    vh = read("src/version.h").decode()
+
+    # dark dialogs: the explorer dark style does not cascade, the fork now
+    # opts every child control in (this is what the field screenshot showed:
+    # dark dialog + light comboboxes / check glyphs).
+    check("os.h exports os_allow_dark_mode_for_window",
+          "extern int os_allow_dark_mode_for_window(HWND hwnd,int allow);" in osh)
+    check("os.c implements the per-window allow",
+          "int os_allow_dark_mode_for_window(HWND hwnd,int allow)" in osc)
+    check("viv.c has the dark dialog child enumerator",
+          "static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)" in viv)
+    check("_viv_dark_dialog enumerates its children",
+          "EnumChildWindows(hwnd,_viv_dark_dialog_children,0);" in viv)
+    i = viv.find("static BOOL CALLBACK _viv_dark_dialog_children")
+    seg_enum = viv[i:viv.find("\\n}", i)]
+    check("the enumerator opts each control in before theming",
+          seg_enum.find("os_allow_dark_mode_for_window(hwnd,1);") <
+          seg_enum.find("os_dark_window_theme(hwnd);"))
+
+    # language default auto: the installer no longer pins the app language.
+    check("installer no longer forwards a language to the app",
+          ins.count("/language ") == 0 and "forward_english" not in ins)
+    check("installer documents the auto default",
+          "NOT forwarded from the" in ins and 'starts in "auto"' in ins)
+    check("auto detection covers all chinese ui locales",
+          "0x1004" in loc and "0x1404" in loc and "0x0804" in loc)
+
+    # navigation scan cost: the wrap target (start) tracking is deferred to a
+    # second pass that only runs when the primary direction has no candidate.
+    i = viv.find("static int _viv_next(")
+    i = viv.find("static int _viv_next(", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the playlist scan dropped its per-file start compare",
+          "// compare with start" not in seg[:seg.find("if (!got_best)")])
+    check("the folder scan dropped its per-file start compare",
+          seg.count("compare with start") == 0)
+    check("both deferred wrap passes exist",
+          seg.count("if (!got_best)") == 2)
+    check("the deferred folder pass rebuilds the search pattern",
+          seg.count("string_cat_utf8(search_wbuf,(const utf8_t *)"+chr(34)+chr(92)+chr(92)+"*.*"+chr(34)) == 2)
+    check("both scans still find the primary candidate",
+          seg.count("_viv_fd_compare(&d->fd,_viv_current_fd)") == 1 and
+          seg.count("_viv_fd_compare(&fd,_viv_current_fd)") == 1)
+
+    # release identity: upstream style tag 1.1.01 == VERSION_STRING.
+    check("release workflow triggers on upstream style numeric tags",
+          "'[0-9]*'" in ry)
+    check("the tag whitelist accepts the optional v prefix",
+          "^v?[0-9]+" in ry)
+    check("validate compares the tag to VERSION_STRING",
+          "VERSION_STRING" in ry and "tag.lstrip('v') != expected" in ry)
+    check("version.nsh carries the display version",
+          '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
+    check("installer names assets with the release identity",
+          'OutFile "voidImageViewer-${DISPLAYVERSION}-${TARGETMACHINE}-Setup.exe"' in ins)
+    check("VERSION_TYPE is empty for the stable line",
+          '#define VERSION_TYPE ""' in vh)
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -1480,6 +1555,7 @@ if __name__ == "__main__":
     t_release_engineering_round5()
     t_modernization_round6()
     t_round7()
+    t_stable_round()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

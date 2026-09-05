@@ -1,17 +1,17 @@
-# void Image Viewer (Touch + Languages Beta)
+# void Image Viewer (Touch + Languages)
 
-[![pre-release](https://img.shields.io/badge/status-beta-orange.svg)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
-[![release](https://img.shields.io/github/v/release/purrfecto114-lgtm/voidImageViewer_PLUS?include_prereleases&display_name=tag)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
+[![stable](https://img.shields.io/badge/status-stable-brightgreen.svg)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
+[![release](https://img.shields.io/github/v/release/purrfecto114-lgtm/voidImageViewer_PLUS&display_name=tag)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **⚠️ BETA** — This is an experimental fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with new **touch optimizations**, **on-screen zoom controls** and a **bilingual installer + UI language switcher**. It is a pre-release for testing. Please report issues in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/issues).
+> **Stable** — A fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with **touch optimizations**, **on-screen zoom controls**, a **dark UI**, and a **bilingual installer + UI language switcher**. Please report issues in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/issues).
 
 A lightweight image viewer for Windows with animated GIF/WEBP support.  
 Opens and displays BMP, GIF, ICO, PNG, JPG, TIF and WEBP images as fast as possible.  
 Animate GIF/WEBP files as accurately as possible.  
 
 [Download](#download)<br/>
-[What's new in this beta](#whats-new-in-this-beta)<br/>
+[What's new](#whats-new)<br/>
 [Touch & zoom controls](#touch--zoom-controls)<br/>
 [Languages](#languages)<br/>
 [Build from source](#build-from-source)<br/>
@@ -22,7 +22,7 @@ Animate GIF/WEBP files as accurately as possible.
 
 Download
 --------
-Pre-release binaries are published on the GitHub Releases page:
+Binaries are published on the GitHub Releases page:
 
 https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
@@ -35,9 +35,16 @@ https://www.voidtools.com/forum/viewtopic.php?t=5623
 
 
 
-What's new in this release candidate
+What's new
 --------
-**Version 1.1.0-rc.7** is the field-feedback round for rc.6 (six fixes, each root-caused first):
+**Version 1.1.01 (first stable release)** completes the field-feedback work and moves the project out of pre-release:
+
+- **Dark dialogs, completed** - the dark explorer style does not cascade from a dialog to its child controls, so the options pages showed a dark background with light comboboxes, check glyphs and push buttons. Every dialog (options and its pages, about, rename, edit key, custom rate, jump-to, everything search) now opts each child control in at `WM_INITDIALOG`: buttons, comboboxes, listboxes, edits and group boxes all draw dark. Windows older than 1809 keeps the light controls.
+- **Language defaults to auto** - a fresh install now starts in *auto* (follows the system language). The installer no longer pins the application language to the installer language; the auto detection also covers the remaining Chinese UI locales (Singapore, Macau). Language stays switchable in the options (auto / English / 简体中文).
+- **Faster navigation on large folders** - the next/previous/preload scans no longer pay one collation compare per file for the wrap target: it is deferred to a second pass that only runs when the current image sits at the end of the sorted view. With the natural (Explorer-like) name sort this removes ~40% of the compare volume on every navigation.
+- **Upstream-style release tags** - the release identity is now the plain version string `1.1.01` (no `v` prefix, like upstream's `1.0.0.15`); the installer names, the version resource and the tag all display the same string. The release workflow accepts both the new style and the legacy `v`-prefixed tags.
+
+**Version 1.1.0-rc.7** was the field-feedback round for rc.6 (six fixes, each root-caused first):
 
 - **Pinch-zoom spike fixed** - a pinch whose fingers collapse together used to explode the zoom to max instantly (a tiny baseline distance made the next sample's ratio enormous). Distances below ~9.5mm (36 logical px, DPI-scaled) are now treated as a collapsed pinch: the zoom freezes and re-baselines when the fingers separate again.
 - **Zoom ceiling = 1600%** - the ladder tops out at 16x the native image size instead of 16x-the-larger-of-fit-and-native (a window larger than the image, or fill window, could push the old ceiling past 24x - the 2478% report). Fill window keeps its upscale at the floor.
@@ -95,8 +102,6 @@ What's new in this release candidate
 - **Dark dialogs fix** - the beta.10 dark dialog color handler was dead code (placed before the first case label inside switch(msg), unreachable in C), so dialog backgrounds and text never actually painted dark. It now runs on every message, and the Jump To dialog is wired too.
 - **Translations** - the two new zoom strings are translated in both languages (254/254 aligned).
 
-What's new in this beta
---------
 **Version 1.1.0-beta.13** fixes the beta.12 startup crash and regroups the right click menu:
 
 - **Startup crash fix** - beta.12 called the gdi+ thumbnail API by a name that does not exist in any gdiplus.dll and treated the missing export as fatal: the exe died at startup with "missing proc GdipGetImageThumbnailImage", which also broke the installer (setup runs the exe to install itself, so nothing landed in the installed programs list). The load is now optional, uses the real export name and the correct parameter order.

@@ -1,3 +1,25 @@
+Stable: Version 1.1.01 (first stable release: complete dark dialogs, auto language default, faster navigation, upstream style tags)
+	dark ui: the explorer dark style does not cascade from a dialog to its
+	child controls, so the options pages showed a dark background with light
+	comboboxes, check glyphs and push buttons (the field report). every dialog
+	now opts each child control in at WM_INITDIALOG (allow dark mode, then the
+	dark theme class): buttons, comboboxes, listboxes, edits and group boxes
+	all draw dark. windows older than 1809 keeps the light controls.
+	language: a fresh install now starts in auto (system language). the
+	installer no longer pins the application language to the installer
+	language, and the auto detection covers all chinese ui locales (prc,
+	singapore, taiwan, hong kong, macau map to the simplified table).
+	performance: the next/previous/preload navigation scans no longer pay a
+	collation compare per file for the wrap target - it is deferred to a
+	second pass that only runs when the current image sits at the end of the
+	sorted view. with the natural (explorer like) name sort this removes
+	about 40 percent of the compare volume on every navigation of a large
+	folder.
+	release: the version identity is the plain tag string 1.1.01 (upstream
+	style, no v prefix); the installer names, the version resource and the
+	tag display the same string. the release workflow accepts both the new
+	style and the legacy v prefixed tags.
+
 Release candidate: Version 1.1.0-rc.7 (field feedback round: pinch zoom floor, 1600% ceiling, file options, hud layout, dark menu bar)
 	six fixes from rc.6 field use, each root caused before coding:
 	touch: a pinch whose fingers collapse close together used to explode
