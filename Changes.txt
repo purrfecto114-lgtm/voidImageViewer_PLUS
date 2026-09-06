@@ -1,3 +1,20 @@
+Stable: Version 1.0.04 (pointer width budget)
+	load performance: the pixel budget ceiling is now pointer width
+	dependent. 32-bit builds keep the 100 mp guard (a 100 mp rgba
+	frame is already 400 mb against a 2 gb address space) while
+	64-bit builds (x64 and arm64) raise the ceiling to 400 mp, so
+	real panoramic stitches and large flatbed scans load normally
+	instead of failing like a corrupt file - the reported 1.0.03
+	regression where big-but-honest images stopped opening.
+	budget diagnostics: both loaders now print the refusal reason
+	(the claimed megapixels and the ceiling) through the debug
+	channel, so a user wondering why a file fails can turn the debug
+	banner on and read it - silent refusals are over.
+	test kit: the anomaly sample set grows to 38 samples - 35 now
+	doubles as the x64 acceptance boundary (110 mp loads on x64,
+	still refused on 32-bit) and 38 pins the x64 refusal point
+	(625 mp lying header). the guard suite pins both branches of
+	the ceiling split and the diagnostic on both loaders.
 Stable: Version 1.0.03 (version display unification)
 	version identity: every user visible version now shows the release
 	identity - the tag string. the about dialog showed 1.0.2.25, the

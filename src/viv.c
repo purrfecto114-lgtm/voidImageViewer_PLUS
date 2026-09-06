@@ -730,6 +730,7 @@ static void _viv_open_preload(void);
 //static void _viv_tooltip_update_track_position(void);
 static int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *dst,SIZE_T dst_size);
 static UINT _viv_frame_delay_at(const os_PropertyItem_t *pd,SIZE_T pd_size,DWORD i);
+static int _viv_pixel_budget_refused(SIZE_T pixels);
 
 static HMODULE _viv_stobject_hmodule = 0;
 static _viv_playlist_t *_viv_playlist_start = 0;
@@ -13234,7 +13235,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 						// a canvas that decodes to gigabytes of rgba. refuse the
 						// load before any frame allocation happens; the dispose
 						// below still runs so this fails like an unloadable file.
-						if ((os_GdipGetImageHeight(image,&first_frame.high) == 0) && (safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high) <= VIV_MAX_IMAGE_PIXELS))
+						if ((os_GdipGetImageHeight(image,&first_frame.high) == 0) && (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high))))
 						{
 							UINT count;
 							int load_wide;
@@ -19444,6 +19445,18 @@ static void _viv_tooltip_update_track_position(void)
 // property buffer before it is used, and the delay array may hold fewer
 // entries than there are frames (the gif GCE block is optional), so delays
 // are reused modulo the available count.
+static int _viv_pixel_budget_refused(SIZE_T pixels)
+{
+	if (pixels > VIV_MAX_IMAGE_PIXELS)
+	{
+		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(VIV_MAX_IMAGE_PIXELS / 1000000));
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
 static UINT _viv_frame_delay_at(const os_PropertyItem_t *pd,SIZE_T pd_size,DWORD i)
 {
 	UINT value;

@@ -214,6 +214,10 @@ def build(out_dir):
          make_png(32, 32, 8, bit_depth=16))
 
     # 34-37 boundary and format confusion
+    # 34-35: the 32-bit ceiling story. 1.0.04 splits the ceiling by
+    # pointer width, so 35 now doubles as the x64 acceptance boundary
+    # (110 mp loads on x64, still refused on 32-bit) and 38 pins the
+    # x64 refusal point above the 400 mp ceiling.
     emit('34_png_exactly_100mp_boundary.png', make_png(10000, 10000, 1))
     emit('35_png_over_budget_110mp.png', full_png(10500, 10500))
     emit('36_gif_data_with_bmp_name.bmp',
@@ -222,6 +226,7 @@ def build(out_dir):
          make_bmp(96, 64)[:2] +
          struct.pack('<IHHI', 999999, 0, 0, 54) +
          make_bmp(96, 64)[14:])
+    emit('38_png_over_x64_budget_625mp.png', make_png(25000, 25000, 1))
 
     return files
 
@@ -244,7 +249,7 @@ def self_check(files, out_dir):
         if not cond:
             failures.append(msg)
 
-    expect(len(files) == 37, 'expected 37 samples, produced %d' % len(files))
+    expect(len(files) == 38, 'expected 38 samples, produced %d' % len(files))
 
     # png header claims
     for name, wh in [
@@ -255,6 +260,7 @@ def self_check(files, out_dir):
         ('10_png_claims_10001x10001.png', (10001, 10001)),
         ('34_png_exactly_100mp_boundary.png', (10000, 10000)),
         ('35_png_over_budget_110mp.png', (10500, 10500)),
+        ('38_png_over_x64_budget_625mp.png', (25000, 25000)),
         ('28_control_png_100x100.png', (100, 100)),
         ('29_control_png_4000x3000.png', (4000, 3000)),
     ]:
@@ -268,6 +274,12 @@ def self_check(files, out_dir):
     expect(len(by_name['35_png_over_budget_110mp.png']) < 2000000,
            'over budget sample grew beyond its deflate shape (the 258 byte'
            ' match limit keeps a solid 10500 wide row near 140 bytes)')
+    expect(w * h < 400000000,
+           '110 mp sample now doubles as the x64 acceptance boundary, it'
+           ' must stay under the 400 mp x64 ceiling')
+    w38, h38 = png_ihdr(by_name['38_png_over_x64_budget_625mp.png'])
+    expect(w38 * h38 == 625000000 and w38 * h38 > 400000000,
+           'x64 over budget sample is not over the 400 mp ceiling')
 
     # gif structure
     for name in ['12_gif_anim_all_zero_delay.gif',
@@ -315,7 +327,7 @@ def main():
         for f in failures:
             print('SELF CHECK FAIL: ' + f)
         sys.exit(1)
-    print('SELF CHECK PASS: 37 samples, all headers verified')
+    print('SELF CHECK PASS: 38 samples, all headers verified')
     sys.exit(0)
 
 

@@ -18,6 +18,12 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
+**1.0.04 — pointer-width pixel budget (load performance fix):**
+
+- **Big images load again on 64-bit** — the 1.0.02 pixel budget refused *any* canvas over 100 MP on *every* build, which quietly broke panoramic stitches and large flatbed scans on x64/ARM64 (where 400 MP is a perfectly safe single-frame allocation). The ceiling now follows the pointer width: 100 MP on 32-bit, **400 MP on 64-bit**; hostile headers are still refused before the decoder runs.
+- **Refusals are no longer silent** — both loaders print the claimed megapixels and the ceiling through the debug channel, so "why won't this open" is answerable by turning on the debug banner.
+- **Test kit grows to 38** — the 110 MP sample doubles as the x64 acceptance boundary, a new 625 MP lying-header sample pins the x64 refusal point, and the guard suite anchors both branches of the split.
+
 **1.0.03 — version display unification:**
 
 - **One identity everywhere** — the About dialog (was `1.0.2.25 (x64)`), the Settings→Apps uninstall entry (was `1.0.2`) and the installer's version keys (was `1.0.02.x64`) now all show the release identity that matches the git tag — e.g. `1.0.03 (x64)` in About. The debug banner prints the identity with the build counter (`viv 1.0.03 (build 26) (x64)`), and five new test guards keep every display point anchored to `VERSION_STRING` so the formats can never drift apart again.

@@ -53,11 +53,21 @@ extern "C" {
 // claim dimensions that decode to gigabytes of rgba (a 428 kb png
 // can ask for 20000 x 20000). the loaders refuse the file before
 // any allocation happens so a huge canvas fails like any other
-// unloadable file instead of dying inside the allocator. 100 mp
-// (400 mb of rgba, plus mipmaps and rotation copies on top) keeps
-// every real photo, scan and panorama loadable while bounding the
-// decode inside the 32 bit address space.
+// unloadable file instead of dying inside the allocator.
+//
+// the ceiling is pointer-width dependent (1.0.04): 32-bit builds
+// keep the 100 mp ceiling (a 100 mp rgba frame is already 400 mb
+// against a 2 gb address space once gdi copies, mipmaps and
+// rotation buffers pile up); 64-bit builds (x64 / arm64) can
+// afford 400 mp so real panoramic stitches and large flatbed
+// scans (15000 x 9000 and up) load normally instead of failing
+// like a corrupt file. both ceilings still bound a hostile canvas
+// before the decoder runs.
+#if defined(_WIN64)
+#define VIV_MAX_IMAGE_PIXELS	400000000
+#else
 #define VIV_MAX_IMAGE_PIXELS	100000000
+#endif
 
 typedef unsigned char utf8_t;
 

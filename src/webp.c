@@ -26,6 +26,20 @@
 #include <src/webp/demux.h>
 #include <assert.h>
 
+// prints the refusal through the debug banner so a user wondering why a
+// huge file fails can turn the debug channel on and read the ceiling.
+static int _pixel_budget_refused(SIZE_T pixels)
+{
+	if (pixels > VIV_MAX_IMAGE_PIXELS)
+	{
+		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(VIV_MAX_IMAGE_PIXELS / 1000000));
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
 int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_data,DWORD frame_count,DWORD wide,DWORD high,int has_alpha),int (*frame_callback)(void *user_data,BYTE *pixels,int delay))
 {
 	int ret;
@@ -70,7 +84,7 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 							{
 								// pixel budget: refuse a hostile canvas before libwebp
 								// allocates the frame buffers of the animation.
-								if ((safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height) <= VIV_MAX_IMAGE_PIXELS) && (info_callback(user_data,anim_info.frame_count,anim_info.canvas_width,anim_info.canvas_height,features.has_alpha)))
+								if ((!_pixel_budget_refused(safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height))) && (info_callback(user_data,anim_info.frame_count,anim_info.canvas_width,anim_info.canvas_height,features.has_alpha)))
 								{
 									uint8_t *frame;
 									int timestamp;
@@ -154,7 +168,7 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 					// pixel budget: refuse a hostile canvas before libwebp
 					// allocates the rgba buffer (the decode itself is the
 					// multi gigabyte allocation the budget exists for).
-					if (safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height) <= VIV_MAX_IMAGE_PIXELS)
+					if (!_pixel_budget_refused(safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height)))
 					{
 						BYTE *pixels;
 						int width;

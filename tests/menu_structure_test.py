@@ -189,10 +189,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.0.3.26 stable (the fork line continues from the restart)",
-          (major, minor, rev, build) == ("1", "0", "3", "26") and vtype == "")
+    check("version.h = 1.0.4.27 stable (the fork line continues from the restart)",
+          (major, minor, rev, build) == ("1", "0", "4", "27") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.0.03")
+          vstr == "1.0.04")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -236,6 +236,26 @@ def t_version():
 #    starting with a double pan position; %d read the double's bits and the
 #    status bar showed garbage like -755914244%.)
 # ---------------------------------------------------------------------------
+def t_pixel_budget():
+    # 1.0.04: the ceiling is pointer-width dependent. the guards pin both
+    # branches of the split plus the refusal diagnostics on both loaders.
+    vh = read("src/viv.h").decode()
+    wp = read("src/webp.c").decode("latin-1")
+    viv = read("src/viv.c").decode("latin-1")
+
+    check("viv.h splits the ceiling by pointer width",
+          "#if defined(_WIN64)" in vh and
+          vh.count("#define VIV_MAX_IMAGE_PIXELS") == 2 and
+          "400000000" in vh and "100000000" in vh and
+          vh.index("400000000") < vh.index("#else") < vh.index("100000000"))
+    check("webp loader refuses through the budget helper with a diagnostic",
+          "_pixel_budget_refused" in wp and
+          wp.count("VIV_MAX_IMAGE_PIXELS") == 2)
+    check("gdi+ loader refuses through the budget helper with a diagnostic",
+          "_viv_pixel_budget_refused" in viv and
+          "pixel budget: refusing a %u mp canvas" in viv)
+
+
 def t_status_vararg_safety():
     viv = read("src/viv.c").decode()
     # the zoom pane call: exactly one string_printf uses the zoom format,
@@ -1930,11 +1950,11 @@ def t_audit_round18():
     check("pixel budget constant is defined once in viv.h",
           vivh.count("#define VIV_MAX_IMAGE_PIXELS\t100000000") == 1)
     check("gdi+ path checks the budget before any frame allocation",
-          "(os_GdipGetImageHeight(image,&first_frame.high) == 0) && (safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high) <= VIV_MAX_IMAGE_PIXELS)" in viv)
+          "(os_GdipGetImageHeight(image,&first_frame.high) == 0) && (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high)))" in viv)
     check("webp animation path checks the canvas budget before decoding",
-          "safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height) <= VIV_MAX_IMAGE_PIXELS" in webpc)
+          "(!_pixel_budget_refused(safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height)))" in webpc)
     check("webp still path checks the budget before the decode allocates",
-          "safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height) <= VIV_MAX_IMAGE_PIXELS" in webpc)
+          "if (!_pixel_budget_refused(safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height)))" in webpc)
 
     # issue 2: the uninstaller verifies the process image name
     check("process image name verification helper exists",
@@ -1969,6 +1989,7 @@ if __name__ == "__main__":
     t_localization_alignment()
     t_paint_guard()
     t_version()
+    t_pixel_budget()
     t_status_vararg_safety()
     t_dark_mode_wiring()
     t_ladder_shape()
