@@ -1,11 +1,7 @@
-**1.0.03 — version display unification:**
-
-- **One identity everywhere** — the About dialog (was `1.0.2.25 (x64)`), the Settings→Apps uninstall entry (was `1.0.2`) and the installer's version keys (was `1.0.02.x64`) now all show the release identity that matches the git tag — e.g. `1.0.03 (x64)` in About. The debug banner prints the identity with the build counter (`viv 1.0.03 (build 26) (x64)`), and five new test guards keep every display point anchored to `VERSION_STRING` so the formats can never drift apart again.
-
 # void Image Viewer (Touch + Languages)
 
 [![stable](https://img.shields.io/badge/status-stable-brightgreen.svg)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
-[![release](https://img.shields.io/github/v/release/purrfecto114-lgtm/voidImageViewer_PLUS&display_name=tag)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
+[![release](https://img.shields.io/github/v/release/purrfecto114-lgtm/voidImageViewer_PLUS.svg?display_name=tag)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > A stable fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with **touch optimizations**, **on-screen zoom controls**, a **complete dark UI**, and a **bilingual installer + UI language switcher**. Issues welcome in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/issues).
@@ -22,6 +18,10 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
+**1.0.03 — version display unification:**
+
+- **One identity everywhere** — the About dialog (was `1.0.2.25 (x64)`), the Settings→Apps uninstall entry (was `1.0.2`) and the installer's version keys (was `1.0.02.x64`) now all show the release identity that matches the git tag — e.g. `1.0.03 (x64)` in About. The debug banner prints the identity with the build counter (`viv 1.0.03 (build 26) (x64)`), and five new test guards keep every display point anchored to `VERSION_STRING` so the formats can never drift apart again.
+
 **1.0.02 — third audit round: decode budget + real machine smoke test:**
 
 - **Pixel budget** — both decoders refuse canvases over 100 MP *before* any allocation. A 428 KB hostile header claiming 20000×20000 used to hit the allocator and die with a fatal dialog; it now fails like any unloadable file.

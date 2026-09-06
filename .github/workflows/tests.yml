@@ -12,10 +12,10 @@ name: tests
 # without NSIS and without the v143 toolset).
 on:
   push:
-    branches: [master]
+    branches: ['**']
     tags: ['v*', '[0-9]*']
   pull_request:
-    branches: [master]
+    branches: ['**']
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:
