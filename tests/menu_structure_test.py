@@ -189,10 +189,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.0.2.25 stable (the fork line continues from the restart)",
-          (major, minor, rev, build) == ("1", "0", "2", "25") and vtype == "")
+    check("version.h = 1.0.3.26 stable (the fork line continues from the restart)",
+          (major, minor, rev, build) == ("1", "0", "3", "26") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.0.02")
+          vstr == "1.0.03")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -209,6 +209,25 @@ def t_version():
     check("nsh has no hardcoded version left",
           '"1.1.0.' not in nsh and '"-rc.' not in nsh and '"1.1.01"' not in nsh
           and '"1.0.01"' not in nsh)
+
+    # r20: every user-visible version display must anchor to VERSION_STRING,
+    # not to a separately formatted %d sequence (the about dialog showed
+    # 1.0.2.25, the uninstall entry showed 1.0.2, while the tag said 1.0.02).
+    viv = read("src/viv.c").decode()
+    check("about dialog shows the release identity string",
+          'string_printf(version_wbuf,"%s%s %s",VERSION_STRING,VERSION_TYPE,VERSION_TARGET_MACHINE);' in viv)
+    check("uninstall DisplayVersion shows the release identity string",
+          'string_printf(version_wbuf,"%s%s",VERSION_STRING,VERSION_TYPE);' in viv)
+    check("debug banner shows the identity string with the build counter",
+          'debug_printf("viv %s%s (build %d) %s\\n",VERSION_STRING,VERSION_TYPE,VERSION_BUILD,VERSION_TARGET_MACHINE);' in viv)
+    check("no %d.%d.%d version formatting survives in viv.c",
+          re.findall(r"%d\.%d\.%d", viv) == [])
+    nsi = read("nsis/installer.nsi").decode()
+    check("installer version keys carry the identity, not the machine suffix",
+          'VIAddVersionKey "FileVersion" "${DISPLAYVERSION}"' in nsi and
+          'VIAddVersionKey "ProductVersion" "${DISPLAYVERSION}"' in nsi and
+          'VIAddVersionKey "FileVersion" "${DISPLAYVERSION}.${TARGETMACHINE}"' not in nsi and
+          'VIAddVersionKey "ProductVersion" "${DISPLAYVERSION}.${TARGETMACHINE}"' not in nsi)
 
 
 # ---------------------------------------------------------------------------

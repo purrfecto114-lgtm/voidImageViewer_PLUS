@@ -5785,7 +5785,7 @@ static int _viv_init(int nCmdShow)
 		}
 	}
 	
-	debug_printf("viv %d.%d.%d.%d%s %s\n",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD,VERSION_TYPE,VERSION_TARGET_MACHINE);
+	debug_printf("viv %s%s (build %d) %s\n",VERSION_STRING,VERSION_TYPE,VERSION_BUILD,VERSION_TARGET_MACHINE);
 	
 	os_hinstance = GetModuleHandle(0);
 	
@@ -12595,7 +12595,7 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			SetWindowText(hwnd,version_wbuf);
 			os_SetDlgItemText_localization_id(hwnd,IDC_ABOUTTITLE,LOCALIZATION_ID_APP_NAME);
 			os_SetDlgItemText_localization_id(hwnd,IDC_ABOUTVOIDIMAGEVIEWER,LOCALIZATION_ID_APP_NAME);
-			string_printf(version_wbuf,"%d.%d.%d.%d%s %s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD,VERSION_TYPE,VERSION_TARGET_MACHINE);
+			string_printf(version_wbuf,"%s%s %s",VERSION_STRING,VERSION_TYPE,VERSION_TARGET_MACHINE);
 			SetDlgItemText(hwnd,IDC_ABOUTVERSION,version_wbuf);
 			string_printf(version_wbuf,localization_get_string(LOCALIZATION_ID_ABOUT_COPYRIGHT_FORMAT),VERSION_YEAR);
 			SetDlgItemText(hwnd,IDC_ABOUTCOPYRIGHT,version_wbuf);
@@ -16545,8 +16545,8 @@ static void _viv_install_add_remove_programs(const wchar_t *install_path)
 		string_copy(icon_wbuf,install_path);
 		string_cat_utf8(icon_wbuf,(const utf8_t *)"\\voidImageViewer.exe,0");
 		
-		// 1.1.0-rc.2 (from version.h)
-		string_printf(version_wbuf,"%d.%d.%d%s",VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_TYPE);
+		// the release identity straight from version.h - must match the tag
+		string_printf(version_wbuf,"%s%s",VERSION_STRING,VERSION_TYPE);
 		
 		no_modify_repair = 1;
 		

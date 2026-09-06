@@ -30,3 +30,6 @@ Thumbs.db
 # python bytecode (the local test suites)
 __pycache__/
 *.pyc
+
+# downloaded release assets kept for local forensics only
+tool-results/r20/

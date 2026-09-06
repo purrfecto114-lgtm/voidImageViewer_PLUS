@@ -159,8 +159,8 @@ VIAddVersionKey "LegalTrademarks" ""
 VIAddVersionKey "LegalCopyright" "Copyright (c) 2025 David Carpenter"
 VIAddVersionKey "FileDescription" "void Image Viewer Setup"
 
-VIAddVersionKey "FileVersion" "${DISPLAYVERSION}.${TARGETMACHINE}"
-VIAddVersionKey "ProductVersion" "${DISPLAYVERSION}.${TARGETMACHINE}"
+VIAddVersionKey "FileVersion" "${DISPLAYVERSION}"
+VIAddVersionKey "ProductVersion" "${DISPLAYVERSION}"
 
 Function .onInit
 

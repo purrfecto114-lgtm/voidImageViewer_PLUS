@@ -1,3 +1,12 @@
+Stable: Version 1.0.03 (version display unification)
+	version identity: every user visible version now shows the release
+	identity - the tag string. the about dialog showed 1.0.2.25, the
+	add/remove programs entry showed 1.0.2 and the installer version
+	keys showed 1.0.02.x64 while the tag said 1.0.02 - the about line,
+	the uninstall DisplayVersion, the debug banner and the two nsis
+	version keys now derive straight from VERSION_STRING, and the test
+	suite guards all five display points against regression.
+
 Stable: Version 1.0.02 (third audit round closed)
 	pixel budget: both decoders (gdi+ and webp, animation and
 	still) now refuse a canvas over 100 mp before any allocation

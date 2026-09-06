@@ -1,3 +1,7 @@
+**1.0.03 — version display unification:**
+
+- **One identity everywhere** — the About dialog (was `1.0.2.25 (x64)`), the Settings→Apps uninstall entry (was `1.0.2`) and the installer's version keys (was `1.0.02.x64`) now all show the release identity that matches the git tag — e.g. `1.0.03 (x64)` in About. The debug banner prints the identity with the build counter (`viv 1.0.03 (build 26) (x64)`), and five new test guards keep every display point anchored to `VERSION_STRING` so the formats can never drift apart again.
+
 # void Image Viewer (Touch + Languages)
 
 [![stable](https://img.shields.io/badge/status-stable-brightgreen.svg)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
