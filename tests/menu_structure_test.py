@@ -189,10 +189,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.3.28 stable (the 1.1 line resumes as the leading series)",
-          (major, minor, rev, build) == ("1", "1", "3", "28") and vtype == "")
+    check("version.h = 1.1.4.29 stable (the tag hygiene round pins the next step)",
+          (major, minor, rev, build) == ("1", "1", "4", "29") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.03")
+          vstr == "1.1.04")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and

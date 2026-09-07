@@ -1,3 +1,19 @@
+Stable: Version 1.1.04 (tag hygiene round)
+	tag hygiene: the public tag list consolidates to the release ladder
+	1.1.02, 1.1.03, 1.1.04 - the dashboard round markers and the
+	1.0.03/1.0.04 pair leave the tag namespace after this release
+	ships (the round history stays reachable through the backup ref
+	and the archive snapshots, and the 1.0.x release pages keep
+	their assets), so the tags view reads as one clean version
+	staircase with this release on top instead of a dashboard
+	marker sitting above the releases.
+	shipping code: unchanged from 1.1.03 apart from the version
+	identity - the magnifier pill, the capsule zoom bar, the 32bpp
+	toolbar icons and the dark menu strip from the pill round ship
+	again as they are.
+	version order: the ladder stays strictly increasing, no
+	duplicates: it now reads 1.1.02, 1.1.03, 1.1.04.
+
 Stable: Version 1.1.03 (magnifier pill round)
 	pill icons: the zoom magnifier glyphs are redrawn. the zoom in/out
 	strokes declared three point polylines over two element arrays, so the
