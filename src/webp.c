@@ -79,6 +79,7 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 						if (anim_decoder)
 						{
 							WebPAnimInfo anim_info;
+				DWORD *frame_delays = 0;
 							
 							if (WebPAnimDecoderGetInfo(anim_decoder,&anim_info))
 							{
@@ -90,12 +91,10 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 									int timestamp;
 									DWORD frame_run;
 									DWORD frame_index;
-									DWORD *frame_delays;
 																			
 									frame = NULL;
 									frame_run = anim_info.frame_count;
 									frame_index = 0;
-									frame_delays = 0;
 									
 									ret = 1;
 
@@ -109,7 +108,7 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 										demux = WebPDemux(&webp_data);
 										if (demux)
 										{
-											WPIterator iter;
+											WebPIterator iter;
 
 											frame_delays = (DWORD *)mem_alloc(anim_info.frame_count * sizeof(DWORD));
 											os_zero_memory(frame_delays,anim_info.frame_count * sizeof(DWORD));
