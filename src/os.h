@@ -44,8 +44,8 @@ typedef struct os_GdiplusStartupInput_s
 }os_GdiplusStartupInput_t;
 
 void os_zero_memory(void *data,int size);
-void os_copy_memory(void *d,const void *s,int size);
-void os_move_memory(void *d,const void *s,int size);
+void os_copy_memory(void *d,const void *s,SIZE_T size);
+void os_move_memory(void *d,const void *s,SIZE_T size);
 void os_qsort(void **base,uintptr_t count,int (*compare)(const void *a,const void *b));
 void os_make_rect_completely_visible(HWND hwnd,RECT *prect);
 void os_MonitorRectFromWindow(HWND hwnd,int is_fullscreen,RECT *out_monitor_rect);
@@ -198,6 +198,11 @@ extern BOOL (WINAPI *os_GetGestureInfo)(void *gesture_info_handle,os_GestureInfo
 extern BOOL (WINAPI *os_CloseGestureInfoHandle)(void *gesture_info_handle);
 
 int os_is_touch_available(void);
+
+// vista+ regdeletekeyexw, resolved lazily (see os.c). returns 1 when the
+// key was deleted, 0 when the api is missing or the delete failed:
+// regdeletekeyw cannot reach the alternate registry view.
+int os_reg_delete_key_ex(HKEY hkey,const wchar_t *name,REGSAM access);
 
 #ifdef __cplusplus
 }

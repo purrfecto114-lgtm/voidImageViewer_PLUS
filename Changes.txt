@@ -1,3 +1,36 @@
+Stable: Version 1.1.05 (second review fix round)
+	second review: the thirteen findings from the first audit round were
+	re-verified line by line against the sources and msdn. two were
+	withdrawn (the mem debug tail magic sits fully inside the allocation
+	and the two-step getregiondata is the documented pattern), the
+	small-pool alignment note was downgraded to a comment fix, and the
+	confirmed set ships here.
+	drag and drop: every wm_dropfiles now ends in dragfinish - the shell
+	file list leaked on every drop. the clipboard file-list paste reuses
+	the same handler without finishing the clipboards own hdrop (which
+	would corrupt clipboard memory).
+	memory safety: a null free crashed inside heapsize before the invalid
+	free guard could run; the glyph cache eviction copied overlapping
+	arrays with memcpy; the clipboard dib paste now applies the same
+	pixel budget as the file loaders and no longer truncates the copy
+	size to int (os_copy_memory and os_move_memory take size_t lengths).
+	registry: the add/remove programs entry is written to the 64-bit view
+	and removed with regdeletekeyexw (regdeletekeyw cannot reach the
+	alternate view; the nsis probe already used setregview 64), with the
+	legacy wow6432node copy swept on uninstall.
+	webp animations: each frame now carries its own duration from a
+	container scan - the old loop handed every frame the gap to the
+	previous one and the last frames duration never existed.
+	touch: the digitizer probe asks for a touch screen (not just any ready
+	digitizer), gid_begin and gid_end reach defwindowproc as msdn requires,
+	and the press-and-hold and flick system gestures are disabled for the
+	window.
+	robustness: the ini reader refuses files over 16 mb, a failed utf-8
+	config conversion no longer reads an unterminated buffer, bad
+	localization ids clamp to a fallback instead of an out-of-bounds read
+	in release builds, and the safe_size wchar multiply comment no longer
+	says addition.
+
 Stable: Version 1.1.04 (tag hygiene round)
 	tag hygiene: the public tag list consolidates to the release ladder
 	1.1.02, 1.1.03, 1.1.04 - the dashboard round markers and the

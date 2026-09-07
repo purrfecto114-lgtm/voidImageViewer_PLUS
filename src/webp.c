@@ -89,13 +89,53 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 									uint8_t *frame;
 									int timestamp;
 									DWORD frame_run;
-									DWORD last_timestamp;
+									DWORD frame_index;
+									DWORD *frame_delays;
 																			
 									frame = NULL;
 									frame_run = anim_info.frame_count;
-									last_timestamp = 0;
+									frame_index = 0;
+									frame_delays = 0;
 									
 									ret = 1;
+
+									// pre-scan the container with the demuxer: the per-frame durations live
+									// in the chunk headers and the anim decoder api only reports start
+									// timestamps. falls back to zero delays if the demuxer refuses the
+									// data (the caller already handles zero-delay frames).
+									{
+										WebPDemuxer *demux;
+
+										demux = WebPDemux(&webp_data);
+										if (demux)
+										{
+											WPIterator iter;
+
+											frame_delays = (DWORD *)mem_alloc(anim_info.frame_count * sizeof(DWORD));
+											os_zero_memory(frame_delays,anim_info.frame_count * sizeof(DWORD));
+
+											if (WebPDemuxGetFrame(demux,1,&iter))
+											{
+												DWORD delay_index;
+
+												delay_index = 0;
+												do
+												{
+													if (delay_index < anim_info.frame_count)
+													{
+														// a zero-duration chunk still needs a tick of its own.
+														frame_delays[delay_index] = iter.duration ? (DWORD)iter.duration : 1;
+														delay_index++;
+													}
+												}
+												while (WebPDemuxNextFrame(&iter));
+
+												WebPDemuxReleaseIterator(&iter);
+											}
+
+											WebPDemuxDelete(demux);
+										}
+									}
 
 									while (frame_run) 
 									{
@@ -132,11 +172,14 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 												}
 											}*/
 											
+											// deliver each frame with its own duration from the container scan:
+											// the old timestamp-gap arithmetic handed every frame its
+											// predecessors duration and the last frames duration never existed
+											// at all (the anim decoder api reports no total duration).
 											delay = 0;
-											
-											if ((DWORD)timestamp > last_timestamp)
+											if ((frame_delays) && (frame_index < anim_info.frame_count))
 											{
-												delay = (DWORD)timestamp - last_timestamp;
+												delay = frame_delays[frame_index];
 											}
 											
 											if (!frame_callback(user_data,frame,delay))
@@ -145,7 +188,7 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 												break;
 											}
 											
-											last_timestamp = timestamp;
+											frame_index++;
 										}
 										else
 										{
@@ -157,6 +200,11 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 										frame_run--;
 									}
 								}
+							}
+							
+							if (frame_delays)
+							{
+								mem_free(frame_delays);
 							}
 							
 							WebPAnimDecoderDelete(anim_decoder);

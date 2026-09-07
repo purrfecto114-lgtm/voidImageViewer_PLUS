@@ -443,7 +443,9 @@ HICON glyphs_icon(int glyph_id,int dark,int size)
 			DestroyIcon(_glyphs_cache[0].icon);
 		}
 
-		os_copy_memory(&_glyphs_cache[0],&_glyphs_cache[1],sizeof(_glyphs_cache[0]) * (_GLYPHS_CACHE_MAX - 1));
+		// source and destination overlap: copymemory (memcpy) is undefined for
+		// overlapping ranges, movememory (memmove) is not.
+		os_move_memory(&_glyphs_cache[0],&_glyphs_cache[1],sizeof(_glyphs_cache[0]) * (_GLYPHS_CACHE_MAX - 1));
 
 		_glyphs_cache_count--;
 	}

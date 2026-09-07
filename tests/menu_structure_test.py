@@ -28,6 +28,94 @@ def read(p):
     return open(p, "rb").read()
 
 
+def t_second_review_round40():
+    """Guards for the second-review fix round: the confirmed findings from
+    the re-verified first audit (the two withdrawn findings and the
+    downgraded small-pool note are deliberately not 'fixed' - the mem tail
+    magic sits fully inside the allocation and the two-step GetRegionData
+    is the documented pattern)."""
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+    webp = read("src/webp.c").decode("utf-8", errors="replace")
+    osc = read("src/os.c").decode("utf-8", errors="replace")
+    osh = read("src/os.h").decode("utf-8", errors="replace")
+    glyphs = read("src/glyphs.c").decode("utf-8", errors="replace")
+    memc = read("src/mem.c").decode("utf-8", errors="replace")
+
+    # gestures: GID_BEGIN/GID_END must reach DefWindowProc (msdn UB note)
+    gi = viv.find("case 1: // GID_BEGIN")
+    check("gid_begin/gid_end reach defwindowproc",
+          gi != -1 and "case 2: // GID_END" in viv[gi:gi + 60] and
+          "return 0;" in viv[gi:gi + 500])
+
+    # tablet gestures: press-and-hold and flicks suppressed for the window
+    check("press-and-hold and flicks are suppressed",
+          "case 0x2C4: // WM_TABLET_QUERYSYSTEMGESTURESTATUS (winuser.h)" in viv and
+          "return 0x00000001 | 0x00010000;" in viv)
+
+    # registry: the arp key is written to the 64-bit view and uninstalled
+    # from it explicitly (regdeletekeyw cannot reach the alternate view)
+    check("arp entry writes the 64-bit view",
+          "KEY_QUERY_VALUE|KEY_SET_VALUE|KEY_WOW64_64KEY" in viv)
+    check("arp uninstall sweeps both views",
+          viv.count("os_reg_delete_key_ex(HKEY") == 2 and
+          viv.count("RegDeleteKeyW(HKEY_") == 2)
+    check("os_reg_delete_key_ex resolves regdeletekeyexw lazily",
+          "RegDeleteKeyExW" in osc and
+          "GetModuleHandleA(\"advapi32.dll\")" in osc and
+          "int os_reg_delete_key_ex(HKEY hkey,const wchar_t *name,REGSAM access);" in osh)
+
+    # dib paste: pixel budget before the allocation, size_t copy length
+    check("clipboard dib paste applies the pixel budget",
+          "if (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)bih->biWidth,(SIZE_T)budget_height)))" in viv and
+          "os_copy_memory(bits,src,(SIZE_T)stride * (SIZE_T)height);" in viv)
+
+    # gestures/touch: the digitizer probe asks for a touch screen
+    check("touch probe requires an actual touch screen",
+          "return ((sm & 0x80) && (sm & (0x01 | 0x04))) ? 1 : 0;" in osc)
+
+    # webp: per-frame durations from the container scan, frame's own delay
+    check("webp frames carry their own duration",
+          "WebPDemuxGetFrame(demux,1,&iter)" in webp and
+          "frame_delays[delay_index] = iter.duration ? (DWORD)iter.duration : 1;" in webp and
+          "delay = frame_delays[frame_index];" in webp and
+          "last_timestamp" not in webp)
+
+    # glyphs: overlapping cache eviction uses memmove semantics
+    check("glyph cache eviction moves memory",
+          "os_move_memory(&_glyphs_cache[0],&_glyphs_cache[1]," in glyphs and
+          "os_copy_memory(&_glyphs_cache[0]" not in glyphs)
+
+    # mem: the null-free guard runs before the header dereference
+    mi = memc.find("void mem_free_debug(const char *file,int line,void *p)")
+    seg = memc[mi:mi + 700]
+    check("mem_free_debug rejects null before heapsize",
+          mi != -1 and
+          seg.find("if (!p)") < seg.find("mem_usage -= HeapSize") and
+          "debug_fatal(\"INVALID FREE from %s(%d): %p\",file,line,p);" in seg)
+
+    # os_copy_memory / os_move_memory take size_t lengths
+    check("os memory copies take size_t lengths",
+          "void os_copy_memory(void *d,const void *s,SIZE_T size);" in osh and
+          "void os_move_memory(void *d,const void *s,SIZE_T size);" in osh)
+
+    # ini reader caps the file size before allocating
+    ini = read("src/ini.c").decode("utf-8", errors="replace")
+    check("ini reader caps the allocation size",
+          "if ((size != INVALID_FILE_SIZE) && (size) && (size <= 0x1000000))" in ini)
+
+    # config: the utf-8 conversion is checked before the buffer is used
+    cfg = read("src/config.c").decode("utf-8", errors="replace")
+    check("config utf-8 conversion is checked",
+          "ret = WideCharToMultiByte(CP_UTF8,0,s,-1,(char *)buf,STRING_SIZE*3,0,0);" in cfg and
+          "if ((ret <= 0) || (ret >= (int)sizeof(buf)))" in cfg)
+
+    # localization: bad ids clamp in release builds too
+    loc = read("src/localization.c").decode("utf-8", errors="replace")
+    check("localization ids clamp to a fallback",
+          "return _localization_string_array_en_us[0];" in loc and
+          loc.count("localization_id >= LOCALIZATION_ID_COUNT") == 2)
+
+
 # ---------------------------------------------------------------------------
 # 1. pan&scan must stay gone: no command ids, no menu rows, no key bindings,
 #    no handlers, and (beta.7) no leftover zoom state values.
@@ -189,10 +277,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.4.29 stable (the tag hygiene round pins the next step)",
-          (major, minor, rev, build) == ("1", "1", "4", "29") and vtype == "")
+    check("version.h = 1.1.5.30 stable (the second review fix round pins the next step)",
+          (major, minor, rev, build) == ("1", "1", "5", "30") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.04")
+          vstr == "1.1.05")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -985,14 +1073,21 @@ def t_review_fixes_round2():
     check("jumpto pump re-posts a consumed WM_QUIT",
           i != -1 and "PostQuitMessage((int)msg.wParam);" in viv[i:i+400])
 
-    # L1: a zero file drop is a no-op before the playlist is touched
-    dstart = viv.find("case WM_DROPFILES:")
-    dend = viv.find("case WM_TIMER:", dstart)
-    drop = viv[dstart:dend]
+    # L1/R40: a zero file drop is a no-op before the playlist is touched.
+    # the drop handling moved into _viv_drop_files so the clipboard paste
+    # can share it without faking a WM_DROPFILES message (the shell hdrop
+    # must be DragFinish-ed, the clipboard one must not).
+    fstart = viv.find("static void _viv_drop_files(HWND hwnd,HDROP hdrop)")
+    drop = viv[fstart:fstart + 1400]
     check("zero file drop is a no-op",
-          "count = DragQueryFile((HDROP)wParam,0xFFFFFFFF,0,0);" in drop and
+          fstart != -1 and
+          "count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);" in drop and
           "if (!count)" in drop and
           drop.find("count = DragQueryFile") < drop.find("if (!count)") < drop.find("is_shift = (GetKeyState"))
+    check("shell drops are DragFinish-ed, the clipboard drop is not",
+          "DragFinish((HDROP)wParam);" in viv and
+          "_viv_drop_files(hwnd,hdrop);" in viv and
+          "SendMessage(hwnd,WM_DROPFILES,(WPARAM)hdrop,0);" not in viv)
 
     # R2: webp first frame reports transposed dimensions for 5-8
     i = viv.find("first_frame.wide = viv_webp->wide;")
@@ -2013,6 +2108,7 @@ if __name__ == "__main__":
     t_audit_round14()
     t_audit_round16()
     t_audit_round18()
+    t_second_review_round40()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

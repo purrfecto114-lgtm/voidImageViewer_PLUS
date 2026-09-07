@@ -180,6 +180,8 @@ typedef LONG (__stdcall *OS_RegCloseKey_fn)(HKEY key);
 static OS_RegOpenKeyExW_fn _os_RegOpenKeyExW = 0;
 static OS_RegQueryValueExW_fn _os_RegQueryValueExW = 0;
 static OS_RegCloseKey_fn _os_RegCloseKey = 0;
+typedef LONG (__stdcall *OS_RegDeleteKeyExW_fn)(HKEY key,const wchar_t *name,REGSAM access,DWORD reserved);
+static OS_RegDeleteKeyExW_fn _os_RegDeleteKeyExW = 0;
 static HMODULE _os_advapi32_hmodule = 0;
 
 // cached dark state: the ui queries the dark mode in paint paths, so the
@@ -221,12 +223,14 @@ void os_zero_memory(void *data,int size)
 	ZeroMemory(data,size);
 }
 
-void os_copy_memory(void *d,const void *s,int size)
+// size_t lengths: the clipboard dib paste copies stride*height bytes,
+// which crosses int_max inside the 64-bit pixel budget.
+void os_copy_memory(void *d,const void *s,SIZE_T size)
 {
 	CopyMemory(d,s,size);
 }
 
-void os_move_memory(void *d,const void *s,int size)
+void os_move_memory(void *d,const void *s,SIZE_T size)
 {
 	MoveMemory(d,s,size);
 }
@@ -1021,8 +1025,40 @@ int os_is_touch_available(void)
 		return 0;
 	}
 
-	// NID_READY = 0x80, NID_EXTERNAL_INPUT = 0x04, NID_INTEGRATED_TOUCH = 0x01
-	return (sm & 0x80) ? 1 : 0;
+	// NID_READY = 0x80, NID_EXTERNAL_TOUCH = 0x04, NID_INTEGRATED_TOUCH = 0x01.
+	// nid_ready alone is set by any ready digitizer (pens included): ask for
+	// an actual touch screen, and only while the digitizer is ready. msdn
+	// also warns sm_digitizer has no plug-and-play awareness, so callers
+	// treat this as a first-run default, never a permanent configuration.
+	return ((sm & 0x80) && (sm & (0x01 | 0x04))) ? 1 : 0;
+}
+
+int os_reg_delete_key_ex(HKEY hkey,const wchar_t *name,REGSAM access)
+{
+	// regdeletekeyw cannot delete from the alternate registry view (msdn:
+	// "cannot be used to access an alternate registry view") and
+	// regdeletekeyexw is vista+, so it resolves lazily here: the uninstall
+	// path runs before os_init populates the runtime table. a missing api
+	// (32-bit xp) reports failure and the caller falls back to
+	// regdeletekeyw.
+	if (!_os_RegDeleteKeyExW)
+	{
+		HMODULE module;
+
+		module = GetModuleHandleA("advapi32.dll");
+
+		if (module)
+		{
+			_os_RegDeleteKeyExW = (void *)GetProcAddress(module,"RegDeleteKeyExW");
+		}
+	}
+
+	if (_os_RegDeleteKeyExW)
+	{
+		return (_os_RegDeleteKeyExW(hkey,name,access,0) == ERROR_SUCCESS) ? 1 : 0;
+	}
+
+	return 0;
 }
 
 // GDI+ encoder parameter structures. (locally defined, mirrors the gdiplus ABI)

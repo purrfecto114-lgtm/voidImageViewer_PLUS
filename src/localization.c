@@ -35,20 +35,27 @@ BYTE localization_language = LOCALIZATION_LANGUAGE_ENGLISH;
 
 const utf8_t *localization_get_string(localization_id_t localization_id)
 {
+	// a bad id used to be an out-of-bounds read in release builds: the
+	// range check was debug only. clamp to the english fallback so a
+	// missed translation index degrades instead of crashing.
+	if ((localization_id < 0) || (localization_id >= LOCALIZATION_ID_COUNT))
+	{
 #ifdef _DEBUG
-
-if ((localization_id < 0) || (localization_id >= LOCALIZATION_ID_COUNT))
-{
-	debug_fatal("bad localization id %d\n",localization_id);
-}
-
+		debug_fatal("bad localization id %d\n",localization_id);
 #endif
+		return _localization_string_array_en_us[0];
+	}
 	
 	return _localization_language_array[localization_language][localization_id];
 }
 
 const utf8_t *localization_get_en_us_string(localization_id_t localization_id)
 {
+	if ((localization_id < 0) || (localization_id >= LOCALIZATION_ID_COUNT))
+	{
+		return _localization_string_array_en_us[0];
+	}
+	
 	return _localization_string_array_en_us[localization_id];
 }
 

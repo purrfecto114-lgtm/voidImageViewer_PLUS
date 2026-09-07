@@ -134,6 +134,9 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_show_status = ini_get_int(ini,(const utf8_t *)"show_status",config_show_status);
 		config_pixel_info = ini_get_int(ini,(const utf8_t *)"statusbar_pixel_info",config_pixel_info);
 		config_show_controls = ini_get_int(ini,(const utf8_t *)"show_controls",config_show_controls);
+		// the digitizer probe is a first-run default only: msdn warns
+		// sm_digitizer has no plug-and-play awareness, so the value gets
+		// pinned into the ini on the first save and is never re-probed.
 		config_show_zoom_controls = ini_get_int(ini,(const utf8_t *)"show_zoom_controls",os_is_touch_available());
 			config_zoom_auto_hide = ini_get_int(ini,(const utf8_t *)"zoom_auto_hide",config_zoom_auto_hide);
 		
@@ -348,8 +351,17 @@ static void _config_write_int(HANDLE h,const char *ascii_key,int value)
 static void _config_write_string(HANDLE h,const char *ascii_key,const wchar_t *s)
 {
 	utf8_t buf[STRING_SIZE*3];
+	int ret;
 	
-	WideCharToMultiByte(CP_UTF8,0,s,-1,(char *)buf,STRING_SIZE*3,0,0);
+	// check the conversion: on failure the buffer is left unterminated and
+	// the writes below would read past its end (a full-width string can
+	// hit the boundary: STRING_SIZE wchars x 3 utf8 bytes + nul).
+	ret = WideCharToMultiByte(CP_UTF8,0,s,-1,(char *)buf,STRING_SIZE*3,0,0);
+	
+	if ((ret <= 0) || (ret >= (int)sizeof(buf)))
+	{
+		buf[0] = 0;
+	}
 	
 	_config_write_utf8(h,(const utf8_t *)ascii_key);
 	_config_write_utf8(h,(const utf8_t *)"=");

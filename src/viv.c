@@ -2785,6 +2785,75 @@ static void _viv_paint_kill(void)
 }
 
 
+// shared by the shell drop path and the clipboard file-list paste:
+// queries the dropped names and rebuilds the playlist. the caller owns
+// the hdrop lifetime - a shell wm_dropfiles must be followed by
+// dragfinish (the shell allocated the list for the drop), a clipboard
+// hdrop must not (the clipboard owns that memory).
+static void _viv_drop_files(HWND hwnd,HDROP hdrop)
+{
+		wchar_t filename[STRING_SIZE];
+		DWORD count;
+		int is_shift;
+		
+		if (_viv_random)
+		{
+			mem_free(_viv_random);
+			
+			_viv_random = 0;
+		}
+		
+		
+		count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
+		
+		if (!count)
+		{
+			// a drop with zero files (e.g. a cancelled drag) must not
+			// clear the current playlist.
+			SetForegroundWindow(hwnd);
+			return;
+		}
+		
+		is_shift = (GetKeyState(VK_SHIFT) < 0);
+		if (is_shift)
+		{
+			// add current?
+			_viv_playlist_add_current_if_empty();
+		}
+		else
+		{
+			_viv_playlist_clearall();
+		}
+		
+		
+		if ((count >= 2) || (is_shift))
+		{
+			DWORD i;
+			
+			for(i=0;i<count;i++)
+			{
+				DragQueryFile(hdrop,i,filename,STRING_SIZE);
+				
+				_viv_playlist_add_filename(filename);
+			}
+			
+			if (!is_shift)
+			{
+				_viv_home(0,0);
+			}
+		}
+		else
+		if (count == 1)
+		{
+			DragQueryFile(hdrop,0,filename,STRING_SIZE);
+			
+			_viv_open_from_filename(filename);
+		}
+		
+		SetForegroundWindow(hwnd);
+}
+
+
 static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch (msg) 
@@ -3327,65 +3396,11 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 
 		case WM_DROPFILES:
 		{
-			wchar_t filename[STRING_SIZE];
-			DWORD count;
-			int is_shift;
+			_viv_drop_files(hwnd,(HDROP)wParam);
 			
-			if (_viv_random)
-			{
-				mem_free(_viv_random);
-				
-				_viv_random = 0;
-			}
-			
-			
-			count = DragQueryFile((HDROP)wParam,0xFFFFFFFF,0,0);
-			
-			if (!count)
-			{
-				// a drop with zero files (e.g. a cancelled drag) must not
-				// clear the current playlist.
-				SetForegroundWindow(hwnd);
-				break;
-			}
-			
-			is_shift = (GetKeyState(VK_SHIFT) < 0);
-			if (is_shift)
-			{
-				// add current?
-				_viv_playlist_add_current_if_empty();
-			}
-			else
-			{
-				_viv_playlist_clearall();
-			}
-			
-			
-			if ((count >= 2) || (is_shift))
-			{
-				DWORD i;
-				
-				for(i=0;i<count;i++)
-				{
-					DragQueryFile((HDROP)wParam,i,filename,STRING_SIZE);
-				
-					_viv_playlist_add_filename(filename);
-				}
-			
-				if (!is_shift)
-				{
-					_viv_home(0,0);
-				}
-			}
-			else
-			if (count == 1)
-			{
-				DragQueryFile((HDROP)wParam,0,filename,STRING_SIZE);
-			
-				_viv_open_from_filename(filename);
-			}
-			
-			SetForegroundWindow(hwnd);
+			// the shell allocated the file list for this drop and expects
+			// dragfinish to release it: every drop used to leak it.
+			DragFinish((HDROP)wParam);
 			
 			break;
 		}
@@ -3992,6 +4007,14 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			break;
 		}
 		
+		case 0x2C4: // WM_TABLET_QUERYSYSTEMGESTURESTATUS (winuser.h)
+		{
+			// disable press-and-hold (0x1, the wait circle) and flicks
+			// (0x10000, the navigation gestures): both fight the touch pan
+			// and the two finger tap. tap and pen feedback stay enabled.
+			return 0x00000001 | 0x00010000;
+		}
+		
 		case WM_COPYDATA:
 		{
 			COPYDATASTRUCT *cds;
@@ -4509,7 +4532,10 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 					hdrop = (HDROP)GlobalLock(hglobal);
 					if (hdrop)
 					{
-						SendMessage(hwnd,WM_DROPFILES,(WPARAM)hdrop,0);
+						// reuse the drop handler directly: posting wm_dropfiles to
+					// ourselves skipped the dragfinish discipline, and finishing
+					// the clipboards own hdrop would corrupt the clipboard memory.
+					_viv_drop_files(hwnd,hdrop);
 
 						GlobalUnlock(hglobal);
 					}
@@ -9746,8 +9772,16 @@ static void _viv_paste_clipboard_image(void)
 				{
 					void *bits;
 					HBITMAP hbitmap;
+					int budget_height;
 					
-					hbitmap = CreateDIBSection(screen_hdc,(BITMAPINFO *)bih,DIB_RGB_COLORS,&bits,NULL,0);
+					// apply the same decode-time pixel budget as the file loaders: a
+					// hostile clipboard dib must not force a giant allocation.
+					budget_height = (bih->biHeight < 0) ? -bih->biHeight : bih->biHeight;
+					hbitmap = 0;
+					if (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)bih->biWidth,(SIZE_T)budget_height)))
+					{
+						hbitmap = CreateDIBSection(screen_hdc,(BITMAPINFO *)bih,DIB_RGB_COLORS,&bits,NULL,0);
+					}
 					if (hbitmap)
 					{
 						DWORD color_count;
@@ -9781,7 +9815,9 @@ static void _viv_paste_clipboard_image(void)
 						// clipboard would otherwise be read past its end.
 						if (((SIZE_T)GlobalSize(hglobal)) >= ((SIZE_T)bih->biSize + (SIZE_T)mask_size + (SIZE_T)color_count * 4) + ((SIZE_T)stride * (SIZE_T)height))
 						{
-							os_copy_memory(bits,src,(int)((SIZE_T)stride * (SIZE_T)height));
+							// size_t length: stride*height crosses int_max inside the 64-bit
+						// pixel budget (400 mp x 4 bytes per pixel).
+						os_copy_memory(bits,src,(SIZE_T)stride * (SIZE_T)height);
 							
 							_viv_show_clipboard_image(hbitmap,(int)bih->biWidth,height);
 							
@@ -12807,8 +12843,8 @@ static void _viv_frame_skip(int size)
 					_viv_timer_tick = 0;
 				}
 
-				// a zero delay frame (the webp first frame) must still make
-				// progress, otherwise this loop never terminates.
+				// a zero delay frame (a webp chunk with no duration) must still
+				// make progress, otherwise this loop never terminates.
 				size -= (_viv_frames[_viv_frame_position].delay > 0) ? _viv_frames[_viv_frame_position].delay : 1;
 			}
 		}
@@ -16539,7 +16575,10 @@ static void _viv_install_add_remove_programs(const wchar_t *install_path)
 
 	root = os_is_admin() ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER;
 	
-	if (RegCreateKeyExW(root,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer",0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	// write the 64-bit view explicitly: a 32-bit build used to land in
+	// wow6432node, which the nsis uninstall probe (setregview 64) never
+	// reads. the flag is ignored by 64-bit builds and on 32-bit windows.
+	if (RegCreateKeyExW(root,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer",0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE|KEY_WOW64_64KEY,0,&hkey,0) == ERROR_SUCCESS)
 	{
 		wchar_t uninstall_wbuf[STRING_SIZE];
 		wchar_t icon_wbuf[STRING_SIZE];
@@ -16578,6 +16617,14 @@ static void _viv_install_add_remove_programs(const wchar_t *install_path)
 // install writes hklm, a standard user install writes hkcu.
 static void _viv_uninstall_add_remove_programs(void)
 {
+	// regdeletekeyw cannot reach the alternate registry view (msdn), so
+	// the 64-bit view the install writes needs regdeletekeyexw - resolved
+	// lazily inside os_reg_delete_key_ex because this path runs before
+	// os_init. the plain regdeletekeyw sweep after it removes the
+	// wow6432node copy older 32-bit builds left behind (idempotent, and a
+	// no-op on 64-bit builds where both calls hit the same view).
+	os_reg_delete_key_ex(HKEY_LOCAL_MACHINE,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer",KEY_WOW64_64KEY);
+	os_reg_delete_key_ex(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer",KEY_WOW64_64KEY);
 	RegDeleteKeyW(HKEY_LOCAL_MACHINE,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer");
 	RegDeleteKeyW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer");
 }
@@ -17830,12 +17877,13 @@ static int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 	switch(gesture_info.dwID)
 	{
 		case 1: // GID_BEGIN
-			_viv_gesture_reset();
-			break;
-
 		case 2: // GID_END
+			// msdn: application behavior is undefined when gid_begin and
+			// gid_end are consumed. resetting the gesture state is all we need,
+			// so hand the message to defwindowproc (which also owns the info
+			// handle for anything we do not consume).
 			_viv_gesture_reset();
-			break;
+			return 0;
 
 		case 3: // GID_ZOOM
 		{

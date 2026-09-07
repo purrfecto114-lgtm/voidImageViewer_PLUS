@@ -80,8 +80,10 @@ ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section)
 		size = GetFileSize(h,0);
 		
 		// GetFileSize returns INVALID_FILE_SIZE on failure and for
-		// files over 4GB: never trust that as an allocation size.
-		if ((size != INVALID_FILE_SIZE) && (size))
+		// files over 4GB: never trust that as an allocation size. a real
+		// ini is a few kilobytes: anything past 16 mb is a hostile or
+		// corrupted file, refuse it before the allocation.
+		if ((size != INVALID_FILE_SIZE) && (size) && (size <= 0x1000000))
 		{
 			char *buf;
 			DWORD numread;
