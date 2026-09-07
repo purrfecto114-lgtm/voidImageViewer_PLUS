@@ -226,6 +226,15 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 				}
 			}
 		}
+		
+		// the walk above already stops at the cap; this clamp is the load-side
+		// guard of the same invariant (the menu id block, the save loop and the
+		// popup builder all assume count <= CONFIG_RECENT_FILE_COUNT), so any
+		// future writer that grows the count cannot walk past it.
+		if (config_recent_file_count > CONFIG_RECENT_FILE_COUNT)
+		{
+			config_recent_file_count = CONFIG_RECENT_FILE_COUNT;
+		}
 		config_auto_zoom = ini_get_int(ini,(const utf8_t *)"auto_zoom",config_auto_zoom);
 		config_auto_zoom_type = ini_get_int(ini,(const utf8_t *)"auto_zoom_type",config_auto_zoom_type);
 		config_auto_fit_wide_mul = ini_get_int(ini,(const utf8_t *)"auto_fit_wide_mul",config_auto_fit_wide_mul);

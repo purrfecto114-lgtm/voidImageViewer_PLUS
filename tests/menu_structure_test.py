@@ -288,8 +288,8 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.6.32 stable (the field-fix re-release keeps the identity)",
-          (major, minor, rev, build) == ("1", "1", "6", "32") and vtype == "")
+    check("version.h = 1.1.6.33 stable (the field-fix rounds keep the identity)",
+          (major, minor, rev, build) == ("1", "1", "6", "33") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
           vstr == "1.1.06")
     check("rc derives everything from version.h",
@@ -448,7 +448,7 @@ def t_dark_mode_wiring():
     # resources
     check("rc has the dark mode combobox row",
           "IDC_DARKMODE,54,70,132,87" in rc and "IDC_DARKMODE_STATIC,0,70,54,12" in rc)
-    check("rc IDD_GENERAL grew to 218", "194, 218" in rc)
+    check("rc IDD_GENERAL fits the association list (242)", "194, 242" in rc)
     check("resource.h has the ids",
           "#define IDC_DARKMODE_STATIC                     1069" in rh
           and "#define IDC_DARKMODE                            1070" in rh)
@@ -1804,8 +1804,9 @@ def t_dark_menu_bar():
     check("apply dark toggles the menu bar owner draw",
           "_viv_menu_bar_theme();" in seg)
     check("the options rebuild re-applies the menu bar theme",
-          # r41: the recent-files rebuild is the third caller.
-          viv.count("_viv_menu_bar_theme();") == 3)
+          # r43: the whole-bar mru rebuild is gone; the callers are the
+          # dark-mode apply and the options dialog inline rebuild.
+          viv.count("_viv_menu_bar_theme();") == 2)
 
     # the chrome palette and the rebar erase hardening.
     check("the chrome brush cache carries the menu bar face",
@@ -2115,9 +2116,9 @@ def t_ux_round41():
     check("mru submenu is inserted before exit",
           "InsertMenuItemW(menus[_VIV_MENU_FILE],insert_pos,TRUE,&mii);" in viv and
           "_VIV_MENU_FILE_RECENT," in viv)
-    check("the mru menu rebuilds after changes",
-          viv.count("static void _viv_rebuild_menu(void)\r\n{") == 1 and
-          "_viv_rebuild_menu();" in viv)
+    check("the mru no longer rebuilds the whole menu bar",
+          "_viv_rebuild_menu" not in viv and
+          "_viv_recent_menu_update();" in viv)
     check("stale mru entries drop when the file is gone",
           "_viv_recent_file_remove(recent_index);" in viv)
 
@@ -2237,7 +2238,7 @@ def t_field_fixes_round42():
     check("the mru insertion runs exactly once per rebuild",
           seg.count("InsertMenuItemW(menus[_VIV_MENU_FILE],insert_pos,TRUE,&mii);") == 1)
     check("the mru popup builds one submenu per rebuild",
-          seg.count("recent_menu = CreatePopupMenu();") == 1)
+          seg.count("recent_menu = _viv_create_recent_menu();") == 1)
 
     # --- the blank state clears the stale error flags ---
     i = viv.find("static void _viv_blank(void)")
@@ -2301,6 +2302,97 @@ def t_field_fixes_round42():
           viv.count("lo = _viv_zoom_pos_floor();") == 2)
 
 
+def t_field_fixes_round43():
+    """Guards for the second field-fix round on 1.1.06: the mru count limit
+    hardening (compile-time id lock, load clamp, trimming push, clamped popup
+    builder), the open-stutter fix (the deferred ini save with debounce timer
+    plus the live recent-submenu swap instead of the whole-bar rebuild), and
+    the options dialog height repair after the emf/wmf checkboxes pushed the
+    association list past the template bottom."""
+    viv = read("src/viv.c").decode("latin-1")
+    vivh = read("src/viv.h").decode("latin-1")
+    cfg = read("src/config.c").decode("latin-1")
+    rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
+
+    # --- the mru count limit ---
+    check("the mru id block and the array count are locked at compile time",
+          "typedef char _viv_recent_id_block_matches_count[(VIV_ID_FILE_RECENT_9 - VIV_ID_FILE_RECENT_0 + 1 == CONFIG_RECENT_FILE_COUNT) ? 1 : -1];" in viv)
+    check("the load walk clamps the count to the cap",
+          "if (config_recent_file_count > CONFIG_RECENT_FILE_COUNT)" in cfg and
+          cfg.count("config_recent_file_count = CONFIG_RECENT_FILE_COUNT;") == 1)
+    check("the push trims with a while, not a single if",
+          "while(config_recent_file_count >= CONFIG_RECENT_FILE_COUNT)" in viv and
+          "if (config_recent_file_count == CONFIG_RECENT_FILE_COUNT)" not in viv)
+    i = viv.find("static HMENU _viv_create_recent_menu(void)")
+    i = viv.find("static HMENU _viv_create_recent_menu(void)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the popup builder clamps its own loop bound",
+          "count = (config_recent_file_count < CONFIG_RECENT_FILE_COUNT) ? config_recent_file_count : CONFIG_RECENT_FILE_COUNT;" in seg and
+          "for(i=0;i<count;i++)" in seg and
+          "for(i=0;i<config_recent_file_count;i++)" not in seg)
+
+    # --- the deferred ini save ---
+    check("the debounce timer id exists",
+          "VIV_ID_RECENT_SAVE_TIMER," in vivh)
+    check("the save delay is defined",
+          "#define _VIV_RECENT_SAVE_DELAY" in viv and
+          "2000" in viv[viv.find("#define _VIV_RECENT_SAVE_DELAY"):viv.find("#define _VIV_RECENT_SAVE_DELAY") + 60])
+    check("the mru mutations defer instead of writing",
+          "static void _viv_recent_save_defer(void)" in viv and
+          viv.count("_viv_recent_save_defer();") == 4 and
+          "_viv_recent_save_defer();\r\n\t_viv_recent_menu_update();" in viv)
+    i = viv.find("static void _viv_recent_file_push(const wchar_t *filename)\r\n{")
+    i = viv.find("static void _viv_recent_file_push(const wchar_t *filename)\r\n{", i + 10)
+    j = viv.find("static void _viv_recent_file_remove", i)
+    seg = viv[i:j]
+    check("the push path never writes the ini synchronously",
+          "config_save_settings" not in seg and
+          "_viv_rebuild_menu" not in seg)
+    check("the wm_timer case writes once when the burst is over",
+          "case VIV_ID_RECENT_SAVE_TIMER:" in viv and
+          "KillTimer(hwnd,VIV_ID_RECENT_SAVE_TIMER);" in viv)
+    i = viv.find("case VIV_ID_RECENT_SAVE_TIMER:")
+    seg = viv[i:viv.find("case VIV_ID_STATUS_TEMP_TEXT_TIMER:", i)]
+    check("the timer save is dirty-gated",
+          "if (_viv_recent_save_dirty)" in seg and
+          "config_save_settings(config_appdata);" in seg)
+    check("the exit path folds the pending write",
+          "static void _viv_recent_save_fold(void)" in viv and
+          viv.find("_viv_recent_save_fold();\r\n\t\r\n\tconfig_save_settings(config_appdata);") != -1)
+    check("the session end folds the pending write",
+          viv.find("case WM_ENDSESSION:") < viv.find("_viv_recent_save_fold();\r\n\t\t\t\t\r\n\t\t\t\tconfig_save_settings(config_appdata);"))
+
+    # --- the live submenu swap ---
+    check("the whole-bar rebuild function is gone",
+          "_viv_rebuild_menu" not in viv)
+    i = viv.find("static void _viv_recent_menu_update(void)\r\n{")
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the swap finds the file menu by the recent row id",
+          "GetMenuState(sub_menu,_VIV_MENU_FILE_RECENT,MF_BYCOMMAND) != (UINT)-1" in seg)
+    check("the swap replaces only the popup",
+          "GetMenuItemInfoW(file_menu,_VIV_MENU_FILE_RECENT,FALSE,&mii)" in seg and
+          "SetMenuItemInfoW(file_menu,_VIV_MENU_FILE_RECENT,FALSE,&mii)" in seg and
+          "SetMenu(" not in seg)
+    check("the swapped-out popup is destroyed",
+          seg.count("DestroyMenu(") == 2)
+
+    # --- the options dialog height ---
+    check("the general page fits the association list",
+          "IDD_GENERAL DIALOGEX 0, 0, 194, 242" in rc and
+          '"&WMF",IDC_WMF,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,6,222,42,10' in rc and
+          'GROUPBOX        "Associations",IDC_ASSOCIATIONS_GROUPBOX,0,90,54,148' in rc)
+    check("the options container grew with the page",
+          "IDD_OPTIONS DIALOGEX 0, 0, 310, 295" in rc and
+          'DEFPUSHBUTTON   "OK",IDOK,198,276,50,14,WS_GROUP' in rc and
+          'PUSHBUTTON      "Cancel",IDCANCEL,252,276,50,14' in rc)
+    check("the tree, tabs and page placeholder match the new depth",
+          'TVS_SHOWSELALWAYS | TVS_TRACKSELECT | WS_BORDER | WS_TABSTOP,6,6,84,264' in rc and
+          rc.count('"SysTabControl32",WS_TABSTOP,96,6,210,264') == 3 and
+          'LTEXT           "Static",IDC_PAGEPLACEHOLDER,106,26,186,238,NOT WS_VISIBLE' in rc)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -2334,6 +2426,7 @@ if __name__ == "__main__":
     t_second_review_round40()
     t_ux_round41()
     t_field_fixes_round42()
+    t_field_fixes_round43()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

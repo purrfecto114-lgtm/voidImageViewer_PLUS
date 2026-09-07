@@ -1,3 +1,25 @@
+Stable: Version 1.1.06 (field fix round 2)
+	open speed: every single-file open wrote the whole settings file and
+	rebuilt the entire menu bar on the ui thread before the image load was
+	dispatched - the visible stutter when opening files (worst with
+	real-time antivirus scanning the temp ini). the recent-files save is
+	debounced now: a two second timer coalesces a burst of opens into one
+	write, and the exit / logoff saves fold a still-pending write in. the
+	menu update swaps just the recent-files popup inside the live file menu
+	instead of destroying and recreating the whole bar (the full-rebuild
+	path is deleted outright), so the dark bar owner-draw state survives
+	without a re-apply and the non-client area is not repainted mid-open.
+	recent files count limit: the list is capped at ten entries on every
+	path - a compile-time check locks the command-id block to the array
+	bound, the ini load clamps the count, the push trims with a while loop,
+	and the popup builder clamps its own loop bound, so the list can never
+	emit command ids past the reserved block or overflow the menu.
+	options dialog: the emf and wmf association checkboxes pushed the
+	association list past the general page template bottom (the last rows
+	were clipped). the page grows to fit all eleven checkboxes and the
+	group box, and the options container, tree, tabs and buttons move down
+	with it so the layout relationships survive.
+
 Stable: Version 1.1.06 (field fix round)
 	the field report on the 1.1.06 build: the recent-files submenu was
 	inserted once per command-table entry instead of once per rebuild, so

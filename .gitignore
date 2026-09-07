@@ -33,3 +33,4 @@ __pycache__/
 
 # downloaded release assets kept for local forensics only
 tool-results/r20/
+tests/samples/

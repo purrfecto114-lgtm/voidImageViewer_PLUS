@@ -289,6 +289,13 @@
 
 #include "viv.h"
 
+// the recent-files mru command ids run VIV_ID_FILE_RECENT_0 .. +count-1 and
+// the menu builder emits ids straight off that base. this compile-time check
+// locks the enum block and CONFIG_RECENT_FILE_COUNT together: raising one
+// without the other fails the build instead of silently emitting command ids
+// owned by unrelated entries.
+typedef char _viv_recent_id_block_matches_count[(VIV_ID_FILE_RECENT_9 - VIV_ID_FILE_RECENT_0 + 1 == CONFIG_RECENT_FILE_COUNT) ? 1 : -1];
+
 // touch gesture messages. (not defined in older SDKs)
 #ifndef WM_GESTURENOTIFY
 #define WM_GESTURENOTIFY 0x011A
@@ -376,6 +383,7 @@ enum
 };
 
 #define _VIV_HIDE_CURSOR_DELAY		2000
+#define _VIV_RECENT_SAVE_DELAY		2000 // the deferred recent-files mru save: coalesces rapid opens so the ui thread never writes the ini mid-burst (the exit and endsession paths fold the pending write in).
 
 // a file descriptor or find data
 // to describe the image.
@@ -536,7 +544,10 @@ static int _viv_icompare_filename(const wchar_t *s1,const wchar_t *s2);
 static void _viv_recent_file_push(const wchar_t *filename);
 static void _viv_recent_file_remove(int index);
 static void _viv_recent_file_clear(void);
-static void _viv_rebuild_menu(void);
+static void _viv_recent_save_defer(void);
+static void _viv_recent_save_fold(void);
+static HMENU _viv_create_recent_menu(void);
+static void _viv_recent_menu_update(void);
 static void _viv_open_file_location(void);
 static void _viv_properties(void);
 static void _viv_doing_cancel(void);
@@ -1490,6 +1501,40 @@ static int _viv_icompare_filename(const wchar_t *s1,const wchar_t *s2)
 	return 0;
 }
 
+// the deferred recent-files save. every mru mutation used to write the
+// whole settings file (create + write + replace, three file system ops)
+// and rebuild the entire menu bar on the ui thread right before the image
+// load was dispatched - the visible stutter when opening files, especially
+// with real-time antivirus scanning the temp file. the write is now
+// debounced: the timer coalesces a burst of opens into one save, and the
+// exit / endsession saves fold any still-pending write in.
+static int _viv_recent_save_dirty = 0;
+
+static void _viv_recent_save_defer(void)
+{
+	_viv_recent_save_dirty = 1;
+	
+	// settimer on an already-live id resets the countdown: a rapid burst
+	// of opens keeps pushing the write back until the burst is over.
+	if (_viv_hwnd)
+	{
+		SetTimer(_viv_hwnd,VIV_ID_RECENT_SAVE_TIMER,_VIV_RECENT_SAVE_DELAY,0);
+	}
+}
+
+// the pending write folds into an unconditional save that is about to run
+// (exit, session end): the timer is dead by then and the flag must not
+// leak a stray write later.
+static void _viv_recent_save_fold(void)
+{
+	_viv_recent_save_dirty = 0;
+	
+	if (_viv_hwnd)
+	{
+		KillTimer(_viv_hwnd,VIV_ID_RECENT_SAVE_TIMER);
+	}
+}
+
 static void _viv_recent_file_push(const wchar_t *filename)
 {
 	int i;
@@ -1509,18 +1554,21 @@ static void _viv_recent_file_push(const wchar_t *filename)
 				
 				config_recent_files[0] = entry;
 				
-				config_save_settings(config_appdata);
-				_viv_rebuild_menu();
+				_viv_recent_save_defer();
+				_viv_recent_menu_update();
 			}
 			
 			return;
 		}
 	}
 	
-	// a new entry: drop the oldest when the list is full.
-	if (config_recent_file_count == CONFIG_RECENT_FILE_COUNT)
+	// a new entry: drop the oldest when the list is full. the while (not a
+	// single if) also repairs an impossible over-count state: the menu id
+	// block, the save loop and this array all assume count <= the cap.
+	while(config_recent_file_count >= CONFIG_RECENT_FILE_COUNT)
 	{
-		mem_free(config_recent_files[CONFIG_RECENT_FILE_COUNT - 1]);
+		mem_free(config_recent_files[config_recent_file_count - 1]);
+		config_recent_files[config_recent_file_count - 1] = 0;
 		config_recent_file_count--;
 	}
 	
@@ -1529,8 +1577,8 @@ static void _viv_recent_file_push(const wchar_t *filename)
 	config_recent_files[0] = string_alloc(filename);
 	config_recent_file_count++;
 	
-	config_save_settings(config_appdata);
-	_viv_rebuild_menu();
+	_viv_recent_save_defer();
+	_viv_recent_menu_update();
 }
 
 static void _viv_recent_file_remove(int index)
@@ -1544,8 +1592,8 @@ static void _viv_recent_file_remove(int index)
 		config_recent_file_count--;
 		config_recent_files[config_recent_file_count] = 0;
 		
-		config_save_settings(config_appdata);
-		_viv_rebuild_menu();
+		_viv_recent_save_defer();
+		_viv_recent_menu_update();
 	}
 }
 
@@ -1559,8 +1607,8 @@ static void _viv_recent_file_clear(void)
 		config_recent_files[config_recent_file_count] = 0;
 	}
 	
-	config_save_settings(config_appdata);
-	_viv_rebuild_menu();
+	_viv_recent_save_defer();
+	_viv_recent_menu_update();
 }
 
 static BOOL _viv_open_from_filename(const wchar_t *filename)
@@ -2839,6 +2887,11 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 static void _viv_exit(void)
 {
 	_viv_load_image_terminate = 1;
+	
+	// the deferred recent-files save folds into the exit write below (the
+	// debounce timer never gets to fire once the quit is posted).
+	_viv_recent_save_fold();
+	
 	config_save_settings(config_appdata);
 	PostQuitMessage(0);
 }
@@ -3233,7 +3286,10 @@ static LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 		case WM_ENDSESSION:
 			if (wParam)
 			{
-				// save settings on logout.
+				// save settings on logout. the deferred recent-files save
+				// folds into this write: the timer cannot fire anymore.
+				_viv_recent_save_fold();
+				
 				config_save_settings(config_appdata);
 			}
 			return 0;
@@ -3650,6 +3706,21 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				}
 				break;
 
+				case VIV_ID_RECENT_SAVE_TIMER:
+				{
+					// the deferred recent-files save (see _viv_recent_save_defer):
+					// the open burst is over, write the settings once.
+					KillTimer(hwnd,VIV_ID_RECENT_SAVE_TIMER);
+					
+					if (_viv_recent_save_dirty)
+					{
+						_viv_recent_save_dirty = 0;
+						
+						config_save_settings(config_appdata);
+					}
+				}
+				break;
+				
 				case VIV_ID_STATUS_TEMP_TEXT_TIMER:
 					_viv_status_set_temp_text(0);
 					break;
@@ -16289,6 +16360,137 @@ static void _viv_get_key_text(wchar_t *wbuf,DWORD keyflags)
 	}
 }
 
+// build the recent-files mru popup from the in-memory list. shared by the
+// full menu creation and the live swap after an mru change.
+static HMENU _viv_create_recent_menu(void)
+{
+	HMENU recent_menu;
+	wchar_t text_wbuf[STRING_SIZE];
+	
+	recent_menu = CreatePopupMenu();
+	
+	if (recent_menu)
+	{
+		// the count is bounded at load and at push; the clamp here is the
+		// last line of defense so the loop can never emit command ids past
+		// the VIV_ID_FILE_RECENT_0 + count-1 block (the compile-time check
+		// near the top keeps that block in lockstep with the array).
+		int i;
+		int count;
+		
+		count = (config_recent_file_count < CONFIG_RECENT_FILE_COUNT) ? config_recent_file_count : CONFIG_RECENT_FILE_COUNT;
+		
+		if (count > 0)
+		{
+			for(i=0;i<count;i++)
+			{
+				wchar_t num_wbuf[64];
+				
+				// the mru convention: an ampersand digit prefix selects the
+				// entry from the keyboard while the submenu is open.
+				string_format_number(num_wbuf,i + 1);
+				string_copy(text_wbuf,L"&");
+				string_cat(text_wbuf,num_wbuf);
+				string_cat(text_wbuf,L" ");
+				string_cat(text_wbuf,string_get_filename_part(config_recent_files[i]));
+				
+				AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_0 + i,text_wbuf);
+			}
+			
+			AppendMenu(recent_menu,MF_SEPARATOR,0,L"");
+			
+			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_CLEAR));
+			AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+		}
+		else
+		{
+			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_EMPTY));
+			AppendMenu(recent_menu,MF_STRING | MF_GRAYED,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+		}
+	}
+	
+	return recent_menu;
+}
+
+// the mru rows changed (open, remove, clear): swap just the recent popup
+// inside the live file menu. the full rebuild (destroy + create + setmenu
+// + dark re-apply) repaints the whole non-client area and was the second
+// half of the open-image stutter; the bar items and every other row stay
+// untouched here, so the owner draw state and the dark bar theme survive
+// without re-applying.
+static void _viv_recent_menu_update(void)
+{
+	HMENU file_menu;
+	MENUITEMINFOW mii;
+	int index;
+	int count;
+	
+	if (!_viv_hmenu)
+	{
+		return;
+	}
+	
+	// find the live file menu: the only popup carrying the recent row id.
+	file_menu = 0;
+	
+	count = GetMenuItemCount(_viv_hmenu);
+	
+	for(index=0;index<count;index++)
+	{
+		HMENU sub_menu;
+		
+		sub_menu = GetSubMenu(_viv_hmenu,index);
+		
+		if (sub_menu)
+		{
+			if (GetMenuState(sub_menu,_VIV_MENU_FILE_RECENT,MF_BYCOMMAND) != (UINT)-1)
+			{
+				file_menu = sub_menu;
+				
+				break;
+			}
+		}
+	}
+	
+	if (!file_menu)
+	{
+		return;
+	}
+	
+	// read the old popup out first so it can be destroyed after the swap.
+	os_zero_memory(&mii,sizeof(mii));
+	mii.cbSize = sizeof(mii);
+	mii.fMask = MIIM_SUBMENU;
+	
+	if (!GetMenuItemInfoW(file_menu,_VIV_MENU_FILE_RECENT,FALSE,&mii))
+	{
+		return;
+	}
+	
+	{
+		HMENU old_recent_menu;
+		
+		old_recent_menu = mii.hSubMenu;
+		
+		mii.hSubMenu = _viv_create_recent_menu();
+		
+		if (mii.hSubMenu)
+		{
+			if (SetMenuItemInfoW(file_menu,_VIV_MENU_FILE_RECENT,FALSE,&mii))
+			{
+				if (old_recent_menu)
+				{
+					DestroyMenu(old_recent_menu);
+				}
+			}
+			else
+			{
+				DestroyMenu(mii.hSubMenu);
+			}
+		}
+	}
+}
+
 static HMENU _viv_create_menu(void)
 {
 	HMENU hmenu;
@@ -16380,37 +16582,7 @@ static HMENU _viv_create_menu(void)
 			HMENU recent_menu;
 			wchar_t text_wbuf[STRING_SIZE];
 			
-			recent_menu = CreatePopupMenu();
-			
-			if (config_recent_file_count)
-			{
-				int i;
-				
-				for(i=0;i<config_recent_file_count;i++)
-				{
-					wchar_t num_wbuf[64];
-					
-					// the mru convention: an ampersand digit prefix selects the
-					// entry from the keyboard while the submenu is open.
-					string_format_number(num_wbuf,i + 1);
-					string_copy(text_wbuf,L"&");
-					string_cat(text_wbuf,num_wbuf);
-					string_cat(text_wbuf,L" ");
-					string_cat(text_wbuf,string_get_filename_part(config_recent_files[i]));
-					
-					AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_0 + i,text_wbuf);
-				}
-				
-				AppendMenu(recent_menu,MF_SEPARATOR,0,L"");
-				
-				string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_CLEAR));
-				AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
-			}
-			else
-			{
-				string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_EMPTY));
-				AppendMenu(recent_menu,MF_STRING | MF_GRAYED,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
-			}
+			recent_menu = _viv_create_recent_menu();
 			
 			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES));
 			
@@ -16436,30 +16608,6 @@ static HMENU _viv_create_menu(void)
 	_viv_menu_bar_state = -1;
 	
 	return hmenu;
-}
-
-static void _viv_rebuild_menu(void)
-{
-	HMENU new_hmenu;
-	
-	// the recent-files mru and the language selection rebuild the whole
-	// menu bar; this is the same swap the options dialog performs.
-	new_hmenu = _viv_create_menu();
-	
-	if (GetMenu(_viv_hwnd))
-	{
-		SetMenu(_viv_hwnd,new_hmenu);
-	}
-	
-	if (_viv_hmenu)
-	{
-		DestroyMenu(_viv_hmenu);
-	}
-	
-	_viv_hmenu = new_hmenu;
-	
-	// the fresh menu needs the dark bar owner draw re-applied.
-	_viv_menu_bar_theme();
 }
 
 static void _viv_key_add(_viv_key_list_t *key_list,int command_index,DWORD keyflags)
