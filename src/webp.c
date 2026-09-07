@@ -28,11 +28,11 @@
 
 // prints the refusal through the debug banner so a user wondering why a
 // huge file fails can turn the debug channel on and read the ceiling.
-static int _pixel_budget_refused(SIZE_T pixels)
+static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
 {
-	if (pixels > VIV_MAX_IMAGE_PIXELS)
+	if (pixels > ceiling)
 	{
-		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(VIV_MAX_IMAGE_PIXELS / 1000000));
+		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(ceiling / 1000000));
 		
 		return 1;
 	}
@@ -85,10 +85,10 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 							{
 								// pixel budget: refuse a hostile canvas before libwebp
 								// allocates the frame buffers of the animation.
-								if ((!_pixel_budget_refused(safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height))) && (info_callback(user_data,anim_info.frame_count,anim_info.canvas_width,anim_info.canvas_height,features.has_alpha)))
+								if ((!_pixel_budget_refused(safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height),VIV_MAX_ANIMATION_PIXELS)) && (info_callback(user_data,anim_info.frame_count,anim_info.canvas_width,anim_info.canvas_height,features.has_alpha)))
 								{
 									uint8_t *frame;
-									int timestamp;
+									int timestamp; // out-param of webpanimdecodergetnext: libwebp dereferences the pointer unconditionally, it is not dead
 									DWORD frame_run;
 									DWORD frame_index;
 																			
@@ -110,8 +110,24 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 										{
 											WebPIterator iter;
 
-											frame_delays = (DWORD *)mem_alloc(anim_info.frame_count * sizeof(DWORD));
-											os_zero_memory(frame_delays,anim_info.frame_count * sizeof(DWORD));
+											// the frame count is a container-declared uint32: run it through
+											// the safe multiply so a wrapped product can not hand a tiny
+											// allocation to a loop that indexes by the declared count.
+											{
+													SIZE_T frame_delay_bytes;
+
+													frame_delay_bytes = safe_size_mul((SIZE_T)anim_info.frame_count,sizeof(DWORD));
+
+													if (frame_delay_bytes)
+													{
+																frame_delays = (DWORD *)mem_alloc(frame_delay_bytes);
+
+																if (frame_delays)
+																{
+																		os_zero_memory(frame_delays,(int)frame_delay_bytes);
+																}
+															}
+													}
 
 											if (WebPDemuxGetFrame(demux,1,&iter))
 											{
@@ -215,7 +231,7 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 					// pixel budget: refuse a hostile canvas before libwebp
 					// allocates the rgba buffer (the decode itself is the
 					// multi gigabyte allocation the budget exists for).
-					if (!_pixel_budget_refused(safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height)))
+					if (!_pixel_budget_refused(safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height),VIV_MAX_IMAGE_PIXELS))
 					{
 						BYTE *pixels;
 						int width;

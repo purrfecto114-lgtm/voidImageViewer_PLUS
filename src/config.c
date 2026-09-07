@@ -28,6 +28,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root);
 static void _config_write_int(HANDLE h,const char *ascii_key,int value);
 static void _config_write_string(HANDLE h,const char *ascii_key,const wchar_t *s);
 static void _config_write_utf8(HANDLE h,const utf8_t *s);
+static void _config_recent_key_name(utf8_t *buf,int index);
 static void _config_save_settings_by_location(const wchar_t *path,int is_root);
 
 BYTE config_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
@@ -67,6 +68,9 @@ BYTE config_show_status = 1;
 BYTE config_show_controls = 1;
 BYTE config_show_zoom_controls = 0; // show the floating zoom controls. (defaults to on for touch devices)
 BYTE config_zoom_auto_hide = 1; // auto-hide the fullscreen zoom overlay when idle.
+// recent files mru: newest first, at most CONFIG_RECENT_FILE_COUNT entries.
+wchar_t *config_recent_files[CONFIG_RECENT_FILE_COUNT] = {0};
+int config_recent_file_count = 0;
 BYTE config_prevent_sleep = 1;
 BYTE config_loop_animations_once = 1;
 BYTE config_mouse_wheel_action = 0; // 0 = zoom, 1 = next/prev, 2=prev/next
@@ -193,6 +197,35 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_backdrop_color_r = ini_get_int(ini,(const utf8_t *)"backdrop_color_r",config_backdrop_color_r);
 		config_backdrop_color_g = ini_get_int(ini,(const utf8_t *)"backdrop_color_g",config_backdrop_color_g);
 		config_backdrop_color_b = ini_get_int(ini,(const utf8_t *)"backdrop_color_b",config_backdrop_color_b);
+		
+		// recent files mru: recent_file_0 .. recent_file_9 hold the most
+		// recently opened paths, newest first. the walk stops at the first
+		// empty slot so a hand-edited hole cannot reorder the list.
+		{
+			int i;
+			
+			for(i=0;i<CONFIG_RECENT_FILE_COUNT;i++)
+			{
+				utf8_t key_buf[32];
+				const utf8_t *recent_value;
+				
+				_config_recent_key_name(key_buf,i);
+				recent_value = ini_get_string(ini,key_buf);
+				
+				if ((recent_value) && (*recent_value) && (config_recent_file_count < CONFIG_RECENT_FILE_COUNT))
+				{
+					wchar_t *recent_filename;
+					
+					recent_filename = string_alloc_utf8(recent_value);
+					
+					if (recent_filename)
+					{
+						config_recent_files[config_recent_file_count] = recent_filename;
+						config_recent_file_count++;
+					}
+				}
+			}
+		}
 		config_auto_zoom = ini_get_int(ini,(const utf8_t *)"auto_zoom",config_auto_zoom);
 		config_auto_zoom_type = ini_get_int(ini,(const utf8_t *)"auto_zoom_type",config_auto_zoom_type);
 		config_auto_fit_wide_mul = ini_get_int(ini,(const utf8_t *)"auto_fit_wide_mul",config_auto_fit_wide_mul);
@@ -369,6 +402,25 @@ static void _config_write_string(HANDLE h,const char *ascii_key,const wchar_t *s
 	_config_write_utf8(h,(const utf8_t *)"\r\n");
 }
 
+static void _config_recent_key_name(utf8_t *buf,int index)
+{
+	// "recent_file_0" .. "recent_file_9"
+	buf[0] = 'r';
+	buf[1] = 'e';
+	buf[2] = 'c';
+	buf[3] = 'e';
+	buf[4] = 'n';
+	buf[5] = 't';
+	buf[6] = '_';
+	buf[7] = 'f';
+	buf[8] = 'i';
+	buf[9] = 'l';
+	buf[10] = 'e';
+	buf[11] = '_';
+	buf[12] = (utf8_t)('0' + (index % 10));
+	buf[13] = 0;
+}
+
 static void _config_write_utf8(HANDLE h,const utf8_t *s)
 {
 	DWORD num_written;
@@ -466,6 +518,21 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);
 			_config_write_int(h,"title_bar_format",config_title_bar_format);
 			_config_write_int(h,"add_command_line_timeout",config_add_command_line_timeout);
+				
+				// save the recent files mru: filled slots carry paths, the rest
+				// are written empty so removed entries do not survive a reload.
+				{
+					int i;
+					
+					for(i=0;i<CONFIG_RECENT_FILE_COUNT;i++)
+					{
+						utf8_t key_buf[32];
+						
+						_config_recent_key_name(key_buf,i);
+						
+						_config_write_string(h,key_buf,(i < config_recent_file_count) ? config_recent_files[i] : L"");
+					}
+				}
 					
 			// save keys
 			{

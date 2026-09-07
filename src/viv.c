@@ -370,6 +370,7 @@ enum
 	_VIV_MENU_NAVIGATE_SORT,
 	_VIV_MENU_NAVIGATE_PLAYLIST,
 	_VIV_MENU_HELP,
+	_VIV_MENU_FILE_RECENT,
 	_VIV_MENU_COUNT,
 };
 
@@ -530,6 +531,11 @@ static void _viv_file_print(void);
 static void _viv_file_set_desktop_wallpaper(void);
 static void _viv_edit_rotate(int counterclockwise);
 static void _viv_file_edit(void);
+static int _viv_icompare_filename(const wchar_t *s1,const wchar_t *s2);
+static void _viv_recent_file_push(const wchar_t *filename);
+static void _viv_recent_file_remove(int index);
+static void _viv_recent_file_clear(void);
+static void _viv_rebuild_menu(void);
 static void _viv_open_file_location(void);
 static void _viv_properties(void);
 static void _viv_doing_cancel(void);
@@ -1065,12 +1071,12 @@ _viv_default_key_t _viv_default_keys[] =
 	{VIV_ID_FILE_OPEN_EVERYTHING_SEARCH,CONFIG_KEYFLAG_CTRL | 'E'},
 	{VIV_ID_FILE_ADD_FILE,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'O'},
 	{VIV_ID_FILE_ADD_FOLDER,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'B'},
-	{VIV_ID_FILE_ADD_EVERYTHING_SEARCH,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'E'},
+	{VIV_ID_FILE_ADD_EVERYTHING_SEARCH,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_ALT | 'E'},
 	{VIV_ID_FILE_OPEN_FILE_LOCATION,CONFIG_KEYFLAG_CTRL | VK_RETURN},
 	{VIV_ID_FILE_SAVE_AS,CONFIG_KEYFLAG_CTRL | 'S'},
-//	{VIV_ID_FILE_EDIT,CONFIG_KEYFLAG_CTRL | 'E'},
+	{VIV_ID_FILE_EDIT,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'E'}, // the everything search keeps plain ctrl+e; everything-add moved to ctrl+alt+e so the editor can take ctrl+shift+e
 	{VIV_ID_FILE_PRINT,CONFIG_KEYFLAG_CTRL | 'P'},
-//	{VIV_ID_FILE_SET_DESKTOP_WALLPAPER,CONFIG_KEYFLAG_CTRL | 'D'}, // this needs a confirmation dialog
+	{VIV_ID_FILE_SET_DESKTOP_WALLPAPER,CONFIG_KEYFLAG_CTRL | 'D'}, // safe again: the handler asks before it touches the desktop
 	{VIV_ID_FILE_CLOSE,CONFIG_KEYFLAG_CTRL | 'W'},
 	{VIV_ID_FILE_DELETE_RECYCLE,VK_DELETE},
 	{VIV_ID_FILE_DELETE_PERMANENTLY,CONFIG_KEYFLAG_SHIFT | VK_DELETE},
@@ -1098,7 +1104,7 @@ _viv_default_key_t _viv_default_keys[] =
 	{VIV_ID_VIEW_ZOOM_OUT,CONFIG_KEYFLAG_CTRL | VK_SUBTRACT},
 	{VIV_ID_VIEW_ZOOM_RESET,CONFIG_KEYFLAG_CTRL | '0'},
 	{VIV_ID_VIEW_ONTOP_ALWAYS,CONFIG_KEYFLAG_CTRL | 'T'},
-	{VIV_ID_VIEW_OPTIONS,'O'},
+	{VIV_ID_VIEW_OPTIONS,CONFIG_KEYFLAG_CTRL | VK_OEM_COMMA}, // ctrl+comma, the modern options key: a bare o opened a modal on every stray keypress
 	{VIV_ID_VIEW_REFRESH,VK_F5},
 	{VIV_ID_SLIDESHOW_PAUSE,VK_SPACE},
 	{VIV_ID_SLIDESHOW_RATE_DEC,VK_DOWN},
@@ -1199,7 +1205,7 @@ WORD _viv_context_menu_items[] =
 	VIV_ID_FILE_EXIT,
 };
 
-#define _VIV_CONEXT_MENU_ITEM_COUNT	(sizeof(_viv_context_menu_items) / sizeof(WORD))
+#define _VIV_CONTEXT_MENU_ITEM_COUNT	(sizeof(_viv_context_menu_items) / sizeof(WORD))
 
 typedef struct _viv_key_list_s
 {
@@ -1221,6 +1227,8 @@ const char *_viv_association_extensions[] =
 	"tif",
 	"tiff",
 	"webp",
+	"emf",
+	"wmf",
 };
 
 // registry description.
@@ -1235,6 +1243,8 @@ const localization_id_t _viv_association_description_localization_id_array[] =
 	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_TIF,
 	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_TIFF,
 	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_WEBP,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_EMF,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_WMF,
 };
 
 const char *_viv_association_icon_locations[] = 
@@ -1242,6 +1252,8 @@ const char *_viv_association_icon_locations[] =
 	NULL,
 	NULL,
 	"%1",
+	NULL,
+	NULL,
 	NULL,
 	NULL,
 	NULL,
@@ -1261,6 +1273,8 @@ const WORD _viv_association_dlg_item_id[] =
 	IDC_TIF,
 	IDC_TIFF,
 	IDC_WEBP,
+	IDC_EMF,
+	IDC_WMF,
 };
 
 #define _VIV_ASSOCIATION_COUNT	(sizeof(_viv_association_extensions) / sizeof(const wchar_t *))
@@ -1434,6 +1448,119 @@ static void _viv_clear_preload(void)
 	_viv_preload_fd->cFileName[0] = 0;
 }
 
+static int _viv_icompare_filename(const wchar_t *s1,const wchar_t *s2)
+{
+	// windows paths are case preserving but case insensitive: fold ascii
+	// letters before comparing so one file cannot enter the mru twice with
+	// different capitalization.
+	while((*s1) && (*s2))
+	{
+		wchar_t c1;
+		wchar_t c2;
+		
+		c1 = *s1;
+		c2 = *s2;
+		
+		if ((c1 >= 'A') && (c1 <= 'Z'))
+		{
+			c1 = (wchar_t)(c1 + ('a' - 'A'));
+		}
+		
+		if ((c2 >= 'A') && (c2 <= 'Z'))
+		{
+			c2 = (wchar_t)(c2 + ('a' - 'A'));
+		}
+		
+		if (c1 != c2)
+		{
+			return 1;
+		}
+		
+		s1++;
+		s2++;
+	}
+	
+	if ((*s1) || (*s2))
+	{
+		return 1;
+	}
+	
+	return 0;
+}
+
+static void _viv_recent_file_push(const wchar_t *filename)
+{
+	int i;
+	
+	for(i=0;i<config_recent_file_count;i++)
+	{
+		if (_viv_icompare_filename(config_recent_files[i],filename) == 0)
+		{
+			// already in the list: move it to the top.
+			if (i != 0)
+			{
+				wchar_t *entry;
+				
+				entry = config_recent_files[i];
+				
+				os_move_memory(&config_recent_files[1],&config_recent_files[0],i * sizeof(wchar_t *));
+				
+				config_recent_files[0] = entry;
+				
+				config_save_settings(config_appdata);
+				_viv_rebuild_menu();
+			}
+			
+			return;
+		}
+	}
+	
+	// a new entry: drop the oldest when the list is full.
+	if (config_recent_file_count == CONFIG_RECENT_FILE_COUNT)
+	{
+		mem_free(config_recent_files[CONFIG_RECENT_FILE_COUNT - 1]);
+		config_recent_file_count--;
+	}
+	
+	os_move_memory(&config_recent_files[1],&config_recent_files[0],config_recent_file_count * sizeof(wchar_t *));
+	
+	config_recent_files[0] = string_alloc(filename);
+	config_recent_file_count++;
+	
+	config_save_settings(config_appdata);
+	_viv_rebuild_menu();
+}
+
+static void _viv_recent_file_remove(int index)
+{
+	if ((index >= 0) && (index < config_recent_file_count))
+	{
+		mem_free(config_recent_files[index]);
+		
+		os_move_memory(&config_recent_files[index],&config_recent_files[index + 1],(config_recent_file_count - index - 1) * sizeof(wchar_t *));
+		
+		config_recent_file_count--;
+		config_recent_files[config_recent_file_count] = 0;
+		
+		config_save_settings(config_appdata);
+		_viv_rebuild_menu();
+	}
+}
+
+static void _viv_recent_file_clear(void)
+{
+	while(config_recent_file_count)
+	{
+		config_recent_file_count--;
+		
+		mem_free(config_recent_files[config_recent_file_count]);
+		config_recent_files[config_recent_file_count] = 0;
+	}
+	
+	config_save_settings(config_appdata);
+	_viv_rebuild_menu();
+}
+
 static BOOL _viv_open_from_filename(const wchar_t *filename)
 {
 	BOOL ret;
@@ -1465,6 +1592,10 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 		else
 		{
 			string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
+			
+			// every single-file open (dialog, drop, command line, mru itself)
+			// feeds the recent list.
+			_viv_recent_file_push(full_path_and_filename);
 			
 			_viv_open(&fd,0);
 		}
@@ -1792,6 +1923,45 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			_viv_exit();
 			break;
 		
+		case VIV_ID_FILE_RECENT_CLEAR:
+			_viv_recent_file_clear();
+			break;
+		
+		case VIV_ID_FILE_RECENT_0:
+		case VIV_ID_FILE_RECENT_1:
+		case VIV_ID_FILE_RECENT_2:
+		case VIV_ID_FILE_RECENT_3:
+		case VIV_ID_FILE_RECENT_4:
+		case VIV_ID_FILE_RECENT_5:
+		case VIV_ID_FILE_RECENT_6:
+		case VIV_ID_FILE_RECENT_7:
+		case VIV_ID_FILE_RECENT_8:
+		case VIV_ID_FILE_RECENT_9:
+			{
+				int recent_index;
+				
+				recent_index = command_id - VIV_ID_FILE_RECENT_0;
+				
+				if ((recent_index >= 0) && (recent_index < config_recent_file_count))
+				{
+					if (_viv_random)
+					{
+						mem_free(_viv_random);
+						
+						_viv_random = 0;
+					}
+					
+					_viv_playlist_clearall();
+					
+					if (!_viv_open_from_filename(config_recent_files[recent_index]))
+					{
+						// the file is gone: drop the stale mru entry.
+						_viv_recent_file_remove(recent_index);
+					}
+				}
+			}
+			break;
+		
 		case VIV_ID_NAV_PREV:
 			_viv_next(1,1,0,is_key_repeat);
 			break;
@@ -1929,11 +2099,29 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 			
 		case VIV_ID_SLIDESHOW_RATE_DEC:
-			_viv_increase_rate(1);
+			if (!_viv_is_slideshow)
+			{
+				// up and down navigate when no slideshow is running: a user
+				// pressing down on a still image expects the next picture, not
+				// a silent rate change they cannot see anywhere.
+				_viv_next(0,1,0,is_key_repeat);
+			}
+			else
+			{
+				_viv_increase_rate(1);
+			}
 			break;
 			
 		case VIV_ID_SLIDESHOW_RATE_INC:
-			_viv_increase_rate(0);
+			if (!_viv_is_slideshow)
+			{
+				// see the rate_dec note: the still-image fallback navigates.
+				_viv_next(1,1,0,is_key_repeat);
+			}
+			else
+			{
+				_viv_increase_rate(0);
+			}
 			break;
 
 		case VIV_ID_ANIMATION_PLAY_PAUSE:
@@ -2432,7 +2620,7 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 
 				string_copy(tobuf,_viv_last_open_file ? _viv_last_open_file : L"");
 				
-				string_printf(filter_wbuf,"%s (*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp)%c*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp%c%s (*.*)%c*.*%c",localization_get_string(LOCALIZATION_ID_OPEN_ALL_IMAGE_FILES),0,0,localization_get_string(LOCALIZATION_ID_OPEN_ALL_FILES),0,0);
+				string_printf(filter_wbuf,"%s (*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp;*.emf;*.wmf)%c*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp;*.emf;*.wmf%c%s (*.*)%c*.*%c",localization_get_string(LOCALIZATION_ID_OPEN_ALL_IMAGE_FILES),0,0,localization_get_string(LOCALIZATION_ID_OPEN_ALL_FILES),0,0);
 
 				string_copy_utf8_string(title_wbuf,localization_get_string(LOCALIZATION_ID_OPEN_IMAGE_CAPTION));
 				
@@ -3694,7 +3882,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				curmenu = hmenu;
 				was_seperator = 1;
 				
-				for(i=0;i<_VIV_CONEXT_MENU_ITEM_COUNT;i++)
+				for(i=0;i<_VIV_CONTEXT_MENU_ITEM_COUNT;i++)
 				{
 					if (_viv_context_menu_items[i] > _VIV_MENU_COUNT)
 					{
@@ -10221,14 +10409,26 @@ static void _viv_file_set_desktop_wallpaper(void)
 {
 	if (*_viv_current_fd->cFileName)
 	{
-		if (!_viv_stobject_hmodule)
-		{
-			_viv_stobject_hmodule = LoadLibraryA("stobject.dll");
-		}
+		wchar_t message_wbuf[STRING_SIZE];
+		wchar_t caption_wbuf[STRING_SIZE];
 		
-		if (_viv_stobject_hmodule)
+		// a stray menu click used to rewrite the desktop silently; the menu
+		// comment has asked for this dialog since the first release (and the
+		// ctrl+d default key returns with it).
+		string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_MESSAGE));
+		string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_CAPTION));
+		
+		if (MessageBox(_viv_hwnd,message_wbuf,caption_wbuf,MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
 		{
-			os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,0,"setdesktopwallpaper",0);
+			if (!_viv_stobject_hmodule)
+			{
+				_viv_stobject_hmodule = LoadLibraryA("stobject.dll");
+			}
+			
+			if (_viv_stobject_hmodule)
+			{
+				os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,0,"setdesktopwallpaper",0);
+			}
 		}
 	}
 }
@@ -10546,6 +10746,8 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 					CheckDlgButton(hwnd,IDC_TIF,check);
 					CheckDlgButton(hwnd,IDC_TIFF,check);
 					CheckDlgButton(hwnd,IDC_WEBP,check);
+					CheckDlgButton(hwnd,IDC_EMF,check);
+					CheckDlgButton(hwnd,IDC_WMF,check);
 					
 					break;
 				}
@@ -14170,6 +14372,7 @@ static void _viv_status_update(void)
 			if (size.QuadPart)
 			{
 				NUMBERFMT numberfmt;
+				localization_id_t size_unit_id;
 				
 				if (*dimension_buf)
 				{
@@ -14177,19 +14380,57 @@ static void _viv_status_update(void)
 				}
 				
 				string_cat_utf8(dimension_buf,"(");
-				string_format_number(widebuf,(size.QuadPart + 1023) / 1024);
 				
-				numberfmt.NumDigits = 0;
+				// adaptive size units: a 4 gb scan used to show as a row of comma
+				// separated kilobytes. pick b / kb / mb / gb by magnitude, with
+				// one decimal place above a megabyte (integer math only).
+				if (size.QuadPart < 1024)
+				{
+					string_format_number(widebuf,size.QuadPart);
+					
+					size_unit_id = LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT;
+				}
+				else
+				if (size.QuadPart < ((LONGLONG)1024 * 1024))
+				{
+					string_format_number(widebuf,(size.QuadPart + 1023) / 1024);
+					
+					size_unit_id = LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT;
+				}
+				else
+				{
+					VIV_UINT64 divisor;
+					VIV_UINT64 tenths;
+					DWORD whole;
+					DWORD frac;
+					
+					divisor = (size.QuadPart < ((LONGLONG)1024 * 1024 * 1024)) ? ((VIV_UINT64)1024 * 1024) : ((VIV_UINT64)1024 * 1024 * 1024);
+					
+					size_unit_id = (divisor == ((VIV_UINT64)1024 * 1024)) ? LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT : LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT;
+					
+					// one decimal place, rounded: (bytes * 10 + divisor / 2) / divisor
+					tenths = (((VIV_UINT64)size.QuadPart * 10) + (divisor / 2)) / divisor;
+					whole = (DWORD)(tenths / 10);
+					frac = (DWORD)(tenths % 10);
+					
+					string_format_number(widebuf,whole);
+					string_cat_utf8(widebuf,(const utf8_t *)".");
+					widebuf[string_get_length(widebuf)] = (wchar_t)('0' + frac);
+					widebuf[string_get_length(widebuf) + 1] = 0;
+				}
+				
+				numberfmt.NumDigits = (size.QuadPart < ((LONGLONG)1024 * 1024)) ? 0 : 1;
 				numberfmt.LeadingZero = 0;
 				numberfmt.Grouping = 3;
 				numberfmt.lpThousandSep = L",";
 				numberfmt.lpDecimalSep = L".";
 				numberfmt.NegativeOrder = 0;
-	    
-    			GetNumberFormat(LOCALE_USER_DEFAULT,0,widebuf,&numberfmt,highbuf,STRING_SIZE);
+				
+				GetNumberFormat(LOCALE_USER_DEFAULT,0,widebuf,&numberfmt,highbuf,STRING_SIZE);
 				
 				string_cat(dimension_buf,highbuf);
-				string_cat_utf8(dimension_buf," KB)");
+				string_cat_utf8(dimension_buf,localization_get_string(size_unit_id));
+				string_cat_utf8(dimension_buf,")");
 			}
 		}
 		
@@ -15484,9 +15725,9 @@ static void _viv_command_line_options(void)
 //		"/everything <search> Open files from an Everything search.\n"
 //		"/random <search>\tOpen random files from an Everything search.\n"
 		"/shuffle\t\tShuffle playlist.\n"
-		"/<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp>\n"
+		"/<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp|emf|wmf>\n"
 		"\t\tInstall association.\n"
-		"/no<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp>\n"
+		"/no<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp|emf|wmf>\n"
 		"\t\tUninstall association.\n"
 		"/appdata\t\tSave settings in appdata.\n"
 		"/noappdata\tSave settings in exe path.\n"
@@ -16010,6 +16251,64 @@ static HMENU _viv_create_menu(void)
 					}
 				}
 			}
+			
+			// the recent-files mru submenu is dynamic (paths from the ini), so
+			// it is built after the static table walk and inserted before the
+			// exit item of the file menu.
+			{
+				HMENU recent_menu;
+				wchar_t text_wbuf[STRING_SIZE];
+				
+				recent_menu = CreatePopupMenu();
+				
+				if (config_recent_file_count)
+				{
+					int i;
+					
+					for(i=0;i<config_recent_file_count;i++)
+					{
+						wchar_t num_wbuf[64];
+						
+						// the mru convention: an ampersand digit prefix selects the
+						// entry from the keyboard while the submenu is open.
+						string_format_number(num_wbuf,i + 1);
+						string_copy(text_wbuf,L"&");
+						string_cat(text_wbuf,num_wbuf);
+						string_cat(text_wbuf,L" ");
+						string_cat(text_wbuf,string_get_filename_part(config_recent_files[i]));
+						
+						AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_0 + i,text_wbuf);
+					}
+					
+					AppendMenu(recent_menu,MF_SEPARATOR,0,L"");
+					
+					string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_CLEAR));
+					AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+				}
+				else
+				{
+					string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_EMPTY));
+					AppendMenu(recent_menu,MF_STRING | MF_GRAYED,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+				}
+				
+				string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES));
+				
+				{
+					MENUITEMINFOW mii;
+					int insert_pos;
+					
+					os_zero_memory(&mii,sizeof(mii));
+					mii.cbSize = sizeof(mii);
+					mii.fMask = MIIM_SUBMENU | MIIM_STRING | MIIM_ID;
+					mii.wID = _VIV_MENU_FILE_RECENT;
+					mii.hSubMenu = recent_menu;
+					mii.dwTypeData = text_wbuf;
+					
+					// right before the exit item (the last row of the file menu).
+					insert_pos = GetMenuItemCount(menus[_VIV_MENU_FILE]) - 1;
+					InsertMenuItemW(menus[_VIV_MENU_FILE],insert_pos,TRUE,&mii);
+				}
+			}
 		}
 	}
 	
@@ -16017,6 +16316,30 @@ static HMENU _viv_create_menu(void)
 	_viv_menu_bar_state = -1;
 	
 	return hmenu;
+}
+
+static void _viv_rebuild_menu(void)
+{
+	HMENU new_hmenu;
+	
+	// the recent-files mru and the language selection rebuild the whole
+	// menu bar; this is the same swap the options dialog performs.
+	new_hmenu = _viv_create_menu();
+	
+	if (GetMenu(_viv_hwnd))
+	{
+		SetMenu(_viv_hwnd,new_hmenu);
+	}
+	
+	if (_viv_hmenu)
+	{
+		DestroyMenu(_viv_hmenu);
+	}
+	
+	_viv_hmenu = new_hmenu;
+	
+	// the fresh menu needs the dark bar owner draw re-applied.
+	_viv_menu_bar_theme();
 }
 
 static void _viv_key_add(_viv_key_list_t *key_list,int command_index,DWORD keyflags)
@@ -17293,7 +17616,7 @@ static int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wch
 			DWORD size;
 			wchar_t new_search[STRING_SIZE];
 			
-			string_copy_utf8_string(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp <");
+			string_copy_utf8_string(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp;emf;wmf <");
 			string_cat(new_search,search);
 			string_cat_utf8(new_search,">");
 
@@ -17760,7 +18083,7 @@ static void _viv_send_random_everything_search(void)
 		DWORD size;
 		wchar_t new_search[STRING_SIZE];
 		
-		string_copy_utf8_string(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp <");
+		string_copy_utf8_string(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp;emf;wmf <");
 		string_cat(new_search,_viv_random);
 		string_cat_utf8(new_search,">");
 

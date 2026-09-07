@@ -226,6 +226,8 @@ def t_localization_alignment():
               arr[i + 1] == "LOCALIZATION_ID_LAYOUT")
     # the last ids must line up everywhere: the dark mode ids followed by
     # the six backdrop ids.
+    # r41: the modern ux round appends nine ids after the zoom dialog group
+    # (mru submenu, wallpaper confirmation, adaptive size units).
     tail = ("LOCALIZATION_ID_OPTIONS_DARK_MODE_STATIC",
             "LOCALIZATION_ID_DARK_MODE_AUTO",
             "LOCALIZATION_ID_DARK_MODE_LIGHT",
@@ -237,10 +239,19 @@ def t_localization_alignment():
             "LOCALIZATION_ID_BACKDROP_CUSTOM",
             "LOCALIZATION_ID_BACKDROP_CHECKERBOARD",
             "LOCALIZATION_ID_SET_ZOOM_CAPTION",
-            "LOCALIZATION_ID_SET_ZOOM_STATIC")
-    check("enum ends with the dark+backdrop+zoom ids", tuple(ids[-12:]) == tail)
-    check("en ends with the dark+backdrop+zoom ids", tuple(en[-12:]) == tail)
-    check("zh ends with the dark+backdrop+zoom ids", tuple(zh[-12:]) == tail)
+            "LOCALIZATION_ID_SET_ZOOM_STATIC",
+            "LOCALIZATION_ID_RECENT_FILES",
+            "LOCALIZATION_ID_RECENT_FILES_EMPTY",
+            "LOCALIZATION_ID_RECENT_FILES_CLEAR",
+            "LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_CAPTION",
+            "LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_MESSAGE",
+            "LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT",
+            "LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT",
+            "LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT",
+            "LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT")
+    check("enum ends with the dark+backdrop+zoom+ux ids", tuple(ids[-21:]) == tail)
+    check("en ends with the dark+backdrop+zoom+ux ids", tuple(en[-21:]) == tail)
+    check("zh ends with the dark+backdrop+zoom+ux ids", tuple(zh[-21:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -277,10 +288,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.5.30 stable (the second review fix round pins the next step)",
-          (major, minor, rev, build) == ("1", "1", "5", "30") and vtype == "")
+    check("version.h = 1.1.6.31 stable (the modern ux round pins the next step)",
+          (major, minor, rev, build) == ("1", "1", "6", "31") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.05")
+          vstr == "1.1.06")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -338,7 +349,8 @@ def t_pixel_budget():
           vh.index("400000000") < vh.index("#else") < vh.index("100000000"))
     check("webp loader refuses through the budget helper with a diagnostic",
           "_pixel_budget_refused" in wp and
-          wp.count("VIV_MAX_IMAGE_PIXELS") == 2)
+          wp.count("VIV_MAX_IMAGE_PIXELS") == 1 and
+          wp.count("VIV_MAX_ANIMATION_PIXELS") == 1)
     check("gdi+ loader refuses through the budget helper with a diagnostic",
           "_viv_pixel_budget_refused" in viv and
           "pixel budget: refusing a %u mp canvas" in viv)
@@ -1792,7 +1804,8 @@ def t_dark_menu_bar():
     check("apply dark toggles the menu bar owner draw",
           "_viv_menu_bar_theme();" in seg)
     check("the options rebuild re-applies the menu bar theme",
-          viv.count("_viv_menu_bar_theme();") == 2)
+          # r41: the recent-files rebuild is the third caller.
+          viv.count("_viv_menu_bar_theme();") == 3)
 
     # the chrome palette and the rebar erase hardening.
     check("the chrome brush cache carries the menu bar face",
@@ -2030,6 +2043,101 @@ def t_audit_round16():
     check("shuffle seeds mix both counter halves",
           viv.count("srand((unsigned int)(counter.LowPart ^ counter.HighPart));") == 2)
 
+def t_ux_round41():
+    """Guards for the modern ux round: the low-cost upstream wishlist items
+    (emf/wmf, adaptive size units, recent files, the edit shortcut) plus the
+    audit consistency fixes (safe-multiplied webp allocation, the 32-bit
+    animation ceiling) and the ux hardening (wallpaper confirm, arrow
+    navigation, ctrl+comma options)."""
+    viv = read("src/viv.c").decode("latin-1")
+    vivh = read("src/viv.h").decode("latin-1")
+    webp = read("src/webp.c").decode("latin-1")
+    cfgh = read("src/config.h").decode("latin-1")
+    cfg = read("src/config.c").decode("latin-1")
+    rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
+    rh = read("res/resource.h").decode("latin-1")
+
+    # wmf/emf: association table, dialog checkboxes, filter, search, help
+    check("emf/wmf live in the association table",
+          '\t"emf",' in viv and '\t"wmf",' in viv and
+          "LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_EMF," in viv)
+    check("options dialog has emf/wmf checkboxes",
+          "#define IDC_EMF" in rh and "#define IDC_WMF" in rh and
+          '"&EMF",IDC_EMF,' in rc and '"&WMF",IDC_WMF,' in rc and
+          viv.count("CheckDlgButton(hwnd,IDC_EMF,check);") == 1)
+    check("open dialog filter includes the metafiles",
+          "*.webp;*.emf;*.wmf" in viv)
+    check("everything default search includes the metafiles",
+          viv.count("ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp;emf;wmf <") == 2)
+
+    # key table: edit takes ctrl+shift+e, everything-add moves to ctrl+alt+e
+    check("edit command has a default shortcut again",
+          "{VIV_ID_FILE_EDIT,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'E'}," in viv)
+    check("everything-add moved out of ctrl+shift+e",
+          "{VIV_ID_FILE_ADD_EVERYTHING_SEARCH,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_ALT | 'E'}," in viv)
+    check("options is ctrl+comma now, not a bare o",
+          "{VIV_ID_VIEW_OPTIONS,CONFIG_KEYFLAG_CTRL | VK_OEM_COMMA}," in viv and
+          "{VIV_ID_VIEW_OPTIONS,'O'}," not in viv)
+    check("wallpaper ctrl+d is back behind a confirmation",
+          "{VIV_ID_FILE_SET_DESKTOP_WALLPAPER,CONFIG_KEYFLAG_CTRL | 'D'}," in viv and
+          "MB_OKCANCEL | MB_ICONQUESTION" in viv and
+          "LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_MESSAGE" in viv)
+
+    # arrows navigate when no slideshow is running
+    seg = viv.find("case VIV_ID_SLIDESHOW_RATE_DEC:")
+    check("down arrow navigates on a still image",
+          seg != -1 and "if (!_viv_is_slideshow)" in viv[seg:seg + 200] and
+          "_viv_next(0,1,0,is_key_repeat);" in viv[seg:seg + 600])
+    seg = viv.find("case VIV_ID_SLIDESHOW_RATE_INC:")
+    check("up arrow navigates on a still image",
+          seg != -1 and "_viv_next(1,1,0,is_key_repeat);" in viv[seg:seg + 600])
+
+    # recent files mru
+    check("mru ids exist at the enum tail",
+          "VIV_ID_FILE_RECENT_CLEAR," in vivh and "VIV_ID_FILE_RECENT_9," in vivh)
+    check("mru persists through config",
+          "#define CONFIG_RECENT_FILE_COUNT\t10" in cfgh and
+          "wchar_t *config_recent_files[CONFIG_RECENT_FILE_COUNT] = {0};" in cfg and
+          "recent_filename = string_alloc_utf8(recent_value);" in cfg and
+          '_config_write_string(h,key_buf,(i < config_recent_file_count) ? config_recent_files[i] : L"");' in cfg)
+    check("mru feeds from the single-file open path",
+          "_viv_recent_file_push(full_path_and_filename);" in viv and
+          "static void _viv_recent_file_push(const wchar_t *filename);" in viv)
+    check("mru submenu is inserted before exit",
+          "InsertMenuItemW(menus[_VIV_MENU_FILE],insert_pos,TRUE,&mii);" in viv and
+          "_VIV_MENU_FILE_RECENT," in viv)
+    check("the mru menu rebuilds after changes",
+          viv.count("static void _viv_rebuild_menu(void)\r\n{") == 1 and
+          "_viv_rebuild_menu();" in viv)
+    check("stale mru entries drop when the file is gone",
+          "_viv_recent_file_remove(recent_index);" in viv)
+
+    # adaptive size units
+    check("status bar picks size units by magnitude",
+          "size_unit_id = LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT;" in viv and
+          "LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT" in viv and
+          "LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT" in viv and
+          "LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT" in viv and
+          "string_cat_utf8(dimension_buf,localization_get_string(size_unit_id));" in viv)
+
+    # webp: the frame-delay allocation multiplies through the safe helpers
+    check("webp frame-delay allocation is safe-multiplied",
+          "frame_delay_bytes = safe_size_mul((SIZE_T)anim_info.frame_count,sizeof(DWORD));" in webp and
+          "frame_delays = (DWORD *)mem_alloc(frame_delay_bytes);" in webp and
+          "os_zero_memory(frame_delays,(int)frame_delay_bytes);" in webp)
+    check("animated webp canvases honor a separate ceiling",
+          "VIV_MAX_ANIMATION_PIXELS" in webp and
+          "VIV_MAX_ANIMATION_PIXELS\t25000000" in vivh and
+          "VIV_MAX_ANIMATION_PIXELS\t400000000" in vivh)
+
+    # the spelling fix and the dead-variable note
+    check("context menu count macro spelled right",
+          "_VIV_CONTEXT_MENU_ITEM_COUNT" in viv and
+          "_VIV_CONEXT_MENU_ITEM_COUNT" not in viv)
+    check("the webp timestamp out-param is documented as required",
+          "int timestamp; // out-param of webpanimdecodergetnext" in webp)
+
+
 def t_audit_round18():
     """Third user audit round: a decode time pixel budget on both loader
     paths (gdi+ and webp, animation and still), the uninstaller checks
@@ -2047,9 +2155,9 @@ def t_audit_round18():
     check("gdi+ path checks the budget before any frame allocation",
           "(os_GdipGetImageHeight(image,&first_frame.high) == 0) && (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high)))" in viv)
     check("webp animation path checks the canvas budget before decoding",
-          "(!_pixel_budget_refused(safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height)))" in webpc)
+          "(!_pixel_budget_refused(safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height),VIV_MAX_ANIMATION_PIXELS))" in webpc)
     check("webp still path checks the budget before the decode allocates",
-          "if (!_pixel_budget_refused(safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height)))" in webpc)
+          "if (!_pixel_budget_refused(safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height),VIV_MAX_IMAGE_PIXELS))" in webpc)
 
     # issue 2: the uninstaller verifies the process image name
     check("process image name verification helper exists",
@@ -2109,6 +2217,7 @@ if __name__ == "__main__":
     t_audit_round16()
     t_audit_round18()
     t_second_review_round40()
+    t_ux_round41()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

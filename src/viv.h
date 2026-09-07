@@ -65,8 +65,17 @@ extern "C" {
 // before the decoder runs.
 #if defined(_WIN64)
 #define VIV_MAX_IMAGE_PIXELS	400000000
+// animated webp keeps the static ceiling on 64-bit builds: the address
+// space absorbs the decode canvas, the anim decoder working frame and
+// the display bitmap.
+#define VIV_MAX_ANIMATION_PIXELS	400000000
 #else
 #define VIV_MAX_IMAGE_PIXELS	100000000
+// 32-bit: an animated canvas pays for the decode canvas, the anim
+// decoder working frame and the display bitmap (roughly 12 bytes per
+// pixel) inside a 2 gb address space, so the animation ceiling is a
+// quarter of the static one (25 mp ~= 300 mb of buffers).
+#define VIV_MAX_ANIMATION_PIXELS	25000000
 #endif
 
 typedef unsigned char utf8_t;
@@ -239,6 +248,20 @@ enum
 
 	// zoom overlay auto hide (appended so existing ids are not shifted)
 	VIV_ID_VIEW_ZOOM_AUTO_HIDE,
+
+	// recent files mru submenu items and the clear command
+	// (appended so existing ids are not shifted)
+	VIV_ID_FILE_RECENT_CLEAR,
+	VIV_ID_FILE_RECENT_0,
+	VIV_ID_FILE_RECENT_1,
+	VIV_ID_FILE_RECENT_2,
+	VIV_ID_FILE_RECENT_3,
+	VIV_ID_FILE_RECENT_4,
+	VIV_ID_FILE_RECENT_5,
+	VIV_ID_FILE_RECENT_6,
+	VIV_ID_FILE_RECENT_7,
+	VIV_ID_FILE_RECENT_8,
+	VIV_ID_FILE_RECENT_9,
 };
 
 #include "version.h"

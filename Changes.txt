@@ -1,3 +1,27 @@
+Stable: Version 1.1.06 (modern ux round)
+	third audit round: the fork now answers every low-cost item from
+	the upstream wish list it can carry. emf and wmf files open
+	everywhere (the gdi+ draw path rasterizes metafiles with no new
+	decoder, the association table, the open dialog filter, the
+	everything search default and the command line switches all grow
+	the two extensions), the status bar picks b / kb / mb / gb units
+	instead of rounding every file to kilobytes, the file menu gains
+	a persistent recent-files submenu, and the edit command gets a
+	default shortcut and menu hint again.
+	audit consistency: the webp frame-delay allocation multiplies
+	through the safe size helpers (the one bare multiply left in the
+	newest code), and 32-bit builds cap animated webp canvases at 25
+	megapixels (the decode canvas, the anim decoder frame and the
+	display bitmap are roughly 12 bytes per pixel inside a 2 gb
+	address space).
+	ux hardening: the wallpaper change asks before it touches the
+	desktop (the menu comment has wanted this dialog since the first
+	release and the ctrl+d default key returns with it), up and down
+	navigate when no slideshow is running, the single o key for
+	options becomes ctrl+comma so a stray letter no longer pops a
+	modal dialog, and everything-add moves to ctrl+alt+e so the
+	editor can take ctrl+shift+e.
+
 Stable: Version 1.1.05 (second review fix round)
 	second review: the thirteen findings from the first audit round were
 	re-verified line by line against the sources and msdn. two were

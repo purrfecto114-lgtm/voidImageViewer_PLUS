@@ -136,6 +136,11 @@ extern int config_add_command_line_timeout;
 extern BYTE config_show_zoom_controls;
 extern BYTE config_zoom_auto_hide;
 
+// recent files mru (most recently opened paths, newest first).
+#define CONFIG_RECENT_FILE_COUNT	10
+extern wchar_t *config_recent_files[CONFIG_RECENT_FILE_COUNT];
+extern int config_recent_file_count;
+
 #ifdef __cplusplus
 }
 #endif

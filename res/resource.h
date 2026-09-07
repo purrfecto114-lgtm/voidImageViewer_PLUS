@@ -77,6 +77,8 @@
 #define IDC_EDIT1                       1045
 #define IDC_EVERYTHING_EDIT             1046
 #define IDC_WEBP                        1047
+#define IDC_EMF                         1048
+#define IDC_WMF                         1049
 #define IDC_PRELOAD_NEXT_IMAGE          1048
 #define IDC_CACHE_LAST_IMAGE            1049
 #define IDC_AUTO_ZOOM                   1050
