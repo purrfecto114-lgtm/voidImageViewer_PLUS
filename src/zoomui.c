@@ -97,6 +97,7 @@ static int _zoomui_button_first = _ZOOMUI_WINDOWED_FIRST; // first master table 
 
 static int _zoomui_button_wide = 0;
 static int _zoomui_button_high = 0;
+static int _zoomui_button_gap = 0; // spacing between the capsule buttons.
 static int _zoomui_margin = 0;
 static int _zoomui_is_registered = 0;
 static int _zoomui_hot_index = -1; // active button under the cursor, or -1.
@@ -157,6 +158,10 @@ static void _zoomui_calc_metrics(void)
 	_zoomui_button_wide = (48 * os_logical_wide) / 96;
 	_zoomui_button_high = (44 * os_logical_high) / 96;
 	_zoomui_margin = (6 * os_logical_high) / 96;
+	// breathing room between the capsule buttons: the old zero gap layout
+	// packed the two borders back to back in the middle, which read as a
+	// double line and crushed the two glyphs into one control.
+	_zoomui_button_gap = (4 * os_logical_high) / 96;
 
 	if (_zoomui_button_wide < 32)
 	{
@@ -166,6 +171,11 @@ static void _zoomui_calc_metrics(void)
 	if (_zoomui_button_high < 28)
 	{
 		_zoomui_button_high = 28;
+	}
+
+	if (_zoomui_button_gap < 2)
+	{
+		_zoomui_button_gap = 2;
 	}
 }
 
@@ -182,7 +192,7 @@ static void _zoomui_layout_buttons(void)
 	{
 		if (_zoomui_button_hwnds[i])
 		{
-			SetWindowPos(_zoomui_button_hwnds[i],0,_zoomui_margin + (i * _zoomui_button_wide),_zoomui_margin,_zoomui_button_wide,_zoomui_button_high,SWP_NOZORDER|SWP_NOACTIVATE);
+			SetWindowPos(_zoomui_button_hwnds[i],0,_zoomui_margin + (i * (_zoomui_button_wide + _zoomui_button_gap)),_zoomui_margin,_zoomui_button_wide,_zoomui_button_high,SWP_NOZORDER|SWP_NOACTIVATE);
 		}
 	}
 }
@@ -684,7 +694,7 @@ void zoomui_layout(int wide,int high)
 
 	_zoomui_calc_metrics();
 
-	container_wide = (_zoomui_button_count * _zoomui_button_wide) + (_zoomui_margin * 2);
+	container_wide = (_zoomui_button_count * _zoomui_button_wide) + ((_zoomui_button_count - 1) * _zoomui_button_gap) + (_zoomui_margin * 2);
 	container_high = _zoomui_button_high + (_zoomui_margin * 2);
 
 	if (_zoomui_is_fullscreen)
@@ -732,9 +742,14 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
 
 	CopyRect(&fill_rect,rect);
 
-	// hovered or pressed: highlighted fill, otherwise the bar color.
+	// the button body is a capsule: the end radii are half the button
+	// height, so the zoom pair reads as the two signature pills instead
+	// of the square cornered blocks (which sat next to the flat toolbar
+	// like a patch from another toolkit). roundrect fills and outlines
+	// the same silhouette in one call.
 	{
 		COLORREF fill_color;
+		int corner;
 
 		if (is_selected || is_hot)
 		{
@@ -746,23 +761,20 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
 		}
 
 		brush = CreateSolidBrush(fill_color);
+		pen = CreatePen(PS_SOLID,1,_zoomui_dark ? (is_selected ? RGB(0x80,0x80,0x80) : RGB(0x45,0x45,0x45)) : GetSysColor(is_selected ? COLOR_3DDKSHADOW : COLOR_3DSHADOW));
 
-		FillRect(hdc,&fill_rect,brush);
+		old_pen = SelectObject(hdc,pen);
+		old_brush = SelectObject(hdc,brush);
 
+		corner = (fill_rect.bottom - fill_rect.top) / 2;
+
+		RoundRect(hdc,fill_rect.left,fill_rect.top,fill_rect.right,fill_rect.bottom,corner,corner);
+
+		SelectObject(hdc,old_brush);
+		SelectObject(hdc,old_pen);
+		DeleteObject(pen);
 		DeleteObject(brush);
 	}
-
-	// border.
-	pen = CreatePen(PS_SOLID,1,_zoomui_dark ? (is_selected ? RGB(0x80,0x80,0x80) : RGB(0x45,0x45,0x45)) : GetSysColor(is_selected ? COLOR_3DDKSHADOW : COLOR_3DSHADOW));
-	old_pen = SelectObject(hdc,pen);
-
-	old_brush = SelectObject(hdc,GetStockObject(NULL_BRUSH));
-
-	Rectangle(hdc,fill_rect.left,fill_rect.top,fill_rect.right,fill_rect.bottom);
-
-	SelectObject(hdc,old_brush);
-	SelectObject(hdc,old_pen);
-	DeleteObject(pen);
 
 	if (is_disabled)
 	{
@@ -790,10 +802,11 @@ static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int buttoni,int offset)
 	wide = rect->right - rect->left;
 	high = rect->bottom - rect->top;
 
-	size = (wide < high) ? wide : high;
-
-	// padding so the glyph does not touch the button border.
-	size -= size / 6;
+	// the button is wider than tall, so the height drives the glyph box and
+	// the sides absorb the extra width: the padding stays even on all four
+	// sides of the glyph at every dpi (the old min() box leaned on the
+	// width and squeezed the glyphs against the capsule arcs).
+	size = high - 2 * (high / 9);
 
 	if (size < 8)
 	{
@@ -967,40 +980,31 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
 			GetClientRect(hwnd,&rect);
 
+			// the pill tray: one stadium in the bar color with a hairline
+			// border. the capsule buttons float on it with gaps around them,
+			// so the tray reads as a soft rail under the pair instead of
+			// the old raised square block with its double edge.
 			{
-				HBRUSH background_brush;
-
-				background_brush = CreateSolidBrush(_zoomui_dark ? RGB(0x20,0x20,0x20) : GetSysColor(COLOR_BTNFACE));
-
-				FillRect(hdc,&rect,background_brush);
-
-				DeleteObject(background_brush);
-			}
-
-			// raised border.
-			{
+				HBRUSH brush;
 				HPEN pen;
 				HPEN old_pen;
+				HGDIOBJ old_brush;
+				int corner;
 
+				brush = CreateSolidBrush(_zoomui_dark ? RGB(0x20,0x20,0x20) : GetSysColor(COLOR_BTNFACE));
 				pen = CreatePen(PS_SOLID,1,_zoomui_dark ? RGB(0x45,0x45,0x45) : GetSysColor(COLOR_3DSHADOW));
+
 				old_pen = SelectObject(hdc,pen);
+				old_brush = SelectObject(hdc,brush);
 
-				MoveToEx(hdc,rect.left,rect.bottom - 1,NULL);
-				LineTo(hdc,rect.left,rect.top);
-				LineTo(hdc,rect.right - 1,rect.top);
+				corner = (rect.bottom - rect.top) / 2;
 
+				RoundRect(hdc,rect.left,rect.top,rect.right,rect.bottom,corner,corner);
+
+				SelectObject(hdc,old_brush);
 				SelectObject(hdc,old_pen);
 				DeleteObject(pen);
-
-				pen = CreatePen(PS_SOLID,1,_zoomui_dark ? RGB(0x70,0x70,0x70) : GetSysColor(COLOR_3DHIGHLIGHT));
-				old_pen = SelectObject(hdc,pen);
-
-				MoveToEx(hdc,rect.left + 1,rect.bottom - 1,NULL);
-				LineTo(hdc,rect.right - 1,rect.bottom - 1);
-				LineTo(hdc,rect.right - 1,rect.top + 1);
-
-				SelectObject(hdc,old_pen);
-				DeleteObject(pen);
+				DeleteObject(brush);
 			}
 
 			return 1;

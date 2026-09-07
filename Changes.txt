@@ -1,3 +1,35 @@
+Stable: Version 1.1.03 (magnifier pill round)
+	pill icons: the zoom magnifier glyphs are redrawn. the zoom in/out
+	strokes declared three point polylines over two element arrays, so the
+	renderer walked one element past each array and drew a stray tail line
+	to whatever coordinate pair lived in the adjacent memory (the crooked
+	cross and handle in the field screenshots), the hand written 21 point
+	ring wobbled between radii 12.65 and 13.6 which read as a lumpy lens at
+	the pill sizes, and the cross strokes collapsed into capped smudges at
+	the small toolbar sizes. the ring is now a true gdi+ ellipse primitive
+	(drawn through gdipdrawellipse, not a sampled polyline), the counts
+	match the arrays, the handle starts exactly on the 45 degree ring
+	point, and the cross grew one grid unit longer and one wider.
+	pill shape: the zoom buttons and their tray are true stadium capsules
+	now (roundrect with half height end radii) with breathing room between
+	the buttons - the old zero gap layout packed both square borders back
+	to back in the middle (a double line) and the blocky pair sat next to
+	the flat toolbar like a patch from another toolkit. the glyph padding
+	follows the button height so all four sides stay even at every dpi.
+	toolbar icons: the toolbar image list keeps the 32bpp alpha channel
+	(ilc_color32) - the old 24 bit list with a mask binarized the
+	antialiased glyph edges and washed the toolbar icons into a pale gray
+	while the zoom pill drew the same glyphs from the raw icons at full
+	contrast (the two-tone toolbar the field screenshots caught).
+	dark strip: the rebar strip behind the centered toolbar now carries
+	the dark chrome face - the rebar window was registered with the light
+	window class brush, so the slabs on both sides of the toolbar stayed
+	white in dark mode (the big white rectangle the field screenshots
+	caught in the menu bar row).
+	version order: the release series returns to the 1.1 line as the
+	leading one, so the tag ladder reads 1.0.03, 1.0.04, 1.1.02, 1.1.03 -
+	strictly increasing, no duplicates, nothing deleted.
+
 Stable: Version 1.0.04 (pointer width budget)
 	load performance: the pixel budget ceiling is now pointer width
 	dependent. 32-bit builds keep the 100 mp guard (a 100 mp rgba

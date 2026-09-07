@@ -3587,6 +3587,23 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			}
 			break;
 			
+		case WM_ERASEBKGND:
+		{
+			RECT rect;
+			
+			GetClientRect(hwnd,&rect);
+			
+			// the rebar window was registered with the light window class
+			// brush: the centered toolbar leaves large slabs on both sides,
+			// and those slabs stayed white in dark mode (the field report
+			// screenshots). the slab now carries the same chrome face the
+			// toolbar strip paints for itself, so the whole strip reads as
+			// one bar in both themes.
+			FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));
+			
+			return 1;
+		}
+		
 		case WM_LBUTTONDOWN:
 		
 			_viv_show_cursor();
@@ -13858,7 +13875,12 @@ static void _viv_toolbar_build_image_list(void)
 	// larger toolbar icons on touch devices.
 	icon_size = os_is_touch_available() ? 24 : 16;
 	
-	_viv_toolbar_image_list = ImageList_Create((icon_size * os_logical_wide) / 96,(icon_size * os_logical_high) / 96,ILC_COLOR24|ILC_MASK,0,0);
+	// ILC_COLOR32 keeps the 32bpp alpha channel of the glyph icons: the old
+	// 24 bit list with a mask binarized the antialiased stroke edges, which
+	// washed the toolbar icons into a pale gray while the zoom pill drew the
+	// same glyphs from the raw icons at full contrast (the two-tone toolbar
+	// the field screenshots caught).
+	_viv_toolbar_image_list = ImageList_Create((icon_size * os_logical_wide) / 96,(icon_size * os_logical_high) / 96,ILC_COLOR32,0,0);
 	
 	if (_viv_toolbar_image_list)
 	{

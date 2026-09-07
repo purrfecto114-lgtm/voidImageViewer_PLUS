@@ -42,11 +42,24 @@ typedef struct _glyphs_point_f_s
 }_glyphs_point_f_t;
 
 // one stroke: a polyline with a round capped pen of the given grid width.
+// points == NULL draws a perfect ellipse through the ellipse field instead
+// (the magnifier ring: a hand written 21 point ring always wobbles between
+// radii, each vertex sat a slightly different distance from the center, and
+// the wobble reads as a lumpy lens once the pill renders past 40 pixels).
+typedef struct _glyphs_ellipse_s
+{
+	float cx;
+	float cy;
+	float rx;
+	float ry;
+}_glyphs_ellipse_t;
+
 typedef struct _glyphs_stroke_s
 {
-	int point_count;
+	int point_count; // 48 grid units; 0 = the ellipse stroke below.
 	int width; // 48 grid units.
-	const _glyphs_point_t *points;
+	const _glyphs_point_t *points; // NULL = use ellipse.
+	const _glyphs_ellipse_t *ellipse; // used when points == NULL.
 }_glyphs_stroke_t;
 
 typedef struct _glyphs_glyph_s
@@ -62,6 +75,7 @@ static int (__stdcall *_glyphs_gdipSetPenEndCap)(void *pen,int cap) = 0;
 static int (__stdcall *_glyphs_gdipDeletePen)(void *pen) = 0;
 static int (__stdcall *_glyphs_gdipDrawLinesI)(void *graphics,void *pen,const _glyphs_point_t *points,int count) = 0;
 static int (__stdcall *_glyphs_gdipDrawLinesF)(void *graphics,void *pen,const _glyphs_point_f_t *points,int count) = 0;
+static int (__stdcall *_glyphs_gdipDrawEllipseF)(void *graphics,void *pen,float x,float y,float width,float height) = 0;
 static int (__stdcall *_glyphs_gdipCreateBitmapFromScan0)(int wide,int high,int stride,int format,unsigned char *scan0,void **bitmap) = 0;
 static int (__stdcall *_glyphs_gdipGetImageGraphicsContext)(void *image,void **graphics) = 0;
 static int (__stdcall *_glyphs_gdipSetSmoothingMode)(void *graphics,int mode) = 0;
@@ -98,13 +112,11 @@ static int _glyphs_cache_count = 0;
 #define _GLYPHS_LINE_CAP_ROUND 2
 #define _GLYPHS_SMOOTHING_ANTIALIAS 4
 
-// magnifier circle: 20 segments around center (21,21) with radius 13.
-static const _glyphs_point_t _glyphs_circle_points[] =
-{
-	{34,21},{33,25},{32,29},{29,32},{25,33},{21,34},{17,33},{13,32},
-	{10,29},{9,25},{8,21},{9,17},{10,13},{13,10},{17,9},{21,8},
-	{25,9},{29,10},{32,13},{33,17},{34,21}
-};
+// the magnifier ring: a true ellipse centered (21,21) with radius 13. the
+// optical center of the whole glyph sits at (23.5,23.5) because the handle
+// reaches to the bottom right, so the ring is deliberately offset one and a
+// half units up-left of the 24x24 grid center to keep the composite centered.
+static const _glyphs_ellipse_t _glyphs_zoom_ring = { 21.0f,21.0f,13.0f,13.0f };
 
 // prev: a left pointing triangle with a bar on its left.
 static const _glyphs_point_t _glyphs_prev_tri[] = { {32,12},{16,24},{32,36},{32,12} };
@@ -175,25 +187,34 @@ static const _glyphs_stroke_t _glyphs_1to1_strokes[] =
 };
 
 // zoom out: magnifier with a minus, handle to the bottom right.
-static const _glyphs_point_t _glyphs_zoomout_handle[] = { {29,29},{38,38} };
-static const _glyphs_point_t _glyphs_zoomout_minus[] = { {16,21},{26,21} };
+// the previous revision declared three point polyline strokes over two
+// element arrays: the renderer walked one element past each array and drew
+// a stray segment to whatever (x,y) pair lived in the adjacent memory, which
+// is the crooked tail the field screenshots caught on the cross and the
+// handle. the counts now match the arrays, the ring is a true ellipse, the
+// handle starts exactly on the 45 degree ring point, and the cross strokes
+// grew one unit longer and one wider so they survive the small toolbar sizes
+// instead of collapsing into a capped smudge.
+static const _glyphs_point_t _glyphs_zoomout_handle[] = { {30,30},{38,38} };
+static const _glyphs_point_t _glyphs_zoomout_minus[] = { {15,21},{27,21} };
 static const _glyphs_stroke_t _glyphs_zoomout_strokes[] =
 {
-	{21,6,_glyphs_circle_points},
-	{3,5,_glyphs_zoomout_handle},
-	{3,4,_glyphs_zoomout_minus}
+	{0,6,0,&_glyphs_zoom_ring},
+	{2,5,_glyphs_zoomout_handle},
+	{2,5,_glyphs_zoomout_minus}
 };
 
-// zoom in: magnifier with a plus.
-static const _glyphs_point_t _glyphs_zoomin_handle[] = { {29,29},{38,38} };
-static const _glyphs_point_t _glyphs_zoomin_minus[] = { {16,21},{26,21} };
-static const _glyphs_point_t _glyphs_zoomin_plus[] = { {21,16},{21,26} };
+// zoom in: magnifier with a plus. the cross is exactly symmetric about the
+// ring center (21,21): both arms run 15 to 27 on their axis.
+static const _glyphs_point_t _glyphs_zoomin_handle[] = { {30,30},{38,38} };
+static const _glyphs_point_t _glyphs_zoomin_minus[] = { {15,21},{27,21} };
+static const _glyphs_point_t _glyphs_zoomin_plus[] = { {21,15},{21,27} };
 static const _glyphs_stroke_t _glyphs_zoomin_strokes[] =
 {
-	{21,6,_glyphs_circle_points},
-	{3,5,_glyphs_zoomin_handle},
-	{3,4,_glyphs_zoomin_minus},
-	{3,4,_glyphs_zoomin_plus}
+	{0,6,0,&_glyphs_zoom_ring},
+	{2,5,_glyphs_zoomin_handle},
+	{2,5,_glyphs_zoomin_minus},
+	{2,5,_glyphs_zoomin_plus}
 };
 
 static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
@@ -235,6 +256,7 @@ static int _glyphs_load(void)
 	_glyphs_gdipDeletePen = (void *)GetProcAddress(module,"GdipDeletePen");
 	_glyphs_gdipDrawLinesI = (void *)GetProcAddress(module,"GdipDrawLinesI");
 	_glyphs_gdipDrawLinesF = (void *)GetProcAddress(module,"GdipDrawLines");
+	_glyphs_gdipDrawEllipseF = (void *)GetProcAddress(module,"GdipDrawEllipse");
 	_glyphs_gdipCreateBitmapFromScan0 = (void *)GetProcAddress(module,"GdipCreateBitmapFromScan0");
 	_glyphs_gdipGetImageGraphicsContext = (void *)GetProcAddress(module,"GdipGetImageGraphicsContext");
 	_glyphs_gdipSetSmoothingMode = (void *)GetProcAddress(module,"GdipSetSmoothingMode");
@@ -244,7 +266,7 @@ static int _glyphs_load(void)
 
 	if ((!_glyphs_gdipCreatePen1) || (!_glyphs_gdipSetPenStartCap) || (!_glyphs_gdipSetPenEndCap) ||
 		(!_glyphs_gdipDeletePen) || (!_glyphs_gdipDrawLinesI) || (!_glyphs_gdipDrawLinesF) ||
-		(!_glyphs_gdipCreateBitmapFromScan0) ||
+		(!_glyphs_gdipDrawEllipseF) || (!_glyphs_gdipCreateBitmapFromScan0) ||
 		(!_glyphs_gdipGetImageGraphicsContext) || (!_glyphs_gdipSetSmoothingMode) ||
 		(!_glyphs_gdipDeleteGraphics) || (!_glyphs_gdipDisposeImage) || (!_glyphs_gdipCreateHICONFromBitmap))
 	{
@@ -340,6 +362,8 @@ static HICON _glyphs_build(int glyph_id,int dark,int size)
 					_glyphs_gdipSetPenStartCap(pen,_GLYPHS_LINE_CAP_ROUND);
 					_glyphs_gdipSetPenEndCap(pen,_GLYPHS_LINE_CAP_ROUND);
 
+											if (stroke->points)
+					{
 						pts = (_glyphs_point_f_t *)mem_alloc(safe_size_mul(sizeof(_glyphs_point_f_t),(size_t)stroke->point_count));
 
 						if (pts)
@@ -358,6 +382,14 @@ static HICON _glyphs_build(int glyph_id,int dark,int size)
 							_glyphs_gdipDrawLinesF(graphics,pen,pts,stroke->point_count);
 
 							mem_free(pts);
+						}
+					}
+					else if (stroke->ellipse)
+					{
+						// the true ellipse stroke: the ring is drawn as a
+						// single arc primitive instead of a sampled polyline,
+						// so no vertex wobble can reach the lens at any size.
+						_glyphs_gdipDrawEllipseF(graphics,pen,(stroke->ellipse->cx - stroke->ellipse->rx) * scale,(stroke->ellipse->cy - stroke->ellipse->ry) * scale,(stroke->ellipse->rx * 2.0f) * scale,(stroke->ellipse->ry * 2.0f) * scale);
 					}
 
 						_glyphs_gdipDeletePen(pen);
