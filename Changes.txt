@@ -1,3 +1,31 @@
+Stable: Version 1.1.06 (field fix round)
+	the field report on the 1.1.06 build: the recent-files submenu was
+	inserted once per command-table entry instead of once per rebuild, so
+	the file menu grew dozens of duplicate rows (the block moved outside
+	the walk, and the test suite now simulates the brace depth so the
+	placement can never regress silently).
+	status honesty: closing the image kept the "failed to load" and "file
+	not found" messages on the status bar with no image open - the blank
+	state clears both flags now.
+	theme stability: every dark-mode flip repaints the whole window (a
+	partial invalidation left a light strip beside the toolbar and a
+	white canvas until a manual resize), and the immersive color set
+	broadcast gets a delayed re-check so a registry value that settles
+	after the message still lands.
+	chrome symmetry: the light toolbar strip follows the light menu face
+	with flat separator lines instead of the gray button face with the 3d
+	etch, so both themes read as one chrome band above the canvas.
+	options dialog: the page-title tab header and the sliver under every
+	page stayed light in the dark ui (the comctl tab paints its whole face
+	itself and the custom draw only reached the items) - the subclass
+	paints the entire control dark now.
+	zoom range: the ladder extends below the best fit (about one
+	sixteenth of it, mirroring the 16x native cap above) so a touch
+	pinch can zoom out to a thumbnail view; the fill-window upscale no
+	longer locks small images at a 200% minimum. the allow-shrinking
+	option keeps its meaning: with shrinking off the best fit stays the
+	floor.
+
 Stable: Version 1.1.06 (modern ux round)
 	third audit round: the fork now answers every low-cost item from
 	the upstream wish list it can carry. emf and wmf files open

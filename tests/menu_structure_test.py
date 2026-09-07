@@ -288,8 +288,8 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.6.31 stable (the modern ux round pins the next step)",
-          (major, minor, rev, build) == ("1", "1", "6", "31") and vtype == "")
+    check("version.h = 1.1.6.32 stable (the field-fix re-release keeps the identity)",
+          (major, minor, rev, build) == ("1", "1", "6", "32") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
           vstr == "1.1.06")
     check("rc derives everything from version.h",
@@ -1816,7 +1816,11 @@ def t_dark_menu_bar():
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("the rebar erase paints the strip face",
-          "FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));" in seg)
+          "FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU+1));" in seg)
+    check("the light strip lines are flat, not the 3d etch",
+          "FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(1) : _viv_light_chrome_brush(0));" in seg and
+          "FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(2) : _viv_light_chrome_brush(1));" in seg and
+          "FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU + 1));" in seg)
     check("no claim-only erase is left in the rebar proc",
           seg.count("case WM_ERASEBKGND:") == 1 and
           "return 1;" in seg[seg.find("case WM_ERASEBKGND:"):])
@@ -1872,9 +1876,14 @@ def t_dark_layers_round():
     check("the options tab body erases dark",
           "FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(3));" in viv and
           "_viv_options_tab_proc" in viv)
-    check("the options tab items custom draw dark",
-          "_viv_options_tab_draw((NMCUSTOMDRAW *)lParam);" in viv and
-          "TabCtrl_GetItem(draw->hdr.hwndFrom,(int)draw->dwItemSpec,&tcitem)" in viv)
+    check("the options tab paints itself dark end to end",
+          'if (msg == WM_PAINT)' in viv and
+          "TabCtrl_GetItem(hwnd,0,&tcitem)" in viv and
+          "TabCtrl_GetItemRect(hwnd,0,&item_rect)" in viv and
+          "FillRect(ps.hdc,&strip_rect,_viv_dark_chrome_brush(0));" in viv and
+          "FillRect(ps.hdc,&item_rect,_viv_dark_chrome_brush(3));" in viv)
+    check("the old tab custom draw is gone",
+          "_viv_options_tab_draw" not in viv)
 
     # pre 1903 dialog fallback: owner drawn buttons and combos.
     check("the dialog children flip to owner draw below 1903",
@@ -2186,6 +2195,112 @@ def t_audit_round18():
           "make_anomaly_samples" in smoke)
 
 
+
+def t_field_fixes_round42():
+    """Guards for the field-fix re-release of 1.1.06: the mru insertion bug
+    (the submenu block sat inside the command-table loop, so the file menu
+    grew one duplicate "recent files" row per table entry), the stale error
+    flags after close, the light-mode toolbar chrome, the dark-flip repaint
+    hardening (full invalidation plus the immersive color set re-check
+    timer), the options tab dark WM_PAINT takeover, and the below-fit zoom
+    range for the touch pinch."""
+    viv = read("src/viv.c").decode("latin-1")
+    vivh = read("src/viv.h").decode("latin-1")
+
+    # --- the mru insertion: brace depth simulation ---
+    # the field screenshot showed dozens of duplicate "recent files" rows:
+    # the insertion block has to run once per rebuild, after the walk.
+    i = viv.find("static HMENU _viv_create_menu(void)")
+    i = viv.find("static HMENU _viv_create_menu(void)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    for_idx = seg.find("for(i=0;i<_VIV_COMMAND_COUNT;i++)")
+    check("the create menu walk exists", for_idx != -1)
+    loop_open = seg.find("{", for_idx)
+    depth = 0
+    loop_end = -1
+    k = loop_open
+    while k < len(seg):
+        c = seg[k]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                loop_end = k
+                break
+        k += 1
+    check("the command table loop closes inside the function", loop_end != -1)
+    mru_idx = seg.find("the recent-files mru submenu is dynamic")
+    check("the mru block exists in create menu", mru_idx != -1)
+    check("the mru block sits outside the command table loop", mru_idx > loop_end)
+    check("the mru insertion runs exactly once per rebuild",
+          seg.count("InsertMenuItemW(menus[_VIV_MENU_FILE],insert_pos,TRUE,&mii);") == 1)
+    check("the mru popup builds one submenu per rebuild",
+          seg.count("recent_menu = CreatePopupMenu();") == 1)
+
+    # --- the blank state clears the stale error flags ---
+    i = viv.find("static void _viv_blank(void)")
+    i = viv.find("static void _viv_blank(void)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("blank clears the file-not-found flag",
+          "_viv_file_not_found = 0;" in seg)
+    check("blank clears the load-failed flag",
+          "_viv_load_failed = 0;" in seg)
+
+    # --- the light-mode toolbar chrome follows the light menu bar ---
+    check("the light chrome brush cache exists",
+          "static HBRUSH _viv_light_chrome_hbrushes[2];" in viv and
+          "_viv_light_chrome_brush(int which)" in viv)
+    check("the light chrome brushes are released on kill",
+          viv.count("DeleteObject(_viv_light_chrome_hbrushes[i]);") == 1 and
+          viv.count("DeleteObject(_viv_dark_chrome_hbrushes[i]);") == 1)
+    check("the toolbar strip paints the light menu face",
+          "(HBRUSH)(COLOR_MENU + 1));" in viv and
+          "(HBRUSH)(COLOR_MENU+1));" in viv)
+    check("the light strip lines use the flat palette",
+          "_viv_dark_chrome_brush(1) : _viv_light_chrome_brush(0));" in viv and
+          "_viv_dark_chrome_brush(2) : _viv_light_chrome_brush(1));" in viv)
+
+    # --- the dark flip repaint hardening ---
+    i = viv.find("static void _viv_apply_dark_mode(int repaint)")
+    i = viv.find("static void _viv_apply_dark_mode(int repaint)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("every flip invalidates the whole client",
+          seg.find("InvalidateRect(_viv_hwnd,0,FALSE);") < seg.find("if (repaint)"))
+    check("forced repaints sweep the children",
+          "RedrawWindow(_viv_hwnd,0,0,RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);" in seg)
+    check("the immersive color set gets a delayed re-check",
+          "VIV_ID_DARK_RECHECK_TIMER" in vivh and
+          "SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);" in viv and
+          "case VIV_ID_DARK_RECHECK_TIMER:" in viv)
+    i = viv.find("case VIV_ID_DARK_RECHECK_TIMER:")
+    seg = viv[i:viv.find("case VIV_ID_STATUS_TEMP_TEXT_TIMER:", i)]
+    check("the recheck re-reads and re-applies on a change",
+          "os_dark_invalidate();" in seg and
+          "_viv_apply_dark_mode(1);" in seg and
+          "KillTimer(hwnd,VIV_ID_DARK_RECHECK_TIMER);" in seg)
+
+    # --- the below-fit zoom range ---
+    check("the shrink ladder constant exists",
+          "#define _VIV_ZOOM_SHRINK_STEPS 278" in viv)
+    check("the floor helper is wired",
+          "static int _viv_zoom_pos_floor(void);" in viv and
+          "return -_VIV_ZOOM_SHRINK_STEPS;" in viv and
+          "if (!config_allow_shrinking)" in viv)
+    check("the clamp respects the below-fit floor",
+          "pos_floor = _viv_zoom_pos_floor();" in viv and
+          "if (zoom_pos <= pos_floor)" in viv)
+    check("negative positions never index the scale table",
+          "scale = (_viv_zoom_pos > 0) ? _viv_zoom_scales[_viv_zoom_pos] : (1.0 / _viv_zoom_scales[-_viv_zoom_pos]);" in viv)
+    check("the render size keeps a 1px minimum below the fit",
+          "if (rw < 1)" in viv and "if (rh < 1)" in viv)
+    check("both percent searches reach below the fit",
+          viv.count("lo = _viv_zoom_pos_floor();") == 2)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -2218,6 +2333,7 @@ if __name__ == "__main__":
     t_audit_round18()
     t_second_review_round40()
     t_ux_round41()
+    t_field_fixes_round42()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

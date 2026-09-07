@@ -257,6 +257,7 @@
 
 #define _VIV_ZOOM_MAX 1024 // one ladder entry per 1% multiplicative zoom step. long enough that the 16x size cap is reachable even for photos much larger than the window.
 #define _VIV_ZOOM_STEPS_PER_NOTCH 10 // zoom steps per wheel notch / zoom button click (~10.5%)
+#define _VIV_ZOOM_SHRINK_STEPS 278 // the below-fit zoom-out range: 1.01^-278 is about one sixteenth of the best fit, mirroring the 16x native cap above it. the field report: pinch-out could never zoom below the best fit, so a fill-window upscale locked small images at a 200% minimum.
 
 #define BCM_SETSHIELD	0x0000160C
 
@@ -600,6 +601,7 @@ static void _viv_status_set_temp_text(wchar_t *text);
 static void _viv_status_update_temp_pos_zoom(void);
 static int _viv_zoom_percent(void);
 static int _viv_zoom_pos_for_percent(int percent,int strict);
+static int _viv_zoom_pos_floor(void);
 static void _viv_zoom_set_percent(int percent,int screen_x,int screen_y,int force);
 static void _viv_set_zoom_dialog(void);
 static INT_PTR CALLBACK _viv_set_zoom_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
@@ -2878,6 +2880,30 @@ static HBRUSH _viv_dark_chrome_brush(int which)
 	return _viv_dark_chrome_hbrushes[which];
 }
 
+// a cached light chrome brush for the toolbar strip lines. the light strip
+// face is the system menu color (it matches the light menu bar exactly and
+// tracks the theme for free), but the flat separator lines are fixed subtle
+// grays like the dark palette: 0 = the shadow line, 1 = the highlight line.
+// released in _viv_kill with the dark chrome brushes.
+static HBRUSH _viv_light_chrome_hbrushes[2];
+
+static HBRUSH _viv_light_chrome_brush(int which)
+{
+	static const COLORREF colors[2] = {RGB(0xE0,0xE0,0xE0),RGB(0xFF,0xFF,0xFF)};
+	
+	if ((which < 0) || (which > 1))
+	{
+		return 0;
+	}
+	
+	if (!_viv_light_chrome_hbrushes[which])
+	{
+		_viv_light_chrome_hbrushes[which] = CreateSolidBrush(colors[which]);
+	}
+	
+	return _viv_light_chrome_hbrushes[which];
+}
+
 static HBRUSH _viv_backdrop_solid_hbrush = 0; // backdrop solid color brush, cached
 static COLORREF _viv_backdrop_solid_color = 0; // the color the solid brush was created with
 static HBRUSH _viv_backdrop_checker_hbrush = 0; // checkerboard pattern brush, cached
@@ -3597,6 +3623,33 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			
 			switch(wParam)
 			{
+				case VIV_ID_DARK_RECHECK_TIMER:
+				{
+					// the delayed immersive color set re-check (see
+					// wm_settingchange): the registry has settled by now.
+					int was_dark;
+					int is_dark;
+					
+					KillTimer(hwnd,VIV_ID_DARK_RECHECK_TIMER);
+					
+					was_dark = _viv_is_dark();
+					
+					os_dark_invalidate();
+					
+					is_dark = _viv_is_dark();
+					
+					if (was_dark != is_dark)
+					{
+						if (config_dark_mode == 2)
+						{
+							os_dark_refresh();
+						}
+						
+						_viv_apply_dark_mode(1);
+					}
+				}
+				break;
+
 				case VIV_ID_STATUS_TEMP_TEXT_TIMER:
 					_viv_status_set_temp_text(0);
 					break;
@@ -4524,6 +4577,13 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			if ((lParam) && (string_compare((const wchar_t *)lParam,L"ImmersiveColorSet") == 0))
 			{
 				os_dark_refresh();
+				
+				// the broadcast can arrive before the personalize registry
+				// value settles: the immediate re-read below then sees the
+				// old state and skips the apply, and nothing re-triggers. a
+				// one-shot timer re-checks after the settle window so the flip
+				// always lands.
+				SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);
 			}
 			
 			// re-read the dark state (the theme itself or the high contrast
@@ -6404,6 +6464,16 @@ static void _viv_kill(void)
 	{
 		int i;
 		
+		for(i=0;i<2;i++)
+		{
+			if (_viv_light_chrome_hbrushes[i])
+			{
+				DeleteObject(_viv_light_chrome_hbrushes[i]);
+				
+				_viv_light_chrome_hbrushes[i] = 0;
+			}
+		}
+		
 		for(i=0;i<4;i++)
 		{
 			if (_viv_dark_chrome_hbrushes[i])
@@ -7923,7 +7993,10 @@ static void _viv_get_render_size(int *prw,int *prh)
 		double max_w;
 		double max_h;
 		
-		scale = _viv_zoom_scales[_viv_zoom_pos];
+		// the below-fit extension uses the reciprocal of the table entry
+		// (1.01^-n is exactly 1/1.01^n), so negative positions never index
+		// the scale table out of bounds.
+		scale = (_viv_zoom_pos > 0) ? _viv_zoom_scales[_viv_zoom_pos] : (1.0 / _viv_zoom_scales[-_viv_zoom_pos]);
 		
 		// the caps are computed in double space: an int cap could itself
 		// overflow for an absurd panorama.
@@ -7944,6 +8017,19 @@ static void _viv_get_render_size(int *prw,int *prh)
 		
 		rw = (int)_viv_clamp_double((double)rw * scale,max_w);
 		rh = (int)_viv_clamp_double((double)rh * scale,max_h);
+		
+		// a deep below-fit zoom of a tiny image can round to a zero render
+		// size: keep one pixel so the draw and view math never divide by
+		// zero.
+		if (rw < 1)
+		{
+			rw = 1;
+		}
+		
+		if (rh < 1)
+		{
+			rh = 1;
+		}
 	}
 	
 	*prw = rw;
@@ -8659,9 +8745,19 @@ static void _viv_apply_dark_mode(int repaint)
 		}
 	}
 	
+	// every flip repaints the whole window: the per-control
+	// InvalidateRect calls above cover their own windows, but a flip
+	// that lands between partial paints left stale light pixels on the
+	// rebar strip and the client canvas (the field report: the white
+	// band right of the toolbar until a manual resize or refresh). the
+	// startup call is free - nothing has painted yet.
+	InvalidateRect(_viv_hwnd,0,FALSE);
+	
 	if (repaint)
 	{
-		InvalidateRect(_viv_hwnd,0,FALSE);
+		// forced repaint callers also sweep the children now instead of
+		// waiting for the message loop.
+		RedrawWindow(_viv_hwnd,0,0,RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
 	}
 }
 
@@ -10630,6 +10726,20 @@ static void _viv_blank(void)
 {
 	_viv_clear();
 
+	// the blank state has no file: the stale error flags from the last
+	// load attempt must not outlive it (the field report: close after a
+	// failed load kept "failed to load image" on the status bar with no
+	// image open - the flags only reset on the next _viv_open).
+	if (_viv_file_not_found)
+	{
+		_viv_file_not_found = 0;
+	}
+
+	if (_viv_load_failed)
+	{
+		_viv_load_failed = 0;
+	}
+
 	if (_viv_random)
 	{
 		mem_free(_viv_random);
@@ -11329,22 +11439,98 @@ static void _viv_options_update_sheild(HWND hwnd)
 	}
 }
 
-// the dark options tab body: the tab control never follows the dark
-// explorer style (no dark variant on any build), so the body face is
-// painted here. the tab items draw in the custom draw pass.
+// the dark options tab: the comctl tab control never follows the dark
+// explorer style (no dark variant on any build) and its own WM_PAINT
+// covers the whole face - the strip behind the items, the body and the 3d
+// edges - in the light style. the old custom draw only reached the items,
+// so the strip and the edges stayed light (the white page-title header and
+// the white sliver under every page in the field screenshots). the subclass
+// takes WM_PAINT over completely in the dark ui: the body face, the strip
+// one step above it, and the single page-title item drawn connected to the
+// body. the page dialogs paint their own dark faces over the body.
 static LRESULT CALLBACK _viv_options_tab_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	WNDPROC last_proc;
 	
-	if ((msg == WM_ERASEBKGND) && (_viv_is_dark()))
+	if (_viv_is_dark())
 	{
-		RECT rect;
+		if (msg == WM_ERASEBKGND)
+		{
+			RECT rect;
+			
+			GetClientRect(hwnd,&rect);
+			
+			FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(3));
+			
+			return 1;
+		}
 		
-		GetClientRect(hwnd,&rect);
-		
-		FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(3));
-		
-		return 1;
+		if (msg == WM_PAINT)
+		{
+			PAINTSTRUCT ps;
+			RECT rect;
+			RECT item_rect;
+			wchar_t text[STRING_SIZE];
+			TCITEM tcitem;
+			HFONT font;
+			HFONT old_font;
+			
+			if (BeginPaint(hwnd,&ps))
+			{
+				GetClientRect(hwnd,&rect);
+				
+				// the body: the same face the page dialogs erase with.
+				FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(3));
+				
+				os_zero_memory(&tcitem,sizeof(tcitem));
+				tcitem.mask = TCIF_TEXT;
+				tcitem.pszText = text;
+				tcitem.cchTextMax = STRING_SIZE;
+				
+				text[0] = 0;
+				
+				os_zero_memory(&item_rect,sizeof(item_rect));
+				
+				if ((TabCtrl_GetItem(hwnd,0,&tcitem)) && (text[0]) && (TabCtrl_GetItemRect(hwnd,0,&item_rect)))
+				{
+					RECT strip_rect;
+					
+					CopyRect(&strip_rect,&rect);
+					
+					// the strip band behind the item ends one pixel under it: a
+					// hairline of the strip color separates the header from the
+					// body.
+					strip_rect.bottom = item_rect.bottom + 1;
+					
+					FillRect(ps.hdc,&strip_rect,_viv_dark_chrome_brush(0));
+					
+					// the single page-title item connects to the body face.
+					FillRect(ps.hdc,&item_rect,_viv_dark_chrome_brush(3));
+					
+					SetBkMode(ps.hdc,TRANSPARENT);
+					SetTextColor(ps.hdc,RGB(0xE8,0xE8,0xE8));
+					
+					font = _viv_menu_font();
+					old_font = 0;
+					
+					if (font)
+					{
+						old_font = SelectObject(ps.hdc,font);
+					}
+					
+					DrawTextW(ps.hdc,text,-1,&item_rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER);
+					
+					if (old_font)
+					{
+						SelectObject(ps.hdc,old_font);
+					}
+				}
+				
+				EndPaint(hwnd,&ps);
+			}
+			
+			return 0;
+		}
 	}
 	
 	last_proc = (WNDPROC)GetWindowLongPtr(hwnd,GWLP_USERDATA);
@@ -11355,61 +11541,6 @@ static LRESULT CALLBACK _viv_options_tab_proc(HWND hwnd,UINT msg,WPARAM wParam,L
 	}
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
-
-// paint one options tab item with the dark palette: the selected tab
-// takes the body face (it reads as connected to the page), the others
-// sit one step darker and lift on hover.
-static INT_PTR _viv_options_tab_draw(NMCUSTOMDRAW *draw)
-{
-	TCITEM tcitem;
-	wchar_t text[STRING_SIZE];
-	RECT rect;
-	HBRUSH face_brush;
-	
-	switch(draw->dwDrawStage)
-	{
-		case CDDS_PREPAINT:
-			return CDRF_NOTIFYITEMDRAW;
-		
-		case CDDS_ITEMPREPAINT:
-			break;
-		
-		default:
-			return CDRF_DODEFAULT;
-	}
-	
-	os_zero_memory(&tcitem,sizeof(tcitem));
-	tcitem.mask = TCIF_TEXT;
-	tcitem.pszText = text;
-	tcitem.cchTextMax = STRING_SIZE;
-	
-	text[0] = 0;
-	
-	if ((!TabCtrl_GetItem(draw->hdr.hwndFrom,(int)draw->dwItemSpec,&tcitem)) || (!text[0]))
-	{
-		return CDRF_DODEFAULT;
-	}
-	
-	CopyRect(&rect,&draw->rc);
-	
-	if (draw->uItemState & CDIS_SELECTED)
-	{
-		face_brush = _viv_dark_chrome_brush(3);
-	}
-	else
-	{
-		face_brush = (draw->uItemState & CDIS_HOT) ? _viv_dark_chrome_brush(1) : _viv_dark_chrome_brush(0);
-	}
-	
-	FillRect(draw->hdc,&rect,face_brush);
-	
-	SetBkMode(draw->hdc,TRANSPARENT);
-	SetTextColor(draw->hdc,RGB(0xE8,0xE8,0xE8));
-	
-	DrawTextW(draw->hdc,text,-1,&rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER);
-	
-	return CDRF_SKIPDEFAULT;
 }
 
 static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
@@ -11431,19 +11562,6 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 
 			switch(((NMHDR *)lParam)->idFrom)
 			{
-				case IDC_TAB1:
-				case IDC_TAB2:
-				case IDC_TAB3:
-				
-					// the tab strip never follows the dark explorer style (the class
-					// has no dark variant on any build): the items paint here.
-					if ((((NMHDR *)lParam)->code == NM_CUSTOMDRAW) && (_viv_is_dark()))
-					{
-						return _viv_options_tab_draw((NMCUSTOMDRAW *)lParam);
-					}
-				
-				break;
-				
 				case IDC_TREE1:
 
 					switch(((NMHDR *)lParam)->code)
@@ -14918,8 +15036,8 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 									{
 										RECT rect;
 										GetClientRect(_viv_toolbar_hwnd,&rect);
-										// the strip follows the theme: a light button face, or the dark chrome face.
-										FillRect(((NMTBCUSTOMDRAW *)lParam)->nmcd.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));
+										// the strip follows the theme: the light menu face, or the dark chrome face.
+										FillRect(((NMTBCUSTOMDRAW *)lParam)->nmcd.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU+1));
 										return CDRF_NOTIFYITEMDRAW;
 									}
 									case CDDS_ITEMPREPAINT:
@@ -14983,14 +15101,16 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			
 			// the strip and its two separator lines follow the theme. the
 			// dark palette matches the zoom bar (face 0x252525, lines
-			// 0x454545 shadow / 0x707070 highlight).
+			// 0x454545 shadow / 0x707070 highlight); the light palette is the
+					// menu face with flat soft lines instead of the 3d etch, so both
+					// themes read as one chrome band above the canvas.
 			rect.left = 0;
 			rect.top = 0;
 			rect.right = wide;
 			rect.bottom = 1;
 			
 //			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(1) : (HBRUSH)(COLOR_3DSHADOW + 1));
+			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(1) : _viv_light_chrome_brush(0));
 			
 			rect.left = 0;
 			rect.top = 1;
@@ -14998,7 +15118,7 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			rect.bottom = 2;
 			
 //			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(2) : (HBRUSH)(COLOR_3DHIGHLIGHT + 1));
+			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(2) : _viv_light_chrome_brush(1));
 			
 			rect.left = 0;
 			rect.top = 2;
@@ -15006,7 +15126,7 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			rect.bottom = high;
 			
 //			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE + 1));
+			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU + 1));
 			
 			EndPaint(hwnd,&ps);
 			
@@ -15023,7 +15143,7 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			// leave a fresh white buffer behind the buttons).
 			GetClientRect(hwnd,&rect);
 			
-			FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));
+			FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU+1));
 			
 			return 1;
 		}
@@ -15293,7 +15413,7 @@ static int _viv_zoom_pos_for_percent(int percent,int strict)
 	int lo;
 	int hi;
 	
-	lo = 0;
+	lo = _viv_zoom_pos_floor();
 	hi = _viv_zoom_pos_max() + 1; // exclusive upper bound
 	
 	while (lo < hi)
@@ -16251,63 +16371,63 @@ static HMENU _viv_create_menu(void)
 					}
 				}
 			}
+		}
+		
+		// the recent-files mru submenu is dynamic (paths from the ini), so
+		// it is built after the static table walk and inserted before the
+		// exit item of the file menu.
+		{
+			HMENU recent_menu;
+			wchar_t text_wbuf[STRING_SIZE];
 			
-			// the recent-files mru submenu is dynamic (paths from the ini), so
-			// it is built after the static table walk and inserted before the
-			// exit item of the file menu.
+			recent_menu = CreatePopupMenu();
+			
+			if (config_recent_file_count)
 			{
-				HMENU recent_menu;
-				wchar_t text_wbuf[STRING_SIZE];
+				int i;
 				
-				recent_menu = CreatePopupMenu();
-				
-				if (config_recent_file_count)
+				for(i=0;i<config_recent_file_count;i++)
 				{
-					int i;
+					wchar_t num_wbuf[64];
 					
-					for(i=0;i<config_recent_file_count;i++)
-					{
-						wchar_t num_wbuf[64];
-						
-						// the mru convention: an ampersand digit prefix selects the
-						// entry from the keyboard while the submenu is open.
-						string_format_number(num_wbuf,i + 1);
-						string_copy(text_wbuf,L"&");
-						string_cat(text_wbuf,num_wbuf);
-						string_cat(text_wbuf,L" ");
-						string_cat(text_wbuf,string_get_filename_part(config_recent_files[i]));
-						
-						AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_0 + i,text_wbuf);
-					}
+					// the mru convention: an ampersand digit prefix selects the
+					// entry from the keyboard while the submenu is open.
+					string_format_number(num_wbuf,i + 1);
+					string_copy(text_wbuf,L"&");
+					string_cat(text_wbuf,num_wbuf);
+					string_cat(text_wbuf,L" ");
+					string_cat(text_wbuf,string_get_filename_part(config_recent_files[i]));
 					
-					AppendMenu(recent_menu,MF_SEPARATOR,0,L"");
-					
-					string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_CLEAR));
-					AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
-				}
-				else
-				{
-					string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_EMPTY));
-					AppendMenu(recent_menu,MF_STRING | MF_GRAYED,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+					AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_0 + i,text_wbuf);
 				}
 				
-				string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES));
+				AppendMenu(recent_menu,MF_SEPARATOR,0,L"");
 				
-				{
-					MENUITEMINFOW mii;
-					int insert_pos;
-					
-					os_zero_memory(&mii,sizeof(mii));
-					mii.cbSize = sizeof(mii);
-					mii.fMask = MIIM_SUBMENU | MIIM_STRING | MIIM_ID;
-					mii.wID = _VIV_MENU_FILE_RECENT;
-					mii.hSubMenu = recent_menu;
-					mii.dwTypeData = text_wbuf;
-					
-					// right before the exit item (the last row of the file menu).
-					insert_pos = GetMenuItemCount(menus[_VIV_MENU_FILE]) - 1;
-					InsertMenuItemW(menus[_VIV_MENU_FILE],insert_pos,TRUE,&mii);
-				}
+				string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_CLEAR));
+				AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+			}
+			else
+			{
+				string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_EMPTY));
+				AppendMenu(recent_menu,MF_STRING | MF_GRAYED,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+			}
+			
+			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES));
+			
+			{
+				MENUITEMINFOW mii;
+				int insert_pos;
+				
+				os_zero_memory(&mii,sizeof(mii));
+				mii.cbSize = sizeof(mii);
+				mii.fMask = MIIM_SUBMENU | MIIM_STRING | MIIM_ID;
+				mii.wID = _VIV_MENU_FILE_RECENT;
+				mii.hSubMenu = recent_menu;
+				mii.dwTypeData = text_wbuf;
+				
+				// right before the exit item (the last row of the file menu).
+				insert_pos = GetMenuItemCount(menus[_VIV_MENU_FILE]) - 1;
+				InsertMenuItemW(menus[_VIV_MENU_FILE],insert_pos,TRUE,&mii);
 			}
 		}
 	}
@@ -18507,14 +18627,15 @@ static void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 			else
 			{
 				// binary search for the highest ladder position below the 1:1 size,
-				// or -1 when even the best fit is at least as large. the render size
-				// is monotonic, so this matches the old linear scan from the top with
-				// ~10 measurements instead of up to 1024.
+				// or the floor minus one when even the deepest below-fit zoom-out
+				// is at least as large (the clamp settles that on the floor). the
+				// render size is monotonic, so this matches the old linear scan from
+				// the top with ~10 measurements instead of up to 1024.
 				{
 					int lo;
 					int hi;
 					
-					lo = 0;
+					lo = _viv_zoom_pos_floor();
 					hi = _viv_zoom_pos_max() + 1; // exclusive upper bound
 					
 					while (lo < hi)
@@ -19641,14 +19762,35 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 	}
 }
 
+// the lowest ladder position the zoom may reach. position 0 (the best fit)
+// was a hard floor historically: a fill-window upscale locked small images
+// at a 200% minimum and a windowed fit locked large ones at their shrink
+// size, with no way to zoom out to a thumbnail (the touch pinch field
+// report). the ladder now extends below the fit by the same 16x factor the
+// cap extends above native - but only while shrinking is allowed: the
+// option exists exactly to keep images at or above their fit size.
+static int _viv_zoom_pos_floor(void)
+{
+	if (!config_allow_shrinking)
+	{
+		return 0;
+	}
+	
+	return -_VIV_ZOOM_SHRINK_STEPS;
+}
+
 static int _viv_clamp_zoom_pos(int zoom_pos)
 {
 	int pos_max;
+	int pos_floor;
 	
-	// nothing to measure for the ladder floor.
-	if (zoom_pos <= 0)
+	pos_floor = _viv_zoom_pos_floor();
+	
+	// the below-fit floor is a constant (the extension is fit-relative), so
+	// unlike the measured top there is nothing to walk: clamp straight to it.
+	if (zoom_pos <= pos_floor)
 	{
-		return 0;
+		return pos_floor;
 	}
 	
 	{

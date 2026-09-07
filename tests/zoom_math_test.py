@@ -30,6 +30,8 @@ def render_axis(fit, native, pos):
     cap = max(16 * native, fit)
     if value > cap:
         value = cap
+    if value < 1:            # viv.c: a deep below-fit zoom keeps one pixel
+        value = 1
     return int(value)
 
 
@@ -625,6 +627,73 @@ def t_percent_stepping():
 
 
 
+
+# ---------------------------------------------------------------------------
+# rc.42: the below-fit extension. _VIV_ZOOM_SHRINK_STEPS = 278 (viv.c):
+# the ladder reaches down to fit * 1.01^-278 ~= fit/16 while shrinking is
+# allowed; the option off keeps the historic best-fit floor.
+# ---------------------------------------------------------------------------
+SHRINK_STEPS = 278  # _VIV_ZOOM_SHRINK_STEPS
+
+def pos_floor(allow_shrinking=1):
+    """viv.c _viv_zoom_pos_floor()."""
+    return -SHRINK_STEPS if allow_shrinking else 0
+
+def clamp_pos(zoom_pos, allow_shrinking=1):
+    """viv.c _viv_clamp_zoom_pos() (the top clamps separately)."""
+    floor = pos_floor(allow_shrinking)
+    if zoom_pos <= floor:
+        return floor
+    return zoom_pos
+
+def t_below_fit_range():
+    """The field report: pinch-out could never zoom below the best fit - a
+    fill-window upscale locked a 200% minimum and a windowed fit locked the
+    range at the shrink size. the extension mirrors the 16x native cap."""
+    # a small image in a big window with fill window on: the fit is a 2x
+    # upscale (the 200% floor from the report).
+    iw, ih, cw, ch = 600, 400, 1200, 800
+    fw, fh = fit_size(iw, ih, cw, ch, fill_window=1)
+    assert (fw, fh) == (1200, 800), (fw, fh)
+    rw, rh = render(fw, fh, 0, iw, ih)
+    check("fill window fit is the 200% upscale", rw == 1200 and rh == 800,
+          f"{rw}x{rh}")
+    # pinch out to the floor: the render shrinks below native and lands
+    # near fit/16.
+    floor = pos_floor(1)
+    rw, rh = render(fw, fh, floor, iw, ih)
+    check("the floor renders about fit/16",
+          abs(rw - fw / 16) < 4 and abs(rh - fh / 16) < 4, f"{rw}x{rh}")
+    check("the floor is below native", rw < iw and rh < ih, f"{rw}x{rh}")
+    # the percent readout along the way passes through 100% (native): the
+    # position whose render is the native size.
+    pos_native = 0
+    for pos in range(floor, 1):
+        rw, rh = render(fw, fh, pos, iw, ih)
+        if rw <= iw:
+            pos_native = pos
+            break
+    check("the ladder passes through native below the fit", pos_native < 0,
+          f"native at pos {pos_native}")
+    # the clamp: zooming far below the floor settles on the floor.
+    check("the clamp settles at the floor", clamp_pos(floor - 500) == floor)
+    check("the clamp keeps valid negatives", clamp_pos(-50) == -50)
+    # the option off: the historic floor (the fit) stays.
+    check("no shrinking keeps the fit floor", pos_floor(0) == 0)
+    check("no shrinking clamps negatives to the fit", clamp_pos(-50, 0) == 0)
+    # a tiny image: the deepest zoom keeps a one pixel render.
+    rw, rh = render(10, 8, floor, 2, 1)
+    check("the deepest zoom of a tiny image keeps 1px", rw >= 1 and rh >= 1,
+          f"{rw}x{rh}")
+    # the field report's second case: a large image whose fit is 75% - the
+    # pinch range used to stop dead at the fit, now it continues to ~fit/16.
+    iw, ih, cw, ch = 4000, 3000, 1200, 900
+    fw, fh = fit_size(iw, ih, cw, ch)
+    rw, rh = render(fw, fh, floor, iw, ih)
+    check("a large image shrinks to about fit/16 at the floor",
+          abs(rw - fw / 16) < 4, f"{rw} vs {fw/16:.1f}")
+
+
 if __name__ == "__main__":
     t_aspect_invariant()
     t_geometric_ladder()
@@ -638,6 +707,7 @@ if __name__ == "__main__":
     t_binary_search_equivalence()
     t_pos_max_cache_signature()
     t_percent_stepping()
+    t_below_fit_range()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
