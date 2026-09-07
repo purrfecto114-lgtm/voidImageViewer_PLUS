@@ -3587,23 +3587,6 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			}
 			break;
 			
-		case WM_ERASEBKGND:
-		{
-			RECT rect;
-			
-			GetClientRect(hwnd,&rect);
-			
-			// the rebar window was registered with the light window class
-			// brush: the centered toolbar leaves large slabs on both sides,
-			// and those slabs stayed white in dark mode (the field report
-			// screenshots). the slab now carries the same chrome face the
-			// toolbar strip paints for itself, so the whole strip reads as
-			// one bar in both themes.
-			FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));
-			
-			return 1;
-		}
-		
 		case WM_LBUTTONDOWN:
 		
 			_viv_show_cursor();
@@ -8224,9 +8207,14 @@ static void _viv_menu_bar_nc_fill(void)
 	{
 		// no item was drawn in this paint pass: the update region skipped
 		// the menu bar, so the system kept its light strip and the recorded
-		// rects are stale. ask for one full frame repaint: the next pass
-		// draws the items and fills the gaps (the guard keeps it to one
+		// rects are stale. paint the whole strip dark right here (the items
+		// draw over it on the next pass) and then ask for one full frame
+		// repaint: the retry alone can leave the strip light when the next
+		// update region skips the bar again, which is the white slab the
+		// field screenshots caught (the guard keeps the repaint to one
 		// extra pass, no repaint storm).
+		_viv_menu_bar_fill_gap(hdc,rect.left,rect.top,rect.right,rect.bottom);
+		
 		force = 1;
 	}
 	

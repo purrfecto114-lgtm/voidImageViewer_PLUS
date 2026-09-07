@@ -189,10 +189,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.0.4.27 stable (the fork line continues from the restart)",
-          (major, minor, rev, build) == ("1", "0", "4", "27") and vtype == "")
+    check("version.h = 1.1.3.28 stable (the 1.1 line resumes as the leading series)",
+          (major, minor, rev, build) == ("1", "1", "3", "28") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.0.04")
+          vstr == "1.1.03")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1799,9 +1799,9 @@ def t_dark_layers_round():
     check("no stroke renders below 1.25 device pixels",
           "if (pen_width < 1.25f)" in glyphs)
     check("the magnifier strokes carry visible widths",
-          "{21,6,_glyphs_circle_points}," in glyphs and
-          "{3,5,_glyphs_zoomout_handle}," in glyphs and
-          "{3,4,_glyphs_zoomin_plus}" in glyphs)
+          "{0,6,0,&_glyphs_zoom_ring}," in glyphs and
+          "{2,5,_glyphs_zoomout_handle}," in glyphs and
+          "{2,5,_glyphs_zoomin_plus}" in glyphs)
 
 
 
