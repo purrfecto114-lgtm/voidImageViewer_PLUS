@@ -1,3 +1,41 @@
+Stable: Version 1.1.06 (field fix round 3)
+	the field report read "the background mat color is dead, with an
+	image open and without one": a customized windowed background color
+	always won, so a light mat kept glaring out of the dark chrome in
+	both states while the default white had long mapped to the dark
+	canvas. the mat rule is shared now: in the dark ui any light color
+	(601 luminance at or above 48) keeps its hue but lands at or under
+	the dark chrome face, the default white stays bit-exact with the
+	palette canvas, and an already dark color passes through unchanged;
+	the light ui always shows the exact configured color. the custom
+	backdrop color follows the same rule (a light backdrop under
+	transparent pixels used to glare the same way), and the follow
+	backdrop now matches the mat the window actually paints - the
+	fullscreen canvas shows the fullscreen color under the image instead
+	of the windowed one (a two-tone split around fullscreen pictures).
+	changing the windowed color from the options dialog re-tints the
+	windows 11 caption, repaints the canvas and reloads the image, so a
+	follow-mode transparency picks the new mat up immediately (the ok
+	button used to invalidate the canvas only, which left the caption
+	tint and the under-image backdrop stale until the next theme flip).
+	dark dialogs: the options pages (and every dark dialog) owner draw
+	their comboboxes on every windows build now - the darkmode explorer
+	style carries no combobox parts, so the language, dark-mode,
+	blit-mode and action fields stayed light inside the dark pages on
+	1903+ machines. the comboboxes take the darkmode common-dialog
+	theme class for the dark frames and arrows where it exists, and the
+	field and list rows paint through the dialog dark handler on every
+	build.
+	docs: the readme told the 1.0.04 story while the shipped version was
+	1.1.06 - the what's new section carries the 1.1 line (emf and wmf,
+	recent files, the backdrop menu, the dark dialog completion, the
+	below-fit zoom ladder and the field fixes), the format list carries
+	emf and wmf, and new sections document the canvas/backdrop/dark
+	rules and the recent-files behavior. the test suite pins build 34
+	and gains the round-44 guards (the mat mapper math, the backdrop
+	rules, the fullscreen-aware follow, the options ok chain, the
+	combobox owner-draw ungating and the cfd theme wiring).
+
 Stable: Version 1.1.06 (field fix round 2)
 	open speed: every single-file open wrote the whole settings file and
 	rebuilt the entire menu bar on the ui thread before the image load was

@@ -1331,6 +1331,23 @@ int os_dark_window_theme(HWND hwnd)
 	return 0;
 }
 
+// comboboxes have no parts in the darkmode explorer style (the dark
+// dialogs kept light frames and arrows on 1903+ builds): the common
+// dialog class carries them. the owner drawn items carry the field
+// and the list rows on every build.
+int os_dark_combobox_theme(HWND hwnd)
+{
+	if (_os_SetWindowTheme)
+	{
+		if (_os_SetWindowTheme(hwnd,L"DarkMode_CFD",0) == 0)
+		{
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
 // opt a single window (usually a dialog child control) into the dark
 // comctl styles. must be called before os_dark_window_theme for the
 // control. returns 1 when the dark mode api is available.

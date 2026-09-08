@@ -147,6 +147,8 @@ extern void os_dark_refresh(void);
 // set the DarkMode_Explorer visual style on a window (dialog controls and
 // tabs draw dark with it). returns 1 when the style was applied.
 extern int os_dark_window_theme(HWND hwnd);
+// combobox dark parts: the common dialog class (windows 10 1903+).
+extern int os_dark_combobox_theme(HWND hwnd);
 extern int os_allow_dark_mode_for_window(HWND hwnd,int allow);
 extern void os_dark_invalidate(void);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);

@@ -632,6 +632,7 @@ static RECT _viv_menu_bar_items_rect; // the union of the drawn item rects (wind
 static int _viv_menu_bar_items_valid = 0; // an item was drawn since the last layout reset
 static int _viv_menu_bar_nc_force = 0; // reentrancy guard for the no item repaint path
 static void _viv_menu_bar_remeasure(void);
+static COLORREF _viv_dark_mat_color(BYTE r,BYTE g,BYTE b);
 static COLORREF _viv_windowed_background(void);
 static void _viv_zoom_in(int out,int have_xy,int x,int y);
 static void _viv_status_update_slideshow_rate(void);
@@ -8265,16 +8266,38 @@ static int _viv_is_dark(void)
 	return os_dark_system_dark();
 }
 
-// the windowed background color. when the dark ui is active and the user kept
-// the default white, use a dark canvas instead. a customized color always wins.
+// map a user chosen mat color into the dark ui: the hue survives, the
+// brightness lands at or under the dark chrome face (0x20). the default
+// white is bit-exact with the dark palette canvas. a color that is
+// already dark passes through unchanged so the rules never fight.
+static COLORREF _viv_dark_mat_color(BYTE r,BYTE g,BYTE b)
+{
+	int luminance;
+	
+	if ((r == 255) && (g == 255) && (b == 255))
+	{
+		return RGB(0x20,0x20,0x20);
+	}
+	
+	luminance = (((int)r * 30) + ((int)g * 59) + ((int)b * 11)) / 100;
+	
+	if (luminance >= 48)
+	{
+		return RGB((BYTE)(((WORD)r * 0x20) / 255),(BYTE)(((WORD)g * 0x20) / 255),(BYTE)(((WORD)b * 0x20) / 255));
+	}
+	
+	return RGB(r,g,b);
+}
+
+// the windowed background color. the light ui shows the exact configured
+// color; the dark ui keeps the hue but never lets a light mat glare out
+// of the dark chrome (the field report: the mat around an open image and
+// the empty window canvas both ignored the theme, image open or not).
 static COLORREF _viv_windowed_background(void)
 {
 	if (_viv_is_dark())
 	{
-		if ((config_windowed_background_color_r == 255) && (config_windowed_background_color_g == 255) && (config_windowed_background_color_b == 255))
-		{
-			return RGB(0x20,0x20,0x20);
-		}
+		return _viv_dark_mat_color(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b);
 	}
 	
 	return RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b);
@@ -8853,12 +8876,18 @@ static HBRUSH _viv_backdrop_solid_brush(void)
 			break;
 		
 		case CONFIG_BACKDROP_MODE_CUSTOM:
-			color = RGB(config_backdrop_color_r,config_backdrop_color_g,config_backdrop_color_b);
+			// the custom backdrop follows the mat rule too: a light color
+			// under transparent pixels would glare out of the dark ui.
+			color = _viv_is_dark() ? _viv_dark_mat_color(config_backdrop_color_r,config_backdrop_color_g,config_backdrop_color_b) : RGB(config_backdrop_color_r,config_backdrop_color_g,config_backdrop_color_b);
 			break;
 		
 		default:
-			// follow: the windowed background (dark palette aware).
-			color = _viv_windowed_background();
+			// follow: the canvas the image already floats on - dark palette
+			// aware and fullscreen aware, so the follow backdrop matches the
+			// mat the window is painted with instead of always the windowed
+			// one (fullscreen used to show the windowed color under the
+			// fullscreen mat: a two-tone split around the image).
+			color = _viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : _viv_windowed_background();
 			break;
 	}
 	
@@ -9072,11 +9101,22 @@ static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 	
 	os_allow_dark_mode_for_window(hwnd,1);
 	
-	os_dark_window_theme(hwnd);
-	
 	class_name[0] = 0;
 	
-	if (GetClassNameW(hwnd,class_name,64))
+	if ((GetClassNameW(hwnd,class_name,64)) && (string_compare(class_name,L"ComboBox") == 0))
+	{
+		// comboboxes have no parts in the darkmode explorer class: the dark
+		// dialogs kept light frames and arrows on 1903+ builds. the common
+		// dialog class carries the dark combo parts there, and the owner
+		// drawn items below carry the field and the list rows everywhere.
+		os_dark_combobox_theme(hwnd);
+	}
+	else
+	{
+		os_dark_window_theme(hwnd);
+	}
+	
+	if (class_name[0])
 	{
 		if (_viv_is_dark())
 		{
@@ -9106,8 +9146,11 @@ static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 				}
 			}
 			else
-			if ((string_compare(class_name,L"ComboBox") == 0) && (!os_dark_controls_supported()))
+			if (string_compare(class_name,L"ComboBox") == 0)
 			{
+				// every windows build: even where the dark controls exist the
+				// explorer class carries no combo parts, so the field and the
+				// list rows always owner draw through the dialog dark handler.
 				style = GetWindowLongPtr(hwnd,GWL_STYLE);
 				
 				if (!(style & CBS_OWNERDRAWFIXED))
@@ -11922,7 +11965,14 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							config_windowed_background_color_g = GetGValue(colorref);
 							config_windowed_background_color_b = GetBValue(colorref);
 
+							// the mat, the win11 caption tint and any follow mode
+							// backdrop all read this color: re-tint the frame, repaint
+							// the canvas and reload the image so transparency under
+							// an open file picks the new mat up immediately.
+							os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
+							
 							InvalidateRect(_viv_hwnd,0,FALSE);
+							_viv_refresh();
 						}
 						
 						colorref = (COLORREF)GetWindowLongPtr(GetDlgItem(view_page,IDC_FULLSCREENBACKGROUNDCOLOR_BUTTON),GWLP_USERDATA);

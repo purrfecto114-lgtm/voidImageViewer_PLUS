@@ -288,8 +288,8 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.6.33 stable (the field-fix rounds keep the identity)",
-          (major, minor, rev, build) == ("1", "1", "6", "33") and vtype == "")
+    check("version.h = 1.1.6.34 stable (the field-fix rounds keep the identity)",
+          (major, minor, rev, build) == ("1", "1", "6", "34") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
           vstr == "1.1.06")
     check("rc derives everything from version.h",
@@ -2393,6 +2393,77 @@ def t_field_fixes_round43():
           'LTEXT           "Static",IDC_PAGEPLACEHOLDER,106,26,186,238,NOT WS_VISIBLE' in rc)
 
 
+def t_field_fixes_round44():
+    """Guards for the third field-fix round on 1.1.06: the canvas mat color
+    follows the dark ui (a light custom windowed or backdrop color keeps its
+    hue but lands in the dark range instead of glaring out of the chrome -
+    the field report read it as the background mat being dead with an image
+    open and without one), the follow backdrop matches the fullscreen mat,
+    the options ok chain re-tints the caption and reloads for the backdrop,
+    and the dark dialogs owner draw their comboboxes on every windows build
+    (the explorer dark class has no combo parts, so the language and dark
+    mode fields stayed light inside the dark pages)."""
+    viv = read("src/viv.c").decode("latin-1")
+    osc = read("src/os.c").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+
+    # --- the dark-adaptive mat color ---
+    check("the shared mat mapper exists with the white fast path",
+          viv.count("static COLORREF _viv_dark_mat_color(BYTE r,BYTE g,BYTE b)") == 2 and
+          "return RGB(0x20,0x20,0x20);" in viv)
+    i = viv.find("static COLORREF _viv_dark_mat_color(BYTE r,BYTE g,BYTE b)")
+    i = viv.find("static COLORREF _viv_dark_mat_color(BYTE r,BYTE g,BYTE b)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the mapper measures luminance with the 601 weights",
+          "luminance = (((int)r * 30) + ((int)g * 59) + ((int)b * 11)) / 100;" in seg and
+          "if (luminance >= 48)" in seg)
+    check("light mats keep the hue but land under the chrome face",
+          "(BYTE)(((WORD)r * 0x20) / 255)" in seg and
+          "(BYTE)(((WORD)g * 0x20) / 255)" in seg and
+          "(BYTE)(((WORD)b * 0x20) / 255)" in seg)
+    check("an already dark mat passes through unchanged",
+          "return RGB(r,g,b);\r\n}" in seg and "else" not in seg)
+    check("the windowed background delegates to the mapper in the dark ui",
+          "if (_viv_is_dark())\r\n\t{\r\n\t\treturn _viv_dark_mat_color(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b);" in viv)
+    check("the light ui still shows the exact configured color",
+          "return RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b);" in viv and
+          "a customized color always wins" not in viv)
+
+    # --- the backdrop follows the same rules ---
+    i = viv.find("static HBRUSH _viv_backdrop_solid_brush(void)")
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("a custom backdrop color keeps its hue but lands in the dark range",
+          "color = _viv_is_dark() ? _viv_dark_mat_color(config_backdrop_color_r,config_backdrop_color_g,config_backdrop_color_b) : RGB(config_backdrop_color_r,config_backdrop_color_g,config_backdrop_color_b);" in seg)
+    check("the follow backdrop matches the mat the window paints (fullscreen aware)",
+          "color = _viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : _viv_windowed_background();" in seg)
+
+    # --- the options ok chain for the mat color ---
+    i = viv.find("config_windowed_background_color_b = GetBValue(colorref);")
+    check("changing the mat color re-tints the win11 caption and reloads the image",
+          i != -1 and
+          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv[i:i+800] and
+          "InvalidateRect(_viv_hwnd,0,FALSE);" in viv[i:i+800] and
+          "_viv_refresh();" in viv[i:i+800])
+    check("the caption tint follows the mat from startup and from the options",
+          viv.count("os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());") == 2)
+
+    # --- the dark comboboxes on every build ---
+    check("comboboxes take the common dialog dark class (the explorer class has no combo parts)",
+          'if ((GetClassNameW(hwnd,class_name,64)) && (string_compare(class_name,L"ComboBox") == 0))' in viv and
+          "os_dark_combobox_theme(hwnd);" in viv)
+    check("every other control keeps the explorer dark class",
+          viv.count("os_dark_window_theme(hwnd);") == 2 and
+          "\telse\r\n\t{\r\n\t\tos_dark_window_theme(hwnd);" in viv)
+    check("the combobox owner draw flip is no longer gated on the legacy check",
+          'if ((string_compare(class_name,L"ComboBox") == 0) && (!os_dark_controls_supported()))' not in viv and
+          viv.count("(!os_dark_controls_supported())") == 1)
+    check("the cfd theme helper lives in os.c and is declared in os.h",
+          "int os_dark_combobox_theme(HWND hwnd)" in osc and
+          'L"DarkMode_CFD"' in osc and
+          "extern int os_dark_combobox_theme(HWND hwnd);" in osh)
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -2427,6 +2498,7 @@ if __name__ == "__main__":
     t_ux_round41()
     t_field_fixes_round42()
     t_field_fixes_round43()
+    t_field_fixes_round44()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
