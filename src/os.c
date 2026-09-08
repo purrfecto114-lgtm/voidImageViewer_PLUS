@@ -180,6 +180,8 @@ typedef HRESULT (__stdcall *OS_GetThemePartSize_fn)(HANDLE theme,HDC hdc,int par
 static OS_OpenThemeData_fn _os_OpenThemeData = 0;
 static OS_CloseThemeData_fn _os_CloseThemeData = 0;
 static OS_GetThemePartSize_fn _os_GetThemePartSize = 0;
+typedef HRESULT (__stdcall *OS_DrawThemeBackground_fn)(HANDLE theme,HDC hdc,int part,int state,const RECT *rect);
+static OS_DrawThemeBackground_fn _os_DrawThemeBackground = 0;
 // registry reads for a stable dark mode detection: the undocumented uxtheme
 // probe returns wrong values on some windows 10 1903+ builds, the personalize
 // registry value is the documented source the shell itself follows.
@@ -951,6 +953,7 @@ void os_init(void)
 		_os_OpenThemeData = (void *)GetProcAddress(_os_UxTheme_hmodule,"OpenThemeData");
 		_os_CloseThemeData = (void *)GetProcAddress(_os_UxTheme_hmodule,"CloseThemeData");
 		_os_GetThemePartSize = (void *)GetProcAddress(_os_UxTheme_hmodule,"GetThemePartSize");
+		_os_DrawThemeBackground = (void *)GetProcAddress(_os_UxTheme_hmodule,"DrawThemeBackground");
 
 	}
 	
@@ -1039,12 +1042,16 @@ int os_is_touch_available(void)
 		return 0;
 	}
 
-	// NID_READY = 0x80, NID_EXTERNAL_TOUCH = 0x04, NID_INTEGRATED_TOUCH = 0x01.
-	// nid_ready alone is set by any ready digitizer (pens included): ask for
-	// an actual touch screen, and only while the digitizer is ready. msdn
+	// NID_READY = 0x80, NID_INTEGRATED_TOUCH = 0x01, NID_EXTERNAL_TOUCH =
+	// 0x02 (and NID_INTEGRATED_PEN = 0x04 - the pen does not belong in the
+	// mask: a pen-only digitizer passed the old probe and an external-only
+	// touch screen failed it). nid_ready alone is set by any ready
+	// digitizer (pens included): ask for an actual touch screen - the
+	// integrated or the external one - and only while the digitizer is
+	// ready. msdn
 	// also warns sm_digitizer has no plug-and-play awareness, so callers
 	// treat this as a first-run default, never a permanent configuration.
-	return ((sm & 0x80) && (sm & (0x01 | 0x04))) ? 1 : 0;
+	return ((sm & 0x80) && (sm & (0x01 | 0x02))) ? 1 : 0;
 }
 
 int os_reg_delete_key_ex(HKEY hkey,const wchar_t *name,REGSAM access)
@@ -1330,36 +1337,73 @@ void os_dark_invalidate(void)
 	_os_dark_cache_valid = 0;
 }
 
-// the theme part metrics for the custom drawn glyph labels: the width
-// of a button part in pixels, or 0 when the theme or the part is
-// unavailable (the caller falls back to the system check metric).
-int os_theme_part_wide(HWND hwnd,HDC hdc,int part,int state)
+// the button theme for the custom drawn glyph faces: one open per
+// dialog lifetime (the notify path draws every glyph with the same
+// handle - an open and a close pair per notification was pure uxtheme
+// bookkeeping on the paint hot path).
+HANDLE os_theme_open_button(HWND hwnd)
 {
-	HANDLE theme;
-	SIZE size;
-	
-	if ((!_os_OpenThemeData) || (!_os_GetThemePartSize) || (!_os_CloseThemeData))
+	if (_os_OpenThemeData)
 	{
-		return 0;
+		return _os_OpenThemeData(hwnd,L"Button");
 	}
 	
-	theme = _os_OpenThemeData(hwnd,L"Button");
+	return 0;
+}
+
+// close a theme handle this layer opened (a null handle is a no-op, so
+// the callers need no gate of their own).
+void os_theme_close(HANDLE theme)
+{
+	if ((theme) && (_os_CloseThemeData))
+	{
+		_os_CloseThemeData(theme);
+	}
+}
+
+// the size of a button part in pixels: 1 when the theme and the part
+// are available. the visual styles off leave the handle null and the
+// caller keeps its native-painting fallback.
+int os_theme_part_size(HANDLE theme,HDC hdc,int part,int state,int *wide,int *high)
+{
+	SIZE size;
 	
-	if (!theme)
+	if ((!theme) || (!_os_GetThemePartSize))
 	{
 		return 0;
 	}
 	
 	size.cx = 0;
 	
+	size.cy = 0;
+	
 	if (_os_GetThemePartSize(theme,hdc,part,state,0,2 /* TS_DRAW */,&size) != 0)
 	{
-		size.cx = 0;
+		return 0;
 	}
 	
-	_os_CloseThemeData(theme);
+	if (wide)
+	{
+		*wide = (int)size.cx;
+	}
 	
-	return (int)size.cx;
+	if (high)
+	{
+		*high = (int)size.cy;
+	}
+	
+	return 1;
+}
+
+// draw a button part state into a rect: 1 when the theme drew it.
+int os_theme_draw_part(HANDLE theme,HDC hdc,int part,int state,const RECT *rect)
+{
+	if ((!theme) || (!_os_DrawThemeBackground))
+	{
+		return 0;
+	}
+	
+	return (_os_DrawThemeBackground(theme,hdc,part,state,rect) == 0) ? 1 : 0;
 }
 
 // set the dark explorer visual style on a window (dialog controls and tab

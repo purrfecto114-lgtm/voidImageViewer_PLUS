@@ -1,3 +1,43 @@
+Stable: Version 1.1.10 (field fix round 6: the dialog return value)
+	the sixth field round repairs the 1.1.09 dark options fix itself. a
+	source audit of the custom draw path caught the headline bug: a dialog
+	procedure cannot return a notify result directly - the dialog manager
+	keeps the message result in the window data, so the plain
+	cdrf_skipdefault return handed every button a zero (= cdrf_dodefault)
+	instead. the skip never reached a single control on any machine:
+	- the custom draw result travels through dwlp_msgresult now, the way
+	  the nm_customdraw documentation prescribes for dialog procedures:
+	  setwindowlongptr on the dialog, then a true return. two places
+	  changed: the shared dark proc's notify case and the notify function
+	  it calls.
+	- the glyph travels with the fix: a working skip takes the whole
+	  native painting (the official wording: the control will not draw
+	  any portion of the item), so the checkbox and radio faces draw
+	  complete now - the dark dialog background, the theme part glyph in
+	  the control's own checked, mixed, disabled and hot state (bm_getcheck
+	  plus the custom draw item state through the cbs_*/rbs_* map), the
+	  light label and the focus frame drawn exactly once (two xor frames
+	  cancelled each other before - the keyboard walk lost its dot in the
+	  dark).
+	- the button theme opens once per dialog and closes on destroy and on
+	  the theme change broadcast (an open and a close pair per
+	  notification was pure uxtheme bookkeeping on every paint).
+	- the touch probe mask drops the pen digitizer bit: nid_integrated_pen
+	  is 0x04 and nid_external_touch is 0x02, so the old mask missed the
+	  external-only touch screens and passed the pen-only digitizers.
+	- the ci runs the real machine smoke test now: every push and every
+	  tag build opens the full anomaly sample set through the freshly
+	  compiled exe on the windows runner (the test existed since the
+	  1.0.02 audit round but never ran automatically).
+	- readme honesty pass: the dark options wording matches the shipped
+	  mechanism, the emf/wmf bullet notes the metafiles rasterize through
+	  gdi+ (display-level support, not a native loader), and the pan &&
+	  scan removal lands in the readme story (it was recorded in the
+	  1.1.0-beta.6 changes entry only - the removal was deliberate: the
+	  feature stretched x and y independently and fought the aspect ratio
+	  lock).
+	the version moves to 1.1.10 build 39.
+
 Stable: Version 1.1.09 (field fix round 5)
 	the fifth field round lands the dark options text reports. this
 	entry replaces the withdrawn first 1.1.09 build (build 37): that

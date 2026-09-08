@@ -149,15 +149,42 @@ extern void os_dark_refresh(void);
 extern int os_dark_window_theme(HWND hwnd);
 // combobox dark parts: the common dialog class (windows 10 1903+).
 extern int os_dark_combobox_theme(HWND hwnd);// the light counterpart: back to the standard explorer visual style// when the ui flips back to light.extern int os_light_window_theme(HWND hwnd);
-// the theme part metrics for the custom drawn glyph labels: the width
-// of a button part in pixels, or 0 when the theme is unavailable (the
-// caller falls back to the system check metric).
-extern int os_theme_part_wide(HWND hwnd,HDC hdc,int part,int state);
-// the vssym32 button part and state values the label offset measures
+// the button theme for the custom drawn glyph faces: one open per
+// dialog lifetime, closed on the way out (uxtheme is loaded
+// dynamically, so the handle type stays generic).
+extern HANDLE os_theme_open_button(HWND hwnd);
+extern void os_theme_close(HANDLE theme);
+// the size of a button part in pixels: 1 when the theme and the part
+// are available (the visual styles off leave the handle null).
+extern int os_theme_part_size(HANDLE theme,HDC hdc,int part,int state,int *wide,int *high);
+// draw a button part state into a rect: 1 when the theme drew it.
+extern int os_theme_draw_part(HANDLE theme,HDC hdc,int part,int state,const RECT *rect);
+// the vssym32 button part and state values the glyph drawing uses
 // (uxtheme is loaded dynamically, so the constants live here).
 #define OS_BP_RADIOBUTTON 2
 #define OS_BP_CHECKBOX 3
+// the checkbox part states (cbs_*).
 #define OS_BS_UNCHECKEDNORMAL 1
+#define OS_BS_UNCHECKEDHOT 2
+#define OS_BS_UNCHECKEDPRESSED 3
+#define OS_BS_UNCHECKEDDISABLED 4
+#define OS_BS_CHECKEDNORMAL 5
+#define OS_BS_CHECKEDHOT 6
+#define OS_BS_CHECKEDPRESSED 7
+#define OS_BS_CHECKEDDISABLED 8
+#define OS_BS_MIXEDNORMAL 9
+#define OS_BS_MIXEDHOT 10
+#define OS_BS_MIXEDPRESSED 11
+#define OS_BS_MIXEDDISABLED 12
+// the radiobutton part states (rbs_*).
+#define OS_RBS_UNCHECKEDNORMAL 1
+#define OS_RBS_UNCHECKEDHOT 2
+#define OS_RBS_UNCHECKEDPRESSED 3
+#define OS_RBS_UNCHECKEDDISABLED 4
+#define OS_RBS_CHECKEDNORMAL 5
+#define OS_RBS_CHECKEDHOT 6
+#define OS_RBS_CHECKEDPRESSED 7
+#define OS_RBS_CHECKEDDISABLED 8
 
 extern int os_allow_dark_mode_for_window(HWND hwnd,int allow);
 extern void os_dark_invalidate(void);

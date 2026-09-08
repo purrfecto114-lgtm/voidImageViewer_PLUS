@@ -212,6 +212,14 @@ jobs:
           }
           if ($errors.Count -gt 0) { throw ($errors -join '; ') }
 
+      # the release binary itself passes the real machine smoke test
+      # before anything is packaged or published: the anomaly sweep runs
+      # against the freshly compiled x64 exe (see tests.yml for the
+      # push-time twin of this step).
+      - name: Real machine smoke test (the anomaly sweep)
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tests\smoke_test.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
+
       - name: Build installers (NSIS)
         shell: pwsh
         run: |

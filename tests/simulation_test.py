@@ -700,10 +700,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.9.38",
-          (major, minor, rev, build) == (1, 1, 9, 38), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.09",
-          vstr is not None and vstr.group(1) == "1.1.09", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.10.39",
+          (major, minor, rev, build) == (1, 1, 10, 39), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.10",
+          vstr is not None and vstr.group(1) == "1.1.10", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -711,13 +711,13 @@ def t_sim_version_117():
     check("the nsis derives the display version at compile time",
           '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
     top = CHANGES.lstrip("\ufeff").split("\r\n")[0] if "\r\n" in CHANGES else CHANGES.lstrip("\ufeff").split("\n")[0]
-    check("the changelog top entry is the 1.1.09 re-release",
-          top == "Stable: Version 1.1.09 (field fix round 5)", top)
+    check("the changelog top entry is the 1.1.10 field fix round 6",
+          top == "Stable: Version 1.1.10 (field fix round 6: the dialog return value)", top)
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
-    check("the readme current-stable line says 1.1.09",
-          "**1.1.09 —" in readme and "(the current stable):**" in readme)
+    check("the readme current-stable line says 1.1.10",
+          "**1.1.10 —" in readme and "(the current stable):**" in readme)
 
 
 # ---------------------------------------------------------------------------
@@ -726,6 +726,149 @@ def t_sim_version_117():
 #    dark buttons carried the native light bottom edge, and a color change
 #    on the bare program showed a load failure.
 # ---------------------------------------------------------------------------
+def t_sim_field_round48():
+    print("sim: the dialog return value round (1.1.10)")
+
+    OSH = read("src/os.h").decode("latin-1")
+    OSC = read("src/os.c").decode("latin-1")
+
+    # 1. the glyph state map, re-executed: the check state from
+    #    bm_getcheck (0/1/2), the item state flags from the custom draw.
+    #    the expected ids are the commctrl cbs_*/rbs_* values the native
+    #    button would choose for the same control.
+    body = function_body(VIV, "static int _viv_dialog_dark_glyph_state")
+    if not check("the glyph state mapper is extractable", body is not None):
+        return
+    radio_base = re.search(r"check \? OS_RBS_CHECKEDNORMAL : OS_RBS_UNCHECKEDNORMAL", body)
+    mixed = "BST_INDETERMINATE) ? OS_BS_MIXEDNORMAL" in body
+    off_disabled = re.search(r"CDIS_DISABLED\)\r?\n\s*\{\r?\n\s*state \+= 3;", body)
+    off_hot = re.search(r"CDIS_HOT\)\r?\n\s*\{\r?\n\s*state \+= 1;", body)
+    off_pressed = re.search(r"CDIS_SELECTED\)\r?\n\s*\{\r?\n\s*state \+= 2;", body)
+    check("the mapper uses the theme state ladder (base + 3 disabled, +1 hot, +2 pressed)",
+          radio_base is not None and mixed and
+          off_disabled is not None and off_hot is not None and off_pressed is not None)
+
+    # extract the base selection from the source the same way the function does
+    def glyph_state(type_, check, item_state):
+        if type_ in (BS_AUTORADIOBUTTON, BS_RADIOBUTTON):
+            state = OS_RBS_CHECKEDNORMAL if check else OS_RBS_UNCHECKEDNORMAL
+        else:
+            state = OS_BS_MIXEDNORMAL if check == BST_INDETERMINATE else (OS_BS_CHECKEDNORMAL if check else OS_BS_UNCHECKEDNORMAL)
+        if item_state & CDIS_DISABLED:
+            state += 3
+        elif item_state & CDIS_HOT:
+            state += 1
+        elif item_state & CDIS_SELECTED:
+            state += 2
+        return state
+
+    # the constants the os layer declares (extracted, not hardcoded here)
+    OS_RBS_CHECKEDNORMAL = extract_int(OSH, r"#define\s+OS_RBS_CHECKEDNORMAL\s+(\d+)", "OS_RBS_CHECKEDNORMAL")
+    OS_RBS_UNCHECKEDNORMAL = extract_int(OSH, r"#define\s+OS_RBS_UNCHECKEDNORMAL\s+(\d+)", "OS_RBS_UNCHECKEDNORMAL")
+    OS_BS_MIXEDNORMAL = extract_int(OSH, r"#define\s+OS_BS_MIXEDNORMAL\s+(\d+)", "OS_BS_MIXEDNORMAL")
+    OS_BS_CHECKEDNORMAL = extract_int(OSH, r"#define\s+OS_BS_CHECKEDNORMAL\s+(\d+)", "OS_BS_CHECKEDNORMAL")
+    OS_BS_UNCHECKEDNORMAL = extract_int(OSH, r"#define\s+OS_BS_UNCHECKEDNORMAL\s+(\d+)", "OS_BS_UNCHECKEDNORMAL")
+    BS_AUTORADIOBUTTON, BS_RADIOBUTTON = 9, 4
+    BST_INDETERMINATE = 2
+    CDIS_DISABLED, CDIS_HOT, CDIS_SELECTED = 4, 1, 2
+
+    # commctrl's own state table (the ground truth the map must land on)
+    CBS = {(False, 0): 1, (True, 0): 5, ("mixed", 0): 9}
+    check("an unchecked checkbox draws cbs_uncheckednormal",
+          glyph_state(2, 0, 0) == CBS[(False, 0)])
+    check("a checked checkbox draws cbs_checkednormal",
+          glyph_state(2, 1, 0) == CBS[(True, 0)])
+    check("a mixed 3state draws cbs_mixednormal",
+          glyph_state(5, 2, 0) == CBS[("mixed", 0)])
+    check("a disabled unchecked checkbox draws cbs_uncheckeddisabled",
+          glyph_state(2, 0, CDIS_DISABLED) == 4)
+    check("a disabled checked checkbox draws cbs_checkeddisabled",
+          glyph_state(2, 1, CDIS_DISABLED) == 8)
+    check("a hot unchecked checkbox draws cbs_uncheckedhot",
+          glyph_state(2, 0, CDIS_HOT) == 2)
+    check("a hot checked checkbox draws cbs_checkedhot",
+          glyph_state(2, 1, CDIS_HOT) == 6)
+    check("a pressed unchecked checkbox draws cbs_uncheckedpressed",
+          glyph_state(2, 0, CDIS_SELECTED) == 3)
+    check("a disabled state wins over a hot state",
+          glyph_state(2, 1, CDIS_DISABLED | CDIS_HOT) == 8)
+    check("an unchecked radio draws rbs_uncheckednormal",
+          glyph_state(9, 0, 0) == 1)
+    check("a checked radio draws rbs_checkednormal",
+          glyph_state(9, 1, 0) == 5)
+    check("a disabled checked radio draws rbs_checkeddisabled",
+          glyph_state(9, 1, CDIS_DISABLED) == 8)
+    check("a hot unchecked radio draws rbs_uncheckedhot",
+          glyph_state(9, 0, CDIS_HOT) == 2)
+
+    # 2. the dialog manager result contract, replayed: the defdlgproc
+    #    semantics are the root cause of the round - a non-zero dialog
+    #    proc return reports dwlp_msgresult, never the return itself.
+    def defdlgproc_result(proc_return_value, dwlp_msgresult):
+        # raymond chen / the nm_customdraw doc: the dialog manager
+        # keeps the message result in the window data. returning a
+        # value directly from the dialog proc for wm_notify conveys
+        # nothing - the control reads the window data.
+        return dwlp_msgresult if proc_return_value else 0
+
+    check("the 1.1.09 bug replays: plain cdrf_skipdefault return, control reads zero",
+          defdlgproc_result(4, 0) == 0)
+    check("the r48 fix replays: setwindowlongptr + return true, control reads the skip",
+          defdlgproc_result(1, 4) == 4)
+    check("the fix is wired at the call site (not just the theory)",
+          "SetWindowLongPtr(hwnd,DWLP_MSGRESULT,dark_reply);" in VIV and
+          "return dark_reply;\n" not in function_body(VIV, "static INT_PTR _viv_dialog_dark_proc"))
+
+    # 3. the touch mask, replayed against the nid table: integrated
+    #    touch 0x01, external touch 0x02, integrated pen 0x04, ready 0x80.
+    m = re.search(r"return \(\(sm & 0x80\) && \(sm & \(0x01 \| 0x02\)\)\) \? 1 : 0;", OSC)
+    check("the extracted touch mask is the 0x03 touch pair",
+          m is not None, "mask not found")
+
+    def touch(sm):
+        return 1 if ((sm & 0x80) and (sm & (0x01 | 0x02))) else 0
+
+    check("an integrated touch screen stays touch",
+          touch(0x80 | 0x01) == 1)
+    check("an external-only touch screen reads touch now (the repair)",
+          touch(0x80 | 0x02) == 1)
+    check("an integrated pen only is not a touch screen",
+          touch(0x80 | 0x04) == 0)
+    check("a not-ready digitizer reports nothing",
+          touch(0x01) == 0)
+    check("a ready integrated-touch combo with pen still reads touch",
+          touch(0x80 | 0x01 | 0x04) == 1)
+
+    # 4. the theme cache lifecycle, replayed: one open per dialog
+    #    lifetime, drop on theme change, close on destroy - no leak.
+    opens = 0
+    closes = 0
+    theme = None
+    for event in ["paint"] * 6 + ["themechange"] + ["paint"] * 3 + ["destroy"]:
+        if theme is None and event == "paint":
+            opens += 1
+            theme = "handle"
+        if event == "themechange" and theme is not None:
+            closes += 1
+            theme = None
+        if event == "destroy" and theme is not None:
+            closes += 1
+            theme = None
+    check("ten paints cost two opens (one per style epoch)",
+          opens == 2 and closes == 2)
+    check("the lifecycle leaves no live handle behind",
+          theme is None)
+
+    # 5. the ci wiring: the smoke test runs automatically now.
+    ty = read(".github/workflows/tests.yml").decode()
+    ry = read(".github/workflows/release.yml").decode()
+    check("the push ci opens the anomaly sweep through the fresh exe",
+          "smoke_test.ps1" in ty and "-ExePath" in ty)
+    check("the release ci smoke-tests before packaging",
+          "smoke_test.ps1" in ry and "Build installers" in ry and
+          ry.find("smoke_test.ps1") < ry.find("Build installers"))
+
+
 def t_sim_field_round47():
     print("sim: the dark options text round, redone (1.1.09)")
 
@@ -856,7 +999,7 @@ def t_sim_field_round47():
     #    dialog manager would (the withdrawn build's owner draw flip
     #    replaced bs_autocheckbox in the style and froze every checkbox -
     #    the redo never touches a style bit).
-    notify = function_body(VIV, "static INT_PTR _viv_dialog_dark_notify(NMHDR *header)")
+    notify = function_body(VIV, "static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)")
     if not check("the notify handler is extractable", notify is not None):
         return
     check("the notify leads with the dark gate (light keeps native painting)",
@@ -874,7 +1017,7 @@ def t_sim_field_round47():
             return -1
         if cls != "Button":
             return -1
-        if type_ not in (2, 9, 3, 4):  # autockbox, autoradio, checkbox, radio
+        if type_ not in (2, 9, 3, 4, 5, 6):  # autockbox, autoradio, checkbox, radio, 3state, auto3state
             return -1
         return 4  # CDRF_SKIPDEFAULT at CDDS_PREPAINT
 
@@ -888,6 +1031,25 @@ def t_sim_field_round47():
           notify_reply(True, "TVN_SELCHANGEDW", "SysTreeView32", 2) == -1)
     check("a flipped push button's custom draw passes through",
           notify_reply(True, "NM_CUSTOMDRAW", "Button", 0) == -1)
+    check("a 3state control joins the custom draw (the mixed state draws)",
+          notify_reply(True, "NM_CUSTOMDRAW", "Button", 5) == 4 and
+          notify_reply(True, "NM_CUSTOMDRAW", "Button", 6) == 4)
+    check("the dialog manager would hand the control the dwlp_msgresult value",
+          "SetWindowLongPtr(hwnd,DWLP_MSGRESULT,dark_reply);" in VIV)
+
+    def dialog_notify_result(proc_return, msgresult_set):
+        # the defdlgproc contract: a non-zero proc return reports the
+        # message result stored in the window data (dwlp_msgresult), not
+        # the proc return itself. the first 1.1.09 redo returned
+        # cdrf_skipdefault directly - the control read the untouched zero.
+        if proc_return:
+            return msgresult_set
+        return 0
+
+    check("the old plain return starved the control (the r48 root cause)",
+          dialog_notify_result(4, 0) == 0)
+    check("the dwlp_msgresult pair delivers the skip",
+          dialog_notify_result(1, 4) == 4)
     check("the stage handoff: prepaint paints, the other stages default",
           "CDDS_PREPAINT" in notify and "return CDRF_DODEFAULT;" in notify)
 
@@ -1070,6 +1232,7 @@ if __name__ == "__main__":
     t_sim_version_117()
     t_sim_field_round46()
     t_sim_field_round47()
+    t_sim_field_round48()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

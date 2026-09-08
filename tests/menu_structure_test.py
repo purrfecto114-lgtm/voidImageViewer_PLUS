@@ -70,8 +70,9 @@ def t_second_review_round40():
           "os_copy_memory(bits,src,(SIZE_T)stride * (SIZE_T)height);" in viv)
 
     # gestures/touch: the digitizer probe asks for a touch screen
-    check("touch probe requires an actual touch screen",
-          "return ((sm & 0x80) && (sm & (0x01 | 0x04))) ? 1 : 0;" in osc)
+    check("touch probe requires an actual touch screen (integrated or external)",
+          "return ((sm & 0x80) && (sm & (0x01 | 0x02))) ? 1 : 0;" in osc and
+          "NID_INTEGRATED_PEN = 0x04 - the pen does not belong in the" in osc)
 
     # webp: per-frame durations from the container scan, frame's own delay
     check("webp frames carry their own duration",
@@ -289,10 +290,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.9.38 stable (field fix round 5, re-released)",
-          (major, minor, rev, build) == ("1", "1", "9", "38") and vtype == "")
+    check("version.h = 1.1.10.39 stable (field fix round 6: the dialog return value)",
+          (major, minor, rev, build) == ("1", "1", "10", "39") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.09")
+          vstr == "1.1.10")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1900,8 +1901,8 @@ def t_dark_layers_round():
     check("the glyph controls never flip (the check state machine survives)",
           "BS_AUTOCHECKBOX" not in flip_line and "BS_AUTORADIOBUTTON" not in flip_line and
           "BS_PUSHBUTTON" in flip_line and "BS_DEFPUSHBUTTON" in flip_line)
-    check("the glyph control labels paint through the custom draw notify",
-          "static INT_PTR _viv_dialog_dark_notify(NMHDR *header)" in viv and
+    check("the glyph control faces paint through the custom draw notify",
+          "static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)" in viv and
           "return CDRF_SKIPDEFAULT;" in viv)
     check("the flip carries the original button type",
           "SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)(type + 1));" in viv)
@@ -2480,6 +2481,101 @@ def t_field_fixes_round44():
           'L"DarkMode_CFD"' in osc and
           "extern int os_dark_combobox_theme(HWND hwnd);" in osh)
 
+def t_field_fixes_round48():
+    """Guards for the sixth field-fix round (1.1.10): the dialog return value.
+
+    The 1.1.09 redo painted the labels through the button custom draw and
+    returned CDRF_SKIPDEFAULT straight from the dialog procedure - but a
+    dialog proc cannot return a notify result: the dialog manager keeps
+    the message result in the window data, so the buttons all received
+    zero (= CDRF_DODEFAULT) and painted their full default face on top.
+    This round routes the result through DWLP_MSGRESULT, draws the whole
+    face (the skip now genuinely skips everything), and caches the button
+    theme per dialog.
+    """
+    viv = read("src/viv.c").decode("latin-1")
+    osc = read("src/os.c").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+
+    # --- the return value contract ---
+    check("the dark proc sets dwlp_msgresult and returns true",
+          "SetWindowLongPtr(hwnd,DWLP_MSGRESULT,dark_reply);" in viv)
+    check("the notify signature carries the dialog hwnd (the theme cache key)",
+          "static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)" in viv)
+    check("the plain cdrf return path is gone (the bug itself)",
+          "_viv_dialog_dark_notify((NMHDR *)lParam);" not in viv and
+          "if (dark_reply != -1)\n                {\n                    return dark_reply;" not in viv)
+
+    # --- the self-drawn glyph ---
+    check("the glyph state maps check + item state onto cbs_*/rbs_*",
+          "static int _viv_dialog_dark_glyph_state(int type,int check,UINT item_state)" in viv and
+          "state = (check == BST_INDETERMINATE) ? OS_BS_MIXEDNORMAL : (check ? OS_BS_CHECKEDNORMAL : OS_BS_UNCHECKEDNORMAL);" in viv and
+          "state = check ? OS_RBS_CHECKEDNORMAL : OS_RBS_UNCHECKEDNORMAL;" in viv and
+          "state += 3;" in viv and
+          "state += 1;" in viv and
+          "state += 2;" in viv)
+    check("the disabled state wins over hot and pressed",
+          viv.find("if (item_state & CDIS_DISABLED)\r\n\t{\r\n\t\tstate += 3;") <
+          viv.find("if (item_state & CDIS_HOT)\r\n\t{\r\n\t\tstate += 1;"))
+    check("the check state comes from the control message",
+          "check = (int)SendMessage(header->hwndFrom,BM_GETCHECK,0,0);" in viv)
+    check("the 3state glyph controls join the filter",
+          "(type != BS_3STATE) && (type != BS_AUTO3STATE)" in viv)
+    check("the glyph rect sits at the left edge, vertically centered",
+          "glyph_rect.right = glyph_rect.left + glyph_wide;" in viv and
+          "glyph_rect.top = glyph_rect.top + ((glyph_rect.bottom - glyph_rect.top - glyph_high) / 2);" in viv and
+          "os_theme_draw_part(theme,custom_draw->hdc,part,state,&glyph_rect);" in viv)
+    check("no usable theme falls back to the native painting",
+          "return CDRF_DODEFAULT;\r\n\t\t}\r\n\t\t\r\n\t\t// the label text uses the control font" in viv)
+    check("the item background takes the dark dialog face",
+          "FillRect(custom_draw->hdc,&custom_draw->rc,_viv_dialog_dark_brush());" in viv)
+
+    # --- the focus frame, drawn once ---
+    notify = viv[viv.find("static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)"):]
+    notify = notify[:notify.find("\nstatic INT_PTR _viv_dialog_dark_proc")]
+    check("the focus frame draws exactly once inside the notify",
+          notify.count("DrawFocusRect") == 1)
+
+    # --- the cached button theme ---
+    check("the theme prop caches the handle on the dialog",
+          '#define _VIV_DARK_BUTTON_THEME_PROP L"VIV_DARK_BT"' in viv and
+          "static HANDLE _viv_dialog_dark_theme(HWND hwnd)" in viv and
+          "SetPropW(hwnd,_VIV_DARK_BUTTON_THEME_PROP,theme);" in viv)
+    check("the theme drops on destroy and on theme change",
+          "case WM_DESTROY:" in viv and
+          "case WM_THEMECHANGED:" in viv and
+          viv.count("_viv_dialog_dark_theme_drop(hwnd);") == 2)
+    check("the lazy open survives a light-born dialog",
+          "theme = os_theme_open_button(hwnd);" in viv)
+
+    # --- the os layer grows the draw channel ---
+    check("drawthemebackground joins the dynamic uxtheme table",
+          'os_DrawThemeBackground = (void *)GetProcAddress(_os_UxTheme_hmodule,"DrawThemeBackground");' in osc and
+          "static OS_DrawThemeBackground_fn _os_DrawThemeBackground = 0;" in osc)
+    check("the os wrappers gate on the handle and the import",
+          "if ((theme) && (_os_CloseThemeData))" in osc and
+          "if ((!theme) || (!_os_GetThemePartSize))" in osc and
+          "if ((!theme) || (!_os_DrawThemeBackground))" in osc)
+    check("the state ladder carries the full cbs/rbs table",
+          "#define OS_BS_CHECKEDDISABLED 8" in osh and
+          "#define OS_BS_MIXEDDISABLED 12" in osh and
+          "#define OS_RBS_UNCHECKEDDISABLED 4" in osh and
+          "#define OS_RBS_CHECKEDDISABLED 8" in osh)
+
+    # --- the touch mask repair ---
+    check("the external touch bit replaced the pen bit",
+          "return ((sm & 0x80) && (sm & (0x01 | 0x02))) ? 1 : 0;" in osc and
+          "(0x01 | 0x04)" not in osc)
+
+    # --- the smoke test runs in ci now ---
+    ty = read(".github/workflows/tests.yml").decode("latin-1")
+    ry = read(".github/workflows/release.yml").decode("latin-1")
+    check("the push workflow opens the anomaly sweep on the windows runner",
+          "tests\\smoke_test.ps1" in ty and "Real machine smoke test" in ty)
+    check("the release workflow smoke-tests the binary before packaging",
+          "tests\\smoke_test.ps1" in ry and "Real machine smoke test" in ry)
+
+
 def t_field_fixes_round47():
     """Guards for the fifth field-fix round, redone (1.1.09 re-release).
 
@@ -2489,9 +2585,9 @@ def t_field_fixes_round47():
     automatic check state machine died with it (every options checkbox
     frozen in the dark ui, bm_getcheck reading zero). The redo never
     touches a style bit: the labels paint through NM_CUSTOMDRAW (label
-    only + CDRF_SKIPDEFAULT - the themed glyph keeps the system
-    painting), the fonts stay unified from the withdrawn build, and the
-    about band follows the theme.
+    whole face + CDRF_SKIPDEFAULT through DWLP_MSGRESULT - the r48
+    return-value repair), the fonts stay unified from the withdrawn
+    build, and the about band follows the theme.
     """
     viv = read("src/viv.c").decode("latin-1")
     rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
@@ -2520,28 +2616,39 @@ def t_field_fixes_round47():
 
     # --- the labels paint through the custom draw notify ---
     check("the shared dark proc owns the custom draw notify",
-          "static INT_PTR _viv_dialog_dark_notify(NMHDR *header)" in viv and
-          "_viv_dialog_dark_notify((NMHDR *)lParam);" in viv)
-    check("the custom draw replaces the label and leaves the glyph native",
+          "static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)" in viv and
+          "_viv_dialog_dark_notify(hwnd,(NMHDR *)lParam);" in viv)
+    check("the custom draw result travels through dwlp_msgresult",
+          "SetWindowLongPtr(hwnd,DWLP_MSGRESULT,dark_reply);" in viv and
+          "return TRUE;" in viv and
+          "if (dark_reply != -1)\r\n\t\t\t{\r\n\t\t\t\treturn dark_reply;" not in viv)
+    check("the custom draw paints the whole face (label + glyph + background)",
           "CDDS_PREPAINT" in viv and
           "return CDRF_SKIPDEFAULT;" in viv and
-          "DrawTextW(custom_draw->hdc,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);" in viv)
+          "DrawTextW(custom_draw->hdc,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);" in viv and
+          "os_theme_draw_part(theme,custom_draw->hdc,part,state,&glyph_rect);" in viv and
+          "FillRect(custom_draw->hdc,&custom_draw->rc,_viv_dialog_dark_brush());" in viv)
     check("the notify passes the foreign notifications through (the options tree)",
           'string_compare(class_name,L"Button")' in viv and
           "if (header->code != NM_CUSTOMDRAW)" in viv and
           "if (!_viv_is_dark())" in viv)
-    check("the label offset measures the theme part with a system fallback",
-          "os_theme_part_wide(hwnd,hdc,part,OS_BS_UNCHECKEDNORMAL);" in viv and
-          "GetSystemMetrics(SM_CXMENUCHECK)" in viv and
+    check("the glyph state rides with the control state",
+          "SendMessage(header->hwndFrom,BM_GETCHECK,0,0);" in viv and
+          "BST_INDETERMINATE) ? OS_BS_MIXEDNORMAL" in viv and
           "GetTextExtentPoint32W(custom_draw->hdc,L\"0\",1,&digit);" in viv)
     check("the drawn label takes the control font and the light color",
           "SendMessage(header->hwndFrom,WM_GETFONT,0,0);" in viv and
           "(style & WS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8)" in viv)
-    check("the theme metrics live in the os layer (the dynamic uxtheme pattern)",
-          "int os_theme_part_wide(HWND hwnd,HDC hdc,int part,int state)" in osc and
+    check("the theme metrics and drawing live in the os layer (the dynamic uxtheme pattern)",
+          "int os_theme_part_size(HANDLE theme,HDC hdc,int part,int state,int *wide,int *high)" in osc and
+          "int os_theme_draw_part(HANDLE theme,HDC hdc,int part,int state,const RECT *rect)" in osc and
           "\"OpenThemeData\"" in osc and
-          "extern int os_theme_part_wide(HWND hwnd,HDC hdc,int part,int state);" in osh and
-          "#define OS_BP_CHECKBOX 3" in osh)
+          "\"DrawThemeBackground\"" in osc and
+          "extern int os_theme_part_size(HANDLE theme,HDC hdc,int part,int state,int *wide,int *high);" in osh and
+          "extern int os_theme_draw_part(HANDLE theme,HDC hdc,int part,int state,const RECT *rect);" in osh and
+          "#define OS_BP_CHECKBOX 3" in osh and
+          "#define OS_BS_MIXEDNORMAL 9" in osh and
+          "#define OS_RBS_CHECKEDNORMAL 5" in osh)
 
     # --- the state machine survives untouched ---
     check("the check reads stay live (no manual toggle compensation anywhere)",
@@ -2723,6 +2830,7 @@ if __name__ == "__main__":
     t_field_fixes_round44()
     t_field_fixes_round46()
     t_field_fixes_round47()
+    t_field_fixes_round48()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

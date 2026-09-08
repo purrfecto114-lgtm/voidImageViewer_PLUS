@@ -9244,13 +9244,15 @@ static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 				// withdrawn 1.1.09 build flipped them on every machine and the
 				// field report showed every options checkbox frozen in the dark
 				// ui; the same dead flip sat latent on the pre 1903 fallback).
-				// their labels paint through the custom draw path instead (see
+				// their faces paint through the custom draw path instead (see
 				// _viv_dialog_dark_notify): the themed button paints its own label
 				// color and the wm_ctlcolorstatic text never reaches it - the
 				// field report read black checkbox labels on the dark face (0.78:1
-				// against the dialog color) - so the custom draw replaces the label
-				// only and leaves the themed glyph, the hot, disabled and checked
-				// states to the system. the bitmap color swatches keep their own
+				// against the dialog color) - so the custom draw takes the whole
+				// face: the dark background, the theme glyph in its checked, mixed,
+				// hot and disabled states, the light label and the focus frame,
+				// with the skip traveling through dwlp_msgresult the dialog
+				// contract requires. the bitmap color swatches keep their own
 				// painting in every state.
 				if ((!(style & (BS_BITMAP | BS_ICON))) && ((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON)))
 				{
@@ -9431,7 +9433,7 @@ static int _viv_dialog_dark_erase(HWND hwnd,HDC hdc)
 // paint with the dark palette while the dark ui is active. the glyph
 // controls (checkboxes, radios) never flip to owner draw - an owner
 // draw flip replaces their automatic check state machine - so their
-// labels paint through the custom draw path instead
+// faces paint through the custom draw path instead
 // (_viv_dialog_dark_notify). the light ui never flips the owner draw
 // styles (and unflips them on the way back), so this only runs in the
 // dark.
@@ -9591,49 +9593,112 @@ static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 	return 0;
 }
 
-// the glyph width for the custom drawn label: the theme part metrics
-// the way the button itself takes them. falls back to the system menu
-// check metric when the theme or the part is unavailable (the visual
-// styles off - the offset then keeps a close stand in).
-static int _viv_dialog_dark_label_offset(HWND hwnd,HDC hdc,int type)
+// the property that caches the button theme handle on a dark dialog:
+// uxtheme handles are not free, and the notify path used to pay an open
+// and a close pair on every single paint. the handle opens lazily on the
+// first dark paint (a dialog born in the light ui opens it when the theme
+// flips), rides in the window data, and closes when the dialog goes away
+// or the visual style changes.
+#define _VIV_DARK_BUTTON_THEME_PROP L"VIV_DARK_BT"
+
+static HANDLE _viv_dialog_dark_theme(HWND hwnd)
 {
-	int part;
-	int wide;
+	HANDLE theme;
 	
-	part = ((type == BS_AUTORADIOBUTTON) || (type == BS_RADIOBUTTON)) ? OS_BP_RADIOBUTTON : OS_BP_CHECKBOX;
+	theme = (HANDLE)GetPropW(hwnd,_VIV_DARK_BUTTON_THEME_PROP);
 	
-	wide = os_theme_part_wide(hwnd,hdc,part,OS_BS_UNCHECKEDNORMAL);
-	
-	if (wide <= 0)
+	if (!theme)
 	{
-		wide = GetSystemMetrics(SM_CXMENUCHECK);
+		theme = os_theme_open_button(hwnd);
+		
+		if (theme)
+		{
+			SetPropW(hwnd,_VIV_DARK_BUTTON_THEME_PROP,theme);
+		}
 	}
 	
-	return wide;
+	return theme;
 }
 
-// the glyph control labels in the dark ui: the themed button paints its
-// own label color (the wm_ctlcolorstatic text never reaches it - the
-// field report read black checkbox labels at 0.78:1 against the dialog
-// face), so the checkboxes and the radios custom draw the label here.
-// the glyph itself stays with the system theme: the skip default return
-// on a button custom draw replaces the label drawing only, and the
-// themed glyph (the dark explorer shape on 1903+, the classic shape
-// below) keeps rendering exactly as the os paints it - the checked, hot
-// and disabled states included. the button styles never change: the
-// automatic check state machine, the radio grouping and every
-// isdlgbuttonchecked read keep working in both themes (the withdrawn
-// 1.1.09 build flipped the glyph controls to owner draw instead, which
-// replaced bs_autocheckbox in the style and left every options checkbox
-// dead in the dark ui).
-static INT_PTR _viv_dialog_dark_notify(NMHDR *header)
+static void _viv_dialog_dark_theme_drop(HWND hwnd)
+{
+	HANDLE theme;
+	
+	theme = (HANDLE)GetPropW(hwnd,_VIV_DARK_BUTTON_THEME_PROP);
+	
+	if (theme)
+	{
+		os_theme_close(theme);
+		
+		RemovePropW(hwnd,_VIV_DARK_BUTTON_THEME_PROP);
+	}
+}
+
+// the theme state for the drawn glyph: the check state rides with the
+// control message (bm_getcheck), the disabled, hot and pressed states
+// ride with the custom draw item state - the map lands on the exact
+// cbs_* / rbs_* state id the native button would have picked for the
+// same control. radio has no mixed state; disabled wins over hot and
+// pressed the way the visual styles table orders them.
+static int _viv_dialog_dark_glyph_state(int type,int check,UINT item_state)
+{
+	int state;
+	
+	if ((type == BS_AUTORADIOBUTTON) || (type == BS_RADIOBUTTON))
+	{
+		state = check ? OS_RBS_CHECKEDNORMAL : OS_RBS_UNCHECKEDNORMAL;
+	}
+	else
+	{
+		state = (check == BST_INDETERMINATE) ? OS_BS_MIXEDNORMAL : (check ? OS_BS_CHECKEDNORMAL : OS_BS_UNCHECKEDNORMAL);
+	}
+	
+	if (item_state & CDIS_DISABLED)
+	{
+		state += 3;
+	}
+	else if (item_state & CDIS_HOT)
+	{
+		state += 1;
+	}
+	else if (item_state & CDIS_SELECTED)
+	{
+		state += 2;
+	}
+	
+	return state;
+}
+
+// the glyph controls in the dark ui: the themed button paints its own
+// label color (the wm_ctlcolorstatic text never reaches it - the field
+// report read black checkbox labels at 0.78:1 against the dialog face),
+// so the checkboxes and the radios custom draw the whole face here: the
+// dark dialog background, the theme glyph in the control's own checked,
+// mixed, disabled and hot state, the light label and the focus frame.
+// the button styles never change: the automatic check state machine, the
+// radio grouping and every isdlgbuttonchecked read keep working in both
+// themes (the withdrawn 1.1.09 build flipped the glyph controls to owner
+// draw instead, which replaced bs_autocheckbox in the style and left
+// every options checkbox dead in the dark ui).
+//
+// the return value has to travel through dwlp_msgresult: a dialog
+// procedure cannot return a notify result directly (the dialog manager
+// keeps the message result in the window data, so a plain non-zero
+// return hands the control a zero - cdrf_dodefault - and the first
+// 1.1.09 redo shipped exactly that: the skip never reached the buttons,
+// the system painted its full default face on top of the custom draw,
+// the labels read black on black and the two xor focus frames cancelled
+// each other). this function returns the cdrf code and the caller
+// (_viv_dialog_dark_proc) does the setwindowlongptr + return true pair
+// the nm_customdraw documentation prescribes for dialog procedures.
+static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)
 {
 	wchar_t class_name[64];
 	wchar_t text[STRING_SIZE];
 	LONG_PTR style;
 	int type;
 	
-	// only the dark ui repaints the labels; the light ui keeps the native
+	// only the dark ui repaints the faces; the light ui keeps the native
 	// painting untouched.
 	if (!_viv_is_dark())
 	{
@@ -9663,7 +9728,7 @@ static INT_PTR _viv_dialog_dark_notify(NMHDR *header)
 	// the glyph controls only: the push buttons paint through the owner
 	// draw flip, the bitmap swatches keep their own painting and the group
 	// boxes carry no label problem.
-	if ((type != BS_AUTOCHECKBOX) && (type != BS_AUTORADIOBUTTON) && (type != BS_CHECKBOX) && (type != BS_RADIOBUTTON))
+	if ((type != BS_AUTOCHECKBOX) && (type != BS_AUTORADIOBUTTON) && (type != BS_CHECKBOX) && (type != BS_RADIOBUTTON) && (type != BS_3STATE) && (type != BS_AUTO3STATE))
 	{
 		return -1;
 	}
@@ -9671,13 +9736,41 @@ static INT_PTR _viv_dialog_dark_notify(NMHDR *header)
 	if (((NMCUSTOMDRAW *)header)->dwDrawStage == CDDS_PREPAINT)
 	{
 		NMCUSTOMDRAW *custom_draw;
+		HANDLE theme;
 		RECT rect;
+		RECT glyph_rect;
 		HFONT font;
 		HFONT old_font;
 		SIZE digit;
-		int offset;
+		int glyph_wide;
+		int glyph_high;
+		int check;
+		int part;
+		int state;
 		
 		custom_draw = (NMCUSTOMDRAW *)header;
+		
+		// the button theme opens once per dialog and stays cached in the
+		// window data (see _viv_dialog_dark_theme).
+		theme = _viv_dialog_dark_theme(hwnd);
+		
+		part = ((type == BS_AUTORADIOBUTTON) || (type == BS_RADIOBUTTON)) ? OS_BP_RADIOBUTTON : OS_BP_CHECKBOX;
+		
+		check = (int)SendMessage(header->hwndFrom,BM_GETCHECK,0,0);
+		
+		state = _viv_dialog_dark_glyph_state(type,check,custom_draw->uItemState);
+		
+		glyph_wide = 0;
+		
+		glyph_high = 0;
+		
+		if ((!os_theme_part_size(theme,custom_draw->hdc,part,state,&glyph_wide,&glyph_high)) || (glyph_wide <= 0) || (glyph_high <= 0))
+		{
+			// no usable theme part (the visual styles off): the native
+			// painting stays - the glyph controls read the system way there,
+			// exactly as the light ui does.
+			return CDRF_DODEFAULT;
+		}
 		
 		// the label text uses the control font: the drawn face then matches
 		// the native rendering (the light and the dark ui read the same).
@@ -9685,15 +9778,30 @@ static INT_PTR _viv_dialog_dark_notify(NMHDR *header)
 		
 		old_font = font ? (HFONT)SelectObject(custom_draw->hdc,font) : 0;
 		
-		offset = _viv_dialog_dark_label_offset(header->hwndFrom,custom_draw->hdc,type);
-		
 		GetTextExtentPoint32W(custom_draw->hdc,L"0",1,&digit);
+		
+		// the skip takes the whole painting, the item background included,
+		// so the rect takes the dark dialog face first (the parent
+		// background the native path would have asked for).
+		FillRect(custom_draw->hdc,&custom_draw->rc,_viv_dialog_dark_brush());
+		
+		// the glyph: the theme part at the left edge, vertically centered
+		// on the control the way the native layout centers the text.
+		CopyRect(&glyph_rect,&custom_draw->rc);
+		
+		glyph_rect.right = glyph_rect.left + glyph_wide;
+		
+		glyph_rect.top = glyph_rect.top + ((glyph_rect.bottom - glyph_rect.top - glyph_high) / 2);
+		
+		glyph_rect.bottom = glyph_rect.top + glyph_high;
+		
+		os_theme_draw_part(theme,custom_draw->hdc,part,state,&glyph_rect);
 		
 		// the label sits right of the glyph: the glyph box plus half a digit
 		// of gap, vertically centered on the control (the native layout).
 		CopyRect(&rect,&custom_draw->rc);
 		
-		OffsetRect(&rect,offset + (digit.cx / 2),0);
+		OffsetRect(&rect,glyph_wide + (digit.cx / 2),0);
 		
 		text[0] = 0;
 		
@@ -9705,10 +9813,12 @@ static INT_PTR _viv_dialog_dark_notify(NMHDR *header)
 		
 		DrawTextW(custom_draw->hdc,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
 		
+		// the focus frame, drawn exactly once: the skip keeps the native
+		// painting away, so the frame cannot xor against a second frame the
+		// way the broken return shipped it (two draws cancelled each other
+		// and the keyboard walk lost its dot in the dark).
 		if (GetFocus() == header->hwndFrom)
 		{
-			// the focus frame the replaced label painting would have carried
-			// (the keyboard walk through the options pages keeps its dot).
 			RECT focus_rect;
 			
 			CopyRect(&focus_rect,&custom_draw->rc);
@@ -9723,8 +9833,8 @@ static INT_PTR _viv_dialog_dark_notify(NMHDR *header)
 			SelectObject(custom_draw->hdc,old_font);
 		}
 		
-		// the skip on a button custom draw replaces the label drawing only:
-		// the system theme keeps painting the glyph.
+		// the skip means the whole face is ours now - the background, the
+		// glyph, the label and the focus frame above.
 		return CDRF_SKIPDEFAULT;
 	}
 	
@@ -9740,7 +9850,7 @@ static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			INT_PTR dark_reply;
 			
 			// the owner drawn dark controls: the push buttons and the combo
-			// boxes paint here (the glyph control labels paint through the
+			// boxes paint here (the glyph control faces paint through the
 			// custom draw case above).
 			dark_reply = _viv_dialog_dark_draw_item(hwnd,(DRAWITEMSTRUCT *)lParam);
 			
@@ -9782,14 +9892,25 @@ static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		{
 			INT_PTR dark_reply;
 			
-			// the glyph control labels paint through the custom draw path (the
+			// the glyph controls paint through the custom draw path (the
 			// filter inside passes every other notification through to the
 			// dialog's own switch).
-			dark_reply = _viv_dialog_dark_notify((NMHDR *)lParam);
+			dark_reply = _viv_dialog_dark_notify(hwnd,(NMHDR *)lParam);
 			
 			if (dark_reply != -1)
 			{
-				return dark_reply;
+				// a dialog procedure cannot return a notify result directly:
+				// the dialog manager keeps the message result in the window
+				// data, so a plain non-zero return hands the control a zero
+				// (= cdrf_dodefault) - the skip never reached the buttons in
+				// the first 1.1.09 redo and the system painted its full
+				// default face on top of the custom draw. the result travels
+				// through dwlp_msgresult with a true return, the way the
+				// nm_customdraw documentation prescribes for dialog
+				// procedures.
+				SetWindowLongPtr(hwnd,DWLP_MSGRESULT,dark_reply);
+				
+				return TRUE;
 			}
 			
 			break;
@@ -9807,6 +9928,25 @@ static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			{
 				return dark_reply;
 			}
+			
+			break;
+		}
+		
+		case WM_DESTROY:
+		{
+			// the cached button theme closes with the dialog that opened it
+			// (the next dialog opens a fresh handle).
+			_viv_dialog_dark_theme_drop(hwnd);
+			
+			break;
+		}
+		
+		case WM_THEMECHANGED:
+		{
+			// the uxtheme handles die with the visual style change: the
+			// cache drops here and the next custom draw reopens it against
+			// the new style (a stale handle draws garbage or nothing).
+			_viv_dialog_dark_theme_drop(hwnd);
 			
 			break;
 		}

@@ -86,3 +86,14 @@ jobs:
             if (!(Test-Path $p)) { throw "missing build output: $p" }
             Write-Host "== $p ==" (Get-Item $p).Length bytes
           }
+
+      # the real machine smoke test from the 1.0.02 audit round never ran
+      # automatically: every push now opens the full anomaly sample set
+      # through the freshly compiled x64 exe on the windows-2022 runner
+      # (a hosted windows runner is a real windows machine - gui launch,
+      # exit codes and close all work). the samples generate inline when
+      # the directory is missing (pure stdlib python, no extra deps).
+      - name: Real machine smoke test (the anomaly sweep)
+        if: matrix.runner == 'windows-2022'
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tests\smoke_test.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
