@@ -149,6 +149,9 @@ jobs:
       - name: Menu structure, dark mode wiring and version consistency tests
         run: python3 tests/menu_structure_test.py
 
+      - name: Second-rework simulation tests (the 1.1.07 check)
+        run: python3 tests/simulation_test.py
+
   build:
     needs: [validate, tests]
     runs-on: windows-2022

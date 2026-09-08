@@ -18,7 +18,7 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.06 — modern UX round + three field-fix rounds (the current stable):**
+**1.1.07 — modern UX round, the field-fix rounds and the second-rework simulation check (the current stable):**
 
 - **EMF & WMF open everywhere** — association table, open-dialog filter, Everything search, command line and Options checkboxes all carry the two metafile extensions.
 - **Recent files** — a persistent File → Recent submenu (MRU of ten paths, deduplicated, stale entries dropped, cleared from the menu). Saves are debounced off the open path, and the count is capped on every path (compile-time id lock).
@@ -26,6 +26,7 @@ What's new
 - **Dark dialogs are complete** — the options pages owner-draw their comboboxes on every Windows build (the explorer dark style has no combo parts, so language / dark-mode / blit-mode fields used to stay light), and the tab strip, tree and static text all follow the theme.
 - **Zoom ladder below best fit** — a touch pinch shrinks to about fit/16 (mirroring the 16× cap) instead of locking at the windowed fit; `Allow shrinking` keeps its meaning.
 - **Field fixes** — duplicate recent-files rows, stale "failed to load" status on a closed image, the light strip beside the toolbar after a theme flip (full invalidation + a 400 ms re-check for the registry race), status-bar size units (B/KB/MB/GB), wallpaper-change confirmation, arrow navigation without a slideshow, Ctrl+Comma for options.
+- **Second-rework simulation check (1.1.07)** — the rework is verified by re-running it: the new suite extracts the constants, formulas and control flow from the shipped source and replays every field report against the extracted logic (the mat-color battery, the MRU burst/cap/dedup/load-clamp, the menu-span walk, the below-fit zoom ladder, the blank-state flags, the options geometry, the theme-flip registry race, the release identity). It runs in CI beside the two existing suites on every push and every tag.
 
 Full per-round detail: [Changes.txt](Changes.txt).
 

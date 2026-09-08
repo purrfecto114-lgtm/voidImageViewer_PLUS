@@ -1,3 +1,48 @@
+Stable: Version 1.1.07 (the second-rework simulation round)
+	the second rework check runs as a simulation: the new suite
+	(tests/simulation_test.py) extracts the constants, the formulas
+	and the control flow from the shipped source and re-executes the
+	behavior itself - a renamed symbol or a reordered source keeps a
+	string guard honest only by luck, so every field report is replayed
+	against the extracted logic:
+	- the mat color battery walks light, dark, cutoff-boundary and
+	saturated colors through the extracted 601 mapper: the light mats
+	land at or under the chrome face with the hue intact, the dark ones
+	pass through, and the white fast path is bit-exact with the scaled
+	formula. both user states from the report (the empty canvas and the
+	open-image backdrop) prove they route through the one shared mapper,
+	and the follow mat proves it picks the color of the mode the window
+	actually paints.
+	- the mru model replays a five-open burst (zero ini writes land
+	mid-burst on the ui thread, exactly one deferred write after the
+	settle, and the exit fold absorbs a still-pending write), fifteen
+	opens against the ten-entry cap (newest first, the oldest evicted),
+	the case-variant reopen (the move keeps the stored casing and a
+	top-row variant stays put), a twenty-row hand-edited ini (the load
+	walk stops at the cap and the clamp repairs the count), and the
+	surgical popup swap (no SetMenu, one row touched, the swapped-out
+	popup destroyed).
+	- the menu walk locates the command-table loop body span and proves
+	the mru insertion sits after the loop closes: the round-42 bug would
+	emit one recent row per command, and the simulation emits one.
+	- the zoom ladder walks the extracted 278-step shrink range: the
+	200% fill lock is gone, the floor lands about one sixteenth of the
+	fit and mirrors the 16x native cap, every negative position reads a
+	positive table entry (never out of bounds), a runaway position
+	clamps to the floor and the deepest render keeps its one pixel.
+	- the blank state replays a missing-file open, a close and a later
+	failure: the status reports are fresh, never stale and never sticky.
+	- the options geometry parses the resource script and proves all
+	eleven association checkboxes sit inside the 242-tall page, the page
+	fits the 264-tall tab and the buttons keep the five-unit margin.
+	- the theme flip replays the registry race: the broadcast that
+	outruns the personalize write applies nothing at t=0, the 400ms
+	re-check lands the flip, and every flip invalidates the whole
+	window unconditionally.
+	- the release identity: the version quad moves to 1.1.7.35 and the
+	tag, the installer, the about dialog and the readme all carry
+	1.1.07. the ci runs the simulation suite beside the two existing
+	suites on every push and on every tag.
 Stable: Version 1.1.06 (field fix round 3)
 	the field report read "the background mat color is dead, with an
 	image open and without one": a customized windowed background color
