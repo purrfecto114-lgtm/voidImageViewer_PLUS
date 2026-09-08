@@ -149,6 +149,16 @@ extern void os_dark_refresh(void);
 extern int os_dark_window_theme(HWND hwnd);
 // combobox dark parts: the common dialog class (windows 10 1903+).
 extern int os_dark_combobox_theme(HWND hwnd);// the light counterpart: back to the standard explorer visual style// when the ui flips back to light.extern int os_light_window_theme(HWND hwnd);
+// the theme part metrics for the custom drawn glyph labels: the width
+// of a button part in pixels, or 0 when the theme is unavailable (the
+// caller falls back to the system check metric).
+extern int os_theme_part_wide(HWND hwnd,HDC hdc,int part,int state);
+// the vssym32 button part and state values the label offset measures
+// (uxtheme is loaded dynamically, so the constants live here).
+#define OS_BP_RADIOBUTTON 2
+#define OS_BP_CHECKBOX 3
+#define OS_BS_UNCHECKEDNORMAL 1
+
 extern int os_allow_dark_mode_for_window(HWND hwnd,int allow);
 extern void os_dark_invalidate(void);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);

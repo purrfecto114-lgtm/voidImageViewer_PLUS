@@ -171,7 +171,16 @@ static OS_AllowDarkModeForWindow_fn _os_AllowDarkModeForWindow = 0;
 static OS_DwmSetWindowAttribute_fn _os_DwmSetWindowAttribute = 0;
 
 typedef HRESULT (__stdcall *OS_SetWindowTheme_fn)(HWND hwnd,const wchar_t *sub_app_name,const wchar_t *sub_id_list);
-static OS_SetWindowTheme_fn _os_SetWindowTheme = 0;// registry reads for a stable dark mode detection: the undocumented uxtheme
+static OS_SetWindowTheme_fn _os_SetWindowTheme = 0;
+// the theme part metrics for the custom drawn glyph labels (the same
+// dynamic pattern as the theme class calls above).
+typedef HANDLE (__stdcall *OS_OpenThemeData_fn)(HWND hwnd,const wchar_t *class_list);
+typedef HRESULT (__stdcall *OS_CloseThemeData_fn)(HANDLE theme);
+typedef HRESULT (__stdcall *OS_GetThemePartSize_fn)(HANDLE theme,HDC hdc,int part,int state,const RECT *rect,int size_type,SIZE *size);
+static OS_OpenThemeData_fn _os_OpenThemeData = 0;
+static OS_CloseThemeData_fn _os_CloseThemeData = 0;
+static OS_GetThemePartSize_fn _os_GetThemePartSize = 0;
+// registry reads for a stable dark mode detection: the undocumented uxtheme
 // probe returns wrong values on some windows 10 1903+ builds, the personalize
 // registry value is the documented source the shell itself follows.
 typedef LONG (__stdcall *OS_RegOpenKeyExW_fn)(HKEY key,const wchar_t *name,DWORD options,DWORD access,HKEY *result);
@@ -937,7 +946,12 @@ void os_init(void)
 		_os_FlushMenuThemes = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(136));
 		_os_RefreshImmersiveColorPolicyState = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(104));
 		_os_ShouldAppsUseDarkMode = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(132));
-		_os_AllowDarkModeForWindow = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(133));
+		_os_AllowDarkModeForWindow = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(133));		
+		// the button part metrics (the glyph label offset).
+		_os_OpenThemeData = (void *)GetProcAddress(_os_UxTheme_hmodule,"OpenThemeData");
+		_os_CloseThemeData = (void *)GetProcAddress(_os_UxTheme_hmodule,"CloseThemeData");
+		_os_GetThemePartSize = (void *)GetProcAddress(_os_UxTheme_hmodule,"GetThemePartSize");
+
 	}
 	
 	_os_dwmapi_hmodule = LoadLibraryA("dwmapi.dll");
@@ -1314,6 +1328,38 @@ int os_dark_system_dark(void)
 void os_dark_invalidate(void)
 {
 	_os_dark_cache_valid = 0;
+}
+
+// the theme part metrics for the custom drawn glyph labels: the width
+// of a button part in pixels, or 0 when the theme or the part is
+// unavailable (the caller falls back to the system check metric).
+int os_theme_part_wide(HWND hwnd,HDC hdc,int part,int state)
+{
+	HANDLE theme;
+	SIZE size;
+	
+	if ((!_os_OpenThemeData) || (!_os_GetThemePartSize) || (!_os_CloseThemeData))
+	{
+		return 0;
+	}
+	
+	theme = _os_OpenThemeData(hwnd,L"Button");
+	
+	if (!theme)
+	{
+		return 0;
+	}
+	
+	size.cx = 0;
+	
+	if (_os_GetThemePartSize(theme,hdc,part,state,0,2 /* TS_DRAW */,&size) != 0)
+	{
+		size.cx = 0;
+	}
+	
+	_os_CloseThemeData(theme);
+	
+	return (int)size.cx;
 }
 
 // set the dark explorer visual style on a window (dialog controls and tab

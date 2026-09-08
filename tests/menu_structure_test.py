@@ -289,10 +289,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.8.36 stable (field fix round 4)",
-          (major, minor, rev, build) == ("1", "1", "8", "36") and vtype == "")
+    check("version.h = 1.1.9.38 stable (field fix round 5, re-released)",
+          (major, minor, rev, build) == ("1", "1", "9", "38") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.08")
+          vstr == "1.1.09")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1887,11 +1887,22 @@ def t_dark_layers_round():
     check("the old tab custom draw is gone",
           "_viv_options_tab_draw" not in viv)
 
-    # pre 1903 dialog fallback: owner drawn buttons and combos.
-    check("the dialog children flip to owner draw below 1903",
-          "(!os_dark_controls_supported())" in viv and
+    # the dark dialog owner draw: the push buttons and the combos (the
+    # r47 redo: the glyph controls never flip - bs_ownerdraw sits in the
+    # bs_typemask field, the flip replaced bs_autocheckbox itself and
+    # killed the automatic check state machine. their labels paint
+    # through the custom draw notify instead).
+    check("the dialog children flip the push buttons and combos to owner draw",
           "| BS_OWNERDRAW);" in viv and
-          "| CBS_OWNERDRAWFIXED);" in viv)
+          "| CBS_OWNERDRAWFIXED);" in viv and
+          "(!os_dark_controls_supported())" not in viv)
+    flip_line = next((l for l in viv.splitlines() if "&& ((type == BS_PUSHBUTTON)" in l and "BS_BITMAP" in l), "")
+    check("the glyph controls never flip (the check state machine survives)",
+          "BS_AUTOCHECKBOX" not in flip_line and "BS_AUTORADIOBUTTON" not in flip_line and
+          "BS_PUSHBUTTON" in flip_line and "BS_DEFPUSHBUTTON" in flip_line)
+    check("the glyph control labels paint through the custom draw notify",
+          "static INT_PTR _viv_dialog_dark_notify(NMHDR *header)" in viv and
+          "return CDRF_SKIPDEFAULT;" in viv)
     check("the flip carries the original button type",
           "SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)(type + 1));" in viv)
     check("the light ui unflips the owner draw fallback",
@@ -1899,7 +1910,8 @@ def t_dark_layers_round():
           "style & ~((LONG_PTR)CBS_OWNERDRAWFIXED)" in viv)
     check("the owner drawn buttons paint the dark palette",
           "_viv_dialog_dark_draw_item(hwnd,(DRAWITEMSTRUCT *)lParam);" in viv and
-          "CreatePen(PS_SOLID,(2 * os_logical_wide) / 96,RGB(0xE8,0xE8,0xE8))" in viv)
+          "face_brush = _viv_dark_chrome_brush(1);" in viv and
+          "DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER);" in viv)
     check("the owner drawn combos measure and paint",
           "case WM_MEASUREITEM:" in viv and
           "_viv_dialog_dark_combo_item_height" in viv and
@@ -1909,7 +1921,7 @@ def t_dark_layers_round():
           "_viv_dark_dialogs_refresh();" in viv)
     check("the color swatch buttons are excluded from the flip",
           "(!(style & (BS_BITMAP | BS_ICON)))" in viv and
-          "type == BS_AUTOCHECKBOX" in viv and
+          "type == BS_PUSHBUTTON" in viv and
           "type == BS_DEFPUSHBUTTON" in viv)
 
     # glyphs: float coordinates + the stroke width floor.
@@ -2460,13 +2472,128 @@ def t_field_fixes_round44():
           viv.count("os_dark_window_theme(hwnd);") == 2 and
           "os_light_window_theme(hwnd);" in viv and
           "os_light_window_theme(_viv_status_hwnd);" in viv)
-    check("the combobox owner draw flip is no longer gated on the legacy check",
+    check("no dialog control remains gated on the legacy dark controls check",
           'if ((string_compare(class_name,L"ComboBox") == 0) && (!os_dark_controls_supported()))' not in viv and
-          viv.count("(!os_dark_controls_supported())") == 1)
+          viv.count("(!os_dark_controls_supported())") == 0)
     check("the cfd theme helper lives in os.c and is declared in os.h",
           "int os_dark_combobox_theme(HWND hwnd)" in osc and
           'L"DarkMode_CFD"' in osc and
           "extern int os_dark_combobox_theme(HWND hwnd);" in osh)
+
+def t_field_fixes_round47():
+    """Guards for the fifth field-fix round, redone (1.1.09 re-release).
+
+    The withdrawn first 1.1.09 build flipped the checkboxes and the
+    radios to owner draw on every machine: bs_ownerdraw occupies the
+    bs_typemask field, the flip replaced bs_autocheckbox itself and the
+    automatic check state machine died with it (every options checkbox
+    frozen in the dark ui, bm_getcheck reading zero). The redo never
+    touches a style bit: the labels paint through NM_CUSTOMDRAW (label
+    only + CDRF_SKIPDEFAULT - the themed glyph keeps the system
+    painting), the fonts stay unified from the withdrawn build, and the
+    about band follows the theme.
+    """
+    viv = read("src/viv.c").decode("latin-1")
+    rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
+    osc = read("src/os.c").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+
+    # --- the dialog font: one family, one size, one charset everywhere ---
+    font_statements = [s.rstrip("\r") for s in re.findall(r'^FONT[^\r\n]*', rc, re.M)]
+    check("every dialog declares the same font statement",
+          font_statements.count('FONT 9, "Segoe UI", 400, 0, 0') == 11 and
+          len(font_statements) == 11,
+          "%d font statements" % len(font_statements))
+    check("the obsolete DS_FIXEDSYS flag is gone from every template",
+          "DS_FIXEDSYS" not in rc)
+    check("the legacy MS Shell Dlg mapping is gone",
+          "MS Shell Dlg" not in rc)
+
+    # --- the glyph controls never flip to owner draw ---
+    check("the flip covers the push buttons only (the state machine survives)",
+          "((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON)))" in viv and
+          "|| (type == BS_AUTOCHECKBOX) || (type == BS_AUTORADIOBUTTON)))" not in viv)
+    check("the manual glyph painter is gone (the glyph stays native)",
+          "RoundRect(draw_item->hDC,box_rect.left,box_rect.top,box_rect.right,box_rect.bottom,radius,radius);" not in viv and
+          "CreateSolidBrush(GetSysColor(COLOR_HOTLIGHT))" not in viv and
+          "SetDCBrushColor(draw_item->hDC,RGB(0xE8,0xE8,0xE8));" not in viv)
+
+    # --- the labels paint through the custom draw notify ---
+    check("the shared dark proc owns the custom draw notify",
+          "static INT_PTR _viv_dialog_dark_notify(NMHDR *header)" in viv and
+          "_viv_dialog_dark_notify((NMHDR *)lParam);" in viv)
+    check("the custom draw replaces the label and leaves the glyph native",
+          "CDDS_PREPAINT" in viv and
+          "return CDRF_SKIPDEFAULT;" in viv and
+          "DrawTextW(custom_draw->hdc,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);" in viv)
+    check("the notify passes the foreign notifications through (the options tree)",
+          'string_compare(class_name,L"Button")' in viv and
+          "if (header->code != NM_CUSTOMDRAW)" in viv and
+          "if (!_viv_is_dark())" in viv)
+    check("the label offset measures the theme part with a system fallback",
+          "os_theme_part_wide(hwnd,hdc,part,OS_BS_UNCHECKEDNORMAL);" in viv and
+          "GetSystemMetrics(SM_CXMENUCHECK)" in viv and
+          "GetTextExtentPoint32W(custom_draw->hdc,L\"0\",1,&digit);" in viv)
+    check("the drawn label takes the control font and the light color",
+          "SendMessage(header->hwndFrom,WM_GETFONT,0,0);" in viv and
+          "(style & WS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8)" in viv)
+    check("the theme metrics live in the os layer (the dynamic uxtheme pattern)",
+          "int os_theme_part_wide(HWND hwnd,HDC hdc,int part,int state)" in osc and
+          "\"OpenThemeData\"" in osc and
+          "extern int os_theme_part_wide(HWND hwnd,HDC hdc,int part,int state);" in osh and
+          "#define OS_BP_CHECKBOX 3" in osh)
+
+    # --- the state machine survives untouched ---
+    check("the check reads stay live (no manual toggle compensation anywhere)",
+          viv.count("IsDlgButtonChecked") == 14 and
+          "BM_SETCHECK" not in viv and
+          viv.count("BN_CLICKED") == 0)
+
+    # --- the owner drawn label uses the control font ---
+    check("the button draw picks the control font before the text",
+          viv.count("font = (HFONT)SendMessage(draw_item->hwndItem,WM_GETFONT,0,0);") == 2 and
+          "old_font = font ? (HFONT)SelectObject(draw_item->hDC,font) : 0;" in viv)
+    check("the font is restored after the drawn text",
+          viv.count("SelectObject(draw_item->hDC,old_font);") >= 2)
+
+    # --- the about band follows the theme (the white strip report) ---
+    check("the about bottom band paints the dark chrome in the dark ui",
+          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(1));" in viv and
+          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(2));" in viv and
+          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(0));" in viv and
+          "(HBRUSH)(COLOR_BTNSHADOW + 1)" not in viv and
+          "(HBRUSH)(COLOR_BTNSHADOW + 1)" not in viv and
+          "(HBRUSH)(COLOR_BTNHIGHLIGHT + 1)" not in viv)
+    check("the about light band takes the fixed win11 palette",
+          "_viv_about_light_brush(0)" in viv and "_viv_about_light_brush(1)" in viv and
+          "RGB(0xEC,0xEC,0xEC)" in viv and "RGB(0xFF,0xFF,0xFF)" in viv)
+    check("the about light brushes are released with the chrome brushes",
+          "_viv_about_light_hbrushes[i] = 0;" in viv)
+
+    # --- the option inventory survives the rewrite (the r47 baseline) ---
+    baseline = {
+        "IDD_GENERAL": "IDC_ASSOCIATIONS_GROUPBOX IDC_BMP IDC_CHECKALL IDC_CHECKNONE IDC_DARKMODE IDC_DARKMODE_STATIC IDC_EMF IDC_GIF IDC_ICO IDC_JPEG IDC_JPG IDC_LANGUAGE IDC_LANGUAGE_STATIC IDC_PNG IDC_STARTMENU IDC_TIF IDC_TIFF IDC_WEBP IDC_WMF",
+        "IDD_OPTIONS": "IDCANCEL IDC_PAGEPLACEHOLDER IDC_TAB1 IDC_TAB2 IDC_TAB3 IDC_TREE1 IDOK",
+        "IDD_VIEW": "IDC_AUTO_ZOOM IDC_CACHE_LAST_IMAGE IDC_COMBO1 IDC_COMBO2 IDC_COMBO4 IDC_FULLSCREENBACKGROUNDCOLOR IDC_FULLSCREENBACKGROUNDCOLOR_STATIC IDC_MAGNIFY_BLIT_MODE_STATIC IDC_PRELOAD_NEXT_IMAGE IDC_SHRINK_BLIT_MODE_STATIC IDC_TITLE_BAR_FORMAT IDC_TITLE_BAR_FORMAT_STATIC IDC_WINDOWEDBACKGROUNDCOLOR IDC_WINDOWEDBACKGROUNDCOLOR_STATIC",
+        "IDD_CONTROLS": "IDC_ADD_KEY IDC_COMMANDS_LIST IDC_COMMANDS_STATIC IDC_EDIT_KEY IDC_KEYS_LIST IDC_LEFTCLICKACTION IDC_LEFT_CLICK_ACTION_STATIC IDC_MOUSEWHEELACTION IDC_MOUSE_WHEEL_ACTION_STATIC IDC_REMOVE_KEY IDC_RIGHTCLICKACTION IDC_RIGHT_CLICK_ACTION_STATIC IDC_SETTINGS_FOR_SELECTED_COMMAND_STATIC",
+        "IDD_CUSTOM_RATE": "IDCANCEL IDC_CUSTOM_RATE_EDIT IDC_CUSTOM_RATE_STATIC IDC_CUSTOM_RATE_TYPE_COMBO IDOK",
+        "IDD_SET_ZOOM": "IDCANCEL IDC_SET_ZOOM_EDIT IDC_SET_ZOOM_STATIC IDOK",
+        "IDD_ABOUT": "IDCANCEL IDC_ABOUTBACK IDC_ABOUTCOPYRIGHT IDC_ABOUTEMAIL IDC_ABOUTTITLE IDC_ABOUTVERSION IDC_ABOUTVOIDIMAGEVIEWER IDC_ABOUTWEBSITE IDOK",
+        "IDD_EDIT_KEY": "IDCANCEL IDC_EDIT_KEYBOARD_SHORTCUT_KEY_CURRENTLY_USED_BY_STATIC IDC_EDIT_KEYBOARD_SHORTCUT_KEY_STATIC IDC_EDIT_KEY_CURRENTLY_USED_BY_LIST IDC_EDIT_KEY_EDIT IDOK",
+        "IDD_RENAME": "IDCANCEL IDC_RENAME_EDIT IDC_RENAME_OLD_EDIT IDOK",
+        "IDD_JUMPTO": "IDCANCEL IDC_JUMPTO_EDIT IDC_JUMPTO_LIST IDOK",
+        "IDD_EVERYTHING": "IDCANCEL IDC_EVERYTHING_EDIT IDC_SEARCH_EVERYTHING_RANDOM IDOK",
+    }
+    for dialog, ids in baseline.items():
+        m = re.search(r"^" + dialog + r"\s+DIALOGEX.*?\n(.*?)\nEND", rc, re.M | re.S)
+        check("the template " + dialog + " is present", m is not None)
+        if not m:
+            continue
+        body = m.group(1)
+        missing = [i for i in ids.split() if not re.search(r"[,\s]" + re.escape(i) + r"[,\s]", "," + body + "\n")]
+        check("every option control survives in " + dialog + " (the r47 baseline)",
+              not missing, "missing: %s" % " ".join(missing))
+
 
 def t_field_fixes_round46():
     """Guards for the fourth field-fix round (1.1.08): the light dialogs
@@ -2513,9 +2640,13 @@ def t_field_fixes_round46():
           "captured_height = combo_hwnd ? (int)(LONG_PTR)GetPropW(combo_hwnd,_VIV_DARK_OWNERDRAW_PROP) : 0;" in viv and
           "((MEASUREITEMSTRUCT *)lParam)->itemHeight = captured_height - 0x100;" in viv)
 
-    # --- push buttons owner draw on every build in the dark ui ---
-    check("push buttons owner draw on every build (the native dark chin)",
-          "((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON) || (((type == BS_AUTOCHECKBOX) || (type == BS_AUTORADIOBUTTON)) && (!os_dark_controls_supported())))" in viv)
+    # --- the push buttons owner draw; the glyph controls never flip ---
+    # (r47 redo: the withdrawn build flipped the glyph controls too, which
+    # replaced bs_autocheckbox in the style and froze every checkbox.)
+    check("push buttons owner draw on every build, the glyph controls never",
+          "((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON)))" in viv and
+          "|| (type == BS_AUTOCHECKBOX) || (type == BS_AUTORADIOBUTTON)))" not in viv and
+          "(!os_dark_controls_supported())" not in viv)
     check("the bitmap color swatches keep their own painting",
           "(!(style & (BS_BITMAP | BS_ICON)))" in viv)
 
@@ -2591,6 +2722,7 @@ if __name__ == "__main__":
     t_field_fixes_round43()
     t_field_fixes_round44()
     t_field_fixes_round46()
+    t_field_fixes_round47()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

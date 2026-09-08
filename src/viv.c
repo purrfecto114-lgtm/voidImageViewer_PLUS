@@ -2989,6 +2989,30 @@ static HBRUSH _viv_light_chrome_brush(int which)
 	return _viv_light_chrome_hbrushes[which];
 }
 
+static HBRUSH _viv_about_light_hbrushes[2];
+
+// the about dialog band in the light ui takes the fixed win11 command
+// bar palette instead of the system button colors (the band used to
+// follow the windows theme of the machine - the fixed face holds one
+// look everywhere). 0 = the separator line, 1 = the face. released in
+// _viv_kill with the other cached brushes.
+static HBRUSH _viv_about_light_brush(int which)
+{
+	static const COLORREF colors[2] = {RGB(0xEC,0xEC,0xEC),RGB(0xFF,0xFF,0xFF)};
+	
+	if ((which < 0) || (which > 1))
+	{
+		return 0;
+	}
+	
+	if (!_viv_about_light_hbrushes[which])
+	{
+		_viv_about_light_hbrushes[which] = CreateSolidBrush(colors[which]);
+	}
+	
+	return _viv_about_light_hbrushes[which];
+}
+
 static HBRUSH _viv_backdrop_solid_hbrush = 0; // backdrop solid color brush, cached
 static COLORREF _viv_backdrop_solid_color = 0; // the color the solid brush was created with
 static HBRUSH _viv_backdrop_checker_hbrush = 0; // checkerboard pattern brush, cached
@@ -6582,7 +6606,17 @@ static void _viv_kill(void)
 			}
 		}
 		
-		for(i=0;i<4;i++)
+				for(i=0;i<2;i++)
+		{
+			if (_viv_about_light_hbrushes[i])
+			{
+				DeleteObject(_viv_about_light_hbrushes[i]);
+				
+				_viv_about_light_hbrushes[i] = 0;
+			}
+		}
+		
+for(i=0;i<4;i++)
 		{
 			if (_viv_dark_chrome_hbrushes[i])
 			{
@@ -9202,11 +9236,23 @@ static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 				// carries a light bottom edge (the field report called it a chin)
 				// and paints a hard rectangle that fights the rest of the dark
 				// chrome, while the flat face below matches the combo fields
-				// exactly. the glyph controls (checkboxes, radios) keep their
-				// native dark look where the dark controls exist: pre 1903 has
-				// none, so they owner draw there too. the bitmap color swatches
-				// keep their own painting in every state.
-				if ((!(style & (BS_BITMAP | BS_ICON))) && ((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON) || (((type == BS_AUTOCHECKBOX) || (type == BS_AUTORADIOBUTTON)) && (!os_dark_controls_supported()))))
+				// exactly. the glyph controls (checkboxes, radios) never flip: the
+				// owner draw bit sits in the bs_typemask field, so the flip
+				// replaces bs_autocheckbox itself and the automatic check state
+				// machine goes with it - clicks stop toggling, bm_getcheck reads
+				// zero forever and isdlgbuttonchecked sees a dead control (the
+				// withdrawn 1.1.09 build flipped them on every machine and the
+				// field report showed every options checkbox frozen in the dark
+				// ui; the same dead flip sat latent on the pre 1903 fallback).
+				// their labels paint through the custom draw path instead (see
+				// _viv_dialog_dark_notify): the themed button paints its own label
+				// color and the wm_ctlcolorstatic text never reaches it - the
+				// field report read black checkbox labels on the dark face (0.78:1
+				// against the dialog color) - so the custom draw replaces the label
+				// only and leaves the themed glyph, the hot, disabled and checked
+				// states to the system. the bitmap color swatches keep their own
+				// painting in every state.
+				if ((!(style & (BS_BITMAP | BS_ICON))) && ((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON)))
 				{
 					SetWindowLongPtr(hwnd,GWL_STYLE,(style & ~((LONG_PTR)BS_TYPEMASK)) | BS_OWNERDRAW);
 					
@@ -9378,10 +9424,17 @@ static int _viv_dialog_dark_erase(HWND hwnd,HDC hdc)
 // shared dark handling for the dialog messages: WM_CTLCOLORSTATIC,
 // WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX and WM_ERASEBKGND. returns the
 // dialog proc reply, or -1 when the caller should run its own switch.
-// owner drawn dialog controls (the pre 1903 dark fallback): paint the
-// buttons and combo boxes with the dark palette. the light ui never
-// flips the owner draw styles (and unflips them on the way back), so
-// this only runs while the dark ui is active.
+// shared dark handling for the dialog messages: WM_CTLCOLORSTATIC,
+// WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX and WM_ERASEBKGND. returns the
+// dialog proc reply, or -1 when the caller should run its own switch.
+// owner drawn dialog controls: the push buttons and the combo boxes
+// paint with the dark palette while the dark ui is active. the glyph
+// controls (checkboxes, radios) never flip to owner draw - an owner
+// draw flip replaces their automatic check state machine - so their
+// labels paint through the custom draw path instead
+// (_viv_dialog_dark_notify). the light ui never flips the owner draw
+// styles (and unflips them on the way back), so this only runs in the
+// dark.
 static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 {
 	wchar_t text[STRING_SIZE];
@@ -9400,22 +9453,31 @@ static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 			UINT style;
 			RECT rect;
 			HBRUSH face_brush;
-			HGDIOBJ old_pen;
+			HFONT font;
+			HFONT old_font;
 			COLORREF text_color;
 			int pressed;
-			int box;
-			int left;
-			int top;
 			
 			// the original button type rides in the flip property (the owner
 			// draw bit occupies the type field while it is set).
 			style = (UINT)((LONG_PTR)GetPropW(draw_item->hwndItem,_VIV_DARK_OWNERDRAW_PROP) - 1);
 			
-			// only the classic text controls were flipped.
-			if ((style != BS_AUTOCHECKBOX) && (style != BS_AUTORADIOBUTTON) && (style != BS_PUSHBUTTON) && (style != BS_DEFPUSHBUTTON))
+			// only the push buttons were flipped (the glyph controls paint
+			// their labels through the custom draw path - an owner draw flip
+			// would replace their automatic check state machine).
+			if ((style != BS_PUSHBUTTON) && (style != BS_DEFPUSHBUTTON))
 			{
 				return 0;
 			}
+			
+			// the label text uses the control font. the draw item dc carries no
+			// defined font, so the owner draw picks it explicitly: the drawn
+			// text then matches the native rendering face for face (the field
+			// report read the fonts different between the drawn and the native
+			// controls).
+			font = (HFONT)SendMessage(draw_item->hwndItem,WM_GETFONT,0,0);
+			
+			old_font = font ? (HFONT)SelectObject(draw_item->hDC,font) : 0;
 			
 			text[0] = 0;
 			GetWindowTextW(draw_item->hwndItem,text,STRING_SIZE);
@@ -9423,76 +9485,6 @@ static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 			CopyRect(&rect,&draw_item->rcItem);
 			
 			pressed = (draw_item->itemState & ODS_SELECTED) ? 1 : 0;
-			
-			if ((style == BS_AUTOCHECKBOX) || (style == BS_AUTORADIOBUTTON))
-			{
-				// the control background is the dialog face.
-				FillRect(draw_item->hDC,&rect,_viv_dialog_dark_brush());
-				
-				box = (13 * os_logical_high) / 96;
-				
-				if (rect.bottom - rect.top < box)
-				{
-					box = rect.bottom - rect.top;
-				}
-				
-				left = rect.left;
-				top = rect.top + ((rect.bottom - rect.top - box) / 2);
-				
-				// the glyph box: a dark fill with a light frame.
-				if (style == BS_AUTORADIOBUTTON)
-				{
-					old_pen = SelectObject(draw_item->hDC,GetStockObject(DC_PEN));
-					
-					SetDCPenColor(draw_item->hDC,RGB(0x70,0x70,0x70));
-					
-					SelectObject(draw_item->hDC,_viv_dialog_dark_brush());
-					
-					Ellipse(draw_item->hDC,left,top,left + box,top + box);
-					
-					SelectObject(draw_item->hDC,old_pen);
-				}
-				else
-				{
-					RECT box_rect;
-					
-					box_rect.left = left;
-					box_rect.top = top;
-					box_rect.right = left + box;
-					box_rect.bottom = top + box;
-					
-					FillRect(draw_item->hDC,&box_rect,_viv_dark_chrome_brush(3));
-					FrameRect(draw_item->hDC,&box_rect,_viv_dark_chrome_brush(2));
-				}
-				
-				// the check mark.
-				if (draw_item->itemState & ODS_CHECKED)
-				{
-					old_pen = SelectObject(draw_item->hDC,CreatePen(PS_SOLID,(2 * os_logical_wide) / 96,RGB(0xE8,0xE8,0xE8)));
-					
-					MoveToEx(draw_item->hDC,left + ((box * 3) / 13),top + ((box * 7) / 13),0);
-					LineTo(draw_item->hDC,left + ((box * 5) / 13),top + ((box * 9) / 13));
-					LineTo(draw_item->hDC,left + ((box * 10) / 13),top + ((box * 3) / 13));
-					
-					DeleteObject(SelectObject(draw_item->hDC,old_pen));
-				}
-				
-				// the label right of the box.
-				rect.left = left + box + ((6 * os_logical_wide) / 96);
-				text_color = (draw_item->itemState & ODS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
-				
-				SetBkMode(draw_item->hDC,TRANSPARENT);
-				SetTextColor(draw_item->hDC,text_color);
-				
-				DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER);
-				
-				if (draw_item->itemState & ODS_FOCUS)
-				{
-					DrawFocusRect(draw_item->hDC,&draw_item->rcItem);
-				}
-				
-				return TRUE;
-			}
 			
 			// push buttons: the lifted face with a light frame.
 			face_brush = _viv_dark_chrome_brush(1);
@@ -9523,6 +9515,11 @@ static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 			
 			DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER);
 			
+			if (old_font)
+			{
+				SelectObject(draw_item->hDC,old_font);
+			}
+			
 			return TRUE;
 		}
 		
@@ -9531,9 +9528,18 @@ static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 			RECT rect;
 			HBRUSH face_brush;
 			COLORREF text_color;
+			HFONT font;
+			HFONT old_font;
 			int selected;
 			
 			text[0] = 0;
+			
+			// the row text uses the control font: the draw item dc carries no
+			// defined font, so the owner draw picks it explicitly (the same
+			// rule as the buttons - the drawn face matches the native one).
+			font = (HFONT)SendMessage(draw_item->hwndItem,WM_GETFONT,0,0);
+			
+			old_font = font ? (HFONT)SelectObject(draw_item->hDC,font) : 0;
 			
 			if (draw_item->itemID == (UINT)-1)
 			{
@@ -9573,11 +9579,156 @@ static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 				DrawFocusRect(draw_item->hDC,&rect);
 			}
 			
+			if (old_font)
+			{
+				SelectObject(draw_item->hDC,old_font);
+			}
+			
 			return TRUE;
 		}
 	}
 	
 	return 0;
+}
+
+// the glyph width for the custom drawn label: the theme part metrics
+// the way the button itself takes them. falls back to the system menu
+// check metric when the theme or the part is unavailable (the visual
+// styles off - the offset then keeps a close stand in).
+static int _viv_dialog_dark_label_offset(HWND hwnd,HDC hdc,int type)
+{
+	int part;
+	int wide;
+	
+	part = ((type == BS_AUTORADIOBUTTON) || (type == BS_RADIOBUTTON)) ? OS_BP_RADIOBUTTON : OS_BP_CHECKBOX;
+	
+	wide = os_theme_part_wide(hwnd,hdc,part,OS_BS_UNCHECKEDNORMAL);
+	
+	if (wide <= 0)
+	{
+		wide = GetSystemMetrics(SM_CXMENUCHECK);
+	}
+	
+	return wide;
+}
+
+// the glyph control labels in the dark ui: the themed button paints its
+// own label color (the wm_ctlcolorstatic text never reaches it - the
+// field report read black checkbox labels at 0.78:1 against the dialog
+// face), so the checkboxes and the radios custom draw the label here.
+// the glyph itself stays with the system theme: the skip default return
+// on a button custom draw replaces the label drawing only, and the
+// themed glyph (the dark explorer shape on 1903+, the classic shape
+// below) keeps rendering exactly as the os paints it - the checked, hot
+// and disabled states included. the button styles never change: the
+// automatic check state machine, the radio grouping and every
+// isdlgbuttonchecked read keep working in both themes (the withdrawn
+// 1.1.09 build flipped the glyph controls to owner draw instead, which
+// replaced bs_autocheckbox in the style and left every options checkbox
+// dead in the dark ui).
+static INT_PTR _viv_dialog_dark_notify(NMHDR *header)
+{
+	wchar_t class_name[64];
+	wchar_t text[STRING_SIZE];
+	LONG_PTR style;
+	int type;
+	
+	// only the dark ui repaints the labels; the light ui keeps the native
+	// painting untouched.
+	if (!_viv_is_dark())
+	{
+		return -1;
+	}
+	
+	// only the button custom draw belongs here: the tree view, the tabs
+	// and every other common control keep their own notifications flowing
+	// to the dialog procedures (the options tree switches its pages on
+	// those).
+	if (header->code != NM_CUSTOMDRAW)
+	{
+		return -1;
+	}
+	
+	class_name[0] = 0;
+	
+	if ((!header->hwndFrom) || (!GetClassNameW(header->hwndFrom,class_name,64)) || (string_compare(class_name,L"Button") != 0))
+	{
+		return -1;
+	}
+	
+	style = GetWindowLongPtr(header->hwndFrom,GWL_STYLE);
+	
+	type = (int)(style & BS_TYPEMASK);
+	
+	// the glyph controls only: the push buttons paint through the owner
+	// draw flip, the bitmap swatches keep their own painting and the group
+	// boxes carry no label problem.
+	if ((type != BS_AUTOCHECKBOX) && (type != BS_AUTORADIOBUTTON) && (type != BS_CHECKBOX) && (type != BS_RADIOBUTTON))
+	{
+		return -1;
+	}
+	
+	if (((NMCUSTOMDRAW *)header)->dwDrawStage == CDDS_PREPAINT)
+	{
+		NMCUSTOMDRAW *custom_draw;
+		RECT rect;
+		HFONT font;
+		HFONT old_font;
+		SIZE digit;
+		int offset;
+		
+		custom_draw = (NMCUSTOMDRAW *)header;
+		
+		// the label text uses the control font: the drawn face then matches
+		// the native rendering (the light and the dark ui read the same).
+		font = (HFONT)SendMessage(header->hwndFrom,WM_GETFONT,0,0);
+		
+		old_font = font ? (HFONT)SelectObject(custom_draw->hdc,font) : 0;
+		
+		offset = _viv_dialog_dark_label_offset(header->hwndFrom,custom_draw->hdc,type);
+		
+		GetTextExtentPoint32W(custom_draw->hdc,L"0",1,&digit);
+		
+		// the label sits right of the glyph: the glyph box plus half a digit
+		// of gap, vertically centered on the control (the native layout).
+		CopyRect(&rect,&custom_draw->rc);
+		
+		OffsetRect(&rect,offset + (digit.cx / 2),0);
+		
+		text[0] = 0;
+		
+		GetWindowTextW(header->hwndFrom,text,STRING_SIZE);
+		
+		SetBkMode(custom_draw->hdc,TRANSPARENT);
+		
+		SetTextColor(custom_draw->hdc,(style & WS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8));
+		
+		DrawTextW(custom_draw->hdc,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
+		
+		if (GetFocus() == header->hwndFrom)
+		{
+			// the focus frame the replaced label painting would have carried
+			// (the keyboard walk through the options pages keeps its dot).
+			RECT focus_rect;
+			
+			CopyRect(&focus_rect,&custom_draw->rc);
+			
+			InflateRect(&focus_rect,-1,-1);
+			
+			DrawFocusRect(custom_draw->hdc,&focus_rect);
+		}
+		
+		if (old_font)
+		{
+			SelectObject(custom_draw->hdc,old_font);
+		}
+		
+		// the skip on a button custom draw replaces the label drawing only:
+		// the system theme keeps painting the glyph.
+		return CDRF_SKIPDEFAULT;
+	}
+	
+	return CDRF_DODEFAULT;
 }
 
 static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
@@ -9588,8 +9739,9 @@ static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		{
 			INT_PTR dark_reply;
 			
-			// the owner drawn fallback controls (pre 1903 builds): the
-			// buttons and combo boxes paint here.
+			// the owner drawn dark controls: the push buttons and the combo
+			// boxes paint here (the glyph control labels paint through the
+			// custom draw case above).
 			dark_reply = _viv_dialog_dark_draw_item(hwnd,(DRAWITEMSTRUCT *)lParam);
 			
 			if (dark_reply)
@@ -9626,6 +9778,23 @@ static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			
 			break;
 		}
+		case WM_NOTIFY:
+		{
+			INT_PTR dark_reply;
+			
+			// the glyph control labels paint through the custom draw path (the
+			// filter inside passes every other notification through to the
+			// dialog's own switch).
+			dark_reply = _viv_dialog_dark_notify((NMHDR *)lParam);
+			
+			if (dark_reply != -1)
+			{
+				return dark_reply;
+			}
+			
+			break;
+		}
+		
 		case WM_CTLCOLORSTATIC:
 		case WM_CTLCOLOREDIT:
 		case WM_CTLCOLORLISTBOX:
@@ -13160,13 +13329,34 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			}
 			rect.top = rect.bottom;
 			rect.bottom++;
-			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_BTNSHADOW + 1));
+			if (_viv_is_dark())
+			{
+				FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(1));
+			}
+			else
+			{
+				FillRect(ps.hdc,&rect,_viv_about_light_brush(0));
+			}
 			rect.top = rect.bottom;
 			rect.bottom++;
-			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_BTNHIGHLIGHT + 1));
+			if (_viv_is_dark())
+			{
+				FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(2));
+			}
+			else
+			{
+				FillRect(ps.hdc,&rect,_viv_about_light_brush(0));
+			}
 			rect.top = rect.bottom;
 			rect.bottom+=(46 * os_logical_high) / 96;
-			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_BTNFACE + 1));
+			if (_viv_is_dark())
+			{
+				FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(0));
+			}
+			else
+			{
+				FillRect(ps.hdc,&rect,_viv_about_light_brush(1));
+			}
 			EndPaint(hwnd,&ps);
 			break;
 		}

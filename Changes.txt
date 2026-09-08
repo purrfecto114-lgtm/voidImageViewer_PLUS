@@ -1,3 +1,48 @@
+Stable: Version 1.1.09 (field fix round 5)
+	the fifth field round lands the dark options text reports. this
+	entry replaces the withdrawn first 1.1.09 build (build 37): that
+	build flipped the checkboxes and the radios to owner draw on every
+	machine, the owner draw bit occupies the button type field, so the
+	flip replaced BS_AUTOCHECKBOX itself - the automatic check state
+	machine went with it, clicks stopped toggling, BM_GETCHECK read
+	zero and every options checkbox froze in the dark ui:
+	- the checkbox and radio labels paint through the custom draw path
+	now: the themed button paints its own label color (the
+	WM_CTLCOLORSTATIC text never reaches it - the field report read
+	black labels at 0.78:1 on the dark face, the microsoft q&a
+	documents the behavior), so the shared dialog dark proc takes the
+	button NM_CUSTOMDRAW notifications and repaints the label only -
+	light text, the control font, the focus frame - returning skip
+	default, which on a button replaces the label drawing while the
+	system theme keeps painting the glyph with its checked, hot and
+	disabled states. no style bit changes: the check state machine, the
+	radio grouping and every saved-settings read keep working in both
+	themes. the dead owner draw flip is gone entirely (it also sat
+	latent on the pre 1903 fallback since the last round).
+	- the fonts read different between the light and the dark ui: the
+	owner drawn controls drew with whatever font the draw dc carried,
+	and the eleven dialog templates mixed two MS Shell Dlg charsets
+	plus the obsolete DS_FIXEDSYS flag (the pages and the containers
+	measured their dialog units with different fonts). every template
+	now declares the same statement - Segoe UI 9pt, one weight, one
+	charset - so the pages and the containers share one unit grid and
+	the drawn text selects the control font explicitly before it draws
+	(the pick and the restore ride every owner draw path).
+	- the about dialog carried the last light strip in the dark ui: the
+	bottom band painted the system button colors unconditionally. the
+	band follows the theme now (the dark chrome strip with its divider
+	lines) and the light ui takes the fixed win11 command bar palette
+	(the white face, the subtle line) instead of the system-dependent
+	button colors.
+	- the geometry checks move to the pixel grid: the dialog units
+	follow the dialog font, so a font change rescales every template
+	15-23 percent while the DLU numbers stay put - the new simulation
+	walks every control of every template on the Segoe UI 9pt base
+	units and proves the fit (containment, the eleven association
+	checkboxes, the label-plus-glyph widths).
+	- the option inventory stays pinned: the test baseline carries
+	every control id of the eleven dialogs (89 ids) and the rewrite
+	loses none of them.
 Stable: Version 1.1.08 (field fix round 4)
 	the fourth field round lands the reports from the 1.1.07 test:
 	- the light dialogs painted dark controls: the dark theme classes

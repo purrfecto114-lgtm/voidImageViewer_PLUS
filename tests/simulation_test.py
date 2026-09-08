@@ -700,10 +700,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.8.36",
-          (major, minor, rev, build) == (1, 1, 8, 36), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.08",
-          vstr is not None and vstr.group(1) == "1.1.08", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.9.38",
+          (major, minor, rev, build) == (1, 1, 9, 38), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.09",
+          vstr is not None and vstr.group(1) == "1.1.09", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -711,13 +711,13 @@ def t_sim_version_117():
     check("the nsis derives the display version at compile time",
           '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
     top = CHANGES.lstrip("\ufeff").split("\r\n")[0] if "\r\n" in CHANGES else CHANGES.lstrip("\ufeff").split("\n")[0]
-    check("the changelog top entry is the 1.1.08 release",
-          top == "Stable: Version 1.1.08 (field fix round 4)", top)
+    check("the changelog top entry is the 1.1.09 re-release",
+          top == "Stable: Version 1.1.09 (field fix round 5)", top)
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
-    check("the readme current-stable line says 1.1.08",
-          "**1.1.08 —" in readme and "(the current stable):**" in readme)
+    check("the readme current-stable line says 1.1.09",
+          "**1.1.09 —" in readme and "(the current stable):**" in readme)
 
 
 # ---------------------------------------------------------------------------
@@ -726,6 +726,195 @@ def t_sim_version_117():
 #    dark buttons carried the native light bottom edge, and a color change
 #    on the bare program showed a load failure.
 # ---------------------------------------------------------------------------
+def t_sim_field_round47():
+    print("sim: the dark options text round, redone (1.1.09)")
+
+    # 1. the dialog font matrix: re-extract every FONT statement and prove
+    #    the uniformity the withdrawn build established (one family, one
+    #    size, one charset - the two-charset drift that broke the page
+    #    metrics is structurally impossible now).
+    statements = re.findall(r'^FONT\s+([^\r\n]+)', RC, re.M)
+    check("eleven font statements exist", len(statements) == 11, str(len(statements)))
+    uniform = all(s == '9, "Segoe UI", 400, 0, 0' for s in statements)
+    check("every statement is the identical Segoe UI 9pt declaration",
+          uniform, "; ".join(sorted(set(statements))))
+    check("the obsolete fixedsys flag is absent from every template",
+          not re.search(r"DS_FIXEDSYS", RC))
+
+    # 2. the dlu geometry the font change must preserve: the pages keep
+    #    their template sizes (the dialog manager rederives the unit grid
+    #    from the new font - the dlu numbers themselves are the layout).
+    m = re.search(r"^IDD_GENERAL\s+DIALOGEX\s+(\d+),\s*(\d+),\s*(\d+),\s*(\d+)", RC, re.M)
+    check("the general page keeps its 194x242 dlu template",
+          m is not None and (int(m.group(3)), int(m.group(4))) == (194, 242),
+          m.group(0) if m else None)
+    m = re.search(r"^IDD_OPTIONS\s+DIALOGEX\s+(\d+),\s*(\d+),\s*(\d+),\s*(\d+)", RC, re.M)
+    check("the options container keeps its 310x295 dlu template",
+          m is not None and (int(m.group(3)), int(m.group(4))) == (310, 295),
+          m.group(0) if m else None)
+
+    # 3. the pixel grid: the dlu numbers follow the dialog font, so the
+    #    same template renders 15-23 percent larger on the segoe ui 9pt
+    #    grid than on the ms shell dlg 8 grid - the dlu assertions above
+    #    cannot see that move. the segoe ui 9pt dialog base units at
+    #    96dpi are (7, 15): one horizontal dlu = 7/4 px, one vertical
+    #    dlu = 15/8 px. every template is walked on that grid now.
+    bx, by = 7 / 4.0, 15 / 8.0
+    check("the general page renders 339.5x453.75 px (the segoe ui 9pt grid)",
+          abs(194 * bx - 339.5) < 0.01 and abs(242 * by - 453.75) < 0.01)
+    check("the horizontal dlu grew 16.7 percent against the ms shell dlg 8 grid",
+          abs(bx / 1.5 - 1.1667) < 0.001)
+
+    def dialogs():
+        for dm in re.finditer(r"^(IDD_\w+)\s+DIALOGEX\s+(\d+),\s*(\d+),\s*(\d+),\s*(\d+)(.*?)\bEND\b", RC, re.M | re.S):
+            yield dm.group(1), int(dm.group(4)), int(dm.group(5)), dm.group(6)
+
+    def controls(body):
+        for cm in re.finditer(r'CONTROL\s+"([^"]*)",\s*(IDC_\w+),\s*"([^"]*)",([^,\r\n]*),\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', body):
+            yield {"label": cm.group(1), "id": cm.group(2), "cls": cm.group(3),
+                   "style": cm.group(4), "x": int(cm.group(5)), "y": int(cm.group(6)),
+                   "w": int(cm.group(7)), "h": int(cm.group(8))}
+        for cm in re.finditer(r'\b(LTEXT|CTEXT|RTEXT|PUSHBUTTON|DEFPUSHBUTTON)\s+"([^"\r\n]*)",\s*(IDC_\w+|IDOK|IDCANCEL),\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', body):
+            yield {"label": cm.group(2), "id": cm.group(3), "cls": cm.group(1),
+                   "style": "", "x": int(cm.group(4)), "y": int(cm.group(5)),
+                   "w": int(cm.group(6)), "h": int(cm.group(7))}
+        for cm in re.finditer(r'\b(EDITTEXT|COMBOBOX|LISTBOX)\s+(IDC_\w+),\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', body):
+            yield {"label": "", "id": cm.group(2), "cls": cm.group(1),
+                   "style": "", "x": int(cm.group(3)), "y": int(cm.group(4)),
+                   "w": int(cm.group(5)), "h": int(cm.group(6))}
+
+    # 3a. containment: every control of every page holds inside its
+    #     dialog on the pixel grid (the overflow class the dlu numbers
+    #     cannot catch when the font moves).
+    overflow = []
+    total = 0
+    for name, cx, cy, body in dialogs():
+        for c in controls(body):
+            total += 1
+            if (c["x"] + c["w"]) * bx > cx * bx + 0.001 or (c["y"] + c["h"]) * by > cy * by + 0.001:
+                overflow.append("%s/%s" % (name, c["id"]))
+    check("the pixel walk covered every control of the eleven templates",
+          total >= 80, str(total))
+    check("every control fits its dialog on the pixel grid",
+          not overflow, "overflow: %s" % " ".join(overflow[:8]))
+
+    # 3b. the eleven association checkboxes inside the 242-tall page:
+    #     the lowest one (bottom 232 dlu) keeps 10 dlu = 18.75 px of
+    #     clear space under it on the new grid.
+    gen = re.search(r"^IDD_GENERAL\s+DIALOGEX\s+(\d+),\s*(\d+),\s*(\d+),\s*(\d+)(.*?)\bEND\b", RC, re.M | re.S)
+    if gen:
+        boxes = re.findall(r'CONTROL\s+"([^"]*)",\s*(IDC_[A-Z0-9_]+),\s*"Button",\s*BS_AUTOCHECKBOX[^,]*,\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)', gen.group(5))
+        assoc = [b for b in boxes if b[0].replace("&", "") in
+                 ("BMP", "GIF", "ICO", "JPEG", "JPG", "PNG", "TIF", "TIFF", "WEBP", "EMF", "WMF")]
+        check("the pixel walk sees the eleven association checkboxes", len(assoc) == 11, str(len(assoc)))
+        lowest = max(int(y) + int(h) for _, _, _, y, _, h in assoc)
+        check("the lowest checkbox keeps its 10 dlu margin in pixels (18.75px)",
+              abs((242 - lowest) * by - 18.75) < 0.01, str((242 - lowest) * by))
+
+    # 3c. the label fit: the checkbox labels render with the dialog font
+    #     next to the native glyph (the custom draw label offset). the
+    #     per-class advance widths of segoe ui 9pt at 96dpi (em = 12px):
+    #     upper ~ 0.65 em, lower ~ 0.52 em, digit ~ 0.58 em, space ~
+    #     0.27 em, cjk ~ 1.0 em; the glyph box is 13px plus half a digit
+    #     of gap. the template labels are the design-time floor - the
+    #     runtime localization replaces them, so this is the regression
+    #     tripwire for the grid, not the translator.
+    def label_px(text):
+        w = 0.0
+        for ch in text.replace("&", ""):
+            o = ord(ch)
+            if o >= 0x2E80:
+                w += 12.0
+            elif ch == " ":
+                w += 3.2
+            elif ch.isupper():
+                w += 7.8
+            elif ch.isdigit():
+                w += 7.0
+            else:
+                w += 6.2
+        return w
+
+    glyph_px = 13.0
+    gap_px = 3.5
+    fit_fail = []
+    boxes_seen = 0
+    for name, cx, cy, body in dialogs():
+        for c in controls(body):
+            if "AUTOCHECKBOX" not in c["style"].upper() or not c["label"]:
+                continue
+            boxes_seen += 1
+            avail = c["w"] * bx
+            need = label_px(c["label"]) + glyph_px + gap_px
+            if need > avail:
+                fit_fail.append("%s/%s needs %.0f has %.0f" % (name, c["id"], need, avail))
+    check("the label fit walks the template checkboxes", boxes_seen >= 16, str(boxes_seen))
+    check("every checkbox label + glyph fits its control on the pixel grid",
+          not fit_fail, "; ".join(fit_fail[:6]))
+
+    # 4. the custom draw protocol: re-execute the notify the way the
+    #    dialog manager would (the withdrawn build's owner draw flip
+    #    replaced bs_autocheckbox in the style and froze every checkbox -
+    #    the redo never touches a style bit).
+    notify = function_body(VIV, "static INT_PTR _viv_dialog_dark_notify(NMHDR *header)")
+    if not check("the notify handler is extractable", notify is not None):
+        return
+    check("the notify leads with the dark gate (light keeps native painting)",
+          notify.find("_viv_is_dark()") < notify.find("NM_CUSTOMDRAW"))
+    check("the notify filters on the button class (the tree and tabs pass through)",
+          'string_compare(class_name,L"Button")' in notify and
+          "GetClassNameW(header->hwndFrom" in notify)
+
+    def notify_reply(dark, code, cls, type_):
+        # replay the guard chain: dark, then the code, then the class,
+        # then the type, then the stage.
+        if not dark:
+            return -1
+        if code != "NM_CUSTOMDRAW":
+            return -1
+        if cls != "Button":
+            return -1
+        if type_ not in (2, 9, 3, 4):  # autockbox, autoradio, checkbox, radio
+            return -1
+        return 4  # CDRF_SKIPDEFAULT at CDDS_PREPAINT
+
+    check("a dark checkbox label paints (skip default at prepaint)",
+          notify_reply(True, "NM_CUSTOMDRAW", "Button", 2) == 4)
+    check("a dark radio label paints the same way",
+          notify_reply(True, "NM_CUSTOMDRAW", "Button", 9) == 4)
+    check("the light ui keeps the native label painting",
+          notify_reply(False, "NM_CUSTOMDRAW", "Button", 2) == -1)
+    check("the options tree notifications pass through to the dialog proc",
+          notify_reply(True, "TVN_SELCHANGEDW", "SysTreeView32", 2) == -1)
+    check("a flipped push button's custom draw passes through",
+          notify_reply(True, "NM_CUSTOMDRAW", "Button", 0) == -1)
+    check("the stage handoff: prepaint paints, the other stages default",
+          "CDDS_PREPAINT" in notify and "return CDRF_DODEFAULT;" in notify)
+
+    # 5. the state machine: the reads stay live and no manual toggle
+    #    compensation exists (the withdrawn build needed one and had
+    #    none - that was the p0).
+    check("the check reads stay live (isdlgbuttonchecked x14, no bm_setcheck)",
+          VIV.count("IsDlgButtonChecked") == 14 and
+          "BM_SETCHECK" not in VIV and
+          VIV.count("BN_CLICKED") == 0)
+    check("the flip never touches the glyph control styles",
+          "((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON)))" in VIV and
+          "|| (type == BS_AUTOCHECKBOX) || (type == BS_AUTORADIOBUTTON)))" not in VIV)
+
+    # 6. the about band: the bottom strip follows the theme (the white
+    #    strip report located it here - the system colors painted
+    #    unconditionally below the dialog face).
+    check("the about band takes the dark chrome strip and the fixed light palette",
+          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(1));" in VIV and
+          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(2));" in VIV and
+          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(0));" in VIV and
+          "_viv_about_light_brush(0)" in VIV and
+          "_viv_about_light_brush(1)" in VIV and
+          "(HBRUSH)(COLOR_BTNSHADOW + 1)" not in VIV and
+          "(HBRUSH)(COLOR_BTNHIGHLIGHT + 1)" not in VIV)
+
+
 def t_sim_field_round46():
     print("sim: the field round 4 checks")
 
@@ -766,8 +955,9 @@ def t_sim_field_round46():
     check("a dark button still takes the dark explorer class",
           chosen_theme(True, "Button") == "DarkMode_Explorer")
 
-    # --- the button flip condition (the native dark chin) ---
-    m = re.search(r"if \(\(!\(style & \(BS_BITMAP \| BS_ICON\)\)\) && \(\(type == BS_PUSHBUTTON\) \|\| \(type == BS_DEFPUSHBUTTON\) \|\| \(\(\(type == BS_AUTOCHECKBOX\) \|\| \(type == BS_AUTORADIOBUTTON\)\) && \(!os_dark_controls_supported\(\)\)\)\)\)",
+    # --- the button flip condition (r47 redo: the glyph controls never
+    # --- flip - the flip would replace their check state machine) ---
+    m = re.search(r"if \(\(!\(style & \(BS_BITMAP \| BS_ICON\)\)\) && \(\(type == BS_PUSHBUTTON\) \|\| \(type == BS_DEFPUSHBUTTON\)\)\)",
                   children)
     if not check("the flip condition is extractable", m is not None):
         return
@@ -777,26 +967,24 @@ def t_sim_field_round46():
     BS_AUTOCHECKBOX, BS_AUTORADIOBUTTON = 3, 9
     BS_BITMAP, BS_ICON = 0x80, 0x64
 
-    def flips(style, dark_controls_supported):
+    def flips(style):
         type_ = style & 0x0F
         return not (style & (BS_BITMAP | BS_ICON)) and (
-            type_ == BS_PUSHBUTTON or type_ == BS_DEFPUSHBUTTON or
-            ((type_ == BS_AUTOCHECKBOX or type_ == BS_AUTORADIOBUTTON)
-             and not dark_controls_supported))
+            type_ == BS_PUSHBUTTON or type_ == BS_DEFPUSHBUTTON)
 
-    check("push buttons flip on every build (the dark ui owns the face)",
-          flips(BS_PUSHBUTTON, True) and flips(BS_PUSHBUTTON, False))
-    check("default buttons flip on every build",
-          flips(BS_DEFPUSHBUTTON, True) and flips(BS_DEFPUSHBUTTON, False))
+    check("push buttons flip in the dark ui (the dark ui owns the face)",
+          flips(BS_PUSHBUTTON))
+    check("default buttons flip in the dark ui",
+          flips(BS_DEFPUSHBUTTON))
     check("the bitmap color swatches never flip",
-          not flips(BS_PUSHBUTTON | BS_BITMAP, True) and
-          not flips(BS_PUSHBUTTON | BS_ICON, False))
-    check("checkboxes keep their native dark glyphs on 1903+",
-          not flips(BS_AUTOCHECKBOX, True))
-    check("checkboxes still flip below 1903",
-          flips(BS_AUTOCHECKBOX, False))
+          not flips(BS_PUSHBUTTON | BS_BITMAP) and
+          not flips(BS_PUSHBUTTON | BS_ICON))
+    check("checkboxes never flip (the automatic check state machine survives)",
+          not flips(BS_AUTOCHECKBOX))
+    check("radios never flip (the same state machine rule)",
+          not flips(BS_AUTORADIOBUTTON))
     check("group boxes never flip",
-          not flips(0x7, True) and not flips(0x7, False))
+          not flips(0x7))
 
     # --- the combo field height capture (the chin under the dark combos) ---
     i_get = children.find("field_height = (int)SendMessage(hwnd,CB_GETITEMHEIGHT,(WPARAM)-1,0);")
@@ -881,6 +1069,7 @@ if __name__ == "__main__":
     t_sim_theme_flip()
     t_sim_version_117()
     t_sim_field_round46()
+    t_sim_field_round47()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))
