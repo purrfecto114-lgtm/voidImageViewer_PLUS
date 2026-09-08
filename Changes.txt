@@ -28,10 +28,17 @@ Stable: Version 1.1.11 (the font unification round)
 	  the native combo field heights against the final font, the about
 	  title derives its larger face from it and the localized labels
 	  render with it.
-	- a dialog dragged across monitors re-reads the font at the new dpi
-	  (wm_dpichanged), a system font settings broadcast drops the shared
-	  handle (the next dialog reads the fresh metrics) and the exit
-	  frees it.
+	- the font belongs to the dialog that draws it (the review fix:
+	  the shared cache deleted the handle under the open dialogs - the
+	  options container and its pages coexist and jumpto is a create
+	  dialog too, so a settings broadcast arriving while a dialog stood
+	  open killed the face its controls still held, and the next paint
+	  fell to the default system face): every dialog creates its own
+	  message font at its own dpi, a monitor crossing replaces the face
+	  inside the same message (wm_dpichanged - the old handle dies only
+	  after every child took the new face), the release lands at the
+	  dialog ncdestroy after its children are gone, and the next dialog
+	  reads the fresh metrics at its own open.
 	- the known limits, on record: a dialog that stands open through a
 	  system font change keeps its face until it reopens (the windows
 	  dialogs behave the same way), and the vertical budget keeps the

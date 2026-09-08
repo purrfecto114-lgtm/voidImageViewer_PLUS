@@ -2822,18 +2822,10 @@ def t_field_fixes_round49():
           "return os_logical_wide;" in osc and
           "return (int)_os_GetDpiForWindow(hwnd);" in osc)
 
-    # --- the viv layer: one shared handle, cached per dpi ---
-    check("the dialog font cache is the two static fields",
-          "static HFONT _viv_dialog_font_handle = 0;" in viv and
-          "static int _viv_dialog_font_dpi = 0;" in viv)
-    check("the drop carries a forward declaration (the settings case sits early)",
-          "static void _viv_dialog_font_drop(void);" in viv)
-    check("the cache rebuilds only when the dpi moves",
-          "if ((!_viv_dialog_font_handle) || (dpi != _viv_dialog_font_dpi))" in viv)
-    check("the handle is released on rebuild, drop and exit (three sites)",
-          viv.count("DeleteObject(_viv_dialog_font_handle);") == 3)
-    check("the settings change drops the shared font (one call site)",
-          viv.count("_viv_dialog_font_drop();") == 1)
+    # --- the viv layer: the ownership moved to the dialogs ---
+    # the review fix (round 50) replaced the shared cache with the per
+    # dialog ownership: a broadcast cannot delete a face an open dialog
+    # is still drawing with. the guards live in t_field_fixes_round50.
 
     # --- the apply: the dialog itself, then every child ---
     check("the apply sets the font on the dialog window first",
@@ -2859,6 +2851,44 @@ def t_field_fixes_round49():
     # --- the template keeps its job: the dlu skeleton ---
     check("eleven segoe template statements stay (the dlu grid, not the face)",
           rc.count('FONT 9, "Segoe UI"') == 11 and "MS Shell Dlg" not in rc)
+
+def t_field_fixes_round50():
+    """Guards for the font lifetime review fix (1.1.11, pre-release).
+
+    The re-review of the font unification caught the shared handle
+    dying under live dialogs: the cache deleted the font object on
+    every settings broadcast and on every dpi rebuild, but the options
+    container and its create dialog pages coexist (and jumpto is a
+    create dialog too) - a broadcast arriving while a dialog stood
+    open deleted the handle its controls still held, so the next paint
+    selected a dead font and the labels fell to the default system
+    face. The fix moves the ownership to the dialog: every dialog
+    creates its own message font, keeps it in a window prop and
+    releases it at ncdestroy, after its children are gone.
+    """
+    viv = read("src/viv.c").decode("latin-1")
+
+    proc_start = viv.find("static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)")
+    after = viv.find("\nstatic ", proc_start + 60)
+    dark_proc = viv[proc_start:after] if after != -1 else viv[proc_start:proc_start + 20000]
+
+    check("no process global font handle survives (the lifetime follows the dialogs)",
+          "_viv_dialog_font_handle" not in viv and
+          "_viv_dialog_font_dpi" not in viv and
+          "_viv_dialog_font_drop" not in viv)
+    check("the apply creates the font per dialog",
+          "font = CreateFontIndirectW(&lf);" in viv)
+    check("the dialog holds its font in a window prop",
+          "SetPropW(hwnd,_VIV_DIALOG_FONT_PROP,(HANDLE)font);" in viv)
+    check("a re-apply retires the old face only after the broadcast",
+          "old_font = (HFONT)GetPropW(hwnd,_VIV_DIALOG_FONT_PROP);" in viv and
+          viv.count("DeleteObject(old_font);") == 1)
+    check("the release lands at the dialog ncdestroy (after the children)",
+          "case WM_NCDESTROY:" in dark_proc and
+          "RemovePropW(hwnd,_VIV_DIALOG_FONT_PROP);" in dark_proc and
+          "DeleteObject(font);" in dark_proc)
+    check("the settings broadcast touches no font",
+          "_viv_dialog_font_drop" not in viv)
 
 if __name__ == "__main__":
     t_panscan_gone()
@@ -2899,6 +2929,7 @@ if __name__ == "__main__":
     t_field_fixes_round47()
     t_field_fixes_round48()
     t_field_fixes_round49()
+    t_field_fixes_round50()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

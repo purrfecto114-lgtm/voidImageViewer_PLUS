@@ -1300,21 +1300,51 @@ def t_sim_field_round49():
     check("the tall label rows (centerimage) clear the locale face",
           len(centerimage_ok) >= 1, len(centerimage_ok))
 
-    # 3. the dpi cache, replayed: the rebuild condition straight from the
-    #    guard the source carries.
-    guard = "if ((!_viv_dialog_font_handle) || (dpi != _viv_dialog_font_dpi))"
-    check("the rebuild guard is present verbatim", guard in VIVD)
-    states = [
-        # (dialog dpi, cached dpi, handle) -> rebuild expected
-        (96, 0, 0),    # the first dialog ever
-        (96, 96, 1),   # same dpi: reuse
-        (144, 96, 1),  # dragged to a 144 monitor: rebuild
-        (96, 144, 1),  # and back: rebuild
-    ]
-    for dpi, cached, handle in states:
-        rebuild = (handle == 0) or (dpi != cached)
-        check(f"cache dpi={dpi} cached={cached} handle={handle} -> rebuild={rebuild}",
-              rebuild == ((handle == 0) or (dpi != cached)))
+    # 3. the font lifetime, replayed both ways: the 1.1.11 shared cache
+    #    deleted the handle under live dialogs (the options container
+    #    and its create dialog pages coexist, and jumpto is a create
+    #    dialog too) - a settings broadcast or a dpi rebuild arriving
+    #    while a dialog stood open killed the face its controls still
+    #    held, and the next paint selected a dead font (the labels fell
+    #    to the default system face). the per dialog ownership keeps
+    #    every handle alive exactly as long as the dialog that draws
+    #    with it.
+    def replay_shared_cache():
+        # the shipped 1.1.11 design: one handle, the dialogs adopt it,
+        # the broadcast deletes it while the dialogs are open.
+        fonts = {"handle": 401, "users": ["container", "page"]}
+        fonts["handle"] = 0            # the drop: DeleteObject
+        fonts["dangling"] = list(fonts["users"])  # under live users
+        return fonts
+
+    bad = replay_shared_cache()
+    check("the 1.1.11 replay dangles the handle under two open dialogs",
+          bad["handle"] == 0 and len(bad["dangling"]) == 2)
+
+    def replay_per_dialog(events):
+        # the review fix: each dialog owns its face, the broadcast
+        # touches nothing, a close releases only its own handle.
+        fonts = {}
+        next_id = [401]
+        for who, ev in events:
+            if ev == "open":
+                next_id[0] += 1
+                fonts[who] = next_id[0]      # createfontindirect per dialog
+            elif ev == "close":
+                fonts.pop(who, None)         # the ncdestroy release
+        return fonts                         # broadcasts change nothing
+
+    fonts = replay_per_dialog([("container", "open"), ("page", "open"),
+                               ("container", "close")])
+    check("the per dialog replay keeps the open page face valid",
+          fonts == {"page": 403})
+    check("the source carries no shared cache statics",
+          "_viv_dialog_font_handle" not in VIVD and
+          "_viv_dialog_font_dpi" not in VIVD)
+    check("the apply creates the font per dialog",
+          "font = CreateFontIndirectW(&lf);" in VIVD)
+    check("the release lands at the dialog ncdestroy",
+          "RemovePropW(hwnd,_VIV_DIALOG_FONT_PROP);" in VIVD)
 
     # 4. the message order, replayed: the shared proc runs the font apply
     #    from wm_initdialog before each dialog's own case (the dark flip
@@ -1332,8 +1362,11 @@ def t_sim_field_round49():
           VIVD.count("if (dark_dialog_reply != -1)\r\n\t\t{\r\n\t\t\treturn dark_dialog_reply;") == 11)
     check("a dialog crossing monitors re-applies (wm_dpichanged)",
           VIVD.count("case WM_DPICHANGED:\r\n\t\t{\r\n\t\t\t// a dialog dragged across monitors") == 1)
-    check("the settings broadcast drops the handle for the next dialog",
-          VIVD.count("_viv_dialog_font_drop();") == 1)
+    check("the settings broadcast touches no font (the faces live with their dialogs)",
+          "_viv_dialog_font_drop" not in VIVD)
+    nc_pos = proc_body.find("\t\tcase WM_NCDESTROY:")
+    check("the dialog death releases the face inside the shared proc",
+          nc_pos != -1 and nc_pos < draw_pos)
 
     # 5. the honesty clause, pinned: these are metric models. the
     #    changelog of the round states the tolerance instead of assuming
@@ -1342,6 +1375,8 @@ def t_sim_field_round49():
     check("the changelog states the tolerance (not assumed away)",
           "the simulation models the budget with the" in changes and
           "tolerance stated, not assumed away" in changes)
+    check("the changelog states the lifetime rule (the review fix)",
+          "the font belongs to the dialog that draws it" in changes)
 
 if __name__ == "__main__":
     t_sim_mat_color()
