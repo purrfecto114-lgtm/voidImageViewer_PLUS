@@ -264,6 +264,10 @@ enum
 	VIV_ID_FILE_RECENT_7,
 	VIV_ID_FILE_RECENT_8,
 	VIV_ID_FILE_RECENT_9,
+
+	// view menu windowed background color picker
+	// (appended so existing ids are not shifted)
+	VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR,
 };
 
 #include "version.h"

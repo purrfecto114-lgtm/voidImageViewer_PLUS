@@ -995,6 +995,7 @@ static _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_WHILE_PLAYING_OR_ANIMATING,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_WHILE_PLAYING_OR_ANIMATING},
 	{LOCALIZATION_ID_NEVER,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_ONTOP,VIV_ID_VIEW_ONTOP_NEVER},
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
+	{LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR},
 	{LOCALIZATION_ID_BACKDROP,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_BACKDROP},
 	{LOCALIZATION_ID_BACKDROP_FOLLOW,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_FOLLOW},
 	{LOCALIZATION_ID_BACKDROP_BLACK,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_BLACK},
@@ -2324,6 +2325,36 @@ static void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			_viv_zoomui_update();
 			break;
 			
+		case VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR:
+		{
+			COLORREF background_color;
+			
+			// the canvas color the image floats on (the transparency backdrop
+			// is a separate setting). one picker next to the backdrop submenu:
+			// the field report kept looking for this color under the backdrop
+			// label and found nothing but the options page.
+			background_color = RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b);
+			
+			if (os_choose_color(_viv_hwnd,&background_color))
+			{
+				config_windowed_background_color_r = GetRValue(background_color);
+				config_windowed_background_color_g = GetGValue(background_color);
+				config_windowed_background_color_b = GetBValue(background_color);
+				
+				// the mat, the win11 caption tint and any follow mode backdrop
+				// all read this color: re-tint the frame, repaint the canvas and
+				// reload the open image so the transparency under it picks the new
+				// mat up immediately (the refresh is a no-op without an open file
+				// - no load error on the blank window).
+				os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
+				
+				InvalidateRect(_viv_hwnd,0,FALSE);
+				_viv_refresh();
+			}
+			
+			break;
+		}
+		
 		case VIV_ID_VIEW_BACKDROP_FOLLOW:
 			config_backdrop_mode = CONFIG_BACKDROP_MODE_FOLLOW;
 			_viv_backdrop_apply();
@@ -4700,6 +4731,11 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			{
 				DrawMenuBar(hwnd);
 			}
+			
+			// the visual style flip can race the registry the same way the
+			// immersive color set broadcast does: schedule the one shot
+			// re-check so a late settle still lands the theme.
+			SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);
 			
 			// the visual style changed (classic, high contrast or a theme
 			// switch). the dark state may flip with it: re-read and re-apply
@@ -8779,7 +8815,17 @@ static void _viv_apply_dark_mode(int repaint)
 	{
 		os_dark_titlebar(_viv_status_hwnd,dark);
 		
-		os_dark_window_theme(_viv_status_hwnd);
+		// the status bar follows the theme both ways: the dark explorer
+		// class in the dark ui, the light class back on the flip (the bar
+		// would otherwise keep carrying the dark class in the light ui).
+		if (dark)
+		{
+			os_dark_window_theme(_viv_status_hwnd);
+		}
+		else
+		{
+			os_light_window_theme(_viv_status_hwnd);
+		}
 		
 		InvalidateRect(_viv_status_hwnd,0,FALSE);
 	}
@@ -9096,53 +9142,79 @@ static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 {
 	wchar_t class_name[64];
 	LONG_PTR style;
+	int dark;
 	
 	(void)lParam;
 	
-	os_allow_dark_mode_for_window(hwnd,1);
+	dark = _viv_is_dark();
+	
+	// the immersive flag and the theme class have to follow the app theme
+	// together: the dark classes painted on a light dialog leave black
+	// fields, black frames and black buttons on the light face (the field
+	// report: the light options page showed black comboboxes and black
+	// select-all buttons).
+	os_allow_dark_mode_for_window(hwnd,dark ? 1 : 0);
 	
 	class_name[0] = 0;
 	
-	if ((GetClassNameW(hwnd,class_name,64)) && (string_compare(class_name,L"ComboBox") == 0))
+	if (GetClassNameW(hwnd,class_name,64))
 	{
-		// comboboxes have no parts in the darkmode explorer class: the dark
-		// dialogs kept light frames and arrows on 1903+ builds. the common
-		// dialog class carries the dark combo parts there, and the owner
-		// drawn items below carry the field and the list rows everywhere.
-		os_dark_combobox_theme(hwnd);
-	}
-	else
-	{
-		os_dark_window_theme(hwnd);
-	}
-	
-	if (class_name[0])
-	{
-		if (_viv_is_dark())
+		if (string_compare(class_name,L"ComboBox") == 0)
 		{
-			if ((string_compare(class_name,L"Button") == 0) && (!os_dark_controls_supported()))
+			if (dark)
 			{
+				// comboboxes have no parts in the darkmode explorer class: the dark
+				// dialogs kept light frames and arrows on 1903+ builds. the common
+				// dialog class carries the dark combo parts there, and the owner
+				// drawn items below carry the field and the list rows everywhere.
+				os_dark_combobox_theme(hwnd);
+			}
+			else
+			{
+				// back to the standard light class: the control may carry the
+				// dark class from an earlier dark state of the same open dialog.
+				os_light_window_theme(hwnd);
+			}
+		}
+		else
+		{
+			if (dark)
+			{
+				os_dark_window_theme(hwnd);
+			}
+			else
+			{
+				os_light_window_theme(hwnd);
+			}
+		}
+		
+		if (dark)
+		{
+			if (string_compare(class_name,L"Button") == 0)
+			{
+				int type;
+				
 				style = GetWindowLongPtr(hwnd,GWL_STYLE);
 				
-				// only the classic text controls: the bitmap color swatches keep
-				// their own painting.
-				switch ((UINT)style & BS_TYPEMASK)
+				type = (int)(style & BS_TYPEMASK);
+				
+				// push buttons owner draw on every build: the native dark button
+				// carries a light bottom edge (the field report called it a chin)
+				// and paints a hard rectangle that fights the rest of the dark
+				// chrome, while the flat face below matches the combo fields
+				// exactly. the glyph controls (checkboxes, radios) keep their
+				// native dark look where the dark controls exist: pre 1903 has
+				// none, so they owner draw there too. the bitmap color swatches
+				// keep their own painting in every state.
+				if ((!(style & (BS_BITMAP | BS_ICON))) && ((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON) || (((type == BS_AUTOCHECKBOX) || (type == BS_AUTORADIOBUTTON)) && (!os_dark_controls_supported()))))
 				{
-					case BS_AUTOCHECKBOX:
-					case BS_AUTORADIOBUTTON:
-					case BS_PUSHBUTTON:
-					case BS_DEFPUSHBUTTON:
-						if ((style & BS_TYPEMASK) != BS_OWNERDRAW)
-						{
-							SetWindowLongPtr(hwnd,GWL_STYLE,(style & ~((LONG_PTR)BS_TYPEMASK)) | BS_OWNERDRAW);
-							
-							// the prop carries the original button type (the owner draw bit
-							// overwrites the type field, so the way back needs it). the guard
-							// keeps a re-run from overwriting it with the owner draw type.
-							SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)((style & BS_TYPEMASK) + 1));
-							InvalidateRect(hwnd,0,TRUE);
-						}
-						break;
+					SetWindowLongPtr(hwnd,GWL_STYLE,(style & ~((LONG_PTR)BS_TYPEMASK)) | BS_OWNERDRAW);
+					
+					// the prop carries the original button type (the owner draw bit
+					// overwrites the type field, so the way back needs it).
+					SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)(type + 1));
+					
+					InvalidateRect(hwnd,0,TRUE);
 				}
 			}
 			else
@@ -9155,16 +9227,34 @@ static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 				
 				if (!(style & CBS_OWNERDRAWFIXED))
 				{
-					SetWindowLongPtr(hwnd,GWL_STYLE,style | CBS_OWNERDRAWFIXED);
+					int field_height;
 					
-					// a runtime flip does not resend the measure item message: set
-					// the item height directly (the selected field and the list rows).
-					SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)-1,_viv_dialog_dark_combo_item_height(hwnd));
-					SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)0,_viv_dialog_dark_combo_item_height(hwnd));
+					// the closed field height the control was created with: the
+					// flip must keep it exactly. an item height rebuilt from the
+					// font metrics drifts a few pixels at some dpis - the field
+					// then grows or shrinks against its label row and leaves a
+					// stray strip under the control (the field report: a chin
+					// under the dark combos and sizes that no longer matched
+					// the light ui).
+					field_height = (int)SendMessage(hwnd,CB_GETITEMHEIGHT,(WPARAM)-1,0);
 					
-					SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)0x100);
-					
-					InvalidateRect(hwnd,0,TRUE);
+					if (field_height > 0)
+					{
+						SetWindowLongPtr(hwnd,GWL_STYLE,style | CBS_OWNERDRAWFIXED);
+						
+						// a runtime flip does not resend the measure item message: set
+						// the item height directly (the selected field and the list rows)
+						// at the captured native height.
+						SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)-1,field_height);
+						SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)0,field_height);
+						
+						// the prop marks the flip and carries the captured height (the
+						// 0x100 base keeps it apart from the button type codes) for the
+						// measure item fallback.
+						SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)(0x100 + field_height));
+						
+						InvalidateRect(hwnd,0,TRUE);
+					}
 				}
 			}
 		}
@@ -9217,15 +9307,18 @@ static void _viv_dark_dialog(HWND hwnd)
 	}
 	else
 	{
-		// the light ui hands the flipped controls back to the system.
+		// the light ui hands the flipped controls back to the system and
+		// returns the dialog itself to the light chrome: the title bar and
+		// the control classes may carry the dark state from an earlier flip
+		// of the same open dialog.
+		os_dark_titlebar(hwnd,0);
+		
+		os_light_window_theme(hwnd);
+		
 		EnumChildWindows(hwnd,_viv_dark_dialog_children,0);
 	}
 }
 
-// re-theme the open dialogs when the dark state changes: the options
-// dialog itself is usually on screen when its own dark mode combo
-// changes the setting (the field report: the open dialog kept its
-// light controls after the switch).
 static BOOL CALLBACK _viv_dark_dialogs_enum(HWND hwnd,LPARAM lParam)
 {
 	wchar_t class_name[16];
@@ -9511,7 +9604,22 @@ static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		{
 			if ((((MEASUREITEMSTRUCT *)lParam)->CtlType == ODT_COMBOBOX) && (_viv_is_dark()))
 			{
-				((MEASUREITEMSTRUCT *)lParam)->itemHeight = _viv_dialog_dark_combo_item_height(GetDlgItem(hwnd,(int)wParam));
+				HWND combo_hwnd;
+				int captured_height;
+				
+				combo_hwnd = GetDlgItem(hwnd,(int)wParam);
+				captured_height = combo_hwnd ? (int)(LONG_PTR)GetPropW(combo_hwnd,_VIV_DARK_OWNERDRAW_PROP) : 0;
+				
+				if (captured_height > 0x100)
+				{
+					// the captured native height keeps the owner drawn rows at the
+					// exact height the themed control used (no size drift).
+					((MEASUREITEMSTRUCT *)lParam)->itemHeight = captured_height - 0x100;
+				}
+				else
+				{
+					((MEASUREITEMSTRUCT *)lParam)->itemHeight = _viv_dialog_dark_combo_item_height(combo_hwnd);
+				}
 				
 				return TRUE;
 			}
@@ -19402,6 +19510,30 @@ static void _viv_refresh(void)
 	_viv_clear();
 	_viv_start_first_frame();
 	_viv_process_pending_clear();
+
+	// no file open: the reload below would only fail against the empty
+	// name and pin a load error on the blank window (the field report:
+	// changing the backdrop or the canvas color on the bare program showed
+	// a load failure at the bottom left). the blank state is the correct
+	// result there: reset the stale flags and keep the canvas.
+	if (!fd.cFileName[0])
+	{
+		if (_viv_file_not_found)
+		{
+			_viv_file_not_found = 0;
+			
+			_viv_status_update();
+		}
+		
+		if (_viv_load_failed)
+		{
+			_viv_load_failed = 0;
+			
+			_viv_status_update();
+		}
+		
+		return;
+	}
 
 	_viv_open(&fd,0);
 }

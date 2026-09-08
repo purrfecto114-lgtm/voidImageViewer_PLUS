@@ -338,7 +338,8 @@ enum
 	LOCALIZATION_ID_DARK_MODE_LIGHT,
 	LOCALIZATION_ID_DARK_MODE_DARK,
 
-	// backdrop shown under transparent pixels
+	// what shows under the transparent pixels of an image with alpha (not
+	// the canvas around the image: that color is the windowed background)
 	LOCALIZATION_ID_BACKDROP,
 	LOCALIZATION_ID_BACKDROP_FOLLOW,
 	LOCALIZATION_ID_BACKDROP_BLACK,
@@ -362,6 +363,9 @@ enum
 	LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT,
 	LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT,
 	LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT,
+
+	// view menu: the canvas color picker item (the mat around the image)
+	LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU,
 
 	LOCALIZATION_ID_COUNT,
 };

@@ -1348,6 +1348,22 @@ int os_dark_combobox_theme(HWND hwnd)
 	return 0;
 }
 
+// the light counterpart of the two dark theme classes above: hands a
+// control back to the standard explorer visual style. used when the ui
+// flips back to light after a control carried a dark class. returns 1
+// when the style was applied.
+int os_light_window_theme(HWND hwnd)
+{
+        if (_os_SetWindowTheme)
+        {
+                if (_os_SetWindowTheme(hwnd,L"Explorer",0) == 0)
+                {
+                        return 1;
+                }
+        }
+        
+        return 0;
+}
 // opt a single window (usually a dialog child control) into the dark
 // comctl styles. must be called before os_dark_window_theme for the
 // control. returns 1 when the dark mode api is available.

@@ -62,7 +62,8 @@ extern BYTE config_appdata;
 extern BYTE config_language; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
 extern BYTE config_dark_mode; // ui theme: 0 = light, 1 = dark, 2 = auto (follow the windows theme).
 
-// backdrop shown under transparent pixels.
+// what shows under the transparent pixels of an image with alpha (not
+// the canvas around the image: that color is the windowed background).
 #define CONFIG_BACKDROP_MODE_FOLLOW			0
 #define CONFIG_BACKDROP_MODE_BLACK			1
 #define CONFIG_BACKDROP_MODE_WHITE			2

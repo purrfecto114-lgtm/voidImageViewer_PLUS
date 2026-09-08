@@ -148,7 +148,7 @@ extern void os_dark_refresh(void);
 // tabs draw dark with it). returns 1 when the style was applied.
 extern int os_dark_window_theme(HWND hwnd);
 // combobox dark parts: the common dialog class (windows 10 1903+).
-extern int os_dark_combobox_theme(HWND hwnd);
+extern int os_dark_combobox_theme(HWND hwnd);// the light counterpart: back to the standard explorer visual style// when the ui flips back to light.extern int os_light_window_theme(HWND hwnd);
 extern int os_allow_dark_mode_for_window(HWND hwnd,int allow);
 extern void os_dark_invalidate(void);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);

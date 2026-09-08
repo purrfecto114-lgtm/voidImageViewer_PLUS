@@ -18,11 +18,12 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.07 — modern UX round, the field-fix rounds and the second-rework simulation check (the current stable):**
+**1.1.08 — modern UX round, the field-fix rounds and the simulation checks (the current stable):**
 
 - **EMF & WMF open everywhere** — association table, open-dialog filter, Everything search, command line and Options checkboxes all carry the two metafile extensions.
 - **Recent files** — a persistent File → Recent submenu (MRU of ten paths, deduplicated, stale entries dropped, cleared from the menu). Saves are debounced off the open path, and the count is capped on every path (compile-time id lock).
-- **Canvas & backdrop (View → Backdrop)** — choose what shows under transparent pixels: follow window background / black / white / custom color / checkerboard. In the dark UI a light custom mat keeps its hue but lands in the dark range, so the canvas never glares out of the chrome (image open or not); the light UI always shows the exact color. Changing the color from Options re-tints the Win11 caption and reloads transparency immediately.
+- **Canvas & transparency backdrop** — two different mats: **View → Windowed background color…** sets the canvas color around the image (and the empty-window canvas); **View → Transparency backdrop** sets what shows under the transparent pixels of alpha images (PNG/GIF/WEBP): follow the window background color, black, white, custom color or checkerboard. In the dark UI a light custom mat keeps its hue but lands in the dark range, so the canvas never glares out of the chrome (image open or not); the light UI always shows the exact color. Changing either color re-tints the Win11 caption and reloads transparency immediately — with no image open the change is quiet (no load error on the blank window).
+- **Light dialogs stay light, dark dialogs stay complete (1.1.08)** — the dark theme classes follow the app theme instead of being applied unconditionally (the light options page no longer shows black comboboxes and black buttons); the dark combos keep the exact captured native field height (no chin, no size drift against the label rows), and the dark push buttons paint the flat dark face on every build (the native dark button's light bottom edge is gone).
 - **Dark dialogs are complete** — the options pages owner-draw their comboboxes on every Windows build (the explorer dark style has no combo parts, so language / dark-mode / blit-mode fields used to stay light), and the tab strip, tree and static text all follow the theme.
 - **Zoom ladder below best fit** — a touch pinch shrinks to about fit/16 (mirroring the 16× cap) instead of locking at the windowed fit; `Allow shrinking` keeps its meaning.
 - **Field fixes** — duplicate recent-files rows, stale "failed to load" status on a closed image, the light strip beside the toolbar after a theme flip (full invalidation + a 400 ms re-check for the registry race), status-bar size units (B/KB/MB/GB), wallpaper-change confirmation, arrow navigation without a slideshow, Ctrl+Comma for options.
@@ -70,8 +71,8 @@ Gestures need Windows 7+ with touch hardware. Single-finger input stays mouse-co
 Canvas, backdrop & dark mode
 --------
 
-- **Windowed / fullscreen background color** — Options → View; the mat around the image and the empty-window canvas.
-- **Backdrop under transparency** — View → Backdrop: follow window background, black, white, custom color, or checkerboard. Alpha images (PNG/GIF/WEBP) composite over it at load time.
+- **Windowed / fullscreen background color** — Options → View, or the View menu picker (1.1.08); the mat around the image and the empty-window canvas.
+- **Backdrop under transparency** — View → Transparency backdrop: follow the window background color, black, white, custom color, or checkerboard. Alpha images (PNG/GIF/WEBP) composite over it at load time. This is *not* the canvas around the image — that color is the windowed background above.
 - **Dark UI rule** — the light UI always shows your exact colors. In the dark UI a light mat keeps its hue but drops into the dark range (the default white maps to the dark palette canvas), and the same rule applies to the custom backdrop, so nothing glares out of the dark chrome. The Win11 caption tint follows the mat.
 - Dark mode itself: Options → General → Dark mode — light, dark, or follow Windows. Theme flips repaint the whole window (with a settle-window re-check), and the open dialogs re-theme live.
 

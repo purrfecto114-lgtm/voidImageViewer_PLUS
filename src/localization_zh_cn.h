@@ -279,9 +279,9 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"浅色", // LOCALIZATION_ID_DARK_MODE_LIGHT
 	"深色", // LOCALIZATION_ID_DARK_MODE_DARK
 
-	// backdrop shown under transparent pixels
-	"背景垫层(&D)", // LOCALIZATION_ID_BACKDROP
-	"跟随窗口背景(&F)", // LOCALIZATION_ID_BACKDROP_FOLLOW
+	// 透明像素下的垫色（不是图片四周的画布颜色）
+	"透明背景(&T)", // LOCALIZATION_ID_BACKDROP
+	"跟随窗口背景色(&F)", // LOCALIZATION_ID_BACKDROP_FOLLOW
 	"黑色(&B)", // LOCALIZATION_ID_BACKDROP_BLACK
 	"白色(&W)", // LOCALIZATION_ID_BACKDROP_WHITE
 	"自定义颜色(&C)...", // LOCALIZATION_ID_BACKDROP_CUSTOM
@@ -298,4 +298,5 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	" KB", // LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT
 	" MB", // LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT
 	" GB", // LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT
+	"窗口背景颜色(&B)...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU
 };

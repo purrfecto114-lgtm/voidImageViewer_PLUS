@@ -248,10 +248,11 @@ def t_localization_alignment():
             "LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT",
-            "LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT")
-    check("enum ends with the dark+backdrop+zoom+ux ids", tuple(ids[-21:]) == tail)
-    check("en ends with the dark+backdrop+zoom+ux ids", tuple(en[-21:]) == tail)
-    check("zh ends with the dark+backdrop+zoom+ux ids", tuple(zh[-21:]) == tail)
+            "LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT",
+            "LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU")
+    check("enum ends with the dark+backdrop+zoom+ux ids", tuple(ids[-22:]) == tail)
+    check("en ends with the dark+backdrop+zoom+ux ids", tuple(en[-22:]) == tail)
+    check("zh ends with the dark+backdrop+zoom+ux ids", tuple(zh[-22:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -288,10 +289,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.7.35 stable (the second-rework simulation round)",
-          (major, minor, rev, build) == ("1", "1", "7", "35") and vtype == "")
+    check("version.h = 1.1.8.36 stable (field fix round 4)",
+          (major, minor, rev, build) == ("1", "1", "8", "36") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.07")
+          vstr == "1.1.08")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1892,7 +1893,7 @@ def t_dark_layers_round():
           "| BS_OWNERDRAW);" in viv and
           "| CBS_OWNERDRAWFIXED);" in viv)
     check("the flip carries the original button type",
-          "SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)((style & BS_TYPEMASK) + 1));" in viv)
+          "SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)(type + 1));" in viv)
     check("the light ui unflips the owner draw fallback",
           "(style & ~((LONG_PTR)BS_TYPEMASK)) | type" in viv and
           "style & ~((LONG_PTR)CBS_OWNERDRAWFIXED)" in viv)
@@ -1907,8 +1908,9 @@ def t_dark_layers_round():
           "EnumThreadWindows(GetCurrentThreadId(),_viv_dark_dialogs_enum,0);" in viv and
           "_viv_dark_dialogs_refresh();" in viv)
     check("the color swatch buttons are excluded from the flip",
-          "case BS_AUTOCHECKBOX:" in viv and
-          "case BS_DEFPUSHBUTTON:" in viv)
+          "(!(style & (BS_BITMAP | BS_ICON)))" in viv and
+          "type == BS_AUTOCHECKBOX" in viv and
+          "type == BS_DEFPUSHBUTTON" in viv)
 
     # glyphs: float coordinates + the stroke width floor.
     check("the glyph drawing uses the float point api",
@@ -2446,16 +2448,18 @@ def t_field_fixes_round44():
           "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv[i:i+800] and
           "InvalidateRect(_viv_hwnd,0,FALSE);" in viv[i:i+800] and
           "_viv_refresh();" in viv[i:i+800])
-    check("the caption tint follows the mat from startup and from the options",
-          viv.count("os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());") == 2)
+    check("the caption tint follows the mat from startup, the options and the view menu",
+          viv.count("os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());") == 3)
 
     # --- the dark comboboxes on every build ---
-    check("comboboxes take the common dialog dark class (the explorer class has no combo parts)",
-          'if ((GetClassNameW(hwnd,class_name,64)) && (string_compare(class_name,L"ComboBox") == 0))' in viv and
-          "os_dark_combobox_theme(hwnd);" in viv)
-    check("every other control keeps the explorer dark class",
+    check("comboboxes take the common dialog dark class in the dark ui only",
+          "os_dark_combobox_theme(hwnd);" in viv and
+          "os_allow_dark_mode_for_window(hwnd,dark ? 1 : 0);" in viv and
+          "os_allow_dark_mode_for_window(hwnd,1);" not in viv)
+    check("every other control keeps the explorer dark class in the dark ui only",
           viv.count("os_dark_window_theme(hwnd);") == 2 and
-          "\telse\r\n\t{\r\n\t\tos_dark_window_theme(hwnd);" in viv)
+          "os_light_window_theme(hwnd);" in viv and
+          "os_light_window_theme(_viv_status_hwnd);" in viv)
     check("the combobox owner draw flip is no longer gated on the legacy check",
           'if ((string_compare(class_name,L"ComboBox") == 0) && (!os_dark_controls_supported()))' not in viv and
           viv.count("(!os_dark_controls_supported())") == 1)
@@ -2463,6 +2467,93 @@ def t_field_fixes_round44():
           "int os_dark_combobox_theme(HWND hwnd)" in osc and
           'L"DarkMode_CFD"' in osc and
           "extern int os_dark_combobox_theme(HWND hwnd);" in osh)
+
+def t_field_fixes_round46():
+    """Guards for the fourth field-fix round (1.1.08): the light dialogs
+    stopped painting dark controls (the dark theme classes were applied
+    whatever the app theme - the light options page showed black
+    comboboxes and black select-all buttons), the dark combo owner draw
+    keeps the captured native field height (the metric rebuild drifted
+    the field size - the chin under the dark combos), the dark push
+    buttons owner draw on every build (the native dark button carries a
+    light bottom edge), a refresh with no open file no longer reloads
+    (changing the backdrop or the canvas color on the bare program
+    showed a load failure at the bottom left), and the view menu gains
+    the windowed background color picker next to the renamed
+    transparency backdrop submenu."""
+    viv = read("src/viv.c").decode("latin-1")
+    vh = read("src/viv.h").decode("latin-1")
+    osc = read("src/os.c").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+    en = read("src/localization_en_us.h").decode("latin-1")
+    zh = read("src/localization_zh_cn.h").decode("utf-8")
+
+    # --- the theme classes follow the app theme ---
+    check("the immersive flag and the theme classes follow the app theme",
+          "dark = _viv_is_dark();" in viv and
+          "os_allow_dark_mode_for_window(hwnd,dark ? 1 : 0);" in viv and
+          "os_allow_dark_mode_for_window(hwnd,1);" not in viv)
+    check("the light flip restores the light class on every control",
+          viv.count("os_light_window_theme(hwnd);") >= 2 and
+          "os_dark_titlebar(hwnd,0);" in viv)
+    check("the light theme helper lives in os.c and is declared in os.h",
+          "int os_light_window_theme(HWND hwnd)" in osc and
+          'L"Explorer"' in osc and
+          "extern int os_light_window_theme(HWND hwnd);" in osh)
+
+    # --- the combo field height is captured, not rebuilt ---
+    check("the owner draw flip captures the native field height",
+          "field_height = (int)SendMessage(hwnd,CB_GETITEMHEIGHT,(WPARAM)-1,0);" in viv and
+          "SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)-1,field_height);" in viv and
+          "SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)0,field_height);" in viv and
+          "SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)(0x100 + field_height));" in viv)
+    check("the flip only runs on a positive captured height",
+          "if (field_height > 0)" in viv)
+    check("the measure fallback reads the captured height",
+          "captured_height = combo_hwnd ? (int)(LONG_PTR)GetPropW(combo_hwnd,_VIV_DARK_OWNERDRAW_PROP) : 0;" in viv and
+          "((MEASUREITEMSTRUCT *)lParam)->itemHeight = captured_height - 0x100;" in viv)
+
+    # --- push buttons owner draw on every build in the dark ui ---
+    check("push buttons owner draw on every build (the native dark chin)",
+          "((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON) || (((type == BS_AUTOCHECKBOX) || (type == BS_AUTORADIOBUTTON)) && (!os_dark_controls_supported())))" in viv)
+    check("the bitmap color swatches keep their own painting",
+          "(!(style & (BS_BITMAP | BS_ICON)))" in viv)
+
+    # --- a refresh with no file is a blank, not a reload ---
+    i = viv.find("static void _viv_refresh(void)")
+    i = viv.find("static void _viv_refresh(void)", i + 10)
+    j = viv.find("\nstatic ", i + 10)
+    seg = viv[i:j]
+    check("the refresh skips the reload when no file is open",
+          "if (!fd.cFileName[0])" in seg and
+          "_viv_open(&fd,0);" in seg)
+    check("the no-file refresh resets the stale error flags",
+          "_viv_file_not_found = 0;" in seg and
+          "_viv_load_failed = 0;" in seg and
+          "return;" in seg)
+
+    # --- the theme change broadcast gets the re-check too ---
+    check("both theme broadcasts schedule the one shot re-check",
+          viv.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 2)
+
+    # --- the view menu canvas color picker + the backdrop rename ---
+    check("the view menu canvas color command id exists",
+          "VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR," in vh)
+    check("the command table row sits before the backdrop popup",
+          "{LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU,MF_STRING,_VIV_MENU_VIEW,VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR}," in viv)
+    i = viv.find("case VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR:")
+    check("the menu picker applies the color the same way as the options ok",
+          i != -1 and
+          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv[i:i+1600] and
+          "_viv_refresh();" in viv[i:i+1600])
+    check("the backdrop menu is renamed to the transparency backdrop",
+          '"&Transparency backdrop", // LOCALIZATION_ID_BACKDROP' in en and
+          '"透明背景(&T)", // LOCALIZATION_ID_BACKDROP' in zh and
+          '"Follow &window background color", // LOCALIZATION_ID_BACKDROP_FOLLOW' in en and
+          '"跟随窗口背景色(&F)", // LOCALIZATION_ID_BACKDROP_FOLLOW' in zh)
+    check("the new canvas color strings exist in both languages",
+          '"Windowed &background color...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU' in en and
+          '"窗口背景颜色(&B)...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU' in zh)
 
 if __name__ == "__main__":
     t_panscan_gone()
@@ -2499,6 +2590,7 @@ if __name__ == "__main__":
     t_field_fixes_round42()
     t_field_fixes_round43()
     t_field_fixes_round44()
+    t_field_fixes_round46()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

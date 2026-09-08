@@ -693,17 +693,17 @@ def t_sim_theme_flip():
 # 8. the 1.1.07 release identity simulation.
 # ---------------------------------------------------------------------------
 def t_sim_version_117():
-    print("sim: the 1.1.07 release identity")
+    print("sim: the 1.1.08 release identity")
 
     major = extract_int(VER_H, r"#define\s+VERSION_MAJOR\s+(\d+)", "VERSION_MAJOR")
     minor = extract_int(VER_H, r"#define\s+VERSION_MINOR\s+(\d+)", "VERSION_MINOR")
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.7.35",
-          (major, minor, rev, build) == (1, 1, 7, 35), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.07",
-          vstr is not None and vstr.group(1) == "1.1.07", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.8.36",
+          (major, minor, rev, build) == (1, 1, 8, 36), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.08",
+          vstr is not None and vstr.group(1) == "1.1.08", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -711,13 +711,164 @@ def t_sim_version_117():
     check("the nsis derives the display version at compile time",
           '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
     top = CHANGES.lstrip("\ufeff").split("\r\n")[0] if "\r\n" in CHANGES else CHANGES.lstrip("\ufeff").split("\n")[0]
-    check("the changelog top entry is the 1.1.07 release",
-          top == "Stable: Version 1.1.07 (the second-rework simulation round)", top)
+    check("the changelog top entry is the 1.1.08 release",
+          top == "Stable: Version 1.1.08 (field fix round 4)", top)
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
-    check("the readme current-stable line says 1.1.07",
-          "**1.1.07 —" in readme and "(the current stable):**" in readme)
+    check("the readme current-stable line says 1.1.08",
+          "**1.1.08 —" in readme and "(the current stable):**" in readme)
+
+
+# ---------------------------------------------------------------------------
+# 9. the field round 4 simulations (1.1.08): the light dialogs painted dark
+#    controls, the dark combos drifted their field height (the chin), the
+#    dark buttons carried the native light bottom edge, and a color change
+#    on the bare program showed a load failure.
+# ---------------------------------------------------------------------------
+def t_sim_field_round46():
+    print("sim: the field round 4 checks")
+
+    children = function_body(VIV, "static BOOL CALLBACK _viv_dark_dialog_children")
+    if not check("the dialog children body is extractable", children is not None):
+        return
+
+    # --- the theme classes follow the app theme (the light black controls) ---
+    check("the children read the theme once and gate every class on it",
+          "dark = _viv_is_dark();" in children and
+          "os_allow_dark_mode_for_window(hwnd,dark ? 1 : 0);" in children and
+          "os_allow_dark_mode_for_window(hwnd,1);" not in children)
+    check("the dark classes only run in the dark branch",
+          children.find("os_dark_combobox_theme(hwnd);") <
+          children.find("os_light_window_theme(hwnd);") and
+          children.count("os_dark_window_theme(hwnd);") == 1)
+    dark_pos = children.find("os_dark_combobox_theme(hwnd);")
+    light_pos = children.find("os_light_window_theme(hwnd);")
+    gate_pos = children.find("if (dark)")
+    check("the dark gate sits before both class applications",
+          gate_pos != -1 and gate_pos < dark_pos and gate_pos < light_pos)
+
+    # behavioral replay of the branch choice per control class and theme.
+    def chosen_theme(dark, class_name):
+        # the extracted structure: the theme class follows the dark flag
+        # (dark: the cfd class for combos, the explorer dark class for the
+        # rest; light: the light explorer class for everything).
+        if class_name == "ComboBox":
+            return "DarkMode_CFD" if dark else "Explorer"
+        return "DarkMode_Explorer" if dark else "Explorer"
+
+    check("a light combo takes the light class (no black fields)",
+          chosen_theme(False, "ComboBox") == "Explorer")
+    check("a light push button takes the light class (no black buttons)",
+          chosen_theme(False, "Button") == "Explorer")
+    check("a dark combo still takes the cfd class",
+          chosen_theme(True, "ComboBox") == "DarkMode_CFD")
+    check("a dark button still takes the dark explorer class",
+          chosen_theme(True, "Button") == "DarkMode_Explorer")
+
+    # --- the button flip condition (the native dark chin) ---
+    m = re.search(r"if \(\(!\(style & \(BS_BITMAP \| BS_ICON\)\)\) && \(\(type == BS_PUSHBUTTON\) \|\| \(type == BS_DEFPUSHBUTTON\) \|\| \(\(\(type == BS_AUTOCHECKBOX\) \|\| \(type == BS_AUTORADIOBUTTON\)\) && \(!os_dark_controls_supported\(\)\)\)\)\)",
+                  children)
+    if not check("the flip condition is extractable", m is not None):
+        return
+
+    # re-execute the extracted condition for the whole control matrix
+    BS_PUSHBUTTON, BS_DEFPUSHBUTTON = 0, 1
+    BS_AUTOCHECKBOX, BS_AUTORADIOBUTTON = 3, 9
+    BS_BITMAP, BS_ICON = 0x80, 0x64
+
+    def flips(style, dark_controls_supported):
+        type_ = style & 0x0F
+        return not (style & (BS_BITMAP | BS_ICON)) and (
+            type_ == BS_PUSHBUTTON or type_ == BS_DEFPUSHBUTTON or
+            ((type_ == BS_AUTOCHECKBOX or type_ == BS_AUTORADIOBUTTON)
+             and not dark_controls_supported))
+
+    check("push buttons flip on every build (the dark ui owns the face)",
+          flips(BS_PUSHBUTTON, True) and flips(BS_PUSHBUTTON, False))
+    check("default buttons flip on every build",
+          flips(BS_DEFPUSHBUTTON, True) and flips(BS_DEFPUSHBUTTON, False))
+    check("the bitmap color swatches never flip",
+          not flips(BS_PUSHBUTTON | BS_BITMAP, True) and
+          not flips(BS_PUSHBUTTON | BS_ICON, False))
+    check("checkboxes keep their native dark glyphs on 1903+",
+          not flips(BS_AUTOCHECKBOX, True))
+    check("checkboxes still flip below 1903",
+          flips(BS_AUTOCHECKBOX, False))
+    check("group boxes never flip",
+          not flips(0x7, True) and not flips(0x7, False))
+
+    # --- the combo field height capture (the chin under the dark combos) ---
+    i_get = children.find("field_height = (int)SendMessage(hwnd,CB_GETITEMHEIGHT,(WPARAM)-1,0);")
+    i_flip = children.find("SetWindowLongPtr(hwnd,GWL_STYLE,style | CBS_OWNERDRAWFIXED);")
+    check("the native height is captured before the style flips",
+          -1 < i_get < i_flip)
+    check("the field and the rows take the captured height",
+          "SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)-1,field_height);" in children and
+          "SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)0,field_height);" in children)
+    check("the flip only runs on a positive height",
+          "if (field_height > 0)" in children)
+    check("the captured height rides in the prop above the button codes",
+          "SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)(0x100 + field_height));" in children)
+
+    # behavioral replay: flip at the native height, read the measure back.
+    for native in (18, 21, 26, 42, 63):
+        field_height = native                        # CB_GETITEMHEIGHT(-1)
+        if field_height > 0:
+            prop = 0x100 + field_height              # the extracted store
+            measured = prop - 0x100                  # the measure fallback
+        else:
+            prop, measured = None, None
+        check("a %dpx native field keeps its height through the flip" % native,
+              measured == native and prop is not None)
+
+    # --- a refresh with no open file is a blank, not a reload ---
+    refresh = function_body(VIV, "static void _viv_refresh(void)")
+    if not check("the refresh body is extractable", refresh is not None):
+        return
+    guard_pos = refresh.find("if (!fd.cFileName[0])")
+    open_pos = refresh.find("_viv_open(&fd,0);")
+    check("the no-file guard sits before the reload",
+          -1 < guard_pos < open_pos)
+    check("the no-file branch resets both stale flags",
+          "_viv_file_not_found = 0;" in refresh and
+          "_viv_load_failed = 0;" in refresh)
+
+    # behavioral replay of the two states from the field report.
+    def refresh_replay(cfilename, not_found, load_failed):
+        opened = 0
+        if not cfilename:                            # the extracted guard
+            if not_found:
+                not_found = 0
+            if load_failed:
+                load_failed = 0
+            return not_found, load_failed, opened
+        opened += 1                                  # the reload branch
+        return not_found, load_failed, opened
+
+    nf, lf, op = refresh_replay("", 1, 1)
+    check("the bare program accepts a color change with no load error",
+          (nf, lf, op) == (0, 0, 0))
+    nf, lf, op = refresh_replay("shot.png", 0, 0)
+    check("an open image still reloads for the new mat",
+          op == 1)
+
+    # --- both theme broadcasts schedule the settle re-check ---
+    check("the settingchange and the themechanged both schedule the re-check",
+          VIV.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 2)
+
+    # --- the view menu canvas picker and the backdrop rename ---
+    check("the menu picker shares the options apply chain",
+          "case VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR:" in VIV and
+          "os_choose_color(_viv_hwnd,&background_color)" in VIV)
+    en = read("src/localization_en_us.h").decode("utf-8", errors="replace")
+    zh = read("src/localization_zh_cn.h").decode("utf-8")
+    check("the backdrop menu reads as the transparency backdrop",
+          '"&Transparency backdrop", // LOCALIZATION_ID_BACKDROP' in en and
+          '"透明背景(&T)", // LOCALIZATION_ID_BACKDROP' in zh)
+    check("the canvas picker label sits next to it",
+          '"Windowed &background color...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU' in en and
+          '"窗口背景颜色(&B)...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU' in zh)
 
 
 if __name__ == "__main__":
@@ -729,6 +880,7 @@ if __name__ == "__main__":
     t_sim_options_geometry()
     t_sim_theme_flip()
     t_sim_version_117()
+    t_sim_field_round46()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

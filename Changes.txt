@@ -1,3 +1,41 @@
+Stable: Version 1.1.08 (field fix round 4)
+	the fourth field round lands the reports from the 1.1.07 test:
+	- the light dialogs painted dark controls: the dark theme classes
+	were applied whatever the app theme, so the light options page
+	showed black comboboxes and black select-all buttons. the classes,
+	the immersive flag and the owner draw flips now follow the app
+	theme together, and the flip back to light restores the explorer
+	class and the light title bar (an open dialog no longer keeps the
+	dark chrome from an earlier flip either).
+	- the dark combos grew a chin: the owner draw flip rebuilt the
+	closed field height from the font metrics, which drifts a few
+	pixels at some dpis - the field then grows or shrinks against its
+	label row. the flip now captures the native field height first and
+	keeps it exactly, so the dark combo is pixel identical to the light
+	one (the measure fallback reads the captured height back).
+	- the dark push buttons owner draw on every build: the native dark
+	button carries a light bottom edge (the chin under the buttons) and
+	a hard rectangle that fights the rest of the dark chrome. the flat
+	face matches the combo fields exactly; the bitmap color swatches
+	keep their own painting in every state.
+	- changing the backdrop or the canvas color with no image open
+	showed a load failure at the bottom left: the refresh reloads the
+	current file, and with none the empty name only fails. the refresh
+	now keeps the blank state - no reload, no error, the stale flags
+	reset - so the bare program accepts any color change quietly.
+	- the mat confusion: the backdrop is what shows under the
+	transparent pixels of an image with alpha, not the canvas around
+	the image. the menu is renamed to the transparency backdrop and a
+	new view menu item (windowed background color...) puts the canvas
+	color one click away from it. the zoom range note: the below-fit
+	ladder from the 1.1.06 field round reaches about fit/16 - the 3
+	percent floor and the 1600 percent cap are the two ends of that
+	symmetric range.
+	- the theme change broadcast schedules the one shot dark re-check
+	as well (the visual style flip can race the registry the same way
+	the immersive color set broadcast does).
+	the version moves to 1.1.08 build 36.
+
 Stable: Version 1.1.07 (the second-rework simulation round)
 	the second rework check runs as a simulation: the new suite
 	(tests/simulation_test.py) extracts the constants, the formulas

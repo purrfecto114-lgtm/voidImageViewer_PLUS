@@ -305,9 +305,9 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Light", // LOCALIZATION_ID_DARK_MODE_LIGHT,
 	"Dark", // LOCALIZATION_ID_DARK_MODE_DARK,
 
-	// backdrop shown under transparent pixels
-	"Back&drop", // LOCALIZATION_ID_BACKDROP,
-	"&Follow window background", // LOCALIZATION_ID_BACKDROP_FOLLOW,
+	// what shows under the transparent pixels of an image with alpha
+	"&Transparency backdrop", // LOCALIZATION_ID_BACKDROP,
+	"Follow &window background color", // LOCALIZATION_ID_BACKDROP_FOLLOW,
 	"&Black", // LOCALIZATION_ID_BACKDROP_BLACK,
 	"&White", // LOCALIZATION_ID_BACKDROP_WHITE,
 	"&Custom color...", // LOCALIZATION_ID_BACKDROP_CUSTOM,
@@ -324,4 +324,5 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	" KB", // LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT
 	" MB", // LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT
 	" GB", // LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT
+	"Windowed &background color...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU
 };
