@@ -1602,6 +1602,62 @@ int os_menu_font(LOGFONTW *lf)
 	return 0;
 }
 
+// the dpi of a window: getdpiforwindow when the os provides it, the
+// tracked window dpi otherwise.
+int os_window_dpi(HWND hwnd)
+{
+	if ((!hwnd) || (!_os_GetDpiForWindow))
+	{
+		return os_logical_wide;
+	}
+	
+	return (int)_os_GetDpiForWindow(hwnd);
+}
+
+// fill lf with the message font (the dialog base font) at the window
+// own dpi. the dialog templates carry a hard coded segoe ui face that
+// never held the cjk glyphs: the chinese labels rendered through the
+// per character font linking fallback with the latin line metrics,
+// while the menu bar and the status bar draw the system locale font
+// (microsoft yahei ui) - two type systems in one window. the message
+// font is the locale native ui face at the right dpi, the same family
+// the menu and the status bar use, so one type system covers the whole
+// ui. returns 1 on success.
+int os_dialog_font(LOGFONTW *lf,HWND hwnd)
+{
+	NONCLIENTMETRICSW ncm;
+	
+	if (!lf)
+	{
+		return 0;
+	}
+	
+	os_zero_memory(&ncm,sizeof(ncm));
+	
+	ncm.cbSize = sizeof(ncm);
+	
+	if (_os_SystemParametersInfoForDpi)
+	{
+		// uiParam must match cbSize for the metric queries.
+		if (_os_SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS,sizeof(ncm),&ncm,0,(UINT)os_window_dpi(hwnd)))
+		{
+			*lf = ncm.lfMessageFont;
+			
+			return 1;
+		}
+	}
+	
+	// pre 1607 systems (and any ForDpi refusal): the plain query.
+	if (SystemParametersInfoW(SPI_GETNONCLIENTMETRICS,sizeof(ncm),&ncm,0))
+	{
+		*lf = ncm.lfMessageFont;
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
 // windows 11 chrome: rounded window corners (attribute 33, round)
 // and a caption color that matches the canvas (attribute 35). both
 // attributes fail with E_INVALIDARG on windows 10 and older and are

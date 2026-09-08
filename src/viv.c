@@ -2940,6 +2940,10 @@ static int _viv_paint_high = 0;
 static HBRUSH _viv_background_hbrush = 0;
 static COLORREF _viv_background_hbrush_color = 0;
 static HBRUSH _viv_dialog_dark_hbrush = 0; // dark dialog background brush, lazy created
+static HFONT _viv_dialog_font_handle = 0; // the shared dialog font, the system message font
+static int _viv_dialog_font_dpi = 0; // the dpi the shared dialog font was created for
+
+static void _viv_dialog_font_drop(void);
 // a cached dark chrome brush for the toolbar strip. which: 0 = the strip
 // face (0x252525, one step above the canvas), 1 = the separator shadow
 // line (0x454545), 2 = the separator highlight line (0x707070),
@@ -4713,7 +4717,12 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);
 			}
 			
-			// re-read the dark state (the theme itself or the high contrast
+			// the system font settings may follow the broadcast too: drop
+				// the shared dialog font so the next dialog reads the fresh
+				// metrics (lazy rebuild, an unrelated broadcast costs nothing).
+				_viv_dialog_font_drop();
+				
+				// re-read the dark state (the theme itself or the high contrast
 			// accessibility switch may flip it) and re-apply the chrome only
 			// when it actually changed: unrelated broadcasts are frequent and
 			// must not cause chrome churn.
@@ -6593,6 +6602,13 @@ static void _viv_kill(void)
 		_viv_dialog_dark_hbrush = 0;
 	}
 	
+	if (_viv_dialog_font_handle)
+	{
+		DeleteObject(_viv_dialog_font_handle);
+		
+		_viv_dialog_font_handle = 0;
+	}
+	
 	{
 		int i;
 		
@@ -8417,6 +8433,89 @@ static void _viv_menu_font_drop(void)
 	_viv_menu_font_dpi = 0;
 }
 
+// the dialog font: the system message font at the dialog window own
+// dpi, one handle shared by every dialog (the template face only sized
+// the dlu grid at creation; the message font is the family the menu
+// bar and the status bar draw, so the locale text renders with real
+// glyphs instead of the fallback the hard coded segoe ui forced).
+// cached per dpi, dropped on the settings change and freed with the
+// process.
+static HFONT _viv_dialog_font(HWND hwnd)
+{
+	int dpi;
+	
+	dpi = os_window_dpi(hwnd);
+	
+	if ((!_viv_dialog_font_handle) || (dpi != _viv_dialog_font_dpi))
+	{
+		LOGFONTW lf;
+		
+		if (os_dialog_font(&lf,hwnd))
+		{
+			HFONT new_font;
+			
+			new_font = CreateFontIndirectW(&lf);
+			
+			if (new_font)
+			{
+				if (_viv_dialog_font_handle)
+				{
+					DeleteObject(_viv_dialog_font_handle);
+				}
+				
+				_viv_dialog_font_handle = new_font;
+				
+				_viv_dialog_font_dpi = dpi;
+			}
+		}
+	}
+	
+	return _viv_dialog_font_handle;
+}
+
+// drop the cached dialog font: the system font settings may follow a
+// settings broadcast, the next dialog reads the fresh metrics (the
+// rebuild is lazy, so an unrelated broadcast costs nothing).
+static void _viv_dialog_font_drop(void)
+{
+	if (_viv_dialog_font_handle)
+	{
+		DeleteObject(_viv_dialog_font_handle);
+		
+		_viv_dialog_font_handle = 0;
+	}
+	
+	_viv_dialog_font_dpi = 0;
+}
+
+static BOOL CALLBACK _viv_dialog_font_child(HWND hwnd,LPARAM lParam)
+{
+	SendMessage(hwnd,WM_SETFONT,(WPARAM)lParam,MAKELPARAM(TRUE,0));
+	
+	return TRUE;
+}
+
+// give a dialog and every child control the message font. the shared
+// dialog proc runs this from WM_INITDIALOG before each dialog's own
+// case: the dark flip below captures the native combo field heights
+// against the final font, the about title derives its larger face from
+// it and the localized labels render with it.
+static void _viv_dialog_apply_font(HWND hwnd)
+{
+	HFONT font;
+	
+	font = _viv_dialog_font(hwnd);
+	
+	if (font)
+	{
+		// the dialog window itself first: WM_GETFONT on the dialog
+		// reports the template face until this set.
+		SendMessage(hwnd,WM_SETFONT,(WPARAM)font,MAKELPARAM(TRUE,0));
+		
+		EnumChildWindows(hwnd,_viv_dialog_font_child,(LPARAM)font);
+	}
+}
+
 // draw one owner drawn top level menu item. dark mode paints the dark
 // chrome face (selected items lift one step); a stale owner draw state
 // during a theme flip falls back to the system menu colors so the item
@@ -9845,6 +9944,27 @@ static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 {
 	switch(msg)
 	{
+		case WM_INITDIALOG:
+		{
+			// one type system: the message font at this dialog window own
+			// dpi replaces the template face on the dialog and every child
+			// control. the break keeps the -1 return so each dialog's own
+			// initialization still runs: the dark flip measures the final
+			// font and the localized labels draw with it.
+			_viv_dialog_apply_font(hwnd);
+			
+			break;
+		}
+		
+		case WM_DPICHANGED:
+		{
+			// a dialog dragged across monitors re-reads the font at the new
+			// dpi (the layout grid stays; the type follows).
+			_viv_dialog_apply_font(hwnd);
+			
+			break;
+		}
+		
 		case WM_DRAWITEM:
 		{
 			INT_PTR dark_reply;

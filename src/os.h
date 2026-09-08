@@ -201,6 +201,14 @@ int os_window_update_dpi(HWND hwnd);
 
 // the system menu font at the current window dpi (menu bar owner draw).
 int os_menu_font(LOGFONTW *lf);
+// the dpi of a window: getdpiforwindow when the os provides it, the
+// tracked window dpi otherwise.
+int os_window_dpi(HWND hwnd);
+// fill lf with the message font (the dialog base font) at the window
+// own dpi: segoe ui on an english system, the locale native ui face
+// (microsoft yahei ui on a chinese one) - no glyph fallback for the
+// cjk labels. returns 1 on success.
+int os_dialog_font(LOGFONTW *lf,HWND hwnd);
 
 // windows 11 chrome: rounded corners + a caption color matching the canvas.
 // silently ignored on windows 10 and older.

@@ -290,10 +290,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.10.39 stable (field fix round 6: the dialog return value)",
-          (major, minor, rev, build) == ("1", "1", "10", "39") and vtype == "")
+    check("version.h = 1.1.11.40 stable (the font unification round)",
+          (major, minor, rev, build) == ("1", "1", "11", "40") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.10")
+          vstr == "1.1.11")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -2793,6 +2793,73 @@ def t_field_fixes_round46():
           '"Windowed &background color...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU' in en and
           '"窗口背景颜色(&B)...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU' in zh)
 
+def t_field_fixes_round49():
+    """Guards for the font unification round (1.1.11).
+
+    The 1.1.09 unification hard coded every dialog template to Segoe UI
+    9pt, but Segoe UI holds no CJK glyphs: on a Chinese system every
+    dialog label rendered through the GDI font-linking fallback with the
+    Latin line metrics, while the menu bar (lfMenuFont) and the status
+    bar (lfStatusFont) draw the locale face - two type systems in one
+    window. This round gives every dialog the system message font at
+    the dialog window own DPI, from the shared dark proc's
+    WM_INITDIALOG case, before each dialog's own initialization runs.
+    """
+    viv = read("src/viv.c").decode("latin-1")
+    osc = read("src/os.c").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+    rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
+
+    # --- the os layer: the message font at the window dpi ---
+    check("os.h declares the window dpi and the dialog font",
+          "int os_window_dpi(HWND hwnd);" in osh and
+          "int os_dialog_font(LOGFONTW *lf,HWND hwnd);" in osh)
+    check("os.c fills lf from lfMessageFont on both query paths",
+          osc.count("*lf = ncm.lfMessageFont;") == 2)
+    check("the dialog font queries at the dialog window own dpi",
+          "(UINT)os_window_dpi(hwnd)" in osc)
+    check("os_window_dpi falls back to the tracked dpi pre-1607",
+          "return os_logical_wide;" in osc and
+          "return (int)_os_GetDpiForWindow(hwnd);" in osc)
+
+    # --- the viv layer: one shared handle, cached per dpi ---
+    check("the dialog font cache is the two static fields",
+          "static HFONT _viv_dialog_font_handle = 0;" in viv and
+          "static int _viv_dialog_font_dpi = 0;" in viv)
+    check("the drop carries a forward declaration (the settings case sits early)",
+          "static void _viv_dialog_font_drop(void);" in viv)
+    check("the cache rebuilds only when the dpi moves",
+          "if ((!_viv_dialog_font_handle) || (dpi != _viv_dialog_font_dpi))" in viv)
+    check("the handle is released on rebuild, drop and exit (three sites)",
+          viv.count("DeleteObject(_viv_dialog_font_handle);") == 3)
+    check("the settings change drops the shared font (one call site)",
+          viv.count("_viv_dialog_font_drop();") == 1)
+
+    # --- the apply: the dialog itself, then every child ---
+    check("the apply sets the font on the dialog window first",
+          "SendMessage(hwnd,WM_SETFONT,(WPARAM)font,MAKELPARAM(TRUE,0));" in viv and
+          "EnumChildWindows(hwnd,_viv_dialog_font_child,(LPARAM)font);" in viv)
+    check("the child callback forwards the setfont broadcast",
+          "static BOOL CALLBACK _viv_dialog_font_child(HWND hwnd,LPARAM lParam)" in viv)
+
+    # --- the shared proc wiring: the order is the fix ---
+    dark_proc = viv[viv.find("static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)"):]
+    dark_proc = dark_proc[:dark_proc.find("\nstatic void _viv_set_custom_rate")]
+    check("the shared proc owns the wm_initdialog case",
+          "case WM_INITDIALOG:" in dark_proc and
+          "_viv_dialog_apply_font(hwnd);" in dark_proc)
+    check("the initdialog case breaks (the -1 pass-through survives)",
+          "_viv_dialog_apply_font(hwnd);\r\n\t\t\t\r\n\t\t\tbreak;" in viv)
+    check("a dialog dragged across monitors re-reads the font",
+          "case WM_DPICHANGED:" in dark_proc and
+          dark_proc.count("_viv_dialog_apply_font(hwnd);") == 2)
+    check("the shared dark proc fronts all eleven dialogs",
+          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 11)
+
+    # --- the template keeps its job: the dlu skeleton ---
+    check("eleven segoe template statements stay (the dlu grid, not the face)",
+          rc.count('FONT 9, "Segoe UI"') == 11 and "MS Shell Dlg" not in rc)
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -2831,6 +2898,7 @@ if __name__ == "__main__":
     t_field_fixes_round46()
     t_field_fixes_round47()
     t_field_fixes_round48()
+    t_field_fixes_round49()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

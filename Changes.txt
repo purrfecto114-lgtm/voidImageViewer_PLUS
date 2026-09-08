@@ -1,3 +1,46 @@
+Stable: Version 1.1.11 (the font unification round)
+
+	the font round unifies the ui type system. the audit locked the
+	contradiction first: the 1.1.09 unification hard coded every dialog
+	template to segoe ui 9pt, but segoe ui carries no cjk glyphs - on a
+	chinese system every dialog label rendered through the gdi per
+	character font linking fallback with the latin line metrics, while
+	the menu bar (lfMenuFont) and the status bar (lfStatusFont) draw the
+	system locale face, microsoft yahei ui. two type systems in one
+	window: the line heights, the baselines and the glyph density of the
+	dialog text never matched the menu and status text:
+	- every dialog takes the system message font now. the shared dialog
+	  proc runs the apply from wm_initdialog, before each dialog's own
+	  case: the dialog window itself and every child control receive
+	  wm_setfont with the message font at the dialog window own dpi
+	  (getdpiforwindow when the os provides it, the tracked dpi
+	  otherwise). segoe ui on an english system, the locale native ui
+	  face on a chinese one - the same family the menu bar and the
+	  status bar draw. one type system, both themes.
+	- the template face keeps its job: the dlu grid. the dialog manager
+	  sizes the control rectangles from the template font at creation
+	  and the layout stays; only the rendering font follows the message
+	  font (the upstream shipped ms shell dlg 8pt, whose font mapping
+	  picked the locale face - the hard coded segoe ui lost that locale
+	  awareness; the message font restores it without the 8pt skeleton).
+	- the order matters and the tests pin it: the shared proc runs
+	  before each dialog's own initialization, so the dark flip captures
+	  the native combo field heights against the final font, the about
+	  title derives its larger face from it and the localized labels
+	  render with it.
+	- a dialog dragged across monitors re-reads the font at the new dpi
+	  (wm_dpichanged), a system font settings broadcast drops the shared
+	  handle (the next dialog reads the fresh metrics) and the exit
+	  frees it.
+	- the known limits, on record: a dialog that stands open through a
+	  system font change keeps its face until it reopens (the windows
+	  dialogs behave the same way), and the vertical budget keeps the
+	  segoe skeleton - a locale face a couple of pixels taller than the
+	  latin metrics paints inside the row spacing, the ltext rows sit
+	  two pixels tight (the simulation models the budget with the
+	  tolerance stated, not assumed away).
+	the version moves to 1.1.11 build 40.
+
 Stable: Version 1.1.10 (field fix round 6: the dialog return value)
 	the sixth field round repairs the 1.1.09 dark options fix itself. a
 	source audit of the custom draw path caught the headline bug: a dialog

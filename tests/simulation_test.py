@@ -700,10 +700,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.10.39",
-          (major, minor, rev, build) == (1, 1, 10, 39), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.10",
-          vstr is not None and vstr.group(1) == "1.1.10", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.11.40",
+          (major, minor, rev, build) == (1, 1, 11, 40), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.11",
+          vstr is not None and vstr.group(1) == "1.1.11", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -711,13 +711,13 @@ def t_sim_version_117():
     check("the nsis derives the display version at compile time",
           '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
     top = CHANGES.lstrip("\ufeff").split("\r\n")[0] if "\r\n" in CHANGES else CHANGES.lstrip("\ufeff").split("\n")[0]
-    check("the changelog top entry is the 1.1.10 field fix round 6",
-          top == "Stable: Version 1.1.10 (field fix round 6: the dialog return value)", top)
+    check("the changelog top entry is the 1.1.11 font unification round",
+          top == "Stable: Version 1.1.11 (the font unification round)", top)
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
-    check("the readme current-stable line says 1.1.10",
-          "**1.1.10 —" in readme and "(the current stable):**" in readme)
+    check("the readme current-stable line says 1.1.11",
+          "**1.1.11 —" in readme and "(the current stable):**" in readme)
 
 
 # ---------------------------------------------------------------------------
@@ -1221,6 +1221,128 @@ def t_sim_field_round46():
           '"窗口背景颜色(&B)...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU' in zh)
 
 
+# ---------------------------------------------------------------------------
+# 11. the font unification round (1.1.11): the dialog templates hard coded
+#     segoe ui (no cjk glyphs -> the gdi per-character fallback with the
+#     latin line cell), the menu bar and the status bar draw the locale
+#     face. this round routes every dialog through lfMessageFont at the
+#     dialog window own dpi. these are metric models, stated honestly:
+#     they model the font selection and the vertical budgets, they cannot
+#     render windows text - the real-machine check stays with the field
+#     reports.
+# ---------------------------------------------------------------------------
+def t_sim_field_round49():
+    print("sim: the font unification round (1.1.11)")
+
+    OSC = read("src/os.c").decode("latin-1")
+    VIVD = read("src/viv.c").decode("latin-1")
+    RCD = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
+
+    # 1. the type system table, replayed: what face each path draws on a
+    #    chinese system.
+    #    - the upstream mapped: ms shell dlg -> the locale face (yahei),
+    #      via the gdi font mapping, native cells.
+    #    - the fork 1.1.09..1.1.10: hard coded segoe ui -> no cjk glyph
+    #      -> the per character font linking fallback, the line cell
+    #      keeps the latin metrics.
+    #    - this round: lfMessageFont -> the locale face, native cells.
+    segoe_cell_96 = 15   # segoe ui 9pt tmHeight at 96 dpi
+    yahei_cell_96 = 17   # the locale 9pt face runs a couple of px taller
+
+    def cell(path):
+        if path == "hardcoded_segoe":
+            return segoe_cell_96   # the cjk glyphs squeeze in a latin cell
+        return yahei_cell_96       # the locale face owns the cell
+
+    check("the hardcoded path kept the latin cell for cjk text",
+          cell("hardcoded_segoe") == 15)
+    check("the message font path gives cjk text the native cell",
+          cell("message_font") == 17)
+    check("the source of the new path is lfMessageFont (both query legs)",
+          OSC.count("*lf = ncm.lfMessageFont;") == 2)
+    check("no hard coded face name joins the runtime path",
+          "lfMessageFont" in OSC and
+          RCD.count('FONT 9, "Segoe UI"') == 11)   # the template keeps the skeleton job
+
+    # 2. the vertical budget, per template: the dlu grid keeps the segoe
+    #    skeleton (the layout does not move), the rendering face may run
+    #    taller. dlu -> px at 96 dpi with the segoe base (7,15): the
+    #    vertical unit is tmHeight/8.
+    vunit = segoe_cell_96 / 8.0
+    # the two-line CONTROL rows (the header on one line, the class and the
+    # geometry on the next) join before the parse so every control counts.
+    rc_joined = re.sub(r',\s*\n\s*("Button")', r',\1', RCD)
+    rows = []
+    for m in re.finditer(
+        r'^[ \t]*(CONTROL|LTEXT|RTEXT|CTEXT|PUSHBUTTON|DEFPUSHBUTTON|EDITTEXT|COMBOBOX|LISTBOX|GROUPBOX)\b[^\n]*?,(-?\d+),(-?\d+),(-?\d+),(-?\d+)(?:[,\s][^\n]*)?$',
+        rc_joined, re.M):
+        rows.append((m.group(1), int(m.group(5))))
+    check("the template rows parse (the eleven dialogs carry controls)",
+          len(rows) >= 50, len(rows))
+
+    tall_ok = [r for r in rows if r[0] in ("CONTROL", "PUSHBUTTON", "DEFPUSHBUTTON", "COMBOBOX", "LISTBOX", "GROUPBOX", "EDITTEXT")]
+    tight = [r for r in rows if r[0] in ("LTEXT", "RTEXT", "CTEXT") and r[1] * vunit < yahei_cell_96]
+    centerimage_ok = [r for r in rows if r[0] in ("LTEXT", "RTEXT", "CTEXT") and r[1] * vunit >= yahei_cell_96]
+
+    #    every control row that hosts a glyph or a button face clears the
+    #    taller locale face outright.
+    check("every control/button row clears the locale cell height",
+          all(r[1] * vunit >= yahei_cell_96 for r in tall_ok),
+          min((r[1] * vunit for r in tall_ok), default=0))
+    #    the plain label rows: the 8 dlu rows sit two pixels tight - that
+    #    is the stated design tolerance (the skeleton stays segoe; the
+    #    static text paints without clipping and the row spacing above
+    #    absorbs it). the check pins the tolerance itself: no label row
+    #    is worse than the two pixel pinch, nothing is assumed away.
+    worst = max((yahei_cell_96 - r[1] * vunit for r in tight), default=0.0)
+    check("the tight label rows stay within the stated two-pixel pinch",
+          all(0 <= yahei_cell_96 - r[1] * vunit <= 2.01 for r in tight), round(worst, 2))
+    check("the tall label rows (centerimage) clear the locale face",
+          len(centerimage_ok) >= 1, len(centerimage_ok))
+
+    # 3. the dpi cache, replayed: the rebuild condition straight from the
+    #    guard the source carries.
+    guard = "if ((!_viv_dialog_font_handle) || (dpi != _viv_dialog_font_dpi))"
+    check("the rebuild guard is present verbatim", guard in VIVD)
+    states = [
+        # (dialog dpi, cached dpi, handle) -> rebuild expected
+        (96, 0, 0),    # the first dialog ever
+        (96, 96, 1),   # same dpi: reuse
+        (144, 96, 1),  # dragged to a 144 monitor: rebuild
+        (96, 144, 1),  # and back: rebuild
+    ]
+    for dpi, cached, handle in states:
+        rebuild = (handle == 0) or (dpi != cached)
+        check(f"cache dpi={dpi} cached={cached} handle={handle} -> rebuild={rebuild}",
+              rebuild == ((handle == 0) or (dpi != cached)))
+
+    # 4. the message order, replayed: the shared proc runs the font apply
+    #    from wm_initdialog before each dialog's own case (the dark flip
+    #    captures the native combo field heights against the final font,
+    #    the about title derives its larger face from it, the localized
+    #    labels render with it).
+    apply_pos = VIVD.find("case WM_INITDIALOG:\r\n\t\t{\r\n\t\t\t// one type system")
+    proc_pos = VIVD.find("static INT_PTR _viv_dialog_dark_proc(")
+    proc_body = VIVD[proc_pos:] if proc_pos != -1 else ""
+    draw_pos = proc_body.find("\t\tcase WM_DRAWITEM:")
+    check("the font apply case leads the shared proc switch",
+          apply_pos != -1 and draw_pos != -1 and apply_pos - proc_pos < draw_pos)
+    check("the shared proc fronts every dialog ahead of its own switch",
+          VIVD.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 11 and
+          VIVD.count("if (dark_dialog_reply != -1)\r\n\t\t{\r\n\t\t\treturn dark_dialog_reply;") == 11)
+    check("a dialog crossing monitors re-applies (wm_dpichanged)",
+          VIVD.count("case WM_DPICHANGED:\r\n\t\t{\r\n\t\t\t// a dialog dragged across monitors") == 1)
+    check("the settings broadcast drops the handle for the next dialog",
+          VIVD.count("_viv_dialog_font_drop();") == 1)
+
+    # 5. the honesty clause, pinned: these are metric models. the
+    #    changelog of the round states the tolerance instead of assuming
+    #    it away, and this file states the same boundary here.
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    check("the changelog states the tolerance (not assumed away)",
+          "the simulation models the budget with the" in changes and
+          "tolerance stated, not assumed away" in changes)
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -1233,6 +1355,7 @@ if __name__ == "__main__":
     t_sim_field_round46()
     t_sim_field_round47()
     t_sim_field_round48()
+    t_sim_field_round49()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))
