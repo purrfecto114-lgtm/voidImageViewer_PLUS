@@ -127,6 +127,13 @@
 #define IDC_SET_ZOOM_EDIT                1071
 #define IDC_SET_ZOOM_STATIC              1072
 
+// new ids for the about band chrome (the template round): two separator
+// lines and the button strip face, declared before the buttons in the
+// idd_about template so they sit under them in the z order.
+#define IDC_ABOUTBAND                    1073
+#define IDC_ABOUTLINE1                   1074
+#define IDC_ABOUTLINE2                   1075
+
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
@@ -134,7 +141,7 @@
 #define _APS_NO_MFC                     1
 #define _APS_NEXT_RESOURCE_VALUE        131
 #define _APS_NEXT_COMMAND_VALUE         40048
-#define _APS_NEXT_CONTROL_VALUE         1073
+#define _APS_NEXT_CONTROL_VALUE         1076
 #define _APS_NEXT_SYMED_VALUE           109
 #endif
 #endif

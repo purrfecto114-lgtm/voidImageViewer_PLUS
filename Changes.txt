@@ -1,3 +1,37 @@
+Stable: Version 1.1.12 (the about band template round)
+
+	the dark mode field report on the about dialog: the band chrome (the
+	two separator lines and the button strip face) was painted at runtime
+	by a wm_paint case - three fillrect passes whose band edges were
+	pixel literals (48 and 46 at the 96 dpi design point, scaled by the
+	system dpi fraction), while the dialog template positions the
+	buttons in dialog units: two coordinate systems that only met at 96
+	dpi. at any other scale (and after the b41 round made the dialog
+	font per-dpi) the lines drifted off the button strip and the band
+	boundaries crossed the controls - the rendering the report called
+	temporary drawing that never reached the resource template.
+	the fix moves the band chrome into the resource template:
+	- the geometry: two 1-du line controls (idc_aboutline1,
+	  idc_aboutline2) and one 24-du strip control (idc_aboutband)
+	  declared before the buttons in the idd_about template, so they
+	  sit under them in the z order. the template grid owns the band
+	  layout now: the lines ride the button strip at every dpi, in both
+	  themes, and the dialog font rounds apply to the band as to every
+	  other template control.
+	- the colors: the wm_paint case is gone. the control color replies
+	  carry the same palettes the passes used (the dark 0x45/0x70
+	  separator lines and the 0x25 strip face, the light 0xec lines and
+	  the white strip), the banner keeps its 1.1.11 face (the black band
+	  with the white title in the light ui, the shared dark canvas in
+	  the dark), and the dialog face itself answers through the
+	  WM_CTLCOLORDLG pipeline - the official dialog background path,
+	  so the light ui erases white and the dark erases the canvas
+	  color through one contract.
+	- the about color replies run before the shared dark dialog handler
+	  (its flat 0x20 static reply would flatten the line and strip
+	  faces); every other control keeps the shared pair untouched.
+	the version moves to 1.1.12 build 42: one dialog, one round, the
+	tag and the release stay user-gated.
 Stable: Version 1.1.12 (the about title hard code fix round)
 
 	the first round after the rollback is one hard code, the one the 1.1.11

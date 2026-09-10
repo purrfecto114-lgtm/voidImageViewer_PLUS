@@ -33,7 +33,7 @@ def check(name, ok, detail=""):
     if ok:
         print("  ok  %s" % name)
     else:
-        print("  FAIL %s%s" % (name, (" - " + detail) if detail else ""))
+        print("  FAIL %s%s" % (name, (" - " + str(detail)) if detail else ""))
         failures.append(name)
     return ok
 
@@ -700,8 +700,8 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.12.41",
-          (major, minor, rev, build) == (1, 1, 12, 41), str((major, minor, rev, build)))
+    check("the version quad is 1.1.12.42",
+          (major, minor, rev, build) == (1, 1, 12, 42), str((major, minor, rev, build)))
     check("the release identity string is 1.1.12",
           vstr is not None and vstr.group(1) == "1.1.12", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
@@ -711,8 +711,8 @@ def t_sim_version_117():
     check("the nsis derives the display version at compile time",
           '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
     top = CHANGES.lstrip("\ufeff").split("\r\n")[0] if "\r\n" in CHANGES else CHANGES.lstrip("\ufeff").split("\n")[0]
-    check("the changelog top entry is the 1.1.12 about title hard code fix round",
-          top == "Stable: Version 1.1.12 (the about title hard code fix round)", top)
+    check("the changelog top entry is the 1.1.12 about band template round",
+          top == "Stable: Version 1.1.12 (the about band template round)", top)
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
@@ -1068,9 +1068,9 @@ def t_sim_field_round47():
     #    strip report located it here - the system colors painted
     #    unconditionally below the dialog face).
     check("the about band takes the dark chrome strip and the fixed light palette",
-          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(1));" in VIV and
-          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(2));" in VIV and
-          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(0));" in VIV and
+          "return (INT_PTR)_viv_dark_chrome_brush(1);" in VIV and
+          "return (INT_PTR)_viv_dark_chrome_brush(2);" in VIV and
+          "return (INT_PTR)_viv_dark_chrome_brush(0);" in VIV and
           "_viv_about_light_brush(0)" in VIV and
           "_viv_about_light_brush(1)" in VIV and
           "(HBRUSH)(COLOR_BTNSHADOW + 1)" not in VIV and
@@ -1276,12 +1276,16 @@ def t_sim_field_round49():
     for m in re.finditer(
         r'^[ \t]*(CONTROL|LTEXT|RTEXT|CTEXT|PUSHBUTTON|DEFPUSHBUTTON|EDITTEXT|COMBOBOX|LISTBOX|GROUPBOX)\b[^\n]*?,(-?\d+),(-?\d+),(-?\d+),(-?\d+)(?:[,\s][^\n]*)?$',
         rc_joined, re.M):
-        rows.append((m.group(1), int(m.group(5))))
+        rows.append((m.group(1), int(m.group(5)), m.group(0)))
     check("the template rows parse (the eleven dialogs carry controls)",
           len(rows) >= 50, len(rows))
 
     tall_ok = [r for r in rows if r[0] in ("CONTROL", "PUSHBUTTON", "DEFPUSHBUTTON", "COMBOBOX", "LISTBOX", "GROUPBOX", "EDITTEXT")]
-    tight = [r for r in rows if r[0] in ("LTEXT", "RTEXT", "CTEXT") and r[1] * vunit < yahei_cell_96]
+    # the blank label rows (the b42 template round's band chrome controls:
+    # the separator lines and the button strip face carry geometry and
+    # color, no glyphs) never join the glyph budget - the pinch invariant
+    # speaks to rows that host text.
+    tight = [r for r in rows if r[0] in ("LTEXT", "RTEXT", "CTEXT") and r[1] * vunit < yahei_cell_96 and '""' not in r[2]]
     centerimage_ok = [r for r in rows if r[0] in ("LTEXT", "RTEXT", "CTEXT") and r[1] * vunit >= yahei_cell_96]
 
     #    every control row that hosts a glyph or a button face clears the

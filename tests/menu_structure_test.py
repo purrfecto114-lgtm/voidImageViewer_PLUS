@@ -290,8 +290,8 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.41 stable (the about title hard code fix round)",
-          (major, minor, rev, build) == ("1", "1", "12", "41") and vtype == "")
+    check("version.h = 1.1.12.42 stable (the about band template round)",
+          (major, minor, rev, build) == ("1", "1", "12", "42") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
           vstr == "1.1.12")
     check("rc derives everything from version.h",
@@ -605,9 +605,10 @@ def t_dark_dialogs_wiring():
           viv.find("if (!_viv_is_dark())",
                    viv.find("os_EnableThemeDialogTexture(page_hwnd,ETDT_ENABLETAB);") - 200) != -1)
 
-    # about paint
-    check("about paints the dark palette",
-          "FillRect(ps.hdc,&rect,_viv_dialog_dark_brush());" in viv)
+    # about colors (the b42 template round: the wm_paint passes are gone,
+    # the same palettes travel the control color replies)
+    check("about answers the dark palette through the control color replies",
+          "return (INT_PTR)_viv_dialog_dark_brush();" in viv)
 
     # brush lifetime
     check("the dialog brush is deleted at kill",
@@ -2664,11 +2665,10 @@ def t_field_fixes_round47():
           viv.count("SelectObject(draw_item->hDC,old_font);") >= 2)
 
     # --- the about band follows the theme (the white strip report) ---
-    check("the about bottom band paints the dark chrome in the dark ui",
-          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(1));" in viv and
-          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(2));" in viv and
-          "FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(0));" in viv and
-          "(HBRUSH)(COLOR_BTNSHADOW + 1)" not in viv and
+    check("the about bottom band answers the dark chrome in the dark ui",
+          "return (INT_PTR)_viv_dark_chrome_brush(1);" in viv and
+          "return (INT_PTR)_viv_dark_chrome_brush(2);" in viv and
+          "return (INT_PTR)_viv_dark_chrome_brush(0);" in viv and
           "(HBRUSH)(COLOR_BTNSHADOW + 1)" not in viv and
           "(HBRUSH)(COLOR_BTNHIGHLIGHT + 1)" not in viv)
     check("the about light band takes the fixed win11 palette",
@@ -2946,6 +2946,98 @@ def t_field_fixes_round51():
           "the tag and the release stay user-gated" in changes)
 
 
+def t_about_band_round64():
+    """Guards for the about band template round (1.1.12 b42, the dark
+    mode temporary-draw report).
+
+    The about dialog painted its band chrome at runtime in WM_PAINT:
+    three FillRect passes whose band edges were pixel literals (48 and
+    46 at the 96 dpi design point, scaled by the system dpi fraction)
+    while the dialog template positions the buttons in dialog units -
+    two coordinate systems that only met at 96 dpi. At any other scale
+    (and after the b41 round made the dialog font per-dpi) the separator
+    lines drifted off the button strip and the band boundaries crossed
+    the controls: the rendering the field report called temporary
+    drawing that never reached the resource template. The fix moves the
+    band chrome into the template: two 1-du line controls and one 24-du
+    strip control declared before the buttons (so they sit under them
+    in the z order) carry the geometry, the control color replies carry
+    the same palettes the wm_paint passes used, WM_CTLCOLORDLG answers
+    the dialog face, and the WM_PAINT case is gone - the band follows
+    the template grid at every dpi, in both themes, and the banner
+    keeps its 1.1.11 face (the black band with the white title in the
+    light ui, the shared dark canvas in the dark).
+    """
+    viv = read("src/viv.c").decode("latin-1")
+
+    about_start = viv.find(
+        "_viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)\r\n{\r\n")
+    about_end = viv.find("\nstatic ", about_start)
+    about = viv[about_start:about_end] if about_start != -1 else ""
+    check("the about proc block was found for the round64 guards",
+          about != "", "")
+
+    check("the 96-dpi band literals are gone from the whole code base",
+          "(48 * os_logical_high)" not in viv and
+          "(46 * os_logical_high)" not in viv)
+    check("the about proc no longer repaints the bands in WM_PAINT",
+          "case WM_PAINT:" not in about)
+    check("the own color replies run before the shared dark handler",
+          "own_reply = _viv_about_colors(hwnd,msg,wParam,lParam);" in about)
+
+    colors_start = viv.find(
+        "static INT_PTR _viv_about_colors(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)\r\n{\r\n")
+    colors_end = viv.find("\r\nstatic ", colors_start)
+    colors = viv[colors_start:colors_end] if colors_start != -1 else ""
+    check("the about color handler block was found for the round64 guards",
+          colors != "", "")
+    check("the dialog face answers through the WM_CTLCOLORDLG pipeline",
+          "if (msg == WM_CTLCOLORDLG)" in colors)
+    check("the banner keeps the 1.1.11 light face (black band, white title)",
+          "GetStockObject(BLACK_BRUSH)" in colors and
+          "SetTextColor(hdc,RGB(255,255,255));" in colors)
+    check("the band controls draw through the color palettes, not the paint passes",
+          "IDC_ABOUTLINE1" in colors and
+          "IDC_ABOUTLINE2" in colors and
+          "IDC_ABOUTBAND" in colors and
+          "_viv_dark_chrome_brush(1)" in colors and
+          "_viv_dark_chrome_brush(2)" in colors and
+          "_viv_dark_chrome_brush(0)" in colors)
+
+    rc = read("res/voidImageViewer.rc").decode("latin-1")
+    about_rc_start = rc.find("IDD_ABOUT DIALOGEX")
+    about_rc_end = rc.find("\nIDD_EDIT_KEY", about_rc_start)
+    about_rc = rc[about_rc_start:about_rc_end] if about_rc_start != -1 else ""
+    check("the IDD_ABOUT template block was found for the round64 guards",
+          about_rc != "", "")
+    ok_index = about_rc.find('DEFPUSHBUTTON   "OK",IDOK')
+    check("the band geometry lives in the resource template",
+          "LTEXT           \"\",IDC_ABOUTLINE1,0,163,228,1" in about_rc and
+          "LTEXT           \"\",IDC_ABOUTLINE2,0,164,228,1" in about_rc and
+          "LTEXT           \"\",IDC_ABOUTBAND,0,165,228,24" in about_rc)
+    check("the band controls are declared before the buttons (z order under them)",
+          (about_rc.find("IDC_ABOUTLINE1") != -1) and (ok_index != -1) and
+          (about_rc.find("IDC_ABOUTLINE1") < ok_index) and
+          (about_rc.find("IDC_ABOUTBAND") < ok_index))
+
+    ids = read("res/resource.h").decode("latin-1")
+    check("the band control ids are defined with the next value moved",
+          "#define IDC_ABOUTBAND                    1073" in ids and
+          "#define IDC_ABOUTLINE1                   1074" in ids and
+          "#define IDC_ABOUTLINE2                   1075" in ids and
+          "_APS_NEXT_CONTROL_VALUE         1076" in ids)
+
+    version = read("src/version.h").decode("latin-1")
+    check("the version moves to build 42",
+          "#define VERSION_BUILD 42" in version)
+
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    check("the changelog states the two coordinate systems and the template move",
+          "two coordinate systems" in changes and
+          "the resource template" in changes and
+          "WM_CTLCOLORDLG" in changes)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -2987,6 +3079,7 @@ if __name__ == "__main__":
     t_field_fixes_round49()
     t_field_fixes_round50()
     t_field_fixes_round51()
+    t_about_band_round64()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

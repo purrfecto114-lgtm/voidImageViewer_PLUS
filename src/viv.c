@@ -13525,8 +13525,131 @@ static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,L
 	return FALSE;
 }
 
+// the about dialog colors. the banner (aboutback + abouttitle) keeps its
+// 1.1.11 face: the black band with the white title in the light ui, the
+// shared dark canvas face in the dark. the band chrome (the two separator
+// lines and the button strip) answers with the same palettes the wm_paint
+// passes painted before the template round moved the geometry into the
+// resource template. the rest of the controls answer the light face the
+// 1.1.11 ctlcolor case painted and fall through to the shared dark handler
+// in the dark ui (the caller runs this before the shared proc so the band
+// controls never fall into its flat 0x20 reply).
+static INT_PTR _viv_about_colors(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	if ((msg == WM_CTLCOLORSTATIC) || (msg == WM_CTLCOLOREDIT))
+	{
+		HDC hdc;
+		HWND control;
+		
+		hdc = (HDC)wParam;
+		control = (HWND)lParam;
+		
+		if ((control == GetDlgItem(hwnd,IDC_ABOUTBACK)) || (control == GetDlgItem(hwnd,IDC_ABOUTTITLE)))
+		{
+			if (_viv_is_dark())
+			{
+				SetTextColor(hdc,RGB(0xE8,0xE8,0xE8));
+				SetBkColor(hdc,RGB(0x20,0x20,0x20));
+				
+				return (INT_PTR)_viv_dialog_dark_brush();
+			}
+			
+			SetTextColor(hdc,RGB(255,255,255));
+			SetBkColor(hdc,RGB(0,0,0));
+			
+			return (LRESULT)GetStockObject(BLACK_BRUSH);
+		}
+		
+		if (control == GetDlgItem(hwnd,IDC_ABOUTLINE1))
+		{
+			if (_viv_is_dark())
+			{
+				SetBkColor(hdc,RGB(0x45,0x45,0x45));
+				
+				return (INT_PTR)_viv_dark_chrome_brush(1);
+			}
+			
+			SetBkColor(hdc,RGB(0xEC,0xEC,0xEC));
+			
+			return (INT_PTR)_viv_about_light_brush(0);
+		}
+		
+		if (control == GetDlgItem(hwnd,IDC_ABOUTLINE2))
+		{
+			if (_viv_is_dark())
+			{
+				SetBkColor(hdc,RGB(0x70,0x70,0x70));
+				
+				return (INT_PTR)_viv_dark_chrome_brush(2);
+			}
+			
+			SetBkColor(hdc,RGB(0xEC,0xEC,0xEC));
+			
+			return (INT_PTR)_viv_about_light_brush(0);
+		}
+		
+		if (control == GetDlgItem(hwnd,IDC_ABOUTBAND))
+		{
+			if (_viv_is_dark())
+			{
+				SetBkColor(hdc,RGB(0x25,0x25,0x25));
+				
+				return (INT_PTR)_viv_dark_chrome_brush(0);
+			}
+			
+			SetBkColor(hdc,RGB(0xFF,0xFF,0xFF));
+			
+			return (INT_PTR)_viv_about_light_brush(1);
+		}
+		
+		// the rest of the controls keep the 1.1.11 light face; the dark ui
+		// answers them through the shared dark handler - this reply only
+		// covers the light theme.
+		if (!_viv_is_dark())
+		{
+			SetTextColor(hdc,RGB(0,0,0));
+			SetBkColor(hdc,RGB(255,255,255));
+			
+			return (LRESULT)GetStockObject(WHITE_BRUSH);
+		}
+	}
+	
+	if (msg == WM_CTLCOLORDLG)
+	{
+		// the dialog face: the wm_paint pass used to paint it after the
+		// default erase; the ctldlg reply now hands the dialog manager the
+		// same brush for its own erase (the template round owns the
+		// geometry, the palette travels the official pipeline).
+		if (_viv_is_dark())
+		{
+			return (INT_PTR)_viv_dialog_dark_brush();
+		}
+		
+		return (LRESULT)GetStockObject(WHITE_BRUSH);
+	}
+	
+	return -1;
+}
+
 static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	{
+		INT_PTR own_reply;
+		
+		// the banner and the band controls answer here (the shared dark
+		// handler below flattens every static to the 0x20 face and the
+		// band needs the line and strip colors); the dialog face answers
+		// here because the shared handler carries no ctldlg case. any
+		// other message falls through to the shared pair, then to the
+		// switch below.
+		own_reply = _viv_about_colors(hwnd,msg,wParam,lParam);
+		
+		if (own_reply != -1)
+		{
+			return own_reply;
+		}
+	}
+	
 	{
 		INT_PTR dark_dialog_reply;
 		
@@ -13540,71 +13663,6 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 	
 	switch(msg)
 	{
-		case WM_CTLCOLOREDIT:	
-		case WM_CTLCOLORSTATIC:	
-			if (((HWND)lParam == GetDlgItem(hwnd,IDC_ABOUTBACK)) || ((HWND)lParam == GetDlgItem(hwnd,IDC_ABOUTTITLE)))
-			{
-				SetTextColor((HDC)wParam,RGB(255,255,255));
-				SetBkColor((HDC)wParam,RGB(0,0,0));
-				return (LRESULT)GetStockObject(BLACK_BRUSH);
-			}
-			else
-			{
-				SetTextColor((HDC)wParam,RGB(0,0,0));
-				SetBkColor((HDC)wParam,RGB(255,255,255));
-				return (LRESULT)GetStockObject(WHITE_BRUSH);
-			}
-			break;
-			
-		case WM_PAINT:
-		{
-			RECT rect;
-			PAINTSTRUCT ps;	
-			GetClientRect(hwnd,&rect);
-			BeginPaint(hwnd,&ps);
-			rect.bottom -= (48 * os_logical_high) / 96;
-			if (_viv_is_dark())
-			{
-				FillRect(ps.hdc,&rect,_viv_dialog_dark_brush());
-			}
-			else
-			{
-				FillRect(ps.hdc,&rect,(HBRUSH)GetStockObject(WHITE_BRUSH));
-			}
-			rect.top = rect.bottom;
-			rect.bottom++;
-			if (_viv_is_dark())
-			{
-				FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(1));
-			}
-			else
-			{
-				FillRect(ps.hdc,&rect,_viv_about_light_brush(0));
-			}
-			rect.top = rect.bottom;
-			rect.bottom++;
-			if (_viv_is_dark())
-			{
-				FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(2));
-			}
-			else
-			{
-				FillRect(ps.hdc,&rect,_viv_about_light_brush(0));
-			}
-			rect.top = rect.bottom;
-			rect.bottom+=(46 * os_logical_high) / 96;
-			if (_viv_is_dark())
-			{
-				FillRect(ps.hdc,&rect,_viv_dark_chrome_brush(0));
-			}
-			else
-			{
-				FillRect(ps.hdc,&rect,_viv_about_light_brush(1));
-			}
-			EndPaint(hwnd,&ps);
-			break;
-		}
-			
 		case WM_INITDIALOG:
 			// dark chrome: title bar and dark explorer control style.
 			_viv_dark_dialog(hwnd);
