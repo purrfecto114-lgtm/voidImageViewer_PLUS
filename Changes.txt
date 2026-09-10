@@ -1,3 +1,56 @@
+Pre-release: Version 1.1.12-rc.2 (the white band fix round)
+
+	the field report on rc.1: a white band survives the theme flip on
+	the upper chrome, until a manual resize or refresh brings the dark
+	face back. the judgment round traced the strip to a chain of gaps,
+	all on the flip path (the user's 30 second probe - the band dies on
+	a resize - matched the menu bar candidate, the code evidence
+	confirmed it and a second strip below it):
+	- the menu bar strip (the band right of the last top level item):
+	  the flip ends with an immediate repaint sweep over the children
+	  that never carried rdw_frame, and the official semantics keep the
+	  non client area out of a frameless sweep: no wm_ncpaint, so the
+	  dark gap fill that lives in that message never runs, the system
+	  light strip stays until a manual frame change (the one-shot retry
+	  inside the fill only helps when the paint already reached the
+	  bar). the sweep now carries rdw_frame.
+	- the menu bar item widths: the dark ui measures the top level
+	  items itself (the label at the menu font plus a pad), the light
+	  ui hands them to the system - two measurement systems, so every
+	  flip relayouts the bar (chinese labels accumulate the per item
+	  drift). the pad was a literal 8 at 96 dpi; it is now probed from
+	  the system's own layout (the rect the system gave a top level
+	  item while it was still system drawn, minus its label extent),
+	  cached with the dpi it was captured at and rescaled to the
+	  window dpi, so both themes measure with the system air.
+	- the toolbar strip (the band right of the buttons): the theme flip
+	  re-metrics the comctl toolbar (the immersive flag, the rebuilt
+	  image list) but never relayouted the strip windows - the dpi
+	  change and the language switch both run the layout. the flip
+	  now runs the same sweep after the image list rebuild.
+	- the toolbar width: get_wide returned the content span (the union
+	  of the item rects), which loses the first item's left inset twice
+	  against the window the toolbar needs - the rightmost button
+	  could hide (hideclippedbuttons) and the strip behind it widened.
+	  tb_getmaxsize is the official query for the window the toolbar
+	  needs (the total size of all the visible buttons and separators,
+	  wm_user + 83); the content scan stays as the runtime fallback for
+	  the pre 5.80 comctl sets.
+	- the class brushes: the register wrapper ignored the brush and the
+	  cursor it was given and registered every class with the light
+	  window brush (white) - the rebar caller's own argument was never
+	  in effect, and the zoomui class asked for no brush and got white
+	  anyway. the wrapper honors its parameters now; the rebar passes
+	  no brush (the strip face is painted by theme in the erase and
+	  the paint handlers, a bypassing erase no longer flashes white),
+	  and the main, fullscreen and zoomui classes get what their
+	  callers always wrote (the main and fullscreen windows erase
+	  themselves, so nothing changes there).
+	the version moves to 1.1.12-rc.2 build 44: the candidate goes back
+	to the field - the rc.1 acceptance list carries over and the white
+	band becomes the first check (win11, 150 percent scaling, chinese
+	ui: flip dark and light five times without touching the window).
+
 Pre-release: Version 1.1.12-rc.1 (the about line release candidate)
 
 	the first release candidate of the 1.1.12 line: two rounds since

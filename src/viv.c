@@ -628,7 +628,10 @@ static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item);
 static void _viv_menu_bar_nc_fill(void);
 static void _viv_menu_bar_fill_gap(HDC hdc,int left,int top,int right,int bottom);
 static void _viv_menu_bar_theme(void);
+static void _viv_menu_bar_capture_pad(void);
 static RECT _viv_menu_bar_items_rect; // the union of the drawn item rects (window coordinates)
+static int _viv_menu_bar_pad = 0; // the system's own top level pad (pixels, captured with the dpi below)
+static int _viv_menu_bar_pad_dpi = 0; // the dpi the pad was captured at (the rescale base)
 static int _viv_menu_bar_items_valid = 0; // an item was drawn since the last layout reset
 static int _viv_menu_bar_nc_force = 0; // reentrancy guard for the no item repaint path
 static void _viv_menu_bar_remeasure(void);
@@ -8596,14 +8599,105 @@ static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)
 	
 	ReleaseDC(_viv_hwnd,hdc);
 	
-	// air on both sides of the label (the classic top level padding).
-	pad = (8 * os_logical_wide) / 96;
+	// air on both sides of the label. the pad is the system's own: captured
+	// from a live light layout while the items were still system drawn
+	// (the rect the system gave a top level item minus its label extent),
+	// rescaled to the window dpi. without a capture (the probe failed, or
+	// the ui never showed a light layout) the classic 8px air stays.
+	pad = 0;
+	
+	if ((_viv_menu_bar_pad > 0) && (_viv_menu_bar_pad_dpi > 0))
+	{
+		pad = (_viv_menu_bar_pad * os_logical_wide) / _viv_menu_bar_pad_dpi;
+	}
+	
+	if (pad <= 0)
+	{
+		pad = (8 * os_logical_wide) / 96;
+	}
 	
 	measure_item->itemWidth = size.cx + (pad * 2);
 	
 	if (!measure_item->itemHeight)
 	{
 		measure_item->itemHeight = size.cy + ((4 * os_logical_high) / 96);
+	}
+}
+
+// capture the system's own top level padding: while the items are still
+// system drawn, the rect the system gave one top level item minus its
+// label extent is the padding the system itself measures with. the dark
+// ui then draws its owner items with the same air, so the bar layout no
+// longer jumps when the theme flips (two measurement systems - the dark
+// one guessed 8px, the light one is the system's; the chinese labels
+// accumulated the per item drift, the widths the field compared).
+static void _viv_menu_bar_capture_pad(void)
+{
+	RECT item_rect;
+	SIZE size;
+	HDC hdc;
+	HFONT font;
+	HFONT old_font;
+	wchar_t text[STRING_SIZE];
+	MENUITEMINFOW mii;
+	int pad;
+	
+	if ((!_viv_hwnd) || (!_viv_hmenu))
+	{
+		return;
+	}
+	
+	os_zero_memory(&mii,sizeof(mii));
+	mii.cbSize = sizeof(mii);
+	mii.fMask = MIIM_SUBMENU | MIIM_DATA;
+	
+	// the probe item: a top level popup that carries its label id (the
+	// same itemData the owner draw measure and paint read back).
+	if ((!GetMenuItemInfoW(_viv_hmenu,0,TRUE,&mii)) || (!mii.hSubMenu) || (!mii.dwItemData))
+	{
+		return;
+	}
+	
+	if (!GetMenuItemRect(_viv_hwnd,_viv_hmenu,0,&item_rect))
+	{
+		return;
+	}
+	
+	string_copy_utf8_string(text,localization_get_string((int)mii.dwItemData));
+	
+	size.cx = 0;
+	size.cy = 0;
+	
+	hdc = GetDC(_viv_hwnd);
+	
+	font = _viv_menu_font();
+	old_font = 0;
+	
+	if (font)
+	{
+		old_font = SelectObject(hdc,font);
+	}
+	
+	GetTextExtentPoint32W(hdc,text,string_get_length(text),&size);
+	
+	if (old_font)
+	{
+		SelectObject(hdc,old_font);
+	}
+	
+	ReleaseDC(_viv_hwnd,hdc);
+	
+	pad = (item_rect.right - item_rect.left) - size.cx;
+	
+	if ((pad > 0) && (os_logical_wide > 0))
+	{
+		_viv_menu_bar_pad = pad;
+		_viv_menu_bar_pad_dpi = os_logical_wide;
+	}
+	else
+	{
+		_viv_menu_bar_pad = 0;
+		_viv_menu_bar_pad_dpi = 0;
 	}
 }
 
@@ -8782,6 +8876,15 @@ static void _viv_menu_bar_theme(void)
 		return;
 	}
 	
+	// the flip into the dark line captures the system's own top level
+	// padding while the items are still system drawn: a live light layout
+	// is the only moment the system's measure is observable. the dark
+	// measure then draws with the same air, so the widths no longer jump.
+	if (dark)
+	{
+		_viv_menu_bar_capture_pad();
+	}
+	
 	changed = 0;
 	count = GetMenuItemCount(_viv_hmenu);
 	
@@ -8949,6 +9052,13 @@ static void _viv_apply_dark_mode(int repaint)
 	// the image list so the palette follows the theme.
 	_viv_toolbar_build_image_list();
 	
+	// the comctl toolbar re-metrics on the theme switch (the immersive
+	// flag changes the button paddings, the rebuilt image list can resize
+	// the buttons): relayout the strip windows now, the same sweep the dpi
+	// change and the language switch run. a stale rect clips the rightmost
+	// button (hideclippedbuttons) and widens the slab behind it.
+	_viv_on_size();
+	
 	// the open dialogs re-theme live: the options dialog is usually on
 	// screen when its own dark mode combo changes the setting.
 	_viv_dark_dialogs_refresh();
@@ -8993,8 +9103,13 @@ static void _viv_apply_dark_mode(int repaint)
 	if (repaint)
 	{
 		// forced repaint callers also sweep the children now instead of
-		// waiting for the message loop.
-		RedrawWindow(_viv_hwnd,0,0,RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+		// waiting for the message loop. the frame joins the sweep: without
+		// rdw_frame the official semantics keep the non client area out of
+		// the immediate update, the pending wm_ncpaint gets consumed without
+		// painting, the dark gap fill that lives in that message never runs
+		// and the menu bar keeps the system light strip until a manual resize
+		// or refresh - the white band the field caught on the flip.
+		RedrawWindow(_viv_hwnd,0,0,RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN | RDW_FRAME);
 	}
 }
 
@@ -15025,12 +15140,18 @@ static void _viv_controls_show(int show)
 	{
 		if (!_viv_toolbar_hwnd)
 		{
+			// no class brush: the strip face is painted by theme (the erase
+			// and the paint handlers below), a draw that bypasses them must
+			// not erase white (the 1.1.03 lesson: the light class brush left
+			// the slabs white whenever a paint skipped the handlers - and the
+			// register wrapper ignored this argument anyway, every class
+			// registered white; the wrapper honors its parameters now).
 			os_RegisterClassEx(
 				CS_DBLCLKS,
 				_viv_rebar_proc,
 				0,
 				LoadCursor(NULL,IDC_ARROW),
-				(HBRUSH)(COLOR_WINDOW+1),
+				NULL,
 				"_VIV_REBAR",
 				0);
 
@@ -15942,6 +16063,26 @@ static int _viv_toolbar_get_wide(void)
 {
 	if (_viv_toolbar_hwnd)
 	{
+		SIZE size;
+		
+		// the official window query: tb_getmaxsize returns the total size
+		// of all the visible buttons and separators - the width the toolbar
+		// actually needs (wm_user + 83, every comctl since 5.80). the content
+		// scan below it returns the union of the item rects, which loses the
+		// first item's left inset twice against the window the toolbar needs:
+		// the rightmost button could hide (hideclippedbuttons) and the slab
+		// behind the strip widened - the band the field saw right of the
+		// buttons. a failure or a zero (the pre 5.80 comctl sets) falls back
+		// to the scan.
+		if (SendMessage(_viv_toolbar_hwnd,TB_GETMAXSIZE,0,(LPARAM)&size))
+		{
+			if (size.cx > 0)
+			{
+				return size.cx;
+			}
+		}
+		
+		{
 		DWORD count;
 		DWORD button_index;
 		int min_x;
@@ -16024,6 +16165,7 @@ static int _viv_toolbar_get_wide(void)
 		{
 			return size.cx;
 		}*/
+		}
 	}
 	
 	return 0;

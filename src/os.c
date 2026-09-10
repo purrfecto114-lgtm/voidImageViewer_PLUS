@@ -778,8 +778,14 @@ void os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCurs
 	wcex.lpfnWndProc = lpfnWndProc;
 	wcex.hInstance = os_hinstance;
 	wcex.hIcon = hIcon;
-	wcex.hCursor = LoadCursor(NULL,IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);
+	// the wrapper honored neither the cursor nor the brush it was given:
+	// every class registered with the light window brush (white), so the
+	// rebar slabs, the zoomui tray and any bypassing erase flashed white
+	// in the dark ui no matter what the callers wrote. the parameters are
+	// the contract now - a caller that wants the classic faces passes
+	// them, a caller that paints its own face passes no brush at all.
+	wcex.hCursor = hCursor;
+	wcex.hbrBackground = hbrBackground;
 	wcex.lpszClassName = name_wbuf;
 	wcex.hIconSm = hIconSm;
 	

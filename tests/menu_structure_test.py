@@ -290,10 +290,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.43 rc.1 (the release candidate round)",
-          (major, minor, rev, build) == ("1", "1", "12", "43") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.1 tag)",
-          vstr == "1.1.12-rc.1")
+    check("version.h = 1.1.12.44 rc.2 (the white band fix round)",
+          (major, minor, rev, build) == ("1", "1", "12", "44") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.2 tag)",
+          vstr == "1.1.12-rc.2")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -2287,8 +2287,8 @@ def t_field_fixes_round42():
     seg = viv[i:j]
     check("every flip invalidates the whole client",
           seg.find("InvalidateRect(_viv_hwnd,0,FALSE);") < seg.find("if (repaint)"))
-    check("forced repaints sweep the children",
-          "RedrawWindow(_viv_hwnd,0,0,RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);" in seg)
+    check("forced repaints sweep the children with the frame (rc.2)",
+          "RedrawWindow(_viv_hwnd,0,0,RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN | RDW_FRAME);" in seg)
     check("the immersive color set gets a delayed re-check",
           "VIV_ID_DARK_RECHECK_TIMER" in vivh and
           "SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);" in viv and
@@ -3028,14 +3028,90 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 43",
-          "#define VERSION_BUILD 43" in version)
+    check("the release candidate line moves to build 44",
+          "#define VERSION_BUILD 44" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
           "two coordinate systems" in changes and
           "the resource template" in changes and
           "WM_CTLCOLORDLG" in changes)
+
+
+def t_white_band_round67():
+    """Guards for the white band fix round (1.1.12-rc.2: the theme flip
+    repaint sweep, the system menu pad, the toolbar window width and the
+    class brushes)."""
+    print("the white band fix round (1.1.12-rc.2)")
+
+    viv = read("src/viv.c").decode()
+    osc = read("src/os.c").decode()
+
+    # 1. the flip's immediate sweep carries the frame: the official
+    #    semantics keep the non client area out of a frameless sweep, so
+    #    the wm_ncpaint gap fill never ran and the system light strip
+    #    survived the flip (the white band the field caught).
+    check("the flip repaint sweep carries rdw_frame",
+          "RedrawWindow(_viv_hwnd,0,0,RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN | RDW_FRAME);" in viv)
+    check("the frameless sweep form is gone",
+          "RedrawWindow(_viv_hwnd,0,0,RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);" not in viv)
+
+    # 2. the flip relayouts the strip windows after the image list rebuild
+    #    (the comctl re-metrics on the theme switch): the dpi change and
+    #    the language switch run the layout, the flip now does too.
+    apply_start = viv.find("static void _viv_apply_dark_mode(int repaint)")
+    apply_start = viv.find("static void _viv_apply_dark_mode(int repaint)", apply_start + 10)
+    apply_body = viv[apply_start:viv.find("\nstatic ", apply_start + 10)]
+    image_list_at = apply_body.find("_viv_toolbar_build_image_list();")
+    on_size_at = apply_body.find("_viv_on_size();")
+    check("the flip relayouts the strip after the image list rebuild",
+          (image_list_at != -1) and (on_size_at != -1) and (image_list_at < on_size_at))
+
+    # 3. the menu pad: probed from the system's own layout while the items
+    #    are still system drawn, rescaled with the dpi; the literal 8
+    #    survives only as the probe fallback.
+    check("the system menu pad probe exists",
+          "static void _viv_menu_bar_capture_pad(void)" in viv and
+          "_viv_menu_bar_capture_pad();" in viv)
+    check("the probe runs before the owner draw flip",
+          "\tif (dark)\r\n\t{\r\n\t\t_viv_menu_bar_capture_pad();\r\n\t}" in viv)
+    check("the measure uses the captured system pad with the dpi rescale",
+          "(_viv_menu_bar_pad * os_logical_wide) / _viv_menu_bar_pad_dpi" in viv)
+    check("the literal 8 pad survives only as the probe fallback",
+          "pad = (8 * os_logical_wide) / 96;" in viv)
+
+    # 4. the toolbar window width: tb_getmaxsize (the official total size
+    #    of all the visible buttons and separators) leads, the content
+    #    scan stays as the pre 5.80 fallback.
+    check("the toolbar width asks tb_getmaxsize first",
+          "SendMessage(_viv_toolbar_hwnd,TB_GETMAXSIZE,0,(LPARAM)&size)" in viv and
+          "TB_GETITEMRECT,button_index,(LPARAM)&button_rect" in viv)
+
+    # 5. the class brushes: the register wrapper ignored the brush and the
+    #    cursor it was given (every class registered white); the rebar
+    #    passes no brush so a bypassing erase never flashes white.
+    check("the register wrapper honors the brush and cursor it is given",
+          "wcex.hCursor = hCursor;" in osc and
+          "wcex.hbrBackground = hbrBackground;" in osc and
+          "wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);" not in osc)
+    check("the rebar registers without a class brush",
+          "LoadCursor(NULL,IDC_ARROW),\r\n\t\t\t\tNULL,\r\n\t\t\t\t\"_VIV_REBAR\"" in viv)
+    check("the white class brush is gone from the rebar registration",
+          "(HBRUSH)(COLOR_WINDOW+1),\r\n\t\t\t\t\"_VIV_REBAR\"" not in viv)
+
+    version = read("src/version.h").decode("latin-1")
+    check("the release candidate moves the version to build 44",
+          "#define VERSION_BUILD 44" in version and
+          '#define VERSION_STRING "1.1.12-rc.2"' in version)
+
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    check("the changelog states the flip sweep gap and the frame fix",
+          "rdw_frame" in changes and
+          "a frameless sweep" in changes and
+          "wm_ncpaint" in changes)
+    check("the changelog states the pad probe and the toolbar window query",
+          "the system's own layout" in changes and
+          "tb_getmaxsize" in changes)
 
 
 if __name__ == "__main__":
@@ -3080,6 +3156,7 @@ if __name__ == "__main__":
     t_field_fixes_round50()
     t_field_fixes_round51()
     t_about_band_round64()
+    t_white_band_round67()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
