@@ -25,6 +25,21 @@ def check(name, ok, detail=""):
 
 
 def read(p):
+    # R70 splice: viv.c was split into domain modules in one round. Reading
+    # "src/viv.c" returns viv.c followed by every src/viv_*.c in dictionary
+    # order, so the 140+ shape guards below keep covering the moved code
+    # without a single per-guard edit (the pure-move discipline keeps the
+    # bodies byte-identical; only declarations were added or de-static'ed).
+    if p == "src/viv.c":
+        import glob
+        parts = [open(p, "rb").read()]
+        for extra in sorted(glob.glob("src/viv_*.c")):
+            parts.append(b"\n" + open(extra, "rb").read())
+        # the R70 state layer carries the moved macros and shared types;
+        # the guards (#define / struct field pins) resolve against it too.
+        if glob.glob("src/viv_state.h"):
+            parts.append(b"\n" + open("src/viv_state.h", "rb").read())
+        return b"".join(parts)
     return open(p, "rb").read()
 
 
@@ -151,7 +166,7 @@ def t_panscan_gone():
 # ---------------------------------------------------------------------------
 def t_view_menu_shape():
     viv = read("src/viv.c").decode()
-    m = re.search(r"static _viv_command_t _viv_commands\[\]\s*=\s*\{(.*?)\n\};",
+    m = re.search(r"(?:static\s+)?_viv_command_t _viv_commands\[\]\s*=\s*\{(.*?)\n\};",
                   viv, re.S)
     assert m, "menu table not found"
     table = m.group(1)
@@ -371,7 +386,7 @@ def t_status_vararg_safety():
         check("zoom pane call passes exactly one vararg",
               args == "_viv_zoom_percent()", repr(args))
     # _viv_zoom_percent must be declared int and round the double average
-    m = re.search(r"static int _viv_zoom_percent\(void\)\s*\{(.*?)\n\}",
+    m = re.search(r"(?:static\s+)?int _viv_zoom_percent\(void\)\s*\{(.*?)\n\}",
                   viv, re.S)
     assert m, "_viv_zoom_percent not found"
     body = m.group(1)
@@ -467,7 +482,7 @@ def t_ladder_shape():
           "_viv_zoom_scales[_VIV_ZOOM_MAX]" in viv
           and "_viv_zoom_presets" not in viv)
     check("pos_max walks the ladder",
-          "static int _viv_zoom_pos_max(void)" in viv
+          re.search(r"(?:static\s+)?int _viv_zoom_pos_max\(void\)", viv) is not None
           and "_viv_zoom_scales[pos]" in viv)
     check("wheel clamp uses _viv_clamp_zoom_pos",
           "_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos);" in viv)
@@ -817,7 +832,7 @@ def t_paste_wiring():
     check("the mipmap is built lazily (NULL is a supported frame state)",
           "_viv_frames[0].mipmap = 0; // built lazily on the first paint." in viv)
     check("the paste helpers have prototypes",
-          "static void _viv_paste_clipboard_image(void);" in viv)
+          re.search(r"(?:static\s+)?void _viv_paste_clipboard_image\(void\);", viv) is not None)
     check("only 40 byte dib headers take the dib path",
           "bih->biSize == sizeof(BITMAPINFOHEADER)" in viv)
     check("the dib stride math is overflow safe",
@@ -839,7 +854,7 @@ def t_zoom_percent_wiring():
     lz = read("src/localization_zh_cn.h").decode()
 
     # stepping: snap to the nearest multiple of 10 first, then 10% per click
-    m = re.search(r"static void _viv_zoom_in\(int out,int have_xy,int x,int y\)\s*\{(.*?)\n\}",
+    m = re.search(r"(?:static\s+)?void _viv_zoom_in\(int out,int have_xy,int x,int y\)\s*\{(.*?)\n\}",
                   viv, re.S)
     assert m, "_viv_zoom_in not found"
     body = m.group(1)
@@ -857,13 +872,13 @@ def t_zoom_percent_wiring():
           "if (!_viv_image_wide)" in body)
 
     # the percent -> ladder position search
-    m = re.search(r"static void _viv_zoom_set_percent\(int percent,int screen_x,int screen_y,int force\)\s*\{(.*?)\n\}",
+    m = re.search(r"(?:static\s+)?void _viv_zoom_set_percent\(int percent,int screen_x,int screen_y,int force\)\s*\{(.*?)\n\}",
                   viv, re.S)
     assert m, "_viv_zoom_set_percent not found"
     body = m.group(1)
     check("the percent search is a binary search over the ladder",
           "lo + ((hi - lo) / 2)" in viv and "_viv_zoom_pos_max() + 1" in viv
-          and "static int _viv_zoom_pos_for_percent(int percent,int strict)" in viv
+          and re.search(r"(?:static\s+)?int _viv_zoom_pos_for_percent\(int percent,int strict\)", viv) is not None
           and "_viv_zoom_pos_for_percent(percent,0)" in viv
           and "_viv_zoom_pos_for_percent(next,1)" in viv)
     check("exact 100 percent enters the 1:1 mode",
@@ -940,7 +955,7 @@ def t_zoom_percent_wiring():
           "LOCALIZATION_ID_SET_ZOOM_STATIC," in lh)
 
     # the temp zoom flash is replaced by the permanent pane
-    m = re.search(r"static void _viv_status_update_temp_pos_zoom\(void\)\s*\{(.*?)\n\}",
+    m = re.search(r"(?:static\s+)?void _viv_status_update_temp_pos_zoom\(void\)\s*\{(.*?)\n\}",
                   viv, re.S)
     assert m
     body = m.group(1)
@@ -1020,8 +1035,8 @@ def t_review_fixes():
 
     # M3: everything ipc replies are validated field by field
     check("copydata helpers exist",
-          "static const char *_viv_copydata_read(const COPYDATASTRUCT *cds," in viv and
-          "static int _viv_everything_item_to_fd(const COPYDATASTRUCT *cds," in viv)
+          re.search(r"(?:static\s+)?const char \*_viv_copydata_read\(const COPYDATASTRUCT \*cds,", viv) is not None and
+          re.search(r"(?:static\s+)?int _viv_everything_item_to_fd\(const COPYDATASTRUCT \*cds,", viv) is not None)
     check("both everything cases validate the list header first",
           viv.count("if (_viv_safe_copy_data(cds->lpData,cds->cbData,cds->lpData,&list,sizeof(list)))") == 2)
     check("no raw trust of sender offsets remains",
@@ -1311,7 +1326,7 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 81)
+          len(re.findall(r"<ClCompile ", fp)) == 92)  # 81 + the 11 R70 domain modules
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
     check("shared props has the resource script and the app icon only",
@@ -1415,9 +1430,9 @@ def t_modernization_round6():
     check("glyphs.c/h exist and are in the shared props",
           os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
           and "glyphs.c" in fp and "glyphs.h" in fp)
-    check("the props counts grew by the glyphs pair",
-          len(re.findall(r"<ClCompile ", fp)) == 81
-          and len(re.findall(r"<ClInclude ", fp)) == 49)
+    check("the props counts grew by the glyphs pair and the R70 domains",
+          len(re.findall(r"<ClCompile ", fp)) == 92
+          and len(re.findall(r"<ClInclude ", fp)) == 61)
     check("glyphs.c loads its own gdi+ flat api table",
           '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
           and '"GdipCreateBitmapFromScan0"' in gc
@@ -1454,7 +1469,7 @@ def t_modernization_round6():
           len(re.findall(r"<Image Include=", fp)) == 1
           and "voidImageViewer.ico" in fp)
     check("the extracted image list builder rebuilds on demand",
-          "static void _viv_toolbar_build_image_list(void)" in viv
+          re.search(r"(?:static\s+)?void _viv_toolbar_build_image_list\(void\)", viv) is not None
           and viv.count("_viv_toolbar_build_image_list();") >= 3)
     check("the old LoadIcon toolbar icons are gone",
           "LoadIcon(os_hinstance,(LPCTSTR)IDI_PREV)" not in viv
@@ -1660,9 +1675,11 @@ def t_stable_round():
 
     # navigation scan cost: the wrap target (start) tracking is deferred to a
     # second pass that only runs when the primary direction has no candidate.
-    i = viv.find("static int _viv_next(")
-    i = viv.find("static int _viv_next(", i + 10)
-    j = viv.find("\nstatic ", i + 10)
+    i = viv.find("int _viv_next(")
+    i = viv.find("int _viv_next(", i + 10)
+    # R70: the next col-0 function after an exported def may not be static,
+    # so bound the segment by the def's own closing brace at column 0.
+    j = viv.find("\n}", i)
     seg = viv[i:j]
     check("the playlist scan dropped its per-file start compare",
           "// compare with start" not in seg[:seg.find("if (!got_best)")])
@@ -1740,8 +1757,8 @@ def t_dark_menu_bar():
           "if (_viv_is_dark())" in seg)
 
     # the drawing and measuring helpers.
-    i = viv.find("static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)")
-    i = viv.find("static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)", i + 10)
+    i = viv.find("int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)")
+    i = viv.find("int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("the dark draw uses the chrome palette",
@@ -1754,8 +1771,8 @@ def t_dark_menu_bar():
           "ODS_NOACCEL" in seg and "DT_HIDEPREFIX" in seg)
     check("a stale owner draw state falls back to the system colors",
           "GetSysColorBrush" in seg and "COLOR_MENUTEXT" in seg)
-    i = viv.find("static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)")
-    i = viv.find("static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)", i + 10)
+    i = viv.find("void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)")
+    i = viv.find("void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("the measure reads the label at the menu font",
@@ -1766,8 +1783,8 @@ def t_dark_menu_bar():
           "if (!measure_item->itemHeight)" in seg)
 
     # the non client tail fill and the theme toggle.
-    i = viv.find("static void _viv_menu_bar_nc_fill(void)")
-    i = viv.find("static void _viv_menu_bar_nc_fill(void)", i + 10)
+    i = viv.find("void _viv_menu_bar_nc_fill(void)")
+    i = viv.find("void _viv_menu_bar_nc_fill(void)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("the tail fill covers the gaps around the drawn items union",
@@ -1778,8 +1795,8 @@ def t_dark_menu_bar():
           "GetWindowDC(_viv_hwnd);" in seg)
     check("the tail fill only runs with an attached menu",
           "GetMenu(_viv_hwnd)" in seg)
-    i = viv.find("static void _viv_menu_bar_theme(void)")
-    i = viv.find("static void _viv_menu_bar_theme(void)", i + 10)
+    i = viv.find("void _viv_menu_bar_theme(void)")
+    i = viv.find("void _viv_menu_bar_theme(void)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("dark mode owner draws only the top level popups",
@@ -1790,8 +1807,8 @@ def t_dark_menu_bar():
           "_viv_menu_bar_state = dark;" in seg)
 
     # the wiring: create menu tagging, apply dark, rebuild.
-    i = viv.find("static HMENU _viv_create_menu(void)")
-    i = viv.find("static HMENU _viv_create_menu(void)", i + 10)
+    i = viv.find("HMENU _viv_create_menu(void)")
+    i = viv.find("HMENU _viv_create_menu(void)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("the root items carry their label id for the owner draw",
@@ -1800,8 +1817,8 @@ def t_dark_menu_bar():
           "_viv_commands[i].menu_id == _VIV_MENU_ROOT" in seg)
     check("a fresh menu forces the owner draw re-apply",
           "_viv_menu_bar_state = -1;" in seg)
-    i = viv.find("static void _viv_apply_dark_mode(int repaint)")
-    i = viv.find("static void _viv_apply_dark_mode(int repaint)", i + 10)
+    i = viv.find("void _viv_apply_dark_mode(int repaint)")
+    i = viv.find("void _viv_apply_dark_mode(int repaint)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("apply dark toggles the menu bar owner draw",
@@ -1961,7 +1978,7 @@ def t_audit_round14():
 
     # issue 4 + pointer validation live in the helper
     check("frame delay helper validates the value pointer",
-          "static UINT _viv_frame_delay_at(const os_PropertyItem_t *pd,SIZE_T pd_size,DWORD i)" in viv and
+          re.search(r"(?:static\s+)?UINT _viv_frame_delay_at\(const os_PropertyItem_t \*pd,SIZE_T pd_size,DWORD i\)", viv) is not None and
           "(SIZE_T)(v - (const BYTE *)pd) >= pd_size" in viv)
     check("frame delay helper reuses short delay arrays",
           "i % count" in viv)
@@ -2052,7 +2069,7 @@ def t_audit_round16():
 
     # issue 3: the dark chrome brushes release on shutdown
     check("dark chrome brushes live at file scope and release on kill",
-          "static HBRUSH _viv_dark_chrome_hbrushes[4];" in viv and
+          re.search(r"(?:static\s+)?HBRUSH _viv_dark_chrome_hbrushes\[4\];", viv) is not None and
           "DeleteObject(_viv_dark_chrome_hbrushes[i]);" in viv and
           "static HBRUSH hbrushes[4];" not in viv)
 
@@ -2128,7 +2145,7 @@ def t_ux_round41():
           '_config_write_string(h,key_buf,(i < config_recent_file_count) ? config_recent_files[i] : L"");' in cfg)
     check("mru feeds from the single-file open path",
           "_viv_recent_file_push(full_path_and_filename);" in viv and
-          "static void _viv_recent_file_push(const wchar_t *filename);" in viv)
+          re.search(r"(?:static\s+)?void _viv_recent_file_push\(const wchar_t \*filename\);", viv) is not None)
     check("mru submenu is inserted before exit",
           "InsertMenuItemW(menus[_VIV_MENU_FILE],insert_pos,TRUE,&mii);" in viv and
           "_VIV_MENU_FILE_RECENT," in viv)
@@ -2227,8 +2244,8 @@ def t_field_fixes_round42():
     # --- the mru insertion: brace depth simulation ---
     # the field screenshot showed dozens of duplicate "recent files" rows:
     # the insertion block has to run once per rebuild, after the walk.
-    i = viv.find("static HMENU _viv_create_menu(void)")
-    i = viv.find("static HMENU _viv_create_menu(void)", i + 10)
+    i = viv.find("HMENU _viv_create_menu(void)")
+    i = viv.find("HMENU _viv_create_menu(void)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     for_idx = seg.find("for(i=0;i<_VIV_COMMAND_COUNT;i++)")
@@ -2257,8 +2274,8 @@ def t_field_fixes_round42():
           seg.count("recent_menu = _viv_create_recent_menu();") == 1)
 
     # --- the blank state clears the stale error flags ---
-    i = viv.find("static void _viv_blank(void)")
-    i = viv.find("static void _viv_blank(void)", i + 10)
+    i = viv.find("void _viv_blank(void)")
+    i = viv.find("void _viv_blank(void)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("blank clears the file-not-found flag",
@@ -2268,7 +2285,7 @@ def t_field_fixes_round42():
 
     # --- the light-mode toolbar chrome follows the light menu bar ---
     check("the light chrome brush cache exists",
-          "static HBRUSH _viv_light_chrome_hbrushes[2];" in viv and
+          re.search(r"(?:static\s+)?HBRUSH _viv_light_chrome_hbrushes\[2\];", viv) is not None and
           "_viv_light_chrome_brush(int which)" in viv)
     check("the light chrome brushes are released on kill",
           viv.count("DeleteObject(_viv_light_chrome_hbrushes[i]);") == 1 and
@@ -2281,8 +2298,8 @@ def t_field_fixes_round42():
           "_viv_dark_chrome_brush(2) : _viv_light_chrome_brush(1));" in viv)
 
     # --- the dark flip repaint hardening ---
-    i = viv.find("static void _viv_apply_dark_mode(int repaint)")
-    i = viv.find("static void _viv_apply_dark_mode(int repaint)", i + 10)
+    i = viv.find("void _viv_apply_dark_mode(int repaint)")
+    i = viv.find("void _viv_apply_dark_mode(int repaint)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("every flip invalidates the whole client",
@@ -2304,7 +2321,7 @@ def t_field_fixes_round42():
     check("the shrink ladder constant exists",
           "#define _VIV_ZOOM_SHRINK_STEPS 278" in viv)
     check("the floor helper is wired",
-          "static int _viv_zoom_pos_floor(void);" in viv and
+          re.search(r"(?:static\s+)?int _viv_zoom_pos_floor\(void\);", viv) is not None and
           "return -_VIV_ZOOM_SHRINK_STEPS;" in viv and
           "if (!config_allow_shrinking)" in viv)
     check("the clamp respects the below-fit floor",
@@ -2339,8 +2356,8 @@ def t_field_fixes_round43():
     check("the push trims with a while, not a single if",
           "while(config_recent_file_count >= CONFIG_RECENT_FILE_COUNT)" in viv and
           "if (config_recent_file_count == CONFIG_RECENT_FILE_COUNT)" not in viv)
-    i = viv.find("static HMENU _viv_create_recent_menu(void)")
-    i = viv.find("static HMENU _viv_create_recent_menu(void)", i + 10)
+    i = viv.find("HMENU _viv_create_recent_menu(void)")
+    i = viv.find("HMENU _viv_create_recent_menu(void)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("the popup builder clamps its own loop bound",
@@ -2355,11 +2372,11 @@ def t_field_fixes_round43():
           "#define _VIV_RECENT_SAVE_DELAY" in viv and
           "2000" in viv[viv.find("#define _VIV_RECENT_SAVE_DELAY"):viv.find("#define _VIV_RECENT_SAVE_DELAY") + 60])
     check("the mru mutations defer instead of writing",
-          "static void _viv_recent_save_defer(void)" in viv and
+          re.search(r"(?:static\s+)?void _viv_recent_save_defer\(void\)", viv) is not None and
           viv.count("_viv_recent_save_defer();") == 4 and
           "_viv_recent_save_defer();\r\n\t_viv_recent_menu_update();" in viv)
-    i = viv.find("static void _viv_recent_file_push(const wchar_t *filename)\r\n{")
-    i = viv.find("static void _viv_recent_file_push(const wchar_t *filename)\r\n{", i + 10)
+    i = viv.find("void _viv_recent_file_push(const wchar_t *filename)\r\n{")
+    i = viv.find("void _viv_recent_file_push(const wchar_t *filename)\r\n{", i + 10)
     j = viv.find("static void _viv_recent_file_remove", i)
     seg = viv[i:j]
     check("the push path never writes the ini synchronously",
@@ -2374,7 +2391,7 @@ def t_field_fixes_round43():
           "if (_viv_recent_save_dirty)" in seg and
           "config_save_settings(config_appdata);" in seg)
     check("the exit path folds the pending write",
-          "static void _viv_recent_save_fold(void)" in viv and
+          re.search(r"(?:static\s+)?void _viv_recent_save_fold\(void\)", viv) is not None and
           viv.find("_viv_recent_save_fold();\r\n\t\r\n\tconfig_save_settings(config_appdata);") != -1)
     check("the session end folds the pending write",
           viv.find("case WM_ENDSESSION:") < viv.find("_viv_recent_save_fold();\r\n\t\t\t\t\r\n\t\t\t\tconfig_save_settings(config_appdata);"))
@@ -2448,8 +2465,10 @@ def t_field_fixes_round44():
 
     # --- the backdrop follows the same rules ---
     i = viv.find("static HBRUSH _viv_backdrop_solid_brush(void)")
+    # R70: the domain files add forward declarations, so skip the proto.
+    i = viv.find("static HBRUSH _viv_backdrop_solid_brush(void)", i + 10)
     j = viv.find("\nstatic ", i + 10)
-    seg = viv[i:j]
+    seg = viv[i:j] if i != -1 else ""
     check("a custom backdrop color keeps its hue but lands in the dark range",
           "color = _viv_is_dark() ? _viv_dark_mat_color(config_backdrop_color_r,config_backdrop_color_g,config_backdrop_color_b) : RGB(config_backdrop_color_r,config_backdrop_color_g,config_backdrop_color_b);" in seg)
     check("the follow backdrop matches the mat the window paints (fullscreen aware)",
@@ -2532,8 +2551,11 @@ def t_field_fixes_round48():
           "FillRect(custom_draw->hdc,&custom_draw->rc,_viv_dialog_dark_brush());" in viv)
 
     # --- the focus frame, drawn once ---
-    notify = viv[viv.find("static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)"):]
-    notify = notify[:notify.find("\nstatic INT_PTR _viv_dialog_dark_proc")]
+    i = viv.find("static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)")
+    # R70: skip the forward declaration, bound on the exported def.
+    i = viv.find("static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)", i + 10) if i != -1 else -1
+    notify = viv[i:] if i != -1 else ""
+    notify = notify[:notify.find("\nINT_PTR _viv_dialog_dark_proc")]
     check("the focus frame draws exactly once inside the notify",
           notify.count("DrawFocusRect") == 1)
 
@@ -2758,8 +2780,8 @@ def t_field_fixes_round46():
           "(!(style & (BS_BITMAP | BS_ICON)))" in viv)
 
     # --- a refresh with no file is a blank, not a reload ---
-    i = viv.find("static void _viv_refresh(void)")
-    i = viv.find("static void _viv_refresh(void)", i + 10)
+    i = viv.find("void _viv_refresh(void)")
+    i = viv.find("void _viv_refresh(void)", i + 10)
     j = viv.find("\nstatic ", i + 10)
     seg = viv[i:j]
     check("the refresh skips the reload when no file is open",
@@ -2835,7 +2857,7 @@ def t_field_fixes_round49():
           "static BOOL CALLBACK _viv_dialog_font_child(HWND hwnd,LPARAM lParam)" in viv)
 
     # --- the shared proc wiring: the order is the fix ---
-    dark_proc = viv[viv.find("static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)"):]
+    dark_proc = viv[viv.find("INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)"):]
     dark_proc = dark_proc[:dark_proc.find("\nstatic void _viv_set_custom_rate")]
     check("the shared proc owns the wm_initdialog case",
           "case WM_INITDIALOG:" in dark_proc and
@@ -2868,7 +2890,9 @@ def t_field_fixes_round50():
     """
     viv = read("src/viv.c").decode("latin-1")
 
-    proc_start = viv.find("static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)")
+    proc_start = viv.find("INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)")
+    # R70: skip the forward declaration (the first hit is the proto).
+    proc_start = viv.find("INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)", proc_start + 60)
     after = viv.find("\nstatic ", proc_start + 60)
     dark_proc = viv[proc_start:after] if after != -1 else viv[proc_start:proc_start + 20000]
 
@@ -3059,8 +3083,8 @@ def t_white_band_round67():
     # 2. the flip relayouts the strip windows after the image list rebuild
     #    (the comctl re-metrics on the theme switch): the dpi change and
     #    the language switch run the layout, the flip now does too.
-    apply_start = viv.find("static void _viv_apply_dark_mode(int repaint)")
-    apply_start = viv.find("static void _viv_apply_dark_mode(int repaint)", apply_start + 10)
+    apply_start = viv.find("void _viv_apply_dark_mode(int repaint)")
+    apply_start = viv.find("void _viv_apply_dark_mode(int repaint)", apply_start + 10)
     apply_body = viv[apply_start:viv.find("\nstatic ", apply_start + 10)]
     image_list_at = apply_body.find("_viv_toolbar_build_image_list();")
     on_size_at = apply_body.find("_viv_on_size();")
@@ -3146,20 +3170,80 @@ def t_split_architecture_round69():
     check("the plan pins the done definition",
           "5,000" in plan)
 
-    # 3. the monolith baseline: the split has not started yet, and any
-    #    growth of viv.c before the slices land is a regression of the
-    #    decision (the split can only shrink the file from here).
+    # 3. the monolith baseline, recalibrated in R70 when the one-shot split
+    #    landed: the guards read viv.c spliced with the domain modules, so
+    #    this now pins the TOTAL code size (the pure move may only add
+    #    declarations, never code).
     viv_lines = viv.count("\n") + 1
-    check("the monolith is at the measured baseline (no growth allowed)",
-          viv_lines >= 21000 and viv_lines <= 21260)
+    check("the spliced code stays inside the pure-move window (no code growth)",
+          viv_lines >= 21130 and viv_lines <= 21800)
 
-    # 4. the modules the plan promises do not exist yet (the slices are
-    #    future rounds): state layer and the first domain are absent.
+    # 4. recalibrated in R70: the state layer and the domain modules now
+    #    exist (see t_split_architecture_round70 for the landing guards).
     import os
-    check("the state layer is still a future slice",
-          not os.path.exists("src/viv_state.h"))
-    check("the recent domain module is still a future slice",
-          not os.path.exists("src/viv_recent.c"))
+    check("the state layer landed",
+          os.path.exists("src/viv_state.h"))
+    check("the recent domain module landed",
+          os.path.exists("src/viv_recent.c"))
+
+
+def t_split_architecture_round70():
+    """Guards for the one-shot viv.c split landing (R70): the monolith is
+    gone, every domain module exists under its size cap, the state layer
+    carries the transition externs, the props register every new compile
+    unit exactly once and the plan documents the recalibration."""
+    print("the viv one-shot split landing round (r70)")
+    import os
+    raw_viv = open("src/viv.c", "rb").read().decode("utf-8", errors="replace")
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+
+    # 1. the residual monolith is under the 5,000 line target
+    check("the viv.c residual is under 5,000 lines",
+          raw_viv.count("\n") + 1 < 5000)
+
+    # 2. every domain module exists and is under the 3,000 line cap
+    domains = ["recent", "playlist", "load", "anim", "render", "chrome",
+               "dark", "dialogs", "view", "install", "menu"]
+    for d in domains:
+        p = f"src/viv_{d}.c"
+        ok = os.path.exists(p)
+        check(f"the {d} domain module exists", ok)
+        if ok:
+            n = open(p, "rb").read().decode("utf-8", errors="replace").count("\n") + 1
+            check(f"viv_{d}.c is under 3,000 lines", n < 3000, f"({n})")
+
+    # 3. the state layer exists and carries the transition externs
+    check("the state layer exists", os.path.exists("src/viv_state.h"))
+    if os.path.exists("src/viv_state.h"):
+        state = open("src/viv_state.h", "rb").read().decode("utf-8", errors="replace")
+        check("the state layer declares the shared state",
+              state.count("extern ") >= 100)
+        state_lines = state.split("\n")
+        inc = next(k for k, l in enumerate(state_lines) if l.startswith('#include "viv.h"'))
+        ext = next(k for k, l in enumerate(state_lines) if l.startswith("extern "))
+        check("the state layer includes viv.h first", inc < ext)
+
+    # 4. every new module is registered exactly once in the shared props
+    props = read("voidImageViewer.files.props").decode("utf-8-sig")
+    for d in domains:
+        check(f"{d} is registered in the props",
+              props.count(f'src\\viv_{d}.c" />') == 1 and
+              props.count(f'src\\viv_{d}.h" />') == 1)
+    check("the state header is registered in the props",
+          props.count('src\\viv_state.h" />') == 1)
+
+    # 5. the pure-move discipline: the spliced view of the code is only
+    #    ~200 declaration lines larger than the 21,130 line baseline.
+    total = viv.count("\n") + 1
+    check("the spliced total stays in the pure-move window",
+          21130 <= total <= 21800, f"({total})")
+
+    # 6. the plan carries the R70 one-shot recalibration
+    plan = read("docs/architecture/viv-split-plan.md").decode()
+    check("the plan documents the R70 recalibration",
+          "R70" in plan and ("一次性" in plan or "one-shot" in plan))
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -3204,6 +3288,7 @@ if __name__ == "__main__":
     t_about_band_round64()
     t_white_band_round67()
     t_split_architecture_round69()
+    t_split_architecture_round70()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

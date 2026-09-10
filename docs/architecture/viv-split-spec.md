@@ -111,3 +111,15 @@ menu_structure_test.py 有 125 处 `viv.c` 引用、zoom_math 16 处、simulatio
 | 守卫拼接顺序敏感 | 拼接按字典序 + 纯移动保证文本不变；拼接助手本身加守卫（round69） |
 | CI image 漂移（MSB8020 类） | 已 pin windows-2022 + windows-2025 双腿（tests.yml 现状） |
 | 用户验收节奏被拆分潮淹没 | 拆分轮合并验收：每 2–3 片一次实机；rc 转正决策不受拆分影响（用户指令触发） |
+
+---
+
+## R70 落地记录（补充 §4）
+
+片序表按计划方向落地，但按用户"先审视大方向"的松绑指令改为一次性
+执行：fullscreen 并入 chrome、dialog_dark 独立为 dark、everything 并入
+playlist，新增 install 与 menu 两域（spec 原把它们留在残余，实测成体
+系）。§2.3 的过渡态按"最小导出面"收紧（110/159 extern 化，52 个单域
+变量随域搬家并保留 static）。§2.4 拼接策略升级为含 viv_state.h 的完
+整拼接。性能与体积由既有 /GL 全程序优化兜底，详见
+viv-split-plan.md 的《R70 校准增补》。

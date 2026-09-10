@@ -39,6 +39,19 @@ def check(name, ok, detail=""):
 
 
 def read(path):
+    # R70 splice: viv.c was split into domain modules; reading "src/viv.c"
+    # returns viv.c followed by every src/viv_*.c in dictionary order so the
+    # guards keep covering the moved code (pure move: bodies unchanged).
+    if path == "src/viv.c":
+        import glob
+        parts = [open(path, "rb").read()]
+        for extra in sorted(glob.glob("src/viv_*.c")):
+            parts.append(b"\n" + open(extra, "rb").read())
+        # the R70 state layer carries the moved macros/enums; the guard
+        # extractions (#define ...) resolve against it too.
+        if glob.glob("src/viv_state.h"):
+            parts.append(b"\n" + open("src/viv_state.h", "rb").read())
+        return b"".join(parts)
     with open(path, "rb") as f:
         return f.read()
 
@@ -177,7 +190,7 @@ def t_sim_mat_color():
 
     # the two user states route through the same mapper: the empty window
     # canvas (_viv_windowed_background) and the open-image backdrop mat.
-    win_bg = function_body(VIV, "static COLORREF _viv_windowed_background(void)")
+    win_bg = function_body(VIV, "COLORREF _viv_windowed_background(void)")
     check("the empty-window canvas delegates to the mapper in the dark ui",
           win_bg is not None and "return _viv_dark_mat_color(config_windowed_background_color_r" in win_bg)
     check("the open-image backdrop delegates to the mapper in the dark ui",
@@ -189,8 +202,8 @@ def t_sim_mat_color():
     # follow backdrop: the fullscreen mat wears the fullscreen color (the
     # r44 a2 fix - the image under a fullscreen follow mat used to wear
     # the windowed color).
-    follow = VIV.find("static HBRUSH _viv_backdrop_solid_brush(void)")
-    seg = VIV[follow:follow + 1600]
+    follow_seg = function_body(VIV, "HBRUSH _viv_backdrop_solid_brush(void)")
+    seg = follow_seg if follow_seg is not None else ""
     check("the follow mat matches the mode the window actually paints",
           "color = _viv_is_fullscreen ? RGB(config_fullscreen_background_color_r" in seg and
           ": _viv_windowed_background();" in seg)
@@ -326,7 +339,7 @@ def t_sim_recent_mru():
     # the menu ids: the popup builder emits ids RECENT_0+i for i<count
     # and never past the block (the compile-time lock keeps the block in
     # lockstep with the array).
-    builder = function_body(VIV, "static HMENU _viv_create_recent_menu(void)")
+    builder = function_body(VIV, "HMENU _viv_create_recent_menu(void)")
     if check("the recent popup builder exists", builder is not None):
         check("the builder clamps the count before the loop",
               "count = (config_recent_file_count < CONFIG_RECENT_FILE_COUNT) ? config_recent_file_count : CONFIG_RECENT_FILE_COUNT;" in builder)
@@ -338,7 +351,7 @@ def t_sim_recent_mru():
 
     # the surgical swap: the update path touches one menu row and never
     # rebuilds the bar (the second half of the open stutter).
-    upd = function_body(VIV, "static void _viv_recent_menu_update(void)")
+    upd = function_body(VIV, "void _viv_recent_menu_update(void)")
     if check("the surgical menu update exists", upd is not None):
         check("the update never calls SetMenu (no full-bar rebuild)",
               "SetMenu(" not in upd)
@@ -350,7 +363,7 @@ def t_sim_recent_mru():
 
     # the open path itself carries no synchronous write: the push body
     # defers, it never calls config_save_settings.
-    push = function_body(VIV, "static void _viv_recent_file_push(const wchar_t *filename)")
+    push = function_body(VIV, "void _viv_recent_file_push(const wchar_t *filename)")
     if check("the push body is extractable", push is not None):
         check("the push body defers instead of writing the ini",
               "_viv_recent_save_defer();" in push, push[:120])
@@ -365,7 +378,7 @@ def t_sim_recent_mru():
 def t_sim_menu_braces():
     print("sim: the menu walk (the mru block placement, brace depth)")
 
-    body = function_body(VIV, "static HMENU _viv_create_menu(void)")
+    body = function_body(VIV, "HMENU _viv_create_menu(void)")
     if not check("the menu builder body is extractable", body is not None):
         return
 
@@ -445,7 +458,7 @@ def t_sim_zoom_ladder():
         the reciprocal of the positive entry (never out of bounds)."""
         return table[pos] if pos > 0 else 1.0 / table[-pos]
 
-    floor_fn = function_body(VIV, "static int _viv_zoom_pos_floor(void)")
+    floor_fn = function_body(VIV, "int _viv_zoom_pos_floor(void)")
     if not check("the floor function is extractable", floor_fn is not None):
         return
     check("the floor honors allow-shrinking (off = the best fit)",
@@ -508,7 +521,7 @@ def t_sim_zoom_ladder():
           "scale = (_viv_zoom_pos > 0) ? _viv_zoom_scales[_viv_zoom_pos] : (1.0 / _viv_zoom_scales[-_viv_zoom_pos]);" in VIV)
 
     # the clamp: a runaway negative position clamps to the floor, not past it.
-    clamp_fn = function_body(VIV, "static int _viv_clamp_zoom_pos(int zoom_pos)")
+    clamp_fn = function_body(VIV, "int _viv_clamp_zoom_pos(int zoom_pos)")
     if check("the clamp function is extractable", clamp_fn is not None):
         def clamp(z):
             if z <= pos_floor():
@@ -531,7 +544,7 @@ def t_sim_zoom_ladder():
 def t_sim_blank_flags():
     print("sim: the blank state clears the stale status flags")
 
-    blank = function_body(VIV, "static void _viv_blank(void)")
+    blank = function_body(VIV, "void _viv_blank(void)")
     if not check("the blank body is extractable", blank is not None):
         return
     check("blank clears the load-failed flag",
@@ -633,7 +646,7 @@ def t_sim_options_geometry():
 def t_sim_theme_flip():
     print("sim: the theme flip (whole-window repaint, the 400ms re-check)")
 
-    apply_fn = function_body(VIV, "static void _viv_apply_dark_mode(int repaint)")
+    apply_fn = function_body(VIV, "void _viv_apply_dark_mode(int repaint)")
     if not check("the apply body is extractable", apply_fn is not None):
         return
 
@@ -817,7 +830,7 @@ def t_sim_field_round48():
           defdlgproc_result(1, 4) == 4)
     check("the fix is wired at the call site (not just the theory)",
           "SetWindowLongPtr(hwnd,DWLP_MSGRESULT,dark_reply);" in VIV and
-          "return dark_reply;\n" not in function_body(VIV, "static INT_PTR _viv_dialog_dark_proc"))
+          "return dark_reply;\n" not in function_body(VIV, "INT_PTR _viv_dialog_dark_proc"))
 
     # 3. the touch mask, replayed against the nid table: integrated
     #    touch 0x01, external touch 0x02, integrated pen 0x04, ready 0x80.
@@ -1173,7 +1186,7 @@ def t_sim_field_round46():
               measured == native and prop is not None)
 
     # --- a refresh with no open file is a blank, not a reload ---
-    refresh = function_body(VIV, "static void _viv_refresh(void)")
+    refresh = function_body(VIV, "void _viv_refresh(void)")
     if not check("the refresh body is extractable", refresh is not None):
         return
     guard_pos = refresh.find("if (!fd.cFileName[0])")
@@ -1356,7 +1369,7 @@ def t_sim_field_round49():
     #    the about title derives its larger face from it, the localized
     #    labels render with it).
     apply_pos = VIVD.find("case WM_INITDIALOG:\r\n\t\t{\r\n\t\t\t// one type system")
-    proc_pos = VIVD.find("static INT_PTR _viv_dialog_dark_proc(")
+    proc_pos = VIVD.find("INT_PTR _viv_dialog_dark_proc(")
     proc_body = VIVD[proc_pos:] if proc_pos != -1 else ""
     draw_pos = proc_body.find("\t\tcase WM_DRAWITEM:")
     check("the font apply case leads the shared proc switch",
