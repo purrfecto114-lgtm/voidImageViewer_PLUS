@@ -1299,9 +1299,17 @@ def t_release_engineering_round5():
         check("encoder-side file gone: %s" % f,
               not os.path.exists("libwebp/src/dsp/" + f) or
               not os.path.exists("libwebp/src/utils/" + f))
-    for d in ("tests", "doc", "cmake", "src/dec", "src/demux",
-              "src/dsp", "src/utils", "src/webp"):
+    for d in ("src/dec", "src/demux", "src/dsp", "src/utils", "src/webp"):
         check("libwebp/%s kept" % d, os.path.exists("libwebp/" + d))
+    # R70 housekeeping: the non-Windows build systems, fuzzers and docs
+    # left the vendored tree (configure.ac and VERSION.imported stay as the
+    # version and provenance pins this suite reads above).
+    for d in ("tests", "doc", "cmake"):
+        check("libwebp/%s pruned by the R70 housekeeping" % d,
+              not os.path.exists("libwebp/" + d))
+    for f in (".cmake-format.py", ".pylintrc", ".style.yapf"):
+        check("libwebp/%s pruned (build-system lint config)" % f,
+              not os.path.exists("libwebp/" + f))
     fp_list = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     cc = [f for f in re.findall(r"<ClCompile Include=\"([^\"]+)\"", fp_list) if "libwebp" in f]
     check("the shared file list compiles the 66-file decode-only set",
@@ -1586,8 +1594,11 @@ def t_round7():
           "if (pixel_pos_wide)\n" in viv.replace("\r\n", "\n"))
 
     # the owner drawn dark panes.
+    # R70: the pane text store left the static prefix (chrome reads it
+    # across the module boundary; the state layer carries the extern).
     check("the pane text store exists",
-          "static wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];" in viv)
+          "wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];" in viv and
+          "static wchar_t _viv_status_part_text" not in viv)
     check("SB_SETTEXTW uses SBT_OWNERDRAW with the pane index as data",
           "SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);" in viv)
     check("the old SB_GETTEXTW compare is gone",
@@ -3242,6 +3253,33 @@ def t_split_architecture_round70():
     plan = read("docs/architecture/viv-split-plan.md").decode()
     check("the plan documents the R70 recalibration",
           "R70" in plan and ("一次性" in plan or "one-shot" in plan))
+
+    # 7. the fourth CI catch stays guarded: a measurement macro expanded
+    #    inside a struct body must see both its #define and the extern it
+    #    measures earlier in the header, and the three late exports stay
+    #    exported (the one-shot split initially left them static in the
+    #    core while chrome and dialogs referenced them).
+    state = open("src/viv_state.h", "rb").read().decode("utf-8", errors="replace")
+    i_struct = state.find("config_key_t *start[_VIV_COMMAND_COUNT];")
+    i_macro = state.find("#define _VIV_COMMAND_COUNT")
+    i_extern = state.find("extern _viv_command_t _viv_commands[];")
+    check("the command-count macro is defined before the key-list type",
+          -1 < i_macro < i_struct)
+    check("the command table extern precedes the key-list type",
+          -1 < i_extern < i_struct)
+    vivc = open("src/viv.c", "rb").read().decode("utf-8", errors="replace")
+    for decl, core_def in (
+        ("extern wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];",
+         "wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];"),
+        ("extern BYTE _viv_is_cursor_shown;",
+         "BYTE _viv_is_cursor_shown = 1;"),
+        ("extern int _viv_options_page_ids[];",
+         "int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS};"),
+    ):
+        name = core_def.split("[")[0].split("=")[0].split(";")[0].strip().split()[-1]
+        check("the state layer exports %s" % name, decl in state)
+        check("the core defines %s without static" % name,
+              core_def in vivc and ("static " + core_def) not in vivc)
 
 
 if __name__ == "__main__":

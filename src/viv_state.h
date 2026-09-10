@@ -246,6 +246,12 @@ typedef struct _viv_command_s
 	WORD command_id;
 }_viv_command_t;
 
+// the command table extern must precede _viv_key_list_s: the key-list
+// type sizes its arrays with _VIV_COMMAND_COUNT, whose macro body measures
+// this table at the struct definition point (the R70 CI catch: an extern
+// printed after the struct parsed against an undeclared identifier).
+extern _viv_command_t _viv_commands[];
+
 typedef struct _viv_nav_item_s
 {
 	WIN32_FIND_DATA fd;
@@ -381,7 +387,13 @@ extern int _viv_src_pixel_y;
 extern BYTE _viv_src_pixel_r;
 extern BYTE _viv_src_pixel_g;
 extern BYTE _viv_src_pixel_b;
-extern _viv_command_t _viv_commands[];
+// the R70 missing-export fixups: three core states the domain modules read
+// or write directly (the one-shot split left them static in the core; CI
+// caught the undeclared identifiers in chrome and dialogs).
+extern wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];
+extern BYTE _viv_is_cursor_shown;
+extern int _viv_options_page_ids[];
+
 extern _viv_key_list_t *_viv_key_list;
 extern const char *_viv_association_extensions[];
 extern const localization_id_t _viv_association_description_localization_id_array[];

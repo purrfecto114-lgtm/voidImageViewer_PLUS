@@ -329,7 +329,7 @@ HWND _viv_status_hwnd = 0;
 // and the text is drawn from this store. declared here: the status bar
 // creation (_viv_status_show) flushes it long before _viv_status_set is
 // reached in the file.
-static wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];
+wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];
 static HANDLE _viv_mutex = 0;
 float _viv_animation_rates[] = {0.125000f,0.142857f,0.166667f,0.200000f,0.250000f,0.333333f,0.500000f,0.571429f,0.666667f,0.800000f,1.000000f,1.250000f,1.500000f,1.750000f,2.000000f,3.000000f,4.000000f,5.000000f,6.000000f,7.000000f,8.000000f}; // fixed animation rates
 int _viv_animation_rate_pos = _VIV_ANIMATION_RATE_ONE;
@@ -372,7 +372,7 @@ BYTE _viv_is_fullscreen = 0;
 BYTE _viv_is_slideshow = 0;
 BYTE _viv_is_hide_cursor_timer = 0;
 static CLIPFORMAT _viv_CF_PREFERREDDROPEFFECT = 0; // copy or move? clipboard operation
-static BYTE _viv_is_cursor_shown = 1;
+BYTE _viv_is_cursor_shown = 1;
 int _viv_mousemove_x = -1;
 int _viv_mousemove_y = -1;
 BYTE _viv_in_popup_menu = 0;
@@ -389,7 +389,7 @@ volatile int _viv_load_image_terminate = 0;
 _viv_reply_t *_viv_reply_start = 0;
 _viv_reply_t *_viv_reply_last = 0;
 wchar_t *_viv_status_temp_text = 0;
-static int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS};
+int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS};
 HFONT _viv_about_hfont = 0;
 wchar_t *_viv_last_open_file = 0;
 wchar_t *_viv_last_open_folder = 0;
