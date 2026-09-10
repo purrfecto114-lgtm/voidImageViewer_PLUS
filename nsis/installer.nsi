@@ -417,6 +417,32 @@ no_webp_association:
 
 skip_webp_association:
 
+        ; emf Associations (the metafile pair joined the viewer in 1.1.12;
+        ; the exe-side install switches are generic over the extension
+        ; table, so /emf and /noemf work like every other format)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 12" "State"
+        strcmp $R0 "0" no_emf_association
+        StrCpy $user_install_options "$user_install_options /emf"
+        Goto skip_emf_association
+        
+no_emf_association:
+
+        StrCpy $user_install_options "$user_install_options /noemf"
+
+skip_emf_association:
+
+        ; wmf Associations
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 13" "State"
+        strcmp $R0 "0" no_wmf_association
+        StrCpy $user_install_options "$user_install_options /wmf"
+        Goto skip_wmf_association
+        
+no_wmf_association:
+
+        StrCpy $user_install_options "$user_install_options /nowmf"
+
+skip_wmf_association:
+
         ; ----------------------------------
         ; begin voidImageViewer installation
         ; ----------------------------------

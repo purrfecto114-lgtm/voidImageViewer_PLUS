@@ -1,3 +1,51 @@
+Pre-release: Version 1.1.12-rc.3 (the architecture split round)
+	*the viv.c monolith is split: 21,129 lines become a 4,715-line core (the
+	window procedure, startup/shutdown, the command line, the shared state
+	definitions) plus eleven domain modules - viv_recent, viv_playlist,
+	viv_load, viv_anim, viv_render, viv_chrome, viv_dark, viv_dialogs,
+	viv_view, viv_install, viv_menu - and a viv_state.h shared-context
+	layer, every module under 3,000 lines. pure physical move: function
+	bodies are byte-identical, the only text edits are the static prefixes
+	dropped on the 163 cross-module exports and the 113 shared-state
+	externs (52 single-domain variables moved with their consumers and
+	keep static; 13 core-private variables are untouched).
+	*performance and size are unchanged by construction: the projects
+	already compile with /gl whole-program optimization, so cross-module
+	inlining survives the split, and exported symbols never enter the
+	release binary.
+	*the guard suites read viv.c spliced with every domain module (plus
+	viv_state.h for the macro guards), so the existing 140+ shape guards
+	cover the moved code with only optional-static recalibrations; new r70
+	guards pin the residual under 5,000 lines, every domain under 3,000,
+	the pure-move window (spliced total 21,130 -> 21,7xx lines, only
+	declarations) and the props registration of every new compile unit.
+	*the spec and the plan carry the r70 one-shot recalibration (the user
+	released the per-slice pacing; the merged domains, the minimal export
+	surface and the gate order are documented in the r70 addendum).
+	*the split's compile hardening (five ci catches between the landing
+	and this rc): three core states the domains reference left their
+	static prefixes in the core (the status pane text store, the cursor
+	visibility flag, the options page id table) and the command table
+	extern printed after the type that consumes it; the five table-count
+	macros were sizeof measurements on unsized externs - msvc c resolves
+	those to zero, so the key-list struct sized its arrays to zero and
+	the animation, slideshow, options-page and association loops would
+	all have silently stopped in the domain modules - the macros carry
+	literals now (154 commands, 21 animation rates, 17 slideshow presets,
+	3 options pages, 11 association extensions), each pinned to its real
+	table by a negative-subscript typedef assert; and a bare-cr line join
+	the generator fumbled swallowed the light window theme declaration
+	into a comment in os.h. every class is guarded in the suite.
+	*the installer association page grows the emf and wmf checkboxes (both
+	languages, second column): the metafile pair joined the association
+	table in 1.1.12 but the setup page never offered them, so a setup
+	install silently skipped the two. the exe-side install switches were
+	already generic over the extension table (/emf /noemf /wmf /nowmf).
+	*housekeeping: the vendored libwebp drops the non-windows build
+	systems, fuzzers and docs (62 files this repository never built),
+	and Changes.txt keeps its crlf discipline back (an r69 regression
+	caught by the simulation suite).
+
 Pre-release: Version 1.1.12-rc.2 (the white band fix round)
 
 	the architecture split decision (r69, documents only): viv.c has

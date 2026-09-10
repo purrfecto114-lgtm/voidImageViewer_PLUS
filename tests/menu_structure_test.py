@@ -305,10 +305,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.44 rc.2 (the white band fix round)",
-          (major, minor, rev, build) == ("1", "1", "12", "44") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.2 tag)",
-          vstr == "1.1.12-rc.2")
+    check("version.h = 1.1.12.45 rc.3 (the architecture split round)",
+          (major, minor, rev, build) == ("1", "1", "12", "45") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.3 tag)",
+          vstr == "1.1.12-rc.3")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -2124,6 +2124,28 @@ def t_ux_round41():
     check("everything default search includes the metafiles",
           viv.count("ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp;emf;wmf <") == 2)
 
+    # rc.3: the setup association page grows the metafile pair. the exe-side
+    # table already carried emf/wmf since 1.1.12, but the page offered ten
+    # checkboxes and silently skipped the two on a setup install.
+    io2 = read("nsis/InstallOptions2.ini").decode("utf-8", errors="replace")
+    io2c = open("nsis/InstallOptions2_Chinese.ini", "rb").read().decode("utf-16")
+    ins = read("nsis/installer.nsi").decode()
+    check("the association page carries thirteen fields in both languages",
+          "NumFields=13" in io2 and "NumFields=13" in io2c)
+    check("the metafile checkboxes exist in both languages",
+          "[Field 12]" in io2 and "Text=EMF" in io2 and "[Field 13]" in io2 and "Text=WMF" in io2 and
+          "[Field 12]" in io2c and "Text=EMF" in io2c and "[Field 13]" in io2c and "Text=WMF" in io2c)
+    f12 = io2.split("[Field 12]")[1].split("[Field 13]")[0]
+    check("the metafile checkboxes sit in the second column",
+          "Left=76" in f12 and "Top=22" in f12 and "State=1" in f12)
+    check("the installer forwards the metafile switches",
+          'MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 12" "State"' in ins and
+          'MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 13" "State"' in ins and
+          '$user_install_options /emf"' in ins and
+          '$user_install_options /noemf"' in ins and
+          '$user_install_options /wmf"' in ins and
+          '$user_install_options /nowmf"' in ins)
+
     # key table: edit takes ctrl+shift+e, everything-add moves to ctrl+alt+e
     check("edit command has a default shortcut again",
           "{VIV_ID_FILE_EDIT,CONFIG_KEYFLAG_CTRL | CONFIG_KEYFLAG_SHIFT | 'E'}," in viv)
@@ -3063,8 +3085,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 44",
-          "#define VERSION_BUILD 44" in version)
+    check("the release candidate line moves to build 45",
+          "#define VERSION_BUILD 45" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3135,9 +3157,9 @@ def t_white_band_round67():
           "(HBRUSH)(COLOR_WINDOW+1),\r\n\t\t\t\t\"_VIV_REBAR\"" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 44",
-          "#define VERSION_BUILD 44" in version and
-          '#define VERSION_STRING "1.1.12-rc.2"' in version)
+    check("the release candidate moves the version to build 45",
+          "#define VERSION_BUILD 45" in version and
+          '#define VERSION_STRING "1.1.12-rc.3"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
