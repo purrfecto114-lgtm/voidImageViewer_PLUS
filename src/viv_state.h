@@ -29,6 +29,101 @@
 
 #include "viv.h"
 
+// ---- shared macros ----
+#define _VIV_WM_REPLY							(WM_USER+1)
+#define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
+
+#define _VIV_ASSOCIATION_BMP				0x00000001
+#define _VIV_ASSOCIATION_GIF				0x00000002
+#define _VIV_ASSOCIATION_ICO				0x00000004
+#define _VIV_ASSOCIATION_JPEG				0x00000008
+#define _VIV_ASSOCIATION_JPG				0x00000010
+#define _VIV_ASSOCIATION_PNG				0x00000020
+#define _VIV_ASSOCIATION_TIF				0x00000040
+#define _VIV_ASSOCIATION_TIFF				0x00000080
+#define _VIV_ASSOCIATION_WEBP				0x00000100
+
+#define _VIV_ZOOM_MAX 1024 // one ladder entry per 1% multiplicative zoom step. long enough that the 16x size cap is reachable even for photos much larger than the window.
+#define _VIV_ZOOM_STEPS_PER_NOTCH 10 // zoom steps per wheel notch / zoom button click (~10.5%)
+#define _VIV_ZOOM_SHRINK_STEPS 278 // the below-fit zoom-out range: 1.01^-278 is about one sixteenth of the best fit, mirroring the 16x native cap above it. the field report: pinch-out could never zoom below the best fit, so a fill-window upscale locked small images at a 200% minimum.
+
+#define BCM_SETSHIELD	0x0000160C
+
+#ifdef VERSION_X64
+	#define VERSION_TARGET_MACHINE "(x64)"
+#else
+	#ifdef VERSION_ARM
+		#define VERSION_TARGET_MACHINE "(ARM)"
+	#else
+		#ifdef VERSION_ARM64
+			#define VERSION_TARGET_MACHINE "(ARM64)"
+		#else
+			#ifdef VERSION_X86
+				#define VERSION_TARGET_MACHINE "(x86)"
+			#else
+				#error unknown target machine.
+			#endif
+		#endif
+	#endif
+#endif
+
+#define _VIV_DEFAULT_SHUFFLE_ALLOCATED		(65536 / sizeof(_viv_playlist_t *))
+
+#define VIV_YEAR_STRING2(x)	#x
+#define VIV_YEAR_STRING(x)	VIV_YEAR_STRING2(x)	
+
+#define _VIV_STRETCH_BLT_STITCH_SIZE		512
+
+#ifndef WM_THEMECHANGED
+#define WM_THEMECHANGED 0x031A
+#endif
+
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
+#ifndef TB_GETTOOLTIPS
+#define TB_GETTOOLTIPS (WM_USER+35)
+#endif
+
+#ifndef TTM_SETTIPBKCOLOR
+#define TTM_SETTIPBKCOLOR (WM_USER+19)
+#endif
+
+#ifndef TTM_SETTIPTEXTCOLOR
+#define TTM_SETTIPTEXTCOLOR (WM_USER+20)
+#endif
+
+#ifndef TVM_SETBKCOLOR
+#define TVM_SETBKCOLOR (TV_FIRST+29)
+#endif
+
+#ifndef TVM_SETTEXTCOLOR
+#define TVM_SETTEXTCOLOR (TV_FIRST+30)
+#endif
+
+#define _VIV_HIDE_CURSOR_DELAY		2000
+#define _VIV_RECENT_SAVE_DELAY		2000 // the deferred recent-files mru save: coalesces rapid opens so the ui thread never writes the ini mid-burst (the exit and endsession paths fold the pending write in).
+
+#define _VIV_STATUS_PART_MAX 7
+
+#define _VIV_ANIMATION_RATE_MAX	(sizeof(_viv_animation_rates) / sizeof(float))
+#define _VIV_ANIMATION_RATE_ONE	10
+
+#define _VIV_SLIDESHOW_RATE_PRESET_COUNT (sizeof(_viv_slideshow_rate_presets) / sizeof(WORD))
+
+#define _VIV_OPTIONS_PAGE_COUNT	(sizeof(_viv_options_dialog_ids) / sizeof(int))
+
+#define _VIV_COMMAND_COUNT	(sizeof(_viv_commands) / sizeof(_viv_command_t))
+
+#define _VIV_ASSOCIATION_COUNT	(sizeof(_viv_association_extensions) / sizeof(const wchar_t *))
+
+#define _VIV_DIALOG_FONT_PROP L"VIV_DFONT"
+
+#define _VIV_DARK_OWNERDRAW_PROP L"VIV_DARK_OD"
+
+#define _VIV_DARK_BUTTON_THEME_PROP L"VIV_DARK_BT"
+
 // ---- shared types ----
 enum
 {
@@ -184,101 +279,6 @@ typedef struct _viv_key_list_s
 	config_key_t *last[_VIV_COMMAND_COUNT];
 	
 }_viv_key_list_t;
-
-// ---- shared macros ----
-#define _VIV_WM_REPLY							(WM_USER+1)
-#define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
-
-#define _VIV_ASSOCIATION_BMP				0x00000001
-#define _VIV_ASSOCIATION_GIF				0x00000002
-#define _VIV_ASSOCIATION_ICO				0x00000004
-#define _VIV_ASSOCIATION_JPEG				0x00000008
-#define _VIV_ASSOCIATION_JPG				0x00000010
-#define _VIV_ASSOCIATION_PNG				0x00000020
-#define _VIV_ASSOCIATION_TIF				0x00000040
-#define _VIV_ASSOCIATION_TIFF				0x00000080
-#define _VIV_ASSOCIATION_WEBP				0x00000100
-
-#define _VIV_ZOOM_MAX 1024 // one ladder entry per 1% multiplicative zoom step. long enough that the 16x size cap is reachable even for photos much larger than the window.
-#define _VIV_ZOOM_STEPS_PER_NOTCH 10 // zoom steps per wheel notch / zoom button click (~10.5%)
-#define _VIV_ZOOM_SHRINK_STEPS 278 // the below-fit zoom-out range: 1.01^-278 is about one sixteenth of the best fit, mirroring the 16x native cap above it. the field report: pinch-out could never zoom below the best fit, so a fill-window upscale locked small images at a 200% minimum.
-
-#define BCM_SETSHIELD	0x0000160C
-
-#ifdef VERSION_X64
-	#define VERSION_TARGET_MACHINE "(x64)"
-#else
-	#ifdef VERSION_ARM
-		#define VERSION_TARGET_MACHINE "(ARM)"
-	#else
-		#ifdef VERSION_ARM64
-			#define VERSION_TARGET_MACHINE "(ARM64)"
-		#else
-			#ifdef VERSION_X86
-				#define VERSION_TARGET_MACHINE "(x86)"
-			#else
-				#error unknown target machine.
-			#endif
-		#endif
-	#endif
-#endif
-
-#define _VIV_DEFAULT_SHUFFLE_ALLOCATED		(65536 / sizeof(_viv_playlist_t *))
-
-#define VIV_YEAR_STRING2(x)	#x
-#define VIV_YEAR_STRING(x)	VIV_YEAR_STRING2(x)	
-
-#define _VIV_STRETCH_BLT_STITCH_SIZE		512
-
-#ifndef WM_THEMECHANGED
-#define WM_THEMECHANGED 0x031A
-#endif
-
-#ifndef WM_DPICHANGED
-#define WM_DPICHANGED 0x02E0
-#endif
-
-#ifndef TB_GETTOOLTIPS
-#define TB_GETTOOLTIPS (WM_USER+35)
-#endif
-
-#ifndef TTM_SETTIPBKCOLOR
-#define TTM_SETTIPBKCOLOR (WM_USER+19)
-#endif
-
-#ifndef TTM_SETTIPTEXTCOLOR
-#define TTM_SETTIPTEXTCOLOR (WM_USER+20)
-#endif
-
-#ifndef TVM_SETBKCOLOR
-#define TVM_SETBKCOLOR (TV_FIRST+29)
-#endif
-
-#ifndef TVM_SETTEXTCOLOR
-#define TVM_SETTEXTCOLOR (TV_FIRST+30)
-#endif
-
-#define _VIV_HIDE_CURSOR_DELAY		2000
-#define _VIV_RECENT_SAVE_DELAY		2000 // the deferred recent-files mru save: coalesces rapid opens so the ui thread never writes the ini mid-burst (the exit and endsession paths fold the pending write in).
-
-#define _VIV_STATUS_PART_MAX 7
-
-#define _VIV_ANIMATION_RATE_MAX	(sizeof(_viv_animation_rates) / sizeof(float))
-#define _VIV_ANIMATION_RATE_ONE	10
-
-#define _VIV_SLIDESHOW_RATE_PRESET_COUNT (sizeof(_viv_slideshow_rate_presets) / sizeof(WORD))
-
-#define _VIV_OPTIONS_PAGE_COUNT	(sizeof(_viv_options_dialog_ids) / sizeof(int))
-
-#define _VIV_COMMAND_COUNT	(sizeof(_viv_commands) / sizeof(_viv_command_t))
-
-#define _VIV_ASSOCIATION_COUNT	(sizeof(_viv_association_extensions) / sizeof(const wchar_t *))
-
-#define _VIV_DIALOG_FONT_PROP L"VIV_DFONT"
-
-#define _VIV_DARK_OWNERDRAW_PROP L"VIV_DARK_OD"
-
-#define _VIV_DARK_BUTTON_THEME_PROP L"VIV_DARK_BT"
 
 // ---- core (viv.c) functions exported to the domains ----
 void _viv_exit(void);
