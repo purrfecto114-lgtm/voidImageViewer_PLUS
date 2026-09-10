@@ -1,3 +1,30 @@
+Pre-release: Version 1.1.12-rc.1 (the about line release candidate)
+
+	the first release candidate of the 1.1.12 line: two rounds since
+	the 1.1.11 stable, both on the about dialog, both hard codes -
+	the one the 1.1.11 font round put on record, the one the field
+	made visible once the fonts went per-dpi.
+	- the about title: the larger face kept the literal 32-pixel
+	  height of the 96 dpi design point (150% drew two thirds of
+	  the intended proportion, 200% half of it). the title now
+	  derives from the live dialog font at the dialog's own dpi -
+	  family, weight and the 8/3 ratio of the message font - and
+	  is rebuilt at every open, so a dpi change between two opens
+	  no longer draws the stale face (b41, the about title hard
+	  code fix round).
+	- the about band: the dark-mode band chrome (the two separator
+	  lines and the button strip face) moved from the runtime
+	  wm_paint passes into the dialog resource template: the 1-du
+	  line controls and the 24-du strip ride the template grid at
+	  every dpi, the colors travel the control color replies with
+	  the 1.1.11 palettes, and the dialog face answers through the
+	  wm_ctlcolordlg pipeline (b42, the about band template round).
+	the version moves to 1.1.12-rc.1 build 43: the tag and the
+	pre-release stay user-gated, the candidate goes through one
+	full field acceptance (the dark band alignment at every dpi
+	scale, the light zero-regression, the theme flip refresh)
+	before the stable line.
+
 Stable: Version 1.1.12 (the about band template round)
 
 	the dark mode field report on the about dialog: the band chrome (the

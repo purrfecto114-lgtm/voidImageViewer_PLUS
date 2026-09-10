@@ -290,10 +290,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.42 stable (the about band template round)",
-          (major, minor, rev, build) == ("1", "1", "12", "42") and vtype == "")
-    check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.12")
+    check("version.h = 1.1.12.43 rc.1 (the release candidate round)",
+          (major, minor, rev, build) == ("1", "1", "12", "43") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.1 tag)",
+          vstr == "1.1.12-rc.1")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3028,8 +3028,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 42",
-          "#define VERSION_BUILD 42" in version)
+    check("the release candidate moves the version to build 43",
+          "#define VERSION_BUILD 43" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
