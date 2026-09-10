@@ -182,7 +182,8 @@ static OS_CloseThemeData_fn _os_CloseThemeData = 0;
 static OS_GetThemePartSize_fn _os_GetThemePartSize = 0;
 typedef HRESULT (__stdcall *OS_DrawThemeBackground_fn)(HANDLE theme,HDC hdc,int part,int state,const RECT *rect);
 static OS_DrawThemeBackground_fn _os_DrawThemeBackground = 0;
-// registry reads for a stable dark mode detection: the undocumented uxtheme
+
+// registry reads for a stable dark mode detection: the undocumented uxtheme
 // probe returns wrong values on some windows 10 1903+ builds, the personalize
 // registry value is the documented source the shell itself follows.
 typedef LONG (__stdcall *OS_RegOpenKeyExW_fn)(HKEY key,const wchar_t *name,DWORD options,DWORD access,HKEY *result);

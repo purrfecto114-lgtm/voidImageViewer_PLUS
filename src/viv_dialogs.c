@@ -75,6 +75,7 @@ static void _viv_center_listbox_item(HWND listbox_hwnd,int item_index);
 static localization_id_t _viv_options_page_localization_id_array[] = {LOCALIZATION_ID_OPTIONS_GENERAL_DIALOG,LOCALIZATION_ID_OPTIONS_VIEW_DIALOG,LOCALIZATION_ID_OPTIONS_CONTROLS_DIALOG};
 static int _viv_options_tab_ids[] = {IDC_TAB1,IDC_TAB2,IDC_TAB3};
 static int _viv_options_dialog_ids[] = {IDD_GENERAL,IDD_VIEW,IDD_CONTROLS};
+typedef char _viv_options_dialog_ids_count_assert[(sizeof(_viv_options_dialog_ids) / sizeof(int) == _VIV_OPTIONS_PAGE_COUNT) ? 1 : -1]; // the count literal pins the table
 static DLGPROC _viv_options_page_procs[] = {_viv_options_general_proc,_viv_options_view_proc,_viv_options_controls_proc};
 static BYTE _viv_jump_ret = 0;
 const WORD _viv_association_dlg_item_id[] = 

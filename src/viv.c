@@ -332,6 +332,7 @@ HWND _viv_status_hwnd = 0;
 wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];
 static HANDLE _viv_mutex = 0;
 float _viv_animation_rates[] = {0.125000f,0.142857f,0.166667f,0.200000f,0.250000f,0.333333f,0.500000f,0.571429f,0.666667f,0.800000f,1.000000f,1.250000f,1.500000f,1.750000f,2.000000f,3.000000f,4.000000f,5.000000f,6.000000f,7.000000f,8.000000f}; // fixed animation rates
+typedef char _viv_animation_rates_count_assert[(sizeof(_viv_animation_rates) / sizeof(float) == _VIV_ANIMATION_RATE_MAX) ? 1 : -1]; // the count literal pins the table
 int _viv_animation_rate_pos = _VIV_ANIMATION_RATE_ONE;
 BYTE _viv_animation_play = 1; // play or pause animations
 BYTE _viv_1to1 = 0; // temporarily show the image with 100% scaling
@@ -601,6 +602,7 @@ _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_HELP,0},
 	{LOCALIZATION_ID_ABOUT,MF_STRING,_VIV_MENU_HELP,VIV_ID_HELP_ABOUT},
 };
+typedef char _viv_commands_count_assert[(sizeof(_viv_commands) / sizeof(_viv_command_t) == _VIV_COMMAND_COUNT) ? 1 : -1]; // the count literal pins the table
 
 
 _viv_default_key_t _viv_default_keys[] =
@@ -763,6 +765,7 @@ const char *_viv_association_extensions[] =
 	"emf",
 	"wmf",
 };
+typedef char _viv_association_extensions_count_assert[(sizeof(_viv_association_extensions) / sizeof(_viv_association_extensions[0]) == _VIV_ASSOCIATION_COUNT) ? 1 : -1]; // the count literal pins the table
 
 // registry description.
 const localization_id_t _viv_association_description_localization_id_array[] = 

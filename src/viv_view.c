@@ -69,6 +69,7 @@ void _viv_start_move_window(void);
 
 static int _viv_old_zoom_pos = 0; // restore this zoom level after leaving 1:1 mode.
 static WORD _viv_slideshow_rate_presets[] = {250,500,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,20000,30000,40000,50000,60000};
+typedef char _viv_slideshow_rate_presets_count_assert[(sizeof(_viv_slideshow_rate_presets) / sizeof(WORD) == _VIV_SLIDESHOW_RATE_PRESET_COUNT) ? 1 : -1]; // the count literal pins the table
 void _viv_command(int command_id)
 {
 	_viv_command_with_is_key_repeat(command_id,0);

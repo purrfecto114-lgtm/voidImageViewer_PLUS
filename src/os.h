@@ -143,12 +143,19 @@ extern void os_dark_set_app_mode(int mode);
 extern void os_dark_titlebar(HWND hwnd,int dark);
 extern void os_dark_refresh(void);
 // drop the cached system dark state so the next os_dark_system_dark()
-// call re-reads it (WM_SETTINGCHANGE / WM_THEMECHANGED).
+// call re-reads it (WM_SETTINGCHANGE / WM_THEMECHANGED).
+
 // set the DarkMode_Explorer visual style on a window (dialog controls and
 // tabs draw dark with it). returns 1 when the style was applied.
-extern int os_dark_window_theme(HWND hwnd);
-// combobox dark parts: the common dialog class (windows 10 1903+).
-extern int os_dark_combobox_theme(HWND hwnd);// the light counterpart: back to the standard explorer visual style// when the ui flips back to light.extern int os_light_window_theme(HWND hwnd);
+extern int os_dark_window_theme(HWND hwnd);
+
+// combobox dark parts: the common dialog class (windows 10 1903+).
+
+extern int os_dark_combobox_theme(HWND hwnd);
+// the light counterpart: back to the standard explorer visual style
+// when the ui flips back to light.
+extern int os_light_window_theme(HWND hwnd);
+
 // the button theme for the custom drawn glyph faces: one open per
 // dialog lifetime, closed on the way out (uxtheme is loaded
 // dynamically, so the handle type stays generic).

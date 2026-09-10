@@ -3281,6 +3281,36 @@ def t_split_architecture_round70():
         check("the core defines %s without static" % name,
               core_def in vivc and ("static " + core_def) not in vivc)
 
+    # 8. the fifth CI catch stays guarded: msvc c resolves sizeof on an
+    #    unsized extern to zero (warning c4034 - the loops silently stop),
+    #    so the five count macros carry literals, each pinned to its real
+    #    table by a c_assert in the defining unit; and the bare-cr join
+    #    that swallowed the light window theme declaration is gone.
+    for macro in ("_VIV_COMMAND_COUNT", "_VIV_ANIMATION_RATE_MAX",
+                  "_VIV_SLIDESHOW_RATE_PRESET_COUNT", "_VIV_OPTIONS_PAGE_COUNT",
+                  "_VIV_ASSOCIATION_COUNT"):
+        line = next((l for l in state.split("\n") if l.startswith("#define " + macro)), "")
+        check("the %s macro is a literal, not a sizeof measurement" % macro,
+              line != "" and "sizeof" not in line)
+    vivview = open("src/viv_view.c", "rb").read().decode("utf-8", errors="replace")
+    vivdlg = open("src/viv_dialogs.c", "rb").read().decode("utf-8", errors="replace")
+    for unit, assertion in (
+        ("viv.c", "typedef char _viv_commands_count_assert[(sizeof(_viv_commands) / sizeof(_viv_command_t) == _VIV_COMMAND_COUNT) ? 1 : -1];"),
+        ("viv.c", "typedef char _viv_animation_rates_count_assert[(sizeof(_viv_animation_rates) / sizeof(float) == _VIV_ANIMATION_RATE_MAX) ? 1 : -1];"),
+        ("viv.c", "typedef char _viv_association_extensions_count_assert[(sizeof(_viv_association_extensions) / sizeof(_viv_association_extensions[0]) == _VIV_ASSOCIATION_COUNT) ? 1 : -1];"),
+        ("viv_view.c", "typedef char _viv_slideshow_rate_presets_count_assert[(sizeof(_viv_slideshow_rate_presets) / sizeof(WORD) == _VIV_SLIDESHOW_RATE_PRESET_COUNT) ? 1 : -1];"),
+        ("viv_dialogs.c", "typedef char _viv_options_dialog_ids_count_assert[(sizeof(_viv_options_dialog_ids) / sizeof(int) == _VIV_OPTIONS_PAGE_COUNT) ? 1 : -1];"),
+    ):
+        text = {"viv.c": vivc, "viv_view.c": vivview, "viv_dialogs.c": vivdlg}[unit]
+        check("the %s count is pinned by a negative-subscript typedef assert" % unit, assertion in text)
+    osh = open("src/os.h", "rb").read().decode("utf-8", errors="replace")
+    check("os.h declares the light window theme on its own line",
+          "extern int os_light_window_theme(HWND hwnd);" in osh)
+    for f in ("src/os.h", "src/os.c"):
+        data = open(f, "rb").read()
+        check("no bare-cr line joins left in %s" % f,
+              len(re.findall(rb"\r(?!\n)", data)) == 0)
+
 
 if __name__ == "__main__":
     t_panscan_gone()

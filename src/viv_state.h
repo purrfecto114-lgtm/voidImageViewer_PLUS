@@ -107,16 +107,22 @@
 
 #define _VIV_STATUS_PART_MAX 7
 
-#define _VIV_ANIMATION_RATE_MAX	(sizeof(_viv_animation_rates) / sizeof(float))
+// R70: the five table counts are literals here, not sizeof measurements:
+// msvc c resolves sizeof on an unsized extern to zero (warning c4034, and
+// error c2229 when the zero sizes a struct member), so a header macro can
+// never measure a table defined in another translation unit. each defining
+// unit pins its literal to the real table with a c_assert - a table edit
+// that forgets the count fails the build.
+#define _VIV_ANIMATION_RATE_MAX	21
 #define _VIV_ANIMATION_RATE_ONE	10
 
-#define _VIV_SLIDESHOW_RATE_PRESET_COUNT (sizeof(_viv_slideshow_rate_presets) / sizeof(WORD))
+#define _VIV_SLIDESHOW_RATE_PRESET_COUNT	17
 
-#define _VIV_OPTIONS_PAGE_COUNT	(sizeof(_viv_options_dialog_ids) / sizeof(int))
+#define _VIV_OPTIONS_PAGE_COUNT	3
 
-#define _VIV_COMMAND_COUNT	(sizeof(_viv_commands) / sizeof(_viv_command_t))
+#define _VIV_COMMAND_COUNT	154
 
-#define _VIV_ASSOCIATION_COUNT	(sizeof(_viv_association_extensions) / sizeof(const wchar_t *))
+#define _VIV_ASSOCIATION_COUNT	11
 
 #define _VIV_DIALOG_FONT_PROP L"VIV_DFONT"
 
@@ -246,10 +252,8 @@ typedef struct _viv_command_s
 	WORD command_id;
 }_viv_command_t;
 
-// the command table extern must precede _viv_key_list_s: the key-list
-// type sizes its arrays with _VIV_COMMAND_COUNT, whose macro body measures
-// this table at the struct definition point (the R70 CI catch: an extern
-// printed after the struct parsed against an undeclared identifier).
+// the command table extern: the key-list type and every domain that walks
+// the menus index the table, so the extern prints with the type it serves.
 extern _viv_command_t _viv_commands[];
 
 typedef struct _viv_nav_item_s
