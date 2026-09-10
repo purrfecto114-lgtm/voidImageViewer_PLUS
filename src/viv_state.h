@@ -209,7 +209,18 @@ typedef struct _viv_key_list_s
 	#define VERSION_TARGET_MACHINE "(x64)"
 #else
 	#ifdef VERSION_ARM
-
+		#define VERSION_TARGET_MACHINE "(ARM)"
+	#else
+		#ifdef VERSION_ARM64
+			#define VERSION_TARGET_MACHINE "(ARM64)"
+		#else
+			#ifdef VERSION_X86
+				#define VERSION_TARGET_MACHINE "(x86)"
+			#else
+				#error unknown target machine.
+			#endif
+		#endif
+	#endif
 #endif
 
 #define _VIV_DEFAULT_SHUFFLE_ALLOCATED		(65536 / sizeof(_viv_playlist_t *))
@@ -219,26 +230,49 @@ typedef struct _viv_key_list_s
 
 #define _VIV_STRETCH_BLT_STITCH_SIZE		512
 
+#ifndef WM_THEMECHANGED
+#define WM_THEMECHANGED 0x031A
+#endif
+
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
+#ifndef TB_GETTOOLTIPS
+#define TB_GETTOOLTIPS (WM_USER+35)
+#endif
+
+#ifndef TTM_SETTIPBKCOLOR
+#define TTM_SETTIPBKCOLOR (WM_USER+19)
+#endif
+
+#ifndef TTM_SETTIPTEXTCOLOR
+#define TTM_SETTIPTEXTCOLOR (WM_USER+20)
+#endif
+
+#ifndef TVM_SETBKCOLOR
+#define TVM_SETBKCOLOR (TV_FIRST+29)
+#endif
+
+#ifndef TVM_SETTEXTCOLOR
+#define TVM_SETTEXTCOLOR (TV_FIRST+30)
+#endif
+
 #define _VIV_HIDE_CURSOR_DELAY		2000
 #define _VIV_RECENT_SAVE_DELAY		2000 // the deferred recent-files mru save: coalesces rapid opens so the ui thread never writes the ini mid-burst (the exit and endsession paths fold the pending write in).
 
 #define _VIV_STATUS_PART_MAX 7
-static wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];
 
 #define _VIV_ANIMATION_RATE_MAX	(sizeof(_viv_animation_rates) / sizeof(float))
 #define _VIV_ANIMATION_RATE_ONE	10
 
 #define _VIV_SLIDESHOW_RATE_PRESET_COUNT (sizeof(_viv_slideshow_rate_presets) / sizeof(WORD))
-static BYTE _viv_is_cursor_shown = 1;
 
 #define _VIV_OPTIONS_PAGE_COUNT	(sizeof(_viv_options_dialog_ids) / sizeof(int))
-static int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS};
 
 #define _VIV_COMMAND_COUNT	(sizeof(_viv_commands) / sizeof(_viv_command_t))
 
 #define _VIV_ASSOCIATION_COUNT	(sizeof(_viv_association_extensions) / sizeof(const wchar_t *))
-
-#ifdef VERSION_X86
 
 #define _VIV_DIALOG_FONT_PROP L"VIV_DFONT"
 
