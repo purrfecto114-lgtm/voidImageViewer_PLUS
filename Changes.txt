@@ -1,5 +1,23 @@
 Pre-release: Version 1.1.12-rc.2 (the white band fix round)
 
+	the architecture split decision (r69, documents only): viv.c has
+	grown to 21,129 lines / 536 functions / 159 file-scope statics with
+	the window procedure alone at 2,208 lines, and every field fix of
+	the rc line landed inside that one translation unit. the split now
+	has a written spec and a written plan (docs/architecture/): the
+	dialectic (split vs keep, by domain vs by layer, accessors vs a
+	shared state header, the upstream-shape cost), the decision (a
+	viv_state.h extern layer first, then eleven domain slices in
+	measured-closure order, pure physical moves only - no function
+	body may be rewritten, renamed or reordered), and the guard
+	strategy (the three suites will read viv.c plus every viv_*.c
+	spliced in dictionary order so the existing 140+ shape guards
+	keep covering the moved code without edits). the round itself
+	changes no C code and ships no binary: the menu-structure suite
+	gains the r69 guards pinning the documents, the discipline, the
+	monolith line baseline and the not-yet-existing state layer, so
+	the split can only shrink the file from here.
+
 	the field report on rc.1: a white band survives the theme flip on
 	the upper chrome, until a manual resize or refresh brings the dark
 	face back. the judgment round traced the strip to a chain of gaps,

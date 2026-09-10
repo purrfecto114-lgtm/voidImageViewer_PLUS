@@ -3114,6 +3114,52 @@ def t_white_band_round67():
           "tb_getmaxsize" in changes)
 
 
+
+def t_split_architecture_round69():
+    """Guards for the viv.c split architecture decision (the spec and the
+    plan documents exist, the discipline is stated, the monolith baseline
+    is pinned so the split can only shrink it)."""
+    print("the viv split architecture round (r69)")
+
+    spec = read("docs/architecture/viv-split-spec.md").decode()
+    plan = read("docs/architecture/viv-split-plan.md").decode()
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+
+    # 1. the decision is on file: the dialectic, the slice table and the
+    #    pure-move discipline exist in the spec.
+    check("the split spec exists with the dialectic",
+          "## 2. 辩证讨论" in spec and "拆还是不拆" in spec)
+    check("the spec pins the pure-move discipline",
+          "纯移动纪律" in spec and "禁止" in spec)
+    check("the spec carries the 12-slice table",
+          spec.count("| 0 |") >= 1 and "viv_state.h" in spec and
+          "viv_recent.c" in spec and "viv_view.c" in spec)
+    check("the spec pins the monolith baseline",
+          "21,129" in spec and "536" in spec and "159" in spec)
+
+    # 2. the plan exists in the writing-plans shape: task checkboxes,
+    #    the state-layer task A and the first-domain task B.
+    check("the split plan exists with the checkbox tasks",
+          "- [ ] A1." in plan and "- [ ] B1." in plan)
+    check("the plan states the guard splicing strategy",
+          "拼接" in plan)
+    check("the plan pins the done definition",
+          "5,000" in plan)
+
+    # 3. the monolith baseline: the split has not started yet, and any
+    #    growth of viv.c before the slices land is a regression of the
+    #    decision (the split can only shrink the file from here).
+    viv_lines = viv.count("\n") + 1
+    check("the monolith is at the measured baseline (no growth allowed)",
+          viv_lines >= 21000 and viv_lines <= 21260)
+
+    # 4. the modules the plan promises do not exist yet (the slices are
+    #    future rounds): state layer and the first domain are absent.
+    import os
+    check("the state layer is still a future slice",
+          not os.path.exists("src/viv_state.h"))
+    check("the recent domain module is still a future slice",
+          not os.path.exists("src/viv_recent.c"))
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -3157,6 +3203,7 @@ if __name__ == "__main__":
     t_field_fixes_round51()
     t_about_band_round64()
     t_white_band_round67()
+    t_split_architecture_round69()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
