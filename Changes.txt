@@ -1,3 +1,40 @@
+Stable: Version 1.1.12 (the about title hard code fix round)
+
+	the first round after the rollback is one hard code, the one the 1.1.11
+	font round itself put on record ("the about title derives its larger
+	face from it"): the derivation only ever covered the family. the
+	height stayed the literal 32:
+	- lf.lfheight = 32 was a 96 dpi design point. the message font scales
+	  with the dialog window dpi (-18 at 150%, -24 at 200%) while the
+	  title stayed 32 pixels on every screen: the 8/3 proportion the
+	  font round promised collapsed to 2/3 at 150% and to 1/2 at 200% -
+	  the title read relatively smaller on every high dpi display.
+	- the font site was the only one left on the unsuffixed forms:
+	  getobject, logfont and createfontindirect borrow the wide pipeline
+	  from the project-level unicode define, while every other font
+	  site spells the w forms - the wide face name path hung on a
+	  setting outside the code.
+	- the handle was created once and cached for the process lifetime:
+	  a dpi change between two about opens (a monitor reconfiguration,
+	  a system scale move) kept drawing the stale face.
+	the fix follows the font round's own derivation rule to the end:
+	- the title derives from the live dialog font: wm_getfont on the
+	  title control (the shared dialog proc applied the message font at
+	  this dialog window own dpi before this case runs) -> getobjectw
+	  into a logfontw -> the height scaled by 8/3 (the message font is
+	  -12 at 96 dpi and -12 * 8 / 3 = -32: the design point the
+	  literal encoded, now as a ratio that travels with the dpi) ->
+	  createfontindirectw. the family, the weight and the scale all
+	  arrive with the font the dialog actually draws: one type system,
+	  every dpi, both themes.
+	- the face is rebuilt at every open. the previous handle dies
+	  inside the same message after the control took the new face (a
+	  paint can never interleave the synchronous wm_setfont), and a
+	  creation failure keeps the previous face drawing instead of
+	  handing the control a null font.
+	the version moves to 1.1.12 build 41: the first round after the
+	1.1.12-rc series was deleted from the remote, the number restarts
+	clean, and the tag and the release stay user-gated.
 Stable: Version 1.1.11 (the font unification round)
 
 	the font round unifies the ui type system. the audit locked the

@@ -290,10 +290,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.11.40 stable (the font unification round)",
-          (major, minor, rev, build) == ("1", "1", "11", "40") and vtype == "")
+    check("version.h = 1.1.12.41 stable (the about title hard code fix round)",
+          (major, minor, rev, build) == ("1", "1", "12", "41") and vtype == "")
     check("VERSION_STRING is the release identity (the stable tag)",
-          vstr == "1.1.11")
+          vstr == "1.1.12")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -2890,6 +2890,62 @@ def t_field_fixes_round50():
     check("the settings broadcast touches no font",
           "_viv_dialog_font_drop" not in viv)
 
+
+def t_field_fixes_round51():
+    """Guards for the about title hard code fix (1.1.12, the first round
+    after the rollback).
+
+    The 1.1.11 font round recorded the design ("the about title derives
+    its larger face from it") but the derivation covered only the
+    family: the height stayed the literal 32 - a 96 dpi design point, so
+    the 8/3 proportion collapsed to 2/3 at 150% and 1/2 at 200%; the
+    site was the only one left on the unsuffixed forms (getobject,
+    logfont, createfontindirect - the wide pipeline borrowed from the
+    project-level unicode define, while every other font site spells
+    the w forms); and the handle was created once and cached for the
+    process lifetime, so a dpi change between two about opens kept the
+    stale face. The fix derives the title end to end from the live
+    dialog font: wm_getfont -> getobjectw into a logfontw -> the height
+    scaled by 8/3 -> createfontindirectw, rebuilt at every open, the
+    previous handle dying only after the control took the new face, a
+    creation failure keeping the previous face drawing.
+    """
+    viv = read("src/viv.c").decode("latin-1")
+
+    about_start = viv.find(
+        "_viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)\r\n{\r\n")
+    about_end = viv.find("\nstatic ", about_start)
+    about = viv[about_start:about_end] if about_start != -1 else ""
+    check("the about proc block was found for the round51 guards",
+          about != "", "")
+
+    check("the literal 32 is gone and the title reads the live dialog font",
+          "lf.lfHeight = 32;" not in viv and
+          "SendMessage(GetDlgItem(hwnd,IDC_ABOUTTITLE),WM_GETFONT,0,0);" in about and
+          "GetObjectW(hfont,sizeof(LOGFONTW),&lf)" in about)
+    check("the title height is the 8/3 ratio of the live message font",
+          "lf.lfHeight = (lf.lfHeight * 8) / 3;" in about)
+    check("the title face is created through the wide pipeline",
+          "_viv_about_hfont = CreateFontIndirectW(&lf);" in about and
+          "LOGFONT lf;" not in viv and
+          "CreateFontIndirect(&lf)" not in viv)
+    check("the face is rebuilt at every open (the create-once cache is gone)",
+          "if (!_viv_about_hfont)" not in viv)
+    check("the previous handle dies only after the new face took the control",
+          "old_hfont = _viv_about_hfont;" in about and
+          "DeleteObject(old_hfont);" in about)
+    check("a creation failure keeps the previous face drawing",
+          "_viv_about_hfont = old_hfont;" in about)
+    check("the control is never handed a null font",
+          "if (_viv_about_hfont)\r\n\t\t\t{\r\n\t\t\t\tSendMessage(GetDlgItem(hwnd,IDC_ABOUTTITLE),WM_SETFONT,(WPARAM)_viv_about_hfont,0);" in about)
+
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    check("the changelog states the collapse numbers and the derivation",
+          "collapsed to 2/3 at 150%" in changes and
+          "-12 * 8 / 3 = -32" in changes and
+          "the tag and the release stay user-gated" in changes)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -2930,6 +2986,7 @@ if __name__ == "__main__":
     t_field_fixes_round48()
     t_field_fixes_round49()
     t_field_fixes_round50()
+    t_field_fixes_round51()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

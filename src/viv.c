@@ -13611,7 +13611,8 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			
 		{
 			HFONT hfont;
-			LOGFONT lf;
+			HFONT old_hfont;
+			LOGFONTW lf;
 			wchar_t version_wbuf[STRING_SIZE];
 
 			os_center_dialog(hwnd);
@@ -13629,16 +13630,48 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
 			os_SetDlgItemText_localization_id(hwnd,IDCANCEL,LOCALIZATION_ID_CANCEL_BUTTON);
 			
-			if (!_viv_about_hfont)
+			// the title face derives from the live dialog font end to
+			// end: the message font the shared dialog proc applied at this
+			// dialog window own dpi (wm_getfont reports it here: the apply
+			// ran before this case), through the wide pipeline so a face
+			// name survives whole (the unsuffixed forms borrowed the wide
+			// path from the project unicode define), with the height
+			// scaled by 8/3 - the ratio the literal 32 encoded at the 96
+			// dpi design point (the message font is -12 there and
+			// -12 * 8 / 3 = -32) - so the family, the weight and the dpi
+			// scale all travel with the font the dialog actually draws.
+			hfont = (HFONT)SendMessage(GetDlgItem(hwnd,IDC_ABOUTTITLE),WM_GETFONT,0,0);
+			
+			if ((hfont) && (GetObjectW(hfont,sizeof(LOGFONTW),&lf)))
 			{
-				hfont = (HFONT)SendMessage(GetDlgItem(hwnd,IDC_ABOUTTITLE),WM_GETFONT,0,0);
-				GetObject(hfont,sizeof(LOGFONT),&lf);
+				lf.lfHeight = (lf.lfHeight * 8) / 3;
 				
-				lf.lfHeight = 32;
-				_viv_about_hfont = CreateFontIndirect(&lf);
+				old_hfont = _viv_about_hfont;
+				
+				_viv_about_hfont = CreateFontIndirectW(&lf);
+				
+				if (_viv_about_hfont)
+				{
+					// the face is rebuilt at every open: the old handle dies
+					// inside this same message after the control took the new
+					// face (a paint can never interleave the synchronous
+					// wm_setfont), and a creation failure keeps the previous
+					// face drawing instead of a null font.
+					if (old_hfont)
+					{
+						DeleteObject(old_hfont);
+					}
+				}
+				else
+				{
+					_viv_about_hfont = old_hfont;
+				}
 			}
 			
-			SendMessage(GetDlgItem(hwnd,IDC_ABOUTTITLE),WM_SETFONT,(WPARAM)_viv_about_hfont,0);
+			if (_viv_about_hfont)
+			{
+				SendMessage(GetDlgItem(hwnd,IDC_ABOUTTITLE),WM_SETFONT,(WPARAM)_viv_about_hfont,0);
+			}
 			
 			return TRUE;
 		}
