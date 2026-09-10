@@ -21,6 +21,13 @@
 //
 // VoidImageViewer
 
+// include guard: upstream relied on each translation unit including this
+// exactly once; the R70 split layers viv_state.h and the domain headers
+// on top of it, so a plain guard is now required (double inclusion
+// redefines the command-id enum).
+#ifndef VIV_H
+#define VIV_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -296,3 +303,5 @@ config_key_t *viv_key_get_start(int command_index);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // VIV_H
