@@ -2921,3 +2921,245 @@ void _viv_start_move_window(void)
 		
 	SendMessage(_viv_hwnd,WM_NCLBUTTONDOWN,(WPARAM)HTCAPTION,MAKELPARAM(cursor_pt.x,cursor_pt.y));
 }
+
+// touch gesture state.
+static DWORD _viv_gesture_zoom_dist = 0; // reference distance between the two fingers.
+static double _viv_gesture_zoom_ratio = 1.0; // accumulated pinch ratio since the last zoom step.
+static int _viv_gesture_last_x = 0; // last two finger pan location. (screen coords)
+static int _viv_gesture_last_y = 0;
+static BYTE _viv_gesture_have_last = 0;
+int _viv_is_touch_click(void)
+{
+	// 0xFF515700 is the signature of touch injected mouse messages.
+	return ((GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700) ? 1 : 0;
+}
+void _viv_touch_double_click(void)
+{
+	if (_viv_1to1)
+	{
+		// go to best fit.
+		_viv_zoom_pos = 0;
+		_viv_1to1 = 0;
+		_viv_view_set(0,0,1);
+		InvalidateRect(_viv_hwnd,0,FALSE);
+		_viv_status_update_temp_pos_zoom();
+	}
+	else
+	{
+		_viv_view_1to1();
+	}
+}
+static void _viv_gesture_reset(void)
+{
+	_viv_gesture_zoom_dist = 0;
+	_viv_gesture_zoom_ratio = 1.0;
+	_viv_gesture_have_last = 0;
+}
+// returns 1 if the gesture was handled. (caller returns 0)
+int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
+{
+	os_GestureInfo_t gesture_info;
+
+	if (!os_GetGestureInfo)
+	{
+		return 0;
+	}
+
+	os_zero_memory(&gesture_info,sizeof(gesture_info));
+
+	gesture_info.cbSize = sizeof(gesture_info);
+
+	if (!os_GetGestureInfo(gesture_info_handle,&gesture_info))
+	{
+		return 0;
+	}
+
+	switch(gesture_info.dwID)
+	{
+		case 1: // GID_BEGIN
+		case 2: // GID_END
+			// msdn: application behavior is undefined when gid_begin and
+			// gid_end are consumed. resetting the gesture state is all we need,
+			// so hand the message to defwindowproc (which also owns the info
+			// handle for anything we do not consume).
+			_viv_gesture_reset();
+			return 0;
+
+		case 3: // GID_ZOOM
+		{
+			DWORD dist;
+
+			dist = (DWORD)gesture_info.ullArguments;
+
+			// sanity check the reported finger distance. some windows builds
+			// return the distance with a multi monitor offset added, or as a
+			// wrapped negative, which can explode the zoom ratio. a real distance
+			// is positive and never exceeds the virtual screen bounds.
+			{
+				int vw;
+				int vh;
+
+				vw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+				vh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
+				if ((vw > 0) && (vh > 0) && ((dist == 0) || (dist > (DWORD)(vw + vh))))
+				{
+					// implausible: drop this update and keep the old baseline.
+					break;
+				}
+			}
+
+			// two fingers closer than ~9.5mm (36 logical px) report a distance
+			// made of digitizer quantization noise: the ratio of two tiny
+			// distances can be anything, so a small wobble while the fingers
+			// are almost touching used to explode the accumulated pinch ratio
+			// (pinch collapse, then spread: instant max zoom). freeze the zoom
+			// below the floor and drop the baseline: the next valid sample
+			// re-baselines with no ratio applied.
+			{
+				DWORD min_dist;
+
+				min_dist = (DWORD)((36 * os_logical_wide) / 96);
+
+				if ((dist) && (dist < min_dist))
+				{
+					_viv_gesture_zoom_dist = 0;
+
+					break;
+				}
+			}
+
+			if (gesture_info.dwFlags & 0x01) // GF_BEGIN
+			{
+				_viv_gesture_zoom_dist = dist;
+				_viv_gesture_zoom_ratio = 1.0;
+			}
+			else
+			if (_viv_gesture_zoom_dist && dist)
+			{
+				double ratio;
+
+				ratio = (double)dist / (double)_viv_gesture_zoom_dist;
+
+				// clamp the per message ratio. two consecutive messages can not
+				// honestly halve or double the finger distance; larger jumps come
+				// from corrupted values or heavily coalesced input and must not
+				// change the zoom by more than 2x in a single message.
+				if (ratio > 2.0)
+				{
+					ratio = 2.0;
+				}
+				else
+				if (ratio < 0.5)
+				{
+					ratio = 0.5;
+				}
+
+				_viv_gesture_zoom_ratio *= ratio;
+
+				// convert the accumulated pinch ratio into whole 1% zoom steps and
+				// apply them all in one call. the render sizes form a true
+				// geometric 1.01x ladder, so the image follows the fingers.
+				{
+					int steps_in;
+					int steps_out;
+
+					steps_in = 0;
+					steps_out = 0;
+
+					while(_viv_gesture_zoom_ratio >= 1.01)
+					{
+						steps_in++;
+
+						_viv_gesture_zoom_ratio /= 1.01;
+					}
+
+					while(_viv_gesture_zoom_ratio <= (1.0 / 1.01))
+					{
+						steps_out++;
+
+						_viv_gesture_zoom_ratio *= 1.01;
+					}
+
+					if (steps_in)
+					{
+						// _VIV_ZOOM_STEPS_PER_NOTCH steps per 120 wheel delta units.
+						_viv_do_mousewheel_action(0,steps_in * (120 / _VIV_ZOOM_STEPS_PER_NOTCH),gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
+					}
+
+					if (steps_out)
+					{
+						_viv_do_mousewheel_action(0,-(steps_out * (120 / _VIV_ZOOM_STEPS_PER_NOTCH)),gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
+					}
+				}
+			}
+
+			_viv_gesture_zoom_dist = dist;
+
+			break;
+		}
+
+		case 4: // GID_PAN (two finger pan, with inertia frames)
+		{
+			int x;
+			int y;
+
+			x = gesture_info.ptsLocation.x;
+			y = gesture_info.ptsLocation.y;
+
+			if (gesture_info.dwFlags & 0x01) // GF_BEGIN
+			{
+				_viv_gesture_last_x = x;
+				_viv_gesture_last_y = y;
+				_viv_gesture_have_last = 1;
+			}
+			else
+			if (_viv_gesture_have_last)
+			{
+				int mx;
+				int my;
+
+				mx = x - _viv_gesture_last_x;
+				my = y - _viv_gesture_last_y;
+
+				_viv_gesture_last_x = x;
+				_viv_gesture_last_y = y;
+
+				if (mx || my)
+				{
+					// pan the view: the image follows the fingers.
+					_viv_view_scroll(mx,my);
+				}
+			}
+
+			break;
+		}
+
+		case 6: // GID_TWOFINGERTAP
+		{
+			// reset the zoom.
+			_viv_1to1 = 0;
+			_viv_zoom_pos = 0;
+			_viv_view_set(_viv_view_x,_viv_view_y,1);
+			InvalidateRect(_viv_hwnd,0,FALSE);
+			_viv_status_update_temp_pos_zoom();
+
+			_viv_gesture_reset();
+
+			break;
+		}
+
+		default:
+
+			// not handled. pass to DefWindowProc.
+			return 0;
+	}
+
+	// we handled the gesture. the info handle is now our responsibility.
+	if (os_CloseGestureInfoHandle)
+	{
+		os_CloseGestureInfoHandle(gesture_info_handle);
+	}
+
+	return 1;
+}

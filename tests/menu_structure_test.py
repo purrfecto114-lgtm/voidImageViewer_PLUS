@@ -305,10 +305,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.46 rc.4 (the theme race self-heal round)",
-          (major, minor, rev, build) == ("1", "1", "12", "46") and vtype == "")
+    check("version.h = 1.1.12.47 rc.5 (the structure round)",
+          (major, minor, rev, build) == ("1", "1", "12", "47") and vtype == "")
     check("VERSION_STRING is the release identity (the rc.3 tag)",
-          vstr == "1.1.12-rc.4")
+          vstr == "1.1.12-rc.5")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -497,7 +497,7 @@ def t_ladder_shape():
           "_viv_zoom_pos_max_cache >= 0" in viv
           and "_viv_zoom_pos_max_cache_view_wide == wide" in viv)
     check("background brush cached across paints",
-          "static HBRUSH _viv_background_hbrush = 0;" in viv
+          "HBRUSH _viv_background_hbrush = 0;" in viv
           and "CreateSolidBrush(brush_color)" in viv)
     check("render capped at 16x native in double space (rc.7)",
           "max_w = 16.0 * (double)_viv_image_wide;" in viv)
@@ -1334,7 +1334,7 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 92)  # 81 + the 11 R70 domain modules
+          len(re.findall(r"<ClCompile ", fp)) == 93)  # 81 + 11 R70 domains + the R76 wndproc module
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
     check("shared props has the resource script and the app icon only",
@@ -1413,7 +1413,7 @@ def t_modernization_round6():
           "suggested_rect" in viv and "os_window_update_dpi(hwnd)" in viv)
     check("the handler rebuilds the toolbar after a dpi change",
           viv.find("_viv_toolbar_build_image_list();",
-                   viv.find("case WM_DPICHANGED:")) != -1)
+                   viv.find("static LRESULT _viv_on_wm_dpichanged(")) != -1)
     check("os.c loads GetDpiForWindow from user32",
           'GetProcAddress(_os_user32_hmodule,"GetDpiForWindow")' in osc)
     check("os.c implements os_window_update_dpi with the 96 floor",
@@ -1438,9 +1438,9 @@ def t_modernization_round6():
     check("glyphs.c/h exist and are in the shared props",
           os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
           and "glyphs.c" in fp and "glyphs.h" in fp)
-    check("the props counts grew by the glyphs pair and the R70 domains",
-          len(re.findall(r"<ClCompile ", fp)) == 92
-          and len(re.findall(r"<ClInclude ", fp)) == 61)
+    check("the props counts grew by the glyphs pair, the R70 domains and the wndproc pair",
+          len(re.findall(r"<ClCompile ", fp)) == 93
+          and len(re.findall(r"<ClInclude ", fp)) == 62)
     check("glyphs.c loads its own gdi+ flat api table",
           '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
           and '"GdipCreateBitmapFromScan0"' in gc
@@ -1741,20 +1741,20 @@ def t_dark_menu_bar():
     # the menu font cache: dpi keyed, dropped on theme and dpi change.
     check("the menu font cache is dpi keyed",
           "_viv_menu_font_dpi != os_logical_wide" in viv)
-    i = viv.find("case WM_THEMECHANGED:")
-    seg = viv[i:viv.find("case WM_SETCURSOR:", i)]
+    i = viv.find("static LRESULT _viv_on_wm_themechanged(")
+    seg = viv[i:viv.find("static LRESULT _viv_on_wm_setcursor(", i)]
     check("WM_THEMECHANGED drops the cached menu font",
           "_viv_menu_font_drop();" in seg)
-    i = viv.find("case WM_DPICHANGED:")
-    seg = viv[i:viv.find("case WM_MOVE:", i)]
+    i = viv.find("static LRESULT _viv_on_wm_dpichanged(")
+    seg = viv[i:viv.find("static LRESULT _viv_on_wm_move(", i)]
     check("WM_DPICHANGED drops the menu font with the glyph cache",
           seg.count("_viv_menu_font_drop();") == 1)
     check("WM_DPICHANGED forces the menu bar re-measure",
           "_viv_menu_bar_remeasure();" in seg)
 
     # the owner draw routes in the main window proc.
-    i = viv.find("case WM_DRAWITEM:")
-    seg = viv[i:viv.find("case WM_SETTINGCHANGE:", i)]
+    i = viv.find("static LRESULT _viv_on_wm_drawitem(")
+    seg = viv[i:viv.find("static LRESULT _viv_on_wm_settingchange(", i)]
     check("WM_DRAWITEM routes the menu items before the status panes",
           seg.find("_viv_menu_draw_root_item((DRAWITEMSTRUCT *)lParam)") <
           seg.find("_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)") and
@@ -2427,7 +2427,7 @@ def t_field_fixes_round43():
           re.search(r"(?:static\s+)?void _viv_recent_save_fold\(void\)", viv) is not None and
           viv.find("_viv_recent_save_fold();\r\n\t\r\n\tconfig_save_settings(config_appdata);") != -1)
     check("the session end folds the pending write",
-          viv.find("case WM_ENDSESSION:") < viv.find("_viv_recent_save_fold();\r\n\t\t\t\t\r\n\t\t\t\tconfig_save_settings(config_appdata);"))
+          viv.find("static LRESULT _viv_on_wm_endsession(") < viv.find("_viv_recent_save_fold();\r\n\t\t\r\n\t\tconfig_save_settings(config_appdata);"))
 
     # --- the live submenu swap ---
     check("the whole-bar rebuild function is gone",
@@ -3085,8 +3085,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 46",
-          "#define VERSION_BUILD 46" in version)
+    check("the release candidate line moves to build 47",
+          "#define VERSION_BUILD 47" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3157,9 +3157,9 @@ def t_white_band_round67():
           "(HBRUSH)(COLOR_WINDOW+1),\r\n\t\t\t\t\"_VIV_REBAR\"" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 46",
-          "#define VERSION_BUILD 46" in version and
-          '#define VERSION_STRING "1.1.12-rc.4"' in version)
+    check("the release candidate moves the version to build 47",
+          "#define VERSION_BUILD 47" in version and
+          '#define VERSION_STRING "1.1.12-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3209,7 +3209,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 21900)  # rc.4 grows it with real fixes (+72)
+          viv_lines >= 21130 and viv_lines <= 22300)  # rc.5: the wndproc split (+238)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3243,7 +3243,8 @@ def t_split_architecture_round70():
         check(f"the {d} domain module exists", ok)
         if ok:
             n = open(p, "rb").read().decode("utf-8", errors="replace").count("\n") + 1
-            check(f"viv_{d}.c is under 3,000 lines", n < 3000, f"({n})")
+            cap = 3300 if d == "view" else 3000  # rc.5: view takes the gesture cluster home (+243)
+            check(f"viv_{d}.c is under the {cap}-line cap", n < cap, f"({n})")
 
     # 3. the state layer exists and carries the transition externs
     check("the state layer exists", os.path.exists("src/viv_state.h"))
@@ -3269,7 +3270,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 21900, f"({total})")  # rc.4: the theme race fixes
+          21130 <= total <= 22300, f"({total})")  # rc.5: the wndproc domain split (+238)
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3334,6 +3335,103 @@ def t_split_architecture_round70():
               len(re.findall(rb"\r(?!\n)", data)) == 0)
 
 
+
+def t_structure_round76():
+    """Guards for the R76 structure round: the splice guard finally carries
+    the file manifest (the glob could silently absorb a new domain and
+    silently drop a renamed one - the growth window was measured against
+    an invisible list), the window procedure is a domain module with the
+    case bodies as handlers, and the gesture cluster is home in view."""
+    print("the structure round (1.1.12-rc.5)")
+    import glob
+
+    # 1. THE FILE MANIFEST: the splice read("src/viv.c") is viv.c + every
+    #    src/viv_*.c in dictionary order + viv_state.h. pinned exactly, so
+    #    a new domain must be added here (and to the props) on purpose.
+    actual = sorted(os.path.basename(p) for p in glob.glob("src/viv_*.c"))
+    expected = ["viv_anim.c", "viv_chrome.c", "viv_dark.c", "viv_dialogs.c",
+                "viv_install.c", "viv_load.c", "viv_menu.c", "viv_playlist.c",
+                "viv_recent.c", "viv_render.c", "viv_view.c", "viv_wndproc.c"]
+    check("the splice manifest is the pinned 12-domain list",
+          actual == expected, f"({actual})")
+    check("the state layer is the splice tail",
+          os.path.exists("src/viv_state.h"))
+
+    # 2. the wndproc domain: exists, sized, registered exactly once.
+    wnd = open("src/viv_wndproc.c", "rb").read().decode("utf-8", errors="replace")
+    check("the wndproc domain exists", "static LRESULT _viv_on_wm_nchittest(" in wnd)
+    check("the wndproc domain is under the 3,000 line cap",
+          wnd.count("\n") + 1 < 3000, f"({wnd.count(chr(10)) + 1})")
+    props = read("voidImageViewer.files.props").decode("utf-8-sig")
+    check("viv_wndproc.c is registered in the props",
+          props.count('src\\viv_wndproc.c" />') == 1)
+    check("viv_wndproc.h is registered in the props",
+          props.count('src\\viv_wndproc.h" />') == 1)
+
+    # 3. the dispatch: _viv_proc is a slim switch again (the 2,208-line
+    #    monolith case bodies are now per-message handlers).
+    i = wnd.find("LRESULT CALLBACK _viv_proc(")
+    disp = wnd[i:]
+    check("the dispatch is under 120 lines",
+          disp.count("\n") < 120, f"({disp.count(chr(10))})")
+    handlers = wnd.count("\nstatic LRESULT _viv_on_")
+    check("the 42 per-message handlers exist", handlers == 42, f"({handlers})")
+    check("every dispatch case returns its handler",
+          disp.count("\n\t\t\treturn _viv_on_") == 42)
+
+    # 4. the pure-move discipline held: the moved case bodies kept their
+    #    bytes, only the case-exit breaks became DefWindowProc returns.
+    check("the break exits became explicit DefWindowProc returns",
+          wnd.count("return DefWindowProc(hwnd,msg,wParam,lParam);") >= 34)
+
+    # 5. the gesture cluster is home in the view domain (chrome no longer
+    #    owns it): the three touch entry points + the engine state.
+    view = open("src/viv_view.c", "rb").read().decode("utf-8", errors="replace")
+    chrome = open("src/viv_chrome.c", "rb").read().decode("utf-8", errors="replace")
+    check("the gesture engine lives in view",
+          "int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)\r\n{" in view)
+    check("the touch click probe lives in view",
+          "int _viv_is_touch_click(void)\r\n{" in view)
+    check("the touch double click lives in view",
+          "void _viv_touch_double_click(void)\r\n{" in view)
+    check("the gesture state moved with the engine",
+          "// touch gesture state." in view)
+    check("chrome no longer references the gesture cluster",
+          "_viv_on_gesture" not in chrome and "_viv_touch_double_click" not in chrome)
+    chh = open("src/viv_chrome.h", "rb").read().decode("utf-8", errors="replace")
+    check("the chrome header no longer claims gestures",
+          "gestures" not in chh.split("\n")[22])
+    vh = open("src/viv_view.h", "rb").read().decode("utf-8", errors="replace")
+    check("the view header exports the touch entry points",
+          "int _viv_on_gesture(HWND hwnd,void *gesture_info_handle);" in vh)
+
+    # 6. the two shared symbols the split promoted to the state layer.
+    state = open("src/viv_state.h", "rb").read().decode("utf-8", errors="replace")
+    vivc = open("src/viv.c", "rb").read().decode("utf-8", errors="replace")
+    check("the background brush is externed and released by kill",
+          "extern HBRUSH _viv_background_hbrush;" in state and
+          vivc.count("_viv_background_hbrush") == 3)
+    check("the command line processor is declared in the state layer",
+          "void _viv_process_command_line(wchar_t *cl);" in state and
+          "\nvoid _viv_process_command_line(wchar_t *cl)" in vivc)
+    check("the moved statics left the core",
+          "_viv_mdoing_x" not in vivc and "_viv_is_animation_paint" not in vivc and
+          "_viv_drop_files" not in vivc)
+    check("the core registers the wndproc through its header",
+          '#include "viv_wndproc.h"' in vivc and
+          "os_RegisterClassEx(" in vivc)
+
+    # 7. the version moved to rc.5 / build 47.
+    version = read("src/version.h").decode()
+    check("the version is 1.1.12-rc.5 build 47",
+          '#define VERSION_BUILD 47' in version and
+          '#define VERSION_STRING "1.1.12-rc.5"' in version)
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    check("the changelog states the structure round",
+          "the structure round" in changes and
+          "42 static per-message handlers" in changes and
+          "the manifest is pinned now" in changes)
+
 def t_theme_race_round72():
     """Guards for the theme race self-heal round (1.1.12-rc.4: the white
     band after the options dialog and the theme switch, the options tree
@@ -3356,8 +3454,8 @@ def t_theme_race_round72():
     # 2. wm_themechanged re-applies unconditionally (the system re-themed
     #    the comctl classes and the frame: the per window dark state must be
     #    re-asserted even when the answer did not flip).
-    theme_at = viv.find("case WM_THEMECHANGED:")
-    theme_body = viv[theme_at:viv.find("case WM_SETCURSOR:", theme_at)]
+    theme_at = viv.find("static LRESULT _viv_on_wm_themechanged(")
+    theme_body = viv[theme_at:viv.find("static LRESULT _viv_on_wm_setcursor(", theme_at)]
     check("wm_themechanged applies without the flip gate",
           "_viv_apply_dark_mode(1);" in theme_body and
           "was_dark != is_dark" not in theme_body)
@@ -3390,9 +3488,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? RGB(0xE8,0xE8,0xE8) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 46",
-          "#define VERSION_BUILD 46" in version and
-          '#define VERSION_STRING "1.1.12-rc.4"' in version)
+    check("the release candidate moves the version to build 47",
+          "#define VERSION_BUILD 47" in version and
+          '#define VERSION_STRING "1.1.12-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3446,6 +3544,7 @@ if __name__ == "__main__":
     t_split_architecture_round69()
     t_split_architecture_round70()
     t_theme_race_round72()
+    t_structure_round76()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

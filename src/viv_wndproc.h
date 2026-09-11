@@ -21,30 +21,13 @@
 //
 // VoidImageViewer
 // viv_view.h - command dispatch, navigation, zoom, mouse and touch gesture actions.
-#ifndef VIV_VIEW_H
-#define VIV_VIEW_H
+// VoidImageViewer
+// viv_wndproc.h - the main window procedure export (registered by the core).
+#ifndef VIV_WNDPROC_H
+#define VIV_WNDPROC_H
 
 #include "viv.h"
 
-// exported to other domains / the viv.c core
-void _viv_command(int command_id);
-void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat);
-int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int wait_for_current_load);
-void _viv_home(int end,int is_preload);
-void _viv_view_set(int view_x,int view_y,int invalidate);
-void _viv_slideshow(void);
-void _viv_pause(void);
-void _viv_mousemove(void);
-void _viv_view_1to1(void);
-void _viv_zoom_set_percent(int percent,int screen_x,int screen_y,int force);
-void _viv_zoom_in(int out,int have_xy,int x,int y);
-void _viv_view_scroll(int mx,int my);
-void _viv_update_1to1_scroll(int x,int y);
-void _viv_do_mousewheel_action(int action,int delta,int x,int y);
-void _viv_do_left_click_action(int action);
-void _viv_start_move_window(void);
-int _viv_is_touch_click(void);
-void _viv_touch_double_click(void);
-int _viv_on_gesture(HWND hwnd,void *gesture_info_handle);
+LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 
 #endif

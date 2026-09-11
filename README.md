@@ -18,13 +18,14 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.4 — the theme race self-heal round (the current release candidate):**
+**1.1.12-rc.5 — the structure round (the current release candidate):**
 
-- **The white band after opening Options or switching the theme is fixed at the root** — the app-level dark re-apply was gated on a state flip that never happened, while Windows repainted the frame and the control classes light asynchronously. The delayed re-check timer and `WM_THEMECHANGED` now re-apply the chrome unconditionally (the sweep is idempotent), the Options dialog re-runs its own full dark pass on a one-shot timer, and the main window erases with the dark face in the dark UI.
-- **The Options navigation tree reads in the dark UI** — a themed tree ignores the text-color message and paints its own gray on the dark face; the dark dialog walk pins the tree face and label colors on every pass, and hands them back to the system on the light flip.
+- **The gesture cluster is home in the view domain** — the engine, the touch-click probe and the double-click handler lived in `viv_chrome.c` since the split; chrome is window dressing, gestures are zoom/pan input, and the engine statics moved with the functions.
+- **The 2,208-line window procedure is a dispatch again** — the message-case bodies are 42 static `_viv_on_wm_*` handlers in the new `viv_wndproc.c` (byte-identical moves; the case-exit `break`s became explicit `DefWindowProc` returns), and the test suite's spliced view pins its exact 13-file manifest.
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.12-rc.4** — the white band after opening Options or switching the theme fixed at the root (the dark re-apply lost its flip gate; the sweep is now unconditional and idempotent); the Options navigation tree reads in the dark UI.
 - **1.1.12-rc.3** — the monolith is gone: `viv.c` (21,129 lines) is now a 4,718-line core plus eleven domain modules and a `viv_state.h` shared-context layer — a pure physical move (function bodies byte-identical; `/GL` whole-program optimization keeps cross-module inlining, performance unchanged); the setup offers the EMF/WMF associations; the vendored libwebp pruned of non-Windows build systems, fuzzers and docs (62 files — `COPYING`/`PATENTS`/`AUTHORS` kept).
 - **1.1.12-rc.2** — the About dialog's band and title move into the resource template (correct at every DPI and in both themes); the post-theme-flip white band fixed (the frame repaint joined the sweep, the toolbar strip relayouts with the system metrics).
 - **1.1.11** — one type system for the whole UI (the system message font per dialog at its own window DPI — CJK-safe, no more fallback-font mismatch); EMF/WMF in every association surface (metafiles rasterize via GDI+ — display-level support); recent files, transparency backdrop, complete dark dialogs.

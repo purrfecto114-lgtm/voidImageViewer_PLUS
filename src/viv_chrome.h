@@ -20,7 +20,7 @@
 // SOFTWARE.
 //
 // VoidImageViewer
-// viv_chrome.h - window dressing: rebar, toolbar, status bar, menu bar, fullscreen, gestures, cursors.
+// viv_chrome.h - window dressing: rebar, toolbar, status bar, menu bar, fullscreen, cursors.
 #ifndef VIV_CHROME_H
 #define VIV_CHROME_H
 
@@ -57,9 +57,6 @@ void _viv_status_set_temp_text(wchar_t *text);
 void _viv_status_update_temp_pos_zoom(void);
 void _viv_status_update_slideshow_rate(void);
 void _viv_zoomui_update(void);
-int _viv_is_touch_click(void);
-void _viv_touch_double_click(void);
-int _viv_on_gesture(HWND hwnd,void *gesture_info_handle);
 void _viv_show_cursor(void);
 void _viv_hide_cursor(void);
 int _viv_should_show_cursor(void);

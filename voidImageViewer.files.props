@@ -96,6 +96,7 @@
     <ClCompile Include="..\src\viv_recent.c" />
     <ClCompile Include="..\src\viv_render.c" />
     <ClCompile Include="..\src\viv_view.c" />
+    <ClCompile Include="..\src\viv_wndproc.c" />
     <ClCompile Include="..\src\wchar.c" />
     <ClCompile Include="..\src\webp.c" />
     <ClCompile Include="..\src\zoomui.c" />
@@ -160,6 +161,7 @@
     <ClInclude Include="..\src\viv_render.h" />
     <ClInclude Include="..\src\viv_state.h" />
     <ClInclude Include="..\src\viv_view.h" />
+    <ClInclude Include="..\src\viv_wndproc.h" />
     <ClInclude Include="..\src\wchar.h" />
     <ClInclude Include="..\src\webp.h" />
     <ClInclude Include="..\src\zoomui.h" />

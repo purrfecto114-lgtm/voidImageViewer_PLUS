@@ -296,6 +296,9 @@ void _viv_kill(void);
 int __cdecl main(int argc,char **argv);
 int _viv_icompare_w(const wchar_t *a,const wchar_t *b);
 CLIPFORMAT _viv_get_CF_PREFERREDDROPEFFECT(void);
+// the R76 wndproc domain split: the WM_COPYDATA handler forwards the
+// command line here, the core init consumes it.
+void _viv_process_command_line(wchar_t *cl);
 
 // ---- shared state (definitions remain in viv.c) ----
 extern RECT _viv_menu_bar_items_rect;
@@ -404,6 +407,8 @@ extern const localization_id_t _viv_association_description_localization_id_arra
 extern const char *_viv_association_icon_locations[];
 extern int _viv_recent_save_dirty;
 extern HDC _viv_paint_hdc;
+// created lazily in the wndproc WM_PAINT handler, released in _viv_kill.
+extern HBRUSH _viv_background_hbrush;
 extern HBRUSH _viv_dialog_dark_hbrush;
 extern HBRUSH _viv_dark_chrome_hbrushes[4];
 extern HBRUSH _viv_light_chrome_hbrushes[2];
