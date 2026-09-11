@@ -18,13 +18,14 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.5 — the structure round (the current release candidate):**
+**1.1.12-rc.6 — the top bar remake (the current release candidate):**
 
-- **The gesture cluster is home in the view domain** — the engine, the touch-click probe and the double-click handler lived in `viv_chrome.c` since the split; chrome is window dressing, gestures are zoom/pan input, and the engine statics moved with the functions.
-- **The 2,208-line window procedure is a dispatch again** — the message-case bodies are 42 static `_viv_on_wm_*` handlers in the new `viv_wndproc.c` (byte-identical moves; the case-exit `break`s became explicit `DefWindowProc` returns), and the test suite's spliced view pins its exact 13-file manifest.
+- **The menu bar is a fully self-drawn strip** — no frame menu, no owner-draw patching: the new `viv_menubar` child window paints the top bar end to end and opens the same popups (`TrackPopupMenuEx`); the light/dark label spacing is identical (the field gap was 17px vs 94px), the white right strip and its theme races are gone with the second painter.
+- **The status bar owns its dark face** — the strip erases dark in the dark UI, every pane registers as owner-drawn from the first update (the empty bar no longer shows the bare light slab), and the dark pass repaints the top edge and the size grip; the toolbar button spacing is pinned uniform in both themes.
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.12-rc.5** — the structure round: the gesture cluster home in the view domain, the 2,208-line window procedure split into 42 per-message handlers in the new `viv_wndproc.c`, the splice guard's file manifest pinned.
 - **1.1.12-rc.4** — the white band after opening Options or switching the theme fixed at the root (the dark re-apply lost its flip gate; the sweep is now unconditional and idempotent); the Options navigation tree reads in the dark UI.
 - **1.1.12-rc.3** — the monolith is gone: `viv.c` (21,129 lines) is now a 4,718-line core plus eleven domain modules and a `viv_state.h` shared-context layer — a pure physical move (function bodies byte-identical; `/GL` whole-program optimization keeps cross-module inlining, performance unchanged); the setup offers the EMF/WMF associations; the vendored libwebp pruned of non-Windows build systems, fuzzers and docs (62 files — `COPYING`/`PATENTS`/`AUTHORS` kept).
 - **1.1.12-rc.2** — the About dialog's band and title move into the resource template (correct at every DPI and in both themes); the post-theme-flip white band fixed (the frame repaint joined the sweep, the toolbar strip relayouts with the system metrics).

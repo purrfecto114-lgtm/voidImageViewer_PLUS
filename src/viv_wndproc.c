@@ -27,6 +27,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_wndproc.h"
+#include "viv_menubar.h"
 #include "viv_recent.h"
 #include "viv_playlist.h"
 #include "viv_load.h"
@@ -757,11 +758,9 @@ debug_printf("ADDITIONAL FRAME TERMINATE\n");
 static LRESULT _viv_on_wm_initmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 {	
-	HMENU hmenu;
-
-	hmenu = GetMenu(hwnd);
-
-	_viv_check_menus(hmenu);
+	// the frame menu is gone: the popup state refresh runs against the
+	// app menu tree (the remade top bar opens the same popups).
+	_viv_check_menus(_viv_hmenu);
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -1272,6 +1271,11 @@ static LRESULT _viv_on_wm_activate(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 	{
 		_viv_update_show_cursor();
 	}
+	
+	// the top bar dims its labels when the window is inactive: repaint
+	// on every activation change.
+	_viv_menubar_repaint();
+	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
@@ -1705,9 +1709,11 @@ static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		// rebuild the dpi scaled toolbar icons and relayout.
 		_viv_toolbar_build_image_list();
 		
-		// the menu bar items re-measure at the new label size (the
-		// system keeps the old widths until the item types change).
-		_viv_menu_bar_remeasure();
+		// the uniform button widths are dpi scaled: re-pin them.
+		_viv_toolbar_pin_button_sizes();
+		
+		// the top bar re-reads its labels at the new font size.
+		_viv_menubar_layout();
 		
 		_viv_on_size();
 	}
@@ -1744,13 +1750,6 @@ static LRESULT _viv_on_wm_move(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 static LRESULT _viv_on_wm_drawitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 {
-	// the top level menu items are owner drawn in the dark ui: draw
-	// them first (a menu message carries no control id).
-	if ((wParam == 0) && (_viv_menu_draw_root_item((DRAWITEMSTRUCT *)lParam)))
-	{
-		return TRUE;
-	}
-	
 	// the status panes are owner drawn: draw them (dark ui support).
 	if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))
 	{
@@ -1762,17 +1761,14 @@ static LRESULT _viv_on_wm_drawitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
-static LRESULT _viv_on_wm_measureitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+static LRESULT _viv_on_wm_syschar(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 {
-	// the owner drawn menu bar items report their extent: the width
-	// from the label at the menu font, the height from the system
-	// menu metrics.
-	if ((wParam == 0) && (((MEASUREITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
+	// alt + mnemonic: the remade top bar owns the root item mnemonics
+	// (the frame menu is gone, so the system no longer handles them).
+	if (_viv_menubar_open_mnemonic((int)wParam))
 	{
-		_viv_menu_measure_root_item((MEASUREITEMSTRUCT *)lParam);
-		
-		return TRUE;
+		return 0;
 	}
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -1780,21 +1776,52 @@ static LRESULT _viv_on_wm_measureitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
-static LRESULT _viv_on_wm_ncpaint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+static LRESULT _viv_on_wm_syskeydown(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 {
-	// the system paints the frame and the owner drawn menu bar items.
-	// the empty menu bar strip keeps the system light color on builds
-	// whose menu bars ignore the immersive dark app mode (windows 11,
-	// pre 1903): finish the pass with the dark fill.
-	DefWindowProc(hwnd,msg,wParam,lParam);
-	
-	if (_viv_is_dark())
+	// f10 opens the first menu: the classic menu key the frame menu
+	// used to own.
+	if (wParam == VK_F10)
 	{
-		_viv_menu_bar_nc_fill();
+		_viv_menubar_open_first();
+		
+		return 0;
 	}
 	
-	return 0;
+	// the alt press flips the underline policy (hidden until alt is
+	// held): repaint the bar on the first press, not the auto repeats.
+	if ((wParam == VK_MENU) && (!(lParam & 0x40000000)))
+	{
+		_viv_menubar_repaint();
+	}
+	
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+static LRESULT _viv_on_wm_syskeyup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+{
+	// the alt release hides the mnemonics again: repaint the bar.
+	if (wParam == VK_MENU)
+	{
+		_viv_menubar_repaint();
+	}
+	
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+static LRESULT _viv_on_wm_initmenupopup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+{	
+	// trackpopupmenuex sends this before showing a popup: the state
+	// refresh the frame menu used to get from wm_initmenu runs here.
+	_viv_check_menus(_viv_hmenu);
+	
+	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -1850,18 +1877,10 @@ static LRESULT _viv_on_wm_themechanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM l
 {
 
 	// the system font metrics may follow the theme: drop the cached
-	// menu font and force a re-measure of the menu bar.
+	// menu font and re-read the top bar layout at the new metrics.
 	_viv_menu_font_drop();
 	
-	// the item extents may follow the font: the recorded union is
-	// stale until the bar redraws.
-	SetRectEmpty(&_viv_menu_bar_items_rect);
-	_viv_menu_bar_items_valid = 0;
-	
-	if (GetMenu(hwnd))
-	{
-		DrawMenuBar(hwnd);
-	}
+	_viv_menubar_layout();
 	
 	// the visual style flip can race the registry the same way the
 	// immersive color set broadcast does: schedule the one shot
@@ -2585,10 +2604,14 @@ LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			return _viv_on_wm_move(hwnd,msg,wParam,lParam);
 		case WM_DRAWITEM:
 			return _viv_on_wm_drawitem(hwnd,msg,wParam,lParam);
-		case WM_MEASUREITEM:
-			return _viv_on_wm_measureitem(hwnd,msg,wParam,lParam);
-		case WM_NCPAINT:
-			return _viv_on_wm_ncpaint(hwnd,msg,wParam,lParam);
+		case WM_SYSCHAR:
+			return _viv_on_wm_syschar(hwnd,msg,wParam,lParam);
+		case WM_SYSKEYDOWN:
+			return _viv_on_wm_syskeydown(hwnd,msg,wParam,lParam);
+		case WM_SYSKEYUP:
+			return _viv_on_wm_syskeyup(hwnd,msg,wParam,lParam);
+		case WM_INITMENUPOPUP:
+			return _viv_on_wm_initmenupopup(hwnd,msg,wParam,lParam);
 		case WM_SETTINGCHANGE:
 			return _viv_on_wm_settingchange(hwnd,msg,wParam,lParam);
 		case WM_THEMECHANGED:

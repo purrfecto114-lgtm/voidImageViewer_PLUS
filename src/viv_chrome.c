@@ -20,12 +20,14 @@
 // SOFTWARE.
 //
 // VoidImageViewer
-// viv_chrome.c - window dressing: rebar, toolbar, status bar, menu bar, fullscreen, cursors.
+// viv_chrome.c - window dressing: rebar, toolbar, status bar, fullscreen, cursors.
+// the menu bar strip is owned by viv_menubar.c (the remade top bar).
 // Pure physical move from viv.c (R70 split): bodies are unchanged.
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_chrome.h"
 #include "viv_dark.h"
+#include "viv_menubar.h"
 #include "viv_render.h"
 #include "viv_view.h"
 
@@ -39,19 +41,13 @@ void _viv_paint_kill(void);
 void _viv_toggle_fullscreen(void);
 HFONT _viv_menu_font(void);
 void _viv_menu_font_drop(void);
-int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item);
-void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item);
-static void _viv_menu_bar_capture_pad(void);
-static void _viv_menu_bar_fill_gap(HDC hdc,int left,int top,int right,int bottom);
-void _viv_menu_bar_nc_fill(void);
-void _viv_menu_bar_theme(void);
-void _viv_menu_bar_remeasure(void);
 void _viv_apply_dark_mode(int repaint);
 int _viv_is_window_maximized(HWND hwnd);
 void _viv_update_ontop(void);
 void _viv_update_prevent_sleep(void);
 void _viv_status_show(int show);
 void _viv_toolbar_build_image_list(void);
+void _viv_toolbar_pin_button_sizes(void);
 void _viv_controls_show(int show);
 void _viv_status_update(void);
 static void _viv_status_set(int part,const wchar_t *text);
@@ -74,9 +70,6 @@ void _viv_update_show_cursor(void);
 void _viv_start_hide_cursor_timer(void);
 
 
-static int _viv_menu_bar_pad = 0; // the system's own top level pad (pixels, captured with the dpi below)
-static int _viv_menu_bar_pad_dpi = 0; // the dpi the pad was captured at (the rescale base)
-static int _viv_menu_bar_nc_force = 0; // reentrancy guard for the no item repaint path
 static HWND _viv_toolbar_hwnd = 0;
 static HWND _viv_rebar_hwnd = 0;
 //static HWND _viv_tooltip_hwnd = 0;
@@ -156,6 +149,16 @@ void _viv_on_size(void)
 					config_high = window_rect.bottom - window_rect.top;
 				}
 			}
+		}
+		
+		// the top bar strip: a client side child now (the frame menu is
+		// gone). it owns the top of the client area; everything below lays
+		// out against the reduced height.
+		if (_viv_menubar_high())
+		{
+			_viv_menubar_resize(wide);
+			
+			high -= _viv_menubar_high();
 		}
 		
 		if (_viv_status_hwnd)
@@ -384,14 +387,7 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 			style &= ~WS_THICKFRAME;
 		}
 
-		if (config_show_menu)	
-		{
-			SetMenu(_viv_hwnd,_viv_hmenu);
-		}
-		else
-		{
-			SetMenu(_viv_hwnd,0);
-		}
+		_viv_menubar_show(config_show_menu);
 		
 		_viv_status_show(config_show_status);
 		_viv_controls_show(config_show_controls);
@@ -428,7 +424,7 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 		
 		GetWindowRect(_viv_hwnd,&_viv_fullscreen_rect);
 		
-		SetMenu(_viv_hwnd,0);
+		_viv_menubar_show(0);
 		_viv_status_show(0);
 		_viv_controls_show(0);
 		_viv_zoomui_update();
@@ -610,508 +606,6 @@ void _viv_menu_font_drop(void)
 	
 	_viv_menu_font_dpi = 0;
 }
-// draw one owner drawn top level menu item. dark mode paints the dark
-// chrome face (selected items lift one step); a stale owner draw state
-// during a theme flip falls back to the system menu colors so the item
-// never goes blank.
-int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)
-{
-	wchar_t text[STRING_SIZE];
-	RECT rect;
-	HFONT font;
-	HFONT old_font;
-	COLORREF text_color;
-	HBRUSH face_brush;
-	int inactive;
-	
-	if ((draw_item->CtlType != ODT_MENU) || (!draw_item->itemData))
-	{
-		return 0;
-	}
-	
-	string_copy_utf8_string(text,localization_get_string((int)draw_item->itemData));
-	
-	// selected = hover or the open menu; inactive windows dim the label
-	// like the classic menu bar.
-	inactive = (draw_item->itemState & ODS_INACTIVE) || (GetActiveWindow() != _viv_hwnd);
-	
-	if (_viv_is_dark())
-	{
-		face_brush = (draw_item->itemState & ODS_SELECTED) ? _viv_dark_chrome_brush(1) : _viv_dark_chrome_brush(3);
-		text_color = inactive ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
-	}
-	else
-	{
-		face_brush = GetSysColorBrush((draw_item->itemState & ODS_SELECTED) ? COLOR_HIGHLIGHT : COLOR_MENU);
-		text_color = GetSysColor(inactive ? COLOR_GRAYTEXT : ((draw_item->itemState & ODS_SELECTED) ? COLOR_HIGHLIGHTTEXT : COLOR_MENUTEXT));
-	}
-	
-	FillRect(draw_item->hDC,&draw_item->rcItem,face_brush);
-	
-	font = _viv_menu_font();
-	old_font = 0;
-	
-	if (font)
-	{
-		old_font = SelectObject(draw_item->hDC,font);
-	}
-	
-	SetBkMode(draw_item->hDC,TRANSPARENT);
-	SetTextColor(draw_item->hDC,text_color);
-	
-	CopyRect(&rect,&draw_item->rcItem);
-	
-	// ODS_NOACCEL mirrors the system underline policy (hidden until alt).
-	DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER | ((draw_item->itemState & ODS_NOACCEL) ? DT_HIDEPREFIX : 0));
-	
-	if (old_font)
-	{
-		SelectObject(draw_item->hDC,old_font);
-	}
-	
-	// record the item extent for the non client fill: the union of
-	// the drawn items marks the bar area the system actually painted
-	// (the getmenubarinfo item rects can be stale after a layout change).
-	if (_viv_menu_bar_items_valid)
-	{
-		UnionRect(&_viv_menu_bar_items_rect,&_viv_menu_bar_items_rect,&draw_item->rcItem);
-	}
-	else
-	{
-		CopyRect(&_viv_menu_bar_items_rect,&draw_item->rcItem);
-		_viv_menu_bar_items_valid = 1;
-	}
-	
-	return 1;
-}
-// measure one owner drawn top level menu item: the label extent at the
-// menu font plus the classic top level padding. the height keeps the
-// system provided bar height unless it is missing.
-void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)
-{
-	wchar_t text[STRING_SIZE];
-	SIZE size;
-	HDC hdc;
-	HFONT font;
-	HFONT old_font;
-	int pad;
-	
-	if ((measure_item->CtlType != ODT_MENU) || (!measure_item->itemData))
-	{
-		return;
-	}
-	
-	string_copy_utf8_string(text,localization_get_string((int)measure_item->itemData));
-	
-	size.cx = 0;
-	size.cy = 0;
-	
-	hdc = GetDC(_viv_hwnd);
-	
-	font = _viv_menu_font();
-	old_font = 0;
-	
-	if (font)
-	{
-		old_font = SelectObject(hdc,font);
-	}
-	
-	GetTextExtentPoint32W(hdc,text,string_get_length(text),&size);
-	
-	if (old_font)
-	{
-		SelectObject(hdc,old_font);
-	}
-	
-	ReleaseDC(_viv_hwnd,hdc);
-	
-	// air on both sides of the label. the pad is the system's own: captured
-	// from a live light layout while the items were still system drawn
-	// (the rect the system gave a top level item minus its label extent),
-	// rescaled to the window dpi. without a capture (the probe failed, or
-	// the ui never showed a light layout) the classic 8px air stays.
-	pad = 0;
-	
-	if ((_viv_menu_bar_pad > 0) && (_viv_menu_bar_pad_dpi > 0))
-	{
-		pad = (_viv_menu_bar_pad * os_logical_wide) / _viv_menu_bar_pad_dpi;
-	}
-	
-	if (pad <= 0)
-	{
-		pad = (8 * os_logical_wide) / 96;
-	}
-	
-	measure_item->itemWidth = size.cx + (pad * 2);
-	
-	if (!measure_item->itemHeight)
-	{
-		measure_item->itemHeight = size.cy + ((4 * os_logical_high) / 96);
-	}
-}
-// capture the system's own top level padding: while the items are still
-// system drawn, the rect the system gave one top level item minus its
-// label extent is the padding the system itself measures with. the dark
-// ui then draws its owner items with the same air, so the bar layout no
-// longer jumps when the theme flips (two measurement systems - the dark
-// one guessed 8px, the light one is the system's; the chinese labels
-// accumulated the per item drift, the widths the field compared).
-static void _viv_menu_bar_capture_pad(void)
-{
-	RECT item_rect;
-	SIZE size;
-	HDC hdc;
-	HFONT font;
-	HFONT old_font;
-	wchar_t text[STRING_SIZE];
-	MENUITEMINFOW mii;
-	int pad;
-	
-	if ((!_viv_hwnd) || (!_viv_hmenu))
-	{
-		return;
-	}
-	
-	os_zero_memory(&mii,sizeof(mii));
-	mii.cbSize = sizeof(mii);
-	mii.fMask = MIIM_SUBMENU | MIIM_DATA;
-	
-	// the probe item: a top level popup that carries its label id (the
-	// same itemData the owner draw measure and paint read back).
-	if ((!GetMenuItemInfoW(_viv_hmenu,0,TRUE,&mii)) || (!mii.hSubMenu) || (!mii.dwItemData))
-	{
-		return;
-	}
-	
-	if (!GetMenuItemRect(_viv_hwnd,_viv_hmenu,0,&item_rect))
-	{
-		return;
-	}
-	
-	string_copy_utf8_string(text,localization_get_string((int)mii.dwItemData));
-	
-	size.cx = 0;
-	size.cy = 0;
-	
-	hdc = GetDC(_viv_hwnd);
-	
-	font = _viv_menu_font();
-	old_font = 0;
-	
-	if (font)
-	{
-		old_font = SelectObject(hdc,font);
-	}
-	
-	GetTextExtentPoint32W(hdc,text,string_get_length(text),&size);
-	
-	if (old_font)
-	{
-		SelectObject(hdc,old_font);
-	}
-	
-	ReleaseDC(_viv_hwnd,hdc);
-	
-	pad = (item_rect.right - item_rect.left) - size.cx;
-	
-	if ((pad > 0) && (os_logical_wide > 0))
-	{
-		_viv_menu_bar_pad = pad;
-		_viv_menu_bar_pad_dpi = os_logical_wide;
-	}
-	else
-	{
-		_viv_menu_bar_pad = 0;
-		_viv_menu_bar_pad_dpi = 0;
-	}
-}
-// fill one menu bar gap with the dark chrome face. degenerate gaps are
-// skipped.
-static void _viv_menu_bar_fill_gap(HDC hdc,int left,int top,int right,int bottom)
-{
-	RECT rect;
-	
-	if ((right > left) && (bottom > top))
-	{
-		rect.left = left;
-		rect.top = top;
-		rect.right = right;
-		rect.bottom = bottom;
-		
-		FillRect(hdc,&rect,_viv_dark_chrome_brush(3));
-	}
-}
-// fill the menu bar area the system leaves in its light color: the empty
-// strip right of the last item (and any left inset). the item extents come
-// from the rects recorded while the items were drawn (the getmenubarinfo
-// item rects can be stale after a layout change, which left the right half
-// of the bar white after a theme switch - the field report).
-void _viv_menu_bar_nc_fill(void)
-{
-	MENUBARINFO mbi;
-	RECT rect;
-	RECT window_rect;
-	HDC hdc;
-	int force;
-	
-	if ((!_viv_hwnd) || (!_viv_hmenu) || (!GetMenu(_viv_hwnd)))
-	{
-		return;
-	}
-	
-	if (IsIconic(_viv_hwnd))
-	{
-		return;
-	}
-	
-	os_zero_memory(&mbi,sizeof(mbi));
-	mbi.cbSize = sizeof(mbi);
-	
-	if (!GetMenuBarInfo(_viv_hwnd,OBJID_MENU,0,&mbi))
-	{
-		return;
-	}
-	
-	if ((mbi.rcBar.right <= mbi.rcBar.left) || (mbi.rcBar.bottom <= mbi.rcBar.top))
-	{
-		// a degenerate bar rect means the layout is not available yet.
-		return;
-	}
-	
-	GetWindowRect(_viv_hwnd,&window_rect);
-	
-	// the bar strip in window coordinates (this fill runs on the window dc).
-	rect.left = mbi.rcBar.left - window_rect.left;
-	rect.top = mbi.rcBar.top - window_rect.top;
-	rect.right = mbi.rcBar.right - window_rect.left;
-	rect.bottom = mbi.rcBar.bottom - window_rect.top;
-	
-	force = 0;
-	
-	hdc = GetWindowDC(_viv_hwnd);
-	
-	if (_viv_menu_bar_items_valid)
-	{
-		RECT items;
-		RECT clip;
-		
-		CopyRect(&items,&_viv_menu_bar_items_rect);
-		
-		// the union rides in the item draw dc space (the window dc): a
-		// record that does not overlap the bar strip at all is treated as
-		// unusable rather than filling a wrong area.
-		if ((items.left >= rect.right) || (items.right <= rect.left) ||
-		(items.top >= rect.bottom) || (items.bottom <= rect.top))
-		{
-			force = 1;
-		}
-		
-		if (!force)
-		{
-			// clamp the recorded union into the bar strip: the fill must never
-			// leave the bar (a stale or partial record stays contained).
-		
-		if (items.left < rect.left)
-		{
-			items.left = rect.left;
-		}
-		
-		if (items.top < rect.top)
-		{
-			items.top = rect.top;
-		}
-		
-		if (items.right > rect.right)
-		{
-			items.right = rect.right;
-		}
-		
-		if (items.bottom > rect.bottom)
-		{
-			items.bottom = rect.bottom;
-		}
-		
-		if ((items.right > items.left) && (items.bottom > items.top))
-		{
-			// the empty strip left of the first item.
-			_viv_menu_bar_fill_gap(hdc,rect.left,rect.top,items.left,rect.bottom);
-			
-			// the empty strip right of the last item.
-			_viv_menu_bar_fill_gap(hdc,items.right,rect.top,rect.right,rect.bottom);
-			
-			// the rows above and below the items (a single row bar: none).
-			clip.left = (items.left > rect.left) ? items.left : rect.left;
-			clip.right = (items.right < rect.right) ? items.right : rect.right;
-				_viv_menu_bar_fill_gap(hdc,clip.left,rect.top,clip.right,items.top);
-				_viv_menu_bar_fill_gap(hdc,clip.left,items.bottom,clip.right,rect.bottom);
-			}
-		}
-	}
-	else
-	{
-		// no item was drawn in this paint pass: the update region skipped
-		// the menu bar, so the system kept its light strip and the recorded
-		// rects are stale. paint the whole strip dark right here (the items
-		// draw over it on the next pass) and then ask for one full frame
-		// repaint: the retry alone can leave the strip light when the next
-		// update region skips the bar again, which is the white slab the
-		// field screenshots caught (the guard keeps the repaint to one
-		// extra pass, no repaint storm).
-		_viv_menu_bar_fill_gap(hdc,rect.left,rect.top,rect.right,rect.bottom);
-		
-		force = 1;
-	}
-	
-	ReleaseDC(_viv_hwnd,hdc);
-	
-	if ((force) && (!_viv_menu_bar_nc_force))
-	{
-		_viv_menu_bar_nc_force = 1;
-		
-		RedrawWindow(_viv_hwnd,0,0,RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW);
-		
-		_viv_menu_bar_nc_force = 0;
-	}
-}
-// toggle the owner draw on the top level menu items. dark ui draws them
-// with the dark chrome palette (windows 11 and pre 1903 builds never
-// darken a win32 menu bar), light ui hands them back to the system. a
-// fresh menu (the language rebuild) resets the state so the types are
-// re-applied.
-void _viv_menu_bar_theme(void)
-{
-	MENUITEMINFOW mii;
-	int dark;
-	int index;
-	int count;
-	int changed;
-	
-	if ((!_viv_hwnd) || (!_viv_hmenu))
-	{
-		return;
-	}
-	
-	dark = _viv_is_dark();
-	
-	if (_viv_menu_bar_state == dark)
-	{
-		return;
-	}
-	
-	// the flip into the dark line captures the system's own top level
-	// padding while the items are still system drawn: a live light layout
-	// is the only moment the system's measure is observable. the dark
-	// measure then draws with the same air, so the widths no longer jump.
-	if (dark)
-	{
-		_viv_menu_bar_capture_pad();
-	}
-	
-	changed = 0;
-	count = GetMenuItemCount(_viv_hmenu);
-	
-	for (index = 0; index < count; index++)
-	{
-		os_zero_memory(&mii,sizeof(mii));
-		mii.cbSize = sizeof(mii);
-		mii.fMask = MIIM_FTYPE | MIIM_SUBMENU;
-		
-		if (!GetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii))
-		{
-			continue;
-		}
-		
-		// only the top level popups (the bar items) are owner drawn.
-		if (!mii.hSubMenu)
-		{
-			continue;
-		}
-		
-		if (dark)
-		{
-			if (!(mii.fType & MFT_OWNERDRAW))
-			{
-				mii.fType = MFT_OWNERDRAW;
-				mii.fMask = MIIM_FTYPE;
-				
-				if (SetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii))
-				{
-					changed = 1;
-				}
-			}
-		}
-		else
-		{
-			if (mii.fType & MFT_OWNERDRAW)
-			{
-				mii.fType = MFT_STRING;
-				mii.fMask = MIIM_FTYPE;
-				
-				if (SetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii))
-				{
-					changed = 1;
-				}
-			}
-		}
-	}
-	
-	_viv_menu_bar_state = dark;
-	
-	if (changed)
-	{
-		// the item layout is about to change: the recorded union is stale.
-		SetRectEmpty(&_viv_menu_bar_items_rect);
-		_viv_menu_bar_items_valid = 0;
-		
-		DrawMenuBar(_viv_hwnd);
-	}
-}
-// force the system to re-measure the owner drawn menu bar items: a dpi
-// change rescales the labels, but the bar keeps the old widths until the
-// item types change, so flip them off and back on.
-void _viv_menu_bar_remeasure(void)
-{
-	MENUITEMINFOW mii;
-	int index;
-	int count;
-	
-	if ((!_viv_hwnd) || (!_viv_hmenu))
-	{
-		return;
-	}
-	
-	count = GetMenuItemCount(_viv_hmenu);
-	
-	for (index = 0; index < count; index++)
-	{
-		os_zero_memory(&mii,sizeof(mii));
-		mii.cbSize = sizeof(mii);
-		mii.fMask = MIIM_FTYPE | MIIM_SUBMENU;
-		
-		if (!GetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii))
-		{
-			continue;
-		}
-		
-		if ((!mii.hSubMenu) || (!(mii.fType & MFT_OWNERDRAW)))
-		{
-			continue;
-		}
-		
-		mii.fType = MFT_STRING;
-		mii.fMask = MIIM_FTYPE;
-		SetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii);
-		
-		mii.fType = MFT_OWNERDRAW;
-		SetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii);
-	}
-	
-	// the item widths are about to change: the recorded union is stale.
-	SetRectEmpty(&_viv_menu_bar_items_rect);
-	_viv_menu_bar_items_valid = 0;
-	
-	DrawMenuBar(_viv_hwnd);
-}
 // apply the dark chrome to the main window: frame (title bar), status bar
 // and zoom controls. the menu theme was set app wide before the first
 // window was created (os_dark_set_app_mode).
@@ -1164,13 +658,17 @@ void _viv_apply_dark_mode(int repaint)
 		InvalidateRect(_viv_toolbar_hwnd,0,FALSE);
 	}
 	
-	// the menu bar follows the theme: the top level items are owner drawn
-	// in the dark ui (windows 11 and pre 1903 menu bars never darken).
-	_viv_menu_bar_theme();
+	// the remade menu bar repaints on the flip: its layout is theme
+	// independent, so no re-measure and no owner draw toggling.
+	_viv_menubar_repaint();
 	
 	// the toolbar glyphs bake the theme color into the icons: rebuild
 	// the image list so the palette follows the theme.
 	_viv_toolbar_build_image_list();
+	
+	// pin the uniform button widths: the comctl re-metrics on the theme
+	// switch and its auto sizes drift the spacing between the themes.
+	_viv_toolbar_pin_button_sizes();
 	
 	// the comctl toolbar re-metrics on the theme switch (the immersive
 	// flag changes the button paddings, the rebuilt image list can resize
@@ -1413,6 +911,45 @@ void _viv_toolbar_build_image_list(void)
 		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONSIZE,0,MAKELPARAM((44 * os_logical_wide) / 96,(36 * os_logical_high) / 96));
 	}
 }
+// pin the toolbar button widths: the comctl auto size adapts each button
+// to its own icon width, so the visual gaps drift between the pairs (the
+// widest zoom icons sat 12px tighter than the prev/next pair) and the
+// theme re-metrics drift them again. one uniform width (and one uniform
+// separator width) keeps the spacing identical within a theme and across
+// the themes.
+void _viv_toolbar_pin_button_sizes(void)
+{
+	TBBUTTONINFO button_info;
+	TBBUTTON button;
+	int buttoni;
+	int button_wide;
+	int sep_wide;
+	
+	if (!_viv_toolbar_hwnd)
+	{
+		return;
+	}
+	
+	button_wide = os_is_touch_available() ? ((44 * os_logical_wide) / 96) : ((22 * os_logical_wide) / 96);
+	sep_wide = os_is_touch_available() ? ((8 * os_logical_wide) / 96) : ((6 * os_logical_wide) / 96);
+	
+	for(buttoni=0;buttoni<11;buttoni++)
+	{
+		os_zero_memory(&button,sizeof(button));
+		
+		if (!SendMessage(_viv_toolbar_hwnd,TB_GETBUTTON,buttoni,(LPARAM)&button))
+		{
+			continue;
+		}
+		
+		os_zero_memory(&button_info,sizeof(button_info));
+		button_info.cbSize = sizeof(button_info);
+		button_info.dwMask = TBIF_BYINDEX | TBIF_SIZE;
+		button_info.cx = (button.fsStyle & TBSTYLE_SEP) ? sep_wide : button_wide;
+		
+		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,buttoni,(LPARAM)&button_info);
+	}
+}
 void _viv_controls_show(int show)
 {
 	if (show)
@@ -1556,6 +1093,10 @@ void _viv_controls_show(int show)
 				{
 					SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONSIZE,0,MAKELPARAM((44 * os_logical_wide) / 96,(36 * os_logical_high) / 96));
 				}
+				
+				// uniform button widths from the start: the comctl auto
+				// sizes must never own the spacing.
+				_viv_toolbar_pin_button_sizes();
 			}
 
 			_viv_toolbar_update_buttons();
@@ -2029,6 +1570,7 @@ void _viv_status_update(void)
 static void _viv_status_set(int part,const wchar_t *text)
 {
 	static HWND part_text_hwnd;
+	static BYTE part_live[_VIV_STATUS_PART_MAX];
 	
 	if ((part < 0) || (part >= _VIV_STATUS_PART_MAX))
 	{
@@ -2044,15 +1586,22 @@ static void _viv_status_set(int part,const wchar_t *text)
 		part_text_hwnd = _viv_status_hwnd;
 		
 		os_zero_memory(_viv_status_part_text,sizeof(_viv_status_part_text));
+		os_zero_memory(part_live,sizeof(part_live));
 	}
 	
-	if (string_compare(_viv_status_part_text[part],text) != 0)
+	// a pane the control was never told about never draws: the empty-bar
+	// case showed the light comctl face because no WM_DRAWITEM fired at
+	// all (the bottom white bar). send once per pane per bar so the owner
+	// draw fill owns the strip even when every text is empty.
+	if ((string_compare(_viv_status_part_text[part],text) != 0) || (!part_live[part]))
 	{
 		// SBT_OWNERDRAW: the pane text lives in our store; the item data
 		// carries the pane index to WM_DRAWITEM.
 		string_copy(_viv_status_part_text[part],text);
 		
 		SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);
+		
+		part_live[part] = 1;
 	}
 }
 // owner draw one status pane: the dark palette for the dark ui, a
@@ -2303,6 +1852,108 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 {
 	switch (msg) 
 	{	
+		case WM_ERASEBKGND:
+		{
+			RECT rect;
+			
+				// the comctl status class paints its own face from the light
+				// palette even under the dark theme class (the field report: the
+				// flat light slab under the dark canvas). the strip erases with
+				// the dark face in the dark ui; the owner drawn panes paint over
+				// it and the light ui keeps the native face.
+				GetClientRect(hwnd,&rect);
+				
+				FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dialog_dark_brush() : (HBRUSH)(COLOR_BTNFACE + 1));
+				
+				return 1;
+		}
+		
+		case WM_PAINT:
+		{
+			LRESULT result;
+			
+			// the control paints the panes, the sunken top edge and the
+			// size grip. in the dark ui the edge and the grip are the two
+			// bits left light: repaint them with the chrome palette after
+			// the native pass, so the bottom band reads as one dark chrome.
+			result = CallWindowProc(_viv_old_status_proc,hwnd,msg,wParam,lParam);
+			
+			if (_viv_is_dark())
+			{
+				RECT client_rect;
+				RECT rect;
+				HDC hdc;
+				int wide;
+				
+				hdc = GetDC(hwnd);
+				
+				if (hdc)
+				{
+					GetClientRect(hwnd,&client_rect);
+					wide = client_rect.right - client_rect.left;
+					
+					// the top edge: the same pair the rebar strip draws
+					// (shadow over highlight), so the two bands read as one.
+					rect.left = 0;
+					rect.top = 0;
+					rect.right = wide;
+					rect.bottom = 1;
+					FillRect(hdc,&rect,_viv_dark_chrome_brush(1));
+					
+					rect.top = 1;
+					rect.bottom = 2;
+					FillRect(hdc,&rect,_viv_dark_chrome_brush(2));
+					
+					// the size grip: the native one paints light dots. repaint
+					// the box with the dark face and dot it ourselves, only when
+					// the native one is up (the parent is resizable and not
+					// maximized - the control suppresses it otherwise).
+					if (((GetWindowLong(_viv_hwnd,GWL_STYLE)) & WS_THICKFRAME) && (!IsZoomed(_viv_hwnd)) && (!_viv_is_fullscreen))
+					{
+						RECT grip_rect;
+						int grip_wide;
+						int grip_high;
+						int step;
+						int dot_x;
+						int dot_y;
+						
+						grip_wide = GetSystemMetrics(SM_CXVSCROLL);
+						grip_high = GetSystemMetrics(SM_CYVSCROLL);
+						
+						if ((grip_wide > 0) && (grip_high > 0) && (grip_wide < wide) && (grip_high < (client_rect.bottom - client_rect.top)))
+						{
+							grip_rect.left = client_rect.right - grip_wide;
+							grip_rect.top = client_rect.bottom - grip_high;
+							grip_rect.right = client_rect.right;
+							grip_rect.bottom = client_rect.bottom;
+							
+							FillRect(hdc,&grip_rect,_viv_dialog_dark_brush());
+							
+							step = (grip_wide < grip_high) ? (grip_wide / 6) : (grip_high / 6);
+							
+							if (step < 2)
+							{
+								step = 2;
+							}
+							
+							// the classic triangle of dots anchored at the corner.
+							for(dot_x=0;dot_x<3;dot_x++)
+							{
+								for(dot_y=0;dot_y<(3 - dot_x);dot_y++)
+								{
+									SetPixel(hdc,grip_rect.right - 2 - (dot_x * step),grip_rect.bottom - 2 - (dot_y * step),RGB(0x9A,0x9A,0x9A));
+								}
+							}
+						}
+					}
+					
+					ReleaseDC(hwnd,hdc);
+				}
+			}
+			
+			return result;
+		}
+		
 		case WM_DRAWITEM:
 		
 			// the owner drawn panes (defensive route: see _viv_status_draw_item).

@@ -502,20 +502,6 @@ HMENU _viv_create_menu(void)
 						}
 						
 						AppendMenu(menus[_viv_commands[i].menu_id],_viv_commands[i].flags & (~MF_DELETE),(UINT_PTR)menus[_viv_commands[i].command_id],text_wbuf);
-						
-						// the top level items carry their label id for the dark ui owner
-						// draw (the wm_drawitem menu route reads it back).
-						if (_viv_commands[i].menu_id == _VIV_MENU_ROOT)
-						{
-							MENUITEMINFOW mii;
-							
-							os_zero_memory(&mii,sizeof(mii));
-							mii.cbSize = sizeof(mii);
-							mii.fMask = MIIM_DATA;
-							mii.dwItemData = _viv_commands[i].localization_id;
-							
-							SetMenuItemInfoW(menus[_VIV_MENU_ROOT],GetMenuItemCount(menus[_VIV_MENU_ROOT]) - 1,TRUE,&mii);
-						}
 					}
 					else
 					{
@@ -576,9 +562,6 @@ HMENU _viv_create_menu(void)
 			}
 		}
 	}
-	
-	// a fresh menu: the bar owner draw state must be re-applied.
-	_viv_menu_bar_state = -1;
 	
 	return hmenu;
 }

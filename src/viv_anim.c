@@ -25,6 +25,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_anim.h"
+#include "viv_menubar.h"
 #include "viv_chrome.h"
 #include "viv_load.h"
 #include "viv_render.h"
@@ -245,9 +246,9 @@ void _viv_update_frame(void)
 		debug_printf("clientrect %d %d %d %d\n",clientrect.left,clientrect.top,clientrect.right,clientrect.bottom);
 		
 		CopyRect(&oldrect,&clientrect);
-		AdjustWindowRect(&oldrect,oldstyle,GetMenu(_viv_hwnd) ? TRUE : FALSE);
+		AdjustWindowRect(&oldrect,oldstyle,FALSE);
 		
-		oldrect.bottom += _viv_get_status_high() + _viv_get_controls_high();
+		oldrect.bottom += _viv_menubar_high() + _viv_get_status_high() + _viv_get_controls_high();
 		
 		debug_printf("oldrect %d %d %d %d %d\n",oldrect.left,oldrect.top,oldrect.right,oldrect.bottom,GetMenu(_viv_hwnd) ? TRUE : FALSE);
 	
@@ -269,20 +270,9 @@ void _viv_update_frame(void)
 			newstyle &= ~WS_THICKFRAME;
 		}
 
-		if (config_show_menu)	
-		{
-			if (GetMenu(_viv_hwnd) != _viv_hmenu)
-			{
-				SetMenu(_viv_hwnd,_viv_hmenu);
-			}
-		}
-		else
-		{
-			if (GetMenu(_viv_hwnd) != 0)
-			{
-				SetMenu(_viv_hwnd,0);
-			}
-		}
+		// the top bar is a client side child: showing it grows the
+		// required client area instead of the frame.
+		_viv_menubar_show(config_show_menu);
 		
 		_viv_status_show(config_show_status);
 		_viv_controls_show(config_show_controls);

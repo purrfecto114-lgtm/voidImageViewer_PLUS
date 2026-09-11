@@ -253,6 +253,7 @@
 #include "viv_anim.h"
 #include "viv_render.h"
 #include "viv_chrome.h"
+#include "viv_menubar.h"
 #include "viv_dark.h"
 #include "viv_dialogs.h"
 #include "viv_view.h"
@@ -301,8 +302,6 @@ void _viv_kill(void);
 void _viv_exit(void);
 static int _viv_is_msg(MSG *msg);
 CLIPFORMAT _viv_get_CF_PREFERREDDROPEFFECT(void);
-RECT _viv_menu_bar_items_rect; // the union of the drawn item rects (window coordinates)
-int _viv_menu_bar_items_valid = 0; // an item was drawn since the last layout reset
 
 static void _viv_queue_clear(void);
 static int _viv_main(int nCmdShow);
@@ -1474,7 +1473,7 @@ static int _viv_init(int nCmdShow)
 		localization_get_string(LOCALIZATION_ID_APP_NAME),
 		window_style,
 		rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,
-		0,config_show_menu ? _viv_hmenu : NULL,os_hinstance,NULL);
+		0,NULL,os_hinstance,NULL);
 	
 	if ((!config_show_caption) || (!config_show_thickframe))
 	{
@@ -1484,6 +1483,10 @@ static int _viv_init(int nCmdShow)
 	os_make_rect_completely_visible(_viv_hwnd,&rect);
 		
 	SetWindowPos(_viv_hwnd,0,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,SWP_NOZORDER|SWP_NOACTIVATE);
+	
+	// the top bar is a client side child now: show it before the first
+	// layout sweep (the frame menu is gone for good).
+	_viv_menubar_show(config_show_menu);
 
 	// allow non-admin/admins to close this window.
 	if (os_ChangeWindowMessageFilterEx)
@@ -1948,7 +1951,6 @@ static int _viv_is_msg(MSG *msg)
 
 
 
-int _viv_menu_bar_state = -1; // the owner draw state of the bar items
 
 
 

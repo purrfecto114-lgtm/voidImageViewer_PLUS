@@ -25,6 +25,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_dialogs.h"
+#include "viv_menubar.h"
 #include "viv_chrome.h"
 #include "viv_dark.h"
 #include "viv_install.h"
@@ -1487,11 +1488,6 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						
 						new_hmenu = _viv_create_menu();
 						
-						if (GetMenu(_viv_hwnd))
-						{
-							SetMenu(_viv_hwnd,new_hmenu);
-						}
-						
 						if (_viv_hmenu)
 						{
 							DestroyMenu(_viv_hmenu);
@@ -1499,8 +1495,9 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						
 						_viv_hmenu = new_hmenu;
 						
-						// the fresh menu needs the dark bar owner draw re-applied.
-						_viv_menu_bar_theme();
+						// the fresh menu: the top bar re-reads the labels and
+						// re-lays them out at the current font.
+						_viv_menubar_layout();
 					}
 					
 					// refresh the visible controls when the language has changed.

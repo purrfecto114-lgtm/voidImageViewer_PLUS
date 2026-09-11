@@ -92,6 +92,7 @@
     <ClCompile Include="..\src\viv_install.c" />
     <ClCompile Include="..\src\viv_load.c" />
     <ClCompile Include="..\src\viv_menu.c" />
+    <ClCompile Include="..\src\viv_menubar.c" />
     <ClCompile Include="..\src\viv_playlist.c" />
     <ClCompile Include="..\src\viv_recent.c" />
     <ClCompile Include="..\src\viv_render.c" />
@@ -156,6 +157,7 @@
     <ClInclude Include="..\src\viv_install.h" />
     <ClInclude Include="..\src\viv_load.h" />
     <ClInclude Include="..\src\viv_menu.h" />
+    <ClInclude Include="..\src\viv_menubar.h" />
     <ClInclude Include="..\src\viv_playlist.h" />
     <ClInclude Include="..\src\viv_recent.h" />
     <ClInclude Include="..\src\viv_render.h" />

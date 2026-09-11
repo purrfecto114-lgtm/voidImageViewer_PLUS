@@ -1,3 +1,49 @@
+Pre-release: Version 1.1.12-rc.6 (the top bar remake round)
+	*the top bar is remade as a fully self drawn strip: the frame menu is
+	gone for good - the window is created without one, the bar is a client
+	side child window (the new viv_menubar domain) that paints every pixel
+	itself, and the popups are the same HMENU tree opened with
+	TrackPopupMenuEx. five rounds of field reports lived on the seam where
+	the system measured and painted the bar and the app patched around it
+	(the white right strip, the pad capture drifting 5.5x wide, the flip
+	races); with one painter there is nothing left to race.
+	*the menu item spacing is identical in both themes: the field
+	screenshots measured a 17px gap between the labels in the light ui
+	and a 94px gap in the dark ui - the owner draw measure padded every
+	label with a "captured system pad" that was really slot-minus-text
+	compounded through the two measurement systems. the remake uses one
+	fixed air (4px at 96dpi, rescaled) for both themes, which also
+	reproduces the light system layout within a pixel.
+	*the keyboard entry points survive the remake: alt + mnemonic opens
+	the matching root menu (wm_syschar), f10 opens the first one, the
+	alt-key underline policy (hidden until alt is held) is kept, and the
+	popup state refresh that lived in wm_initmenu runs from both
+	wm_initmenu and the new wm_initmenupopup route.
+	*the status bar no longer shows the light slab under the dark ui: the
+	strip erases with the dark face (the comctl status class paints its
+	own background from the light palette even under the dark theme
+	class), every pane is registered as owner drawn from the first update
+	so the pane fills always own the strip (the empty-bar case never drew
+	anything and showed the bare light face), and the dark pass repaints
+	the sunken top edge and the size grip with the chrome palette so the
+	bottom band reads as one dark chrome.
+	*the toolbar button spacing is pinned: the comctl auto size adapts
+	each button to its own icon width, so the visual gaps drifted between
+	the pairs (the zoom pair sat 12px tighter than the prev/next pair) and
+	the theme re-metrics drifted them again. one uniform button width and
+	one separator width (tb_setbuttoninfo per index, re-pinned after the
+	theme flip and the dpi change) keep the spacing identical in both
+	themes.
+	*the owner draw menu machinery is deleted with the seam it lived on:
+	the root item tagging, the draw and measure routes, the pad capture,
+	the non client tail fill, the theme toggle and the re-measure walk
+	(502 lines of viv_chrome.c); the menu font cache survives - the remake
+	measures its labels with it. the splice manifest is the 13 domain
+	list now (viv_menubar joined), the props register the pair once, and
+	the dispatch carries 43 handlers (wm_syschar, wm_syskeydown and
+	wm_initmenupopup joined; wm_measureitem and wm_ncpaint left with their
+	subjects).
+
 Pre-release: Version 1.1.12-rc.5 (the structure round)
 	*the three structure debts the rc series carried are paid.
 	*the touch gesture cluster is home in the view domain: viv_chrome.c

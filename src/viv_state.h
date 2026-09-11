@@ -301,8 +301,6 @@ CLIPFORMAT _viv_get_CF_PREFERREDDROPEFFECT(void);
 void _viv_process_command_line(wchar_t *cl);
 
 // ---- shared state (definitions remain in viv.c) ----
-extern RECT _viv_menu_bar_items_rect;
-extern int _viv_menu_bar_items_valid;
 extern HMODULE _viv_stobject_hmodule;
 extern _viv_playlist_t *_viv_playlist_start;
 extern int _viv_playlist_count;
@@ -418,6 +416,5 @@ extern COLORREF _viv_backdrop_solid_color;
 extern HBRUSH _viv_backdrop_checker_hbrush;
 extern HBITMAP _viv_backdrop_checker_hbitmap;
 extern int _viv_backdrop_checker_cell;
-extern int _viv_menu_bar_state;
 
 #endif
