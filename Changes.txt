@@ -1,3 +1,22 @@
+Pre-release: Version 1.1.12-rc.7 (the zoom pill rework round)
+	*the zoom pill is a single self drawn window now: the old control
+	nested six owner drawn BUTTON children inside a WS_EX_LAYERED tray
+	child, so the layered redraw, the button roundrect edges, the hover
+	and the fade fought each other and the capsules lost their stadium
+	shape next to the remade top bar. zoomui.c now paints the tray and
+	every capsule itself in one WM_PAINT pass - full semicircle ends at
+	every dpi, one hit test over the button rects, capture based press
+	tracking with a no-fire-on-drag-away guarantee, and a WM_NCHITTEST
+	that returns HTTRANSPARENT outside the capsules so a fading pill
+	never eats clicks on the image behind.
+	*the windowed pill stays two buttons (zoom out / zoom in) in the
+	bottom right, the fullscreen bar stays six buttons centered at the
+	bottom with the idle fade; both modes now share one painter and one
+	tooltip (rect based, re-targeted on dpi and mode changes), the
+	keyboard path is real (tab / arrows move the hot capsule, space and
+	enter fire it), and the disabled state dims the glyphs through
+	DrawState instead of disappearing.
+
 Pre-release: Version 1.1.12-rc.6 (the top bar remake round)
 	*the top bar is remade as a fully self drawn strip: the frame menu is
 	gone for good - the window is created without one, the bar is a client

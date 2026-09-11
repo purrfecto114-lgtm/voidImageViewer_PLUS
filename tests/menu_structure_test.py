@@ -305,10 +305,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.48 rc.6 (the top bar remake round)",
-          (major, minor, rev, build) == ("1", "1", "12", "48") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.3 tag)",
-          vstr == "1.1.12-rc.6")
+    check("version.h = 1.1.12.49 rc.7 (the zoom pill rework round)",
+          (major, minor, rev, build) == ("1", "1", "12", "49") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.7 tag)",
+          vstr == "1.1.12-rc.7")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3063,8 +3063,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 47",
-          "#define VERSION_BUILD 48" in version)
+    check("the release candidate line moves to build 49",
+          "#define VERSION_BUILD 49" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3133,8 +3133,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate moves the version to build 47",
-          "#define VERSION_BUILD 48" in version and
-          '#define VERSION_STRING "1.1.12-rc.6"' in version)
+          "#define VERSION_BUILD 49" in version and
+          '#define VERSION_STRING "1.1.12-rc.7"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3406,8 +3406,8 @@ def t_structure_round76():
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
     check("the version is 1.1.12-rc.5 build 47",
-          '#define VERSION_BUILD 48' in version and
-          '#define VERSION_STRING "1.1.12-rc.6"' in version)
+          '#define VERSION_BUILD 49' in version and
+          '#define VERSION_STRING "1.1.12-rc.7"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3471,8 +3471,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate moves the version to build 47",
-          "#define VERSION_BUILD 48" in version and
-          '#define VERSION_STRING "1.1.12-rc.6"' in version)
+          "#define VERSION_BUILD 49" in version and
+          '#define VERSION_STRING "1.1.12-rc.7"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
