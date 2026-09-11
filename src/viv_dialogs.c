@@ -1102,6 +1102,22 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 	
 	switch(msg)
 	{
+		case WM_TIMER:
+		
+			// the creation race self heal: re-run the full dialog dark pass (the
+			// caption, the control classes and the tree colors) with the settled
+			// state, whatever branch the creation moment took.
+			if (wParam == VIV_ID_DARK_DIALOG_ASSERT_TIMER)
+			{
+				KillTimer(hwnd,VIV_ID_DARK_DIALOG_ASSERT_TIMER);
+				
+				_viv_dark_dialog(hwnd);
+				
+				InvalidateRect(hwnd,0,TRUE);
+			}
+			
+			break;
+		
 		case WM_NOTIFY:
 
 			switch(((NMHDR *)lParam)->idFrom)
@@ -1165,6 +1181,14 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			}
 			
 
+			// the dark init above read the live state: a theme race at the
+			// creation moment (the registry unsettled, the flip broadcast in
+			// flight) takes the light branch and the caption keeps the system
+			// light frame while the per paint cticolor replies already darken
+			// the body - the mixed dialog the field caught. the one shot assert
+			// re-runs the full dark pass after the race window closes.
+			SetTimer(hwnd,VIV_ID_DARK_DIALOG_ASSERT_TIMER,300,0);
+			
 			// update text.
 			os_SetWindowText_localization_id(hwnd,LOCALIZATION_ID_OPTIONS_CAPTION);
 			os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
@@ -1336,6 +1360,13 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							
 							os_dark_set_app_mode(config_dark_mode);
 							_viv_apply_dark_mode(1);
+							
+							// the app mode switch flushes the menu themes and the color
+							// policy asynchronously: the system sweep can land after this
+							// apply and repaint the chrome in light (the white band the
+							// field caught right after the switch). the one shot assert
+							// re-applies once the sweep has settled.
+							SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);
 						}
 						
 						if (IsDlgButtonChecked(general_page,IDC_STARTMENU) == BST_CHECKED) 

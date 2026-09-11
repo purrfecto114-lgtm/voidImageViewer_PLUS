@@ -713,10 +713,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.12.45",
-          (major, minor, rev, build) == (1, 1, 12, 45), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.12-rc.3",
-          vstr is not None and vstr.group(1) == "1.1.12-rc.3", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.12.46",
+          (major, minor, rev, build) == (1, 1, 12, 46), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.12-rc.4",
+          vstr is not None and vstr.group(1) == "1.1.12-rc.4", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -724,13 +724,13 @@ def t_sim_version_117():
     check("the nsis derives the display version at compile time",
           '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
     top = CHANGES.lstrip("\ufeff").split("\r\n")[0] if "\r\n" in CHANGES else CHANGES.lstrip("\ufeff").split("\n")[0]
-    check("the changelog top entry is the 1.1.12-rc.3 architecture split round",
-          top == "Pre-release: Version 1.1.12-rc.3 (the architecture split round)", top)
+    check("the changelog top entry is the 1.1.12-rc.4 theme race self-heal round",
+          top == "Pre-release: Version 1.1.12-rc.4 (the theme race self-heal round)", top)
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
     check("the readme current line says the 1.1.12 release candidate",
-          "**1.1.12-rc.3 —" in readme and "(the current release candidate):**" in readme)
+          "**1.1.12-rc.4 —" in readme and "(the current release candidate):**" in readme)
 
 
 # ---------------------------------------------------------------------------
@@ -1105,7 +1105,7 @@ def t_sim_field_round46():
     check("the dark classes only run in the dark branch",
           children.find("os_dark_combobox_theme(hwnd);") <
           children.find("os_light_window_theme(hwnd);") and
-          children.count("os_dark_window_theme(hwnd);") == 1)
+          children.count("os_dark_window_theme(hwnd);") == 2)  # + the rc.4 tree branch
     dark_pos = children.find("os_dark_combobox_theme(hwnd);")
     light_pos = children.find("os_light_window_theme(hwnd);")
     gate_pos = children.find("if (dark)")
@@ -1217,8 +1217,8 @@ def t_sim_field_round46():
           op == 1)
 
     # --- both theme broadcasts schedule the settle re-check ---
-    check("the settingchange and the themechanged both schedule the re-check",
-          VIV.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 2)
+    check("the broadcasts and the options combo schedule the re-check",
+          VIV.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 3)
 
     # --- the view menu canvas picker and the backdrop rename ---
     check("the menu picker shares the options apply chain",

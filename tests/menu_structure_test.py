@@ -305,10 +305,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.45 rc.3 (the architecture split round)",
-          (major, minor, rev, build) == ("1", "1", "12", "45") and vtype == "")
+    check("version.h = 1.1.12.46 rc.4 (the theme race self-heal round)",
+          (major, minor, rev, build) == ("1", "1", "12", "46") and vtype == "")
     check("VERSION_STRING is the release identity (the rc.3 tag)",
-          vstr == "1.1.12-rc.3")
+          vstr == "1.1.12-rc.4")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -593,8 +593,8 @@ def t_dark_dialogs_wiring():
           "_viv_dialog_dark_brush" in viv)
     check("all 11 dialog procs route through the dispatcher",
           viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 11)
-    check("all 11 dialogs get the dark chrome at init (plus the live refresh enum)",
-          viv.count("_viv_dark_dialog(hwnd);") == 12)
+    check("all 11 dialogs get the dark chrome at init (plus the refresh enum and the rc.4 self heal)",
+          viv.count("_viv_dark_dialog(hwnd);") == 13)
     # rc.1 regression guard: the dispatcher must NOT sit inside switch(msg)
     # before the first case label - that placement is unreachable dead code
     # (the beta.10 bug: gcc warned "statement will never be executed").
@@ -2523,7 +2523,7 @@ def t_field_fixes_round44():
           "os_allow_dark_mode_for_window(hwnd,dark ? 1 : 0);" in viv and
           "os_allow_dark_mode_for_window(hwnd,1);" not in viv)
     check("every other control keeps the explorer dark class in the dark ui only",
-          viv.count("os_dark_window_theme(hwnd);") == 2 and
+          viv.count("os_dark_window_theme(hwnd);") == 3 and  # + the rc.4 tree branch
           "os_light_window_theme(hwnd);" in viv and
           "os_light_window_theme(_viv_status_hwnd);" in viv)
     check("no dialog control remains gated on the legacy dark controls check",
@@ -2826,8 +2826,8 @@ def t_field_fixes_round46():
           "return;" in seg)
 
     # --- the theme change broadcast gets the re-check too ---
-    check("both theme broadcasts schedule the one shot re-check",
-          viv.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 2)
+    check("the theme broadcasts and the options combo schedule the one shot re-check",
+          viv.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 3)
 
     # --- the view menu canvas color picker + the backdrop rename ---
     check("the view menu canvas color command id exists",
@@ -3085,8 +3085,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 45",
-          "#define VERSION_BUILD 45" in version)
+    check("the release candidate line moves to build 46",
+          "#define VERSION_BUILD 46" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3157,9 +3157,9 @@ def t_white_band_round67():
           "(HBRUSH)(COLOR_WINDOW+1),\r\n\t\t\t\t\"_VIV_REBAR\"" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 45",
-          "#define VERSION_BUILD 45" in version and
-          '#define VERSION_STRING "1.1.12-rc.3"' in version)
+    check("the release candidate moves the version to build 46",
+          "#define VERSION_BUILD 46" in version and
+          '#define VERSION_STRING "1.1.12-rc.4"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3208,8 +3208,8 @@ def t_split_architecture_round69():
     #    this now pins the TOTAL code size (the pure move may only add
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
-    check("the spliced code stays inside the pure-move window (no code growth)",
-          viv_lines >= 21130 and viv_lines <= 21800)
+    check("the spliced code stays inside the growth window",
+          viv_lines >= 21130 and viv_lines <= 21900)  # rc.4 grows it with real fixes (+72)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3268,8 +3268,8 @@ def t_split_architecture_round70():
     # 5. the pure-move discipline: the spliced view of the code is only
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
-    check("the spliced total stays in the pure-move window",
-          21130 <= total <= 21800, f"({total})")
+    check("the spliced total stays in the growth window",
+          21130 <= total <= 21900, f"({total})")  # rc.4: the theme race fixes
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3334,6 +3334,72 @@ def t_split_architecture_round70():
               len(re.findall(rb"\r(?!\n)", data)) == 0)
 
 
+def t_theme_race_round72():
+    """Guards for the theme race self-heal round (1.1.12-rc.4: the white
+    band after the options dialog and the theme switch, the options tree
+    contrast, the dark erase)."""
+    print("the theme race self-heal round (1.1.12-rc.4)")
+
+    viv = read("src/viv.c").decode()
+    dialogs = read("src/viv_dialogs.c").decode()
+    dark = read("src/viv_dark.c").decode()
+
+    # 1. the recheck timer re-applies unconditionally: the flip gate let the
+    #    system asynchronous light repaint survive while the app level dark
+    #    answer never flipped.
+    recheck_at = viv.find("case VIV_ID_DARK_RECHECK_TIMER:")
+    recheck_body = viv[recheck_at:viv.find("break;", recheck_at)]
+    check("the recheck timer applies without the flip gate",
+          "_viv_apply_dark_mode(1);" in recheck_body and
+          "was_dark != is_dark" not in recheck_body)
+
+    # 2. wm_themechanged re-applies unconditionally (the system re-themed
+    #    the comctl classes and the frame: the per window dark state must be
+    #    re-asserted even when the answer did not flip).
+    theme_at = viv.find("case WM_THEMECHANGED:")
+    theme_body = viv[theme_at:viv.find("case WM_SETCURSOR:", theme_at)]
+    check("wm_themechanged applies without the flip gate",
+          "_viv_apply_dark_mode(1);" in theme_body and
+          "was_dark != is_dark" not in theme_body)
+
+    # 3. the main window erases with the dark chrome face in the dark ui (a
+    #    bypassing paint must not flash the light class brush).
+    check("the dark ui erases with the chrome face",
+          "// the dark ui erases with the chrome face" in viv and
+          "FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(0));" in viv)
+
+    # 4. the options combo schedules the one shot assert after its app mode
+    #    flush (the flush sweep is asynchronous).
+    check("the combo schedules the assert after the app mode flush",
+          "SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);" in dialogs)
+
+    # 5. the options dialog self-heals its creation race: the one shot
+    #    timer re-runs the full dark pass.
+    check("the options dialog schedules the creation race self heal",
+          "SetTimer(hwnd,VIV_ID_DARK_DIALOG_ASSERT_TIMER,300,0);" in dialogs and
+          "VIV_ID_DARK_DIALOG_ASSERT_TIMER" in read("src/viv.h").decode())
+
+    # 6. the tree pins its face and label colors in the dark dialog children
+    #    walk (the theme gray read as low contrast), with the system default
+    #    on the light flip.
+    walk_at = dark.find("static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)\r\n{")
+    walk = dark[walk_at:dark.find("\nstatic ", walk_at + 10)]
+    check("the children walk pins the tree colors",
+          'string_compare(class_name,L"SysTreeView32") == 0' in walk and
+          "TVM_SETBKCOLOR,0,dark ? RGB(0x20,0x20,0x20) : (COLORREF)0xFFFFFFFF" in walk and
+          "TVM_SETTEXTCOLOR,0,dark ? RGB(0xE8,0xE8,0xE8) : (COLORREF)0xFFFFFFFF" in walk)
+
+    version = read("src/version.h").decode("latin-1")
+    check("the release candidate moves the version to build 46",
+          "#define VERSION_BUILD 46" in version and
+          '#define VERSION_STRING "1.1.12-rc.4"' in version)
+
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    check("the changelog states the race and the self heal",
+          "the theme race self-heal round" in changes and
+          "was_dark != is_dark" in changes)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -3379,6 +3445,7 @@ if __name__ == "__main__":
     t_white_band_round67()
     t_split_architecture_round69()
     t_split_architecture_round70()
+    t_theme_race_round72()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

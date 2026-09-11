@@ -1,5 +1,31 @@
+Pre-release: Version 1.1.12-rc.4 (the theme race self-heal round)
+	*the white band is back with two new triggers - opening the options
+	dialog and switching the theme - and it is a mixed chrome, not a stale
+	repaint: the system side repaints the frame and the comctl classes in
+	light asynchronously (the app mode policy flush, the theme broadcast
+	sweep) while the app level dark answer never flipped, so every re-apply
+	was gated on was_dark != is_dark and never ran. the delayed recheck
+	timer and the wm_themechanged handler now re-apply the chrome
+	unconditionally (the sweep is idempotent), the options combo schedules
+	the assert after its app mode flush, and the options dialog re-runs its
+	own full dark pass on a one shot timer so a creation moment that read
+	an unsettled state heals itself - the caption, the control classes and
+	all.
+	*the options navigation tree kept the light explorer class label gray
+	on the dark face (a themed tree ignores the text color message, and it
+	read as low contrast): the dark dialog children walk now pins the tree
+	face and label colors per pass - the same values the initdialog
+	applies - and hands them back to the system on the light flip.
+	*the main window erases with the dark chrome face in the dark ui: a
+	paint that bypasses the handlers must not flash the light class brush
+	the class still carries (the 1.1.03 lesson, closed for the erase path
+	too).
+	*the rc.3 entry core line count corrected: 4,718 as measured (the 4,715
+	there was the pre-729c7d7 read; the typedef asserts grew the core by
+	three lines after that measurement).
+
 Pre-release: Version 1.1.12-rc.3 (the architecture split round)
-	*the viv.c monolith is split: 21,129 lines become a 4,715-line core (the
+	*the viv.c monolith is split: 21,129 lines become a 4,718-line core (the
 	window procedure, startup/shutdown, the command line, the shared state
 	definitions) plus eleven domain modules - viv_recent, viv_playlist,
 	viv_load, viv_anim, viv_render, viv_chrome, viv_dark, viv_dialogs,

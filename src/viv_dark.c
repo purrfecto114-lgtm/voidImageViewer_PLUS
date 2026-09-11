@@ -139,6 +139,27 @@ static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 			}
 		}
 		else
+		if (string_compare(class_name,L"SysTreeView32") == 0)
+		{
+			// the tree never follows the dark explorer class for its item text:
+			// the theme draws the labels in its own gray, which reads as low
+			// contrast on the dark face (the field report). pin the face and the
+			// text color - the same values the options initdialog applies - and
+			// hand them back to the system on the light flip (0xffffffff is
+			// clr_default).
+			SendMessage(hwnd,TVM_SETBKCOLOR,0,dark ? RGB(0x20,0x20,0x20) : (COLORREF)0xFFFFFFFF);
+			SendMessage(hwnd,TVM_SETTEXTCOLOR,0,dark ? RGB(0xE8,0xE8,0xE8) : (COLORREF)0xFFFFFFFF);
+			
+			if (dark)
+			{
+				os_dark_window_theme(hwnd);
+			}
+			else
+			{
+				os_light_window_theme(hwnd);
+			}
+		}
+		else
 		{
 			if (dark)
 			{

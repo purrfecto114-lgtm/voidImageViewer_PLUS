@@ -1535,26 +1535,22 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 				{
 					// the delayed immersive color set re-check (see
 					// wm_settingchange): the registry has settled by now.
-					int was_dark;
-					int is_dark;
-					
+					// the re-apply runs unconditionally: the flip catchers gate on
+					// the dark answer, but the system side can repaint the chrome in
+					// light without the answer ever changing (the app mode flush, the
+					// theme broadcast sweep are asynchronous) - the sweep is idempotent
+					// and heals any surface the system overpainted (the white band the
+					// field caught after the options dialog and the theme switch).
 					KillTimer(hwnd,VIV_ID_DARK_RECHECK_TIMER);
-					
-					was_dark = _viv_is_dark();
 					
 					os_dark_invalidate();
 					
-					is_dark = _viv_is_dark();
-					
-					if (was_dark != is_dark)
+					if (config_dark_mode == 2)
 					{
-						if (config_dark_mode == 2)
-						{
-							os_dark_refresh();
-						}
-						
-						_viv_apply_dark_mode(1);
+						os_dark_refresh();
 					}
+					
+					_viv_apply_dark_mode(1);
 				}
 				break;
 
@@ -2558,27 +2554,21 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);
 			
 			// the visual style changed (classic, high contrast or a theme
-			// switch). the dark state may flip with it: re-read and re-apply
-			// the chrome the same way.
+			// switch). re-read the dark state and re-apply the chrome
+			// unconditionally: wm_themechanged means the system re-themed the
+			// comctl classes and the frame, so the per window dark state must be
+			// re-asserted even when the dark answer itself did not flip - the
+			// flip gate is what let the system light repaint survive (the white
+			// band after the theme switch).
 			{
-				int was_dark;
-				int is_dark;
-				
-				was_dark = _viv_is_dark();
-				
 				os_dark_invalidate();
 				
-				is_dark = _viv_is_dark();
-				
-				if (was_dark != is_dark)
+				if (config_dark_mode == 2)
 				{
-					if (config_dark_mode == 2)
-					{
-						os_dark_refresh();
-					}
-					
-					_viv_apply_dark_mode(1);
+					os_dark_refresh();
 				}
+				
+				_viv_apply_dark_mode(1);
 			}
 			
 			break;
@@ -3149,7 +3139,24 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 		}
 			
 		case WM_ERASEBKGND:
+		{
+			// the dark ui erases with the chrome face: a paint that bypasses the
+			// handlers (a relayout gap, a system ghost redraw) must not flash the
+			// light class brush the window still carries for the light ui (the
+			// 1.1.03 lesson). the canvas paint covers the whole client right
+			// after, so the fill only shows where nothing else paints - dark
+			// instead of the white slab.
+			if (_viv_is_dark())
+			{
+				RECT rect;
+				
+				GetClientRect(hwnd,&rect);
+				
+				FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(0));
+			}
+			
 			return 1;
+		}
 			
 		case WM_GETMINMAXINFO:
 
