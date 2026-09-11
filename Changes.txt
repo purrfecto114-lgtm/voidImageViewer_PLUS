@@ -11,8 +11,11 @@ Pre-release: Version 1.1.12-rc.5 (the structure round)
 	viv_wndproc.c (the 44 case labels - 41 WM_ messages, two internal
 	_VIV_WM_ messages and the raw tablet query - collapse to 42 handlers
 	because two label pairs share a body). the dispatch itself is 95
-	lines. every case body moved byte-identical; only the 34 case-exit
-	break statements became explicit DefWindowProc returns, and the two
+	lines. every case body moved byte-identical; only the 35 case-exit
+	break statements became explicit DefWindowProc returns (34 direct
+	exits plus the touch-double-tap one that sat inside an if-block -
+	break binds to the nearest loop or switch, and an if-block catches
+	nothing; the ci compile caught it as a lone c2043), and the two
 	symbols the handlers share with the core (the background brush, the
 	command line processor) are externed through viv_state.h (113 -> 114
 	externs). the core is 2,431 lines now.

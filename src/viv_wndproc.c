@@ -39,6 +39,15 @@
 #include "viv_install.h"
 #include "viv_menu.h"
 
+// touch gesture messages. (not defined in older SDKs)
+#ifndef WM_GESTURENOTIFY
+#define WM_GESTURENOTIFY 0x011A
+#endif
+
+#ifndef WM_GESTURE
+#define WM_GESTURE 0x0119
+#endif
+
 // moved from the viv.c core in one piece (R76): the window procedure, its
 // case-body handlers, the drop-file helper and the paint/move statics they
 // own. every case body moved byte-identical; only the case-exit break
@@ -125,6 +134,81 @@ static void _viv_drop_files(HWND hwnd,HDROP hdrop)
 		
 		SetForegroundWindow(hwnd);
 }
+
+WORD _viv_context_menu_items[] = 
+{
+	VIV_ID_NAV_NEXT,
+	VIV_ID_NAV_PREV,
+	0,
+	// one zoom submenu groups the zoom commands instead of a flat pile
+	// of them at the top level. the submenu markers push/pop the same way
+	// the rate and sort submenus always have.
+	_VIV_MENU_VIEW_ZOOM,
+	VIV_ID_VIEW_ZOOM_IN,
+	VIV_ID_VIEW_ZOOM_OUT,
+	0,
+	VIV_ID_VIEW_1TO1,
+	VIV_ID_VIEW_BESTFIT,
+	VIV_ID_VIEW_FILL_WINDOW,
+	0,
+	VIV_ID_VIEW_ALLOW_SHRINKING,
+	VIV_ID_VIEW_KEEP_ASPECT_RATIO,
+	_VIV_MENU_VIEW_ZOOM,
+	0,
+	VIV_ID_EDIT_ROTATE_90,
+	VIV_ID_EDIT_ROTATE_270,
+	0,
+	VIV_ID_VIEW_FULLSCREEN,
+	VIV_ID_SLIDESHOW_PAUSE,
+	_VIV_MENU_SLIDESHOW_RATE,
+	VIV_ID_SLIDESHOW_RATE_DEC,
+	VIV_ID_SLIDESHOW_RATE_INC,
+	0,
+	// keep the handful of rates people actually use here; the complete
+	// ladder still lives in the menu bar slideshow submenu.
+	VIV_ID_SLIDESHOW_RATE_1000,
+	VIV_ID_SLIDESHOW_RATE_3000,
+	VIV_ID_SLIDESHOW_RATE_5000,
+	VIV_ID_SLIDESHOW_RATE_10000,
+	VIV_ID_SLIDESHOW_RATE_30000,
+	VIV_ID_SLIDESHOW_RATE_60000,
+	VIV_ID_SLIDESHOW_RATE_CUSTOM,
+	_VIV_MENU_SLIDESHOW_RATE,
+	0,
+	VIV_ID_VIEW_MENU,
+	0,
+	_VIV_MENU_NAVIGATE_SORT,
+	VIV_ID_NAV_SORT_NAME,
+	VIV_ID_NAV_SORT_FULL_PATH,
+	VIV_ID_NAV_SORT_SIZE,
+	VIV_ID_NAV_SORT_DATE_MODIFIED,
+	VIV_ID_NAV_SORT_DATE_CREATED,
+	0,
+	VIV_ID_NAV_SORT_ASCENDING,
+	VIV_ID_NAV_SORT_DESCENDING,
+	_VIV_MENU_NAVIGATE_SORT,
+	0,
+	VIV_ID_FILE_OPEN_FILE_LOCATION,
+	VIV_ID_FILE_SET_DESKTOP_WALLPAPER,
+	VIV_ID_FILE_EDIT,
+	VIV_ID_FILE_PRINT,
+	VIV_ID_FILE_PREVIEW,
+	0,
+	VIV_ID_EDIT_CUT,
+	VIV_ID_EDIT_COPY,
+	VIV_ID_EDIT_COPY_IMAGE,
+	VIV_ID_EDIT_PASTE,
+	0,
+	VIV_ID_FILE_DELETE,
+	VIV_ID_FILE_RENAME,
+	0,
+	VIV_ID_FILE_PROPERTIES,
+	VIV_ID_VIEW_OPTIONS,
+	0,
+	VIV_ID_FILE_EXIT,
+};
+
+#define _VIV_CONTEXT_MENU_ITEM_COUNT	(sizeof(_viv_context_menu_items) / sizeof(WORD))
 
 
 static LRESULT _viv_on_wm_nchittest(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
@@ -917,7 +1001,7 @@ static LRESULT _viv_on_wm_lbuttondblclk(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 		// double tap on a touch screen: toggle 1:1 / best fit.
 		_viv_touch_double_click();
 
-		break;
+		return DefWindowProc(hwnd,msg,wParam,lParam);
 	}
 	// 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
 	switch(config_left_click_action)
@@ -1368,7 +1452,7 @@ static LRESULT _viv_on_wm_gesture(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
-static LRESULT _viv_on_0x2c4:(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+static LRESULT _viv_on_wm_tablet_querysystemgesturestatus(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 {
 	// disable press-and-hold (0x1, the wait circle) and flicks
@@ -2486,7 +2570,7 @@ LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		case WM_GESTURE:
 			return _viv_on_wm_gesture(hwnd,msg,wParam,lParam);
 		case 0x2C4: // WM_TABLET_QUERYSYSTEMGESTURESTATUS (winuser.h)
-			return _viv_on_0x2c4:(hwnd,msg,wParam,lParam);
+			return _viv_on_wm_tablet_querysystemgesturestatus(hwnd,msg,wParam,lParam);
 		case WM_COPYDATA:
 			return _viv_on_wm_copydata(hwnd,msg,wParam,lParam);
 		case WM_CLOSE:

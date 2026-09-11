@@ -3381,8 +3381,8 @@ def t_structure_round76():
 
     # 4. the pure-move discipline held: the moved case bodies kept their
     #    bytes, only the case-exit breaks became DefWindowProc returns.
-    check("the break exits became explicit DefWindowProc returns",
-          wnd.count("return DefWindowProc(hwnd,msg,wParam,lParam);") >= 34)
+    check("the case exits are explicit DefWindowProc returns (35 rewrites + 18 tails)",
+          wnd.count("return DefWindowProc(hwnd,msg,wParam,lParam);") == 53)
 
     # 5. the gesture cluster is home in the view domain (chrome no longer
     #    owns it): the three touch entry points + the engine state.

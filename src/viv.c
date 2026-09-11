@@ -267,14 +267,6 @@
 // owned by unrelated entries.
 typedef char _viv_recent_id_block_matches_count[(VIV_ID_FILE_RECENT_9 - VIV_ID_FILE_RECENT_0 + 1 == CONFIG_RECENT_FILE_COUNT) ? 1 : -1];
 
-// touch gesture messages. (not defined in older SDKs)
-#ifndef WM_GESTURENOTIFY
-#define WM_GESTURENOTIFY 0x011A
-#endif
-
-#ifndef WM_GESTURE
-#define WM_GESTURE 0x0119
-#endif
 
 // theme change message and tooltip color messages. (not defined in older SDKs)
 
@@ -668,81 +660,6 @@ _viv_default_key_t _viv_default_keys[] =
 };
 
 #define _VIV_DEFAULT_KEY_COUNT (sizeof(_viv_default_keys) / sizeof(_viv_default_key_t))
-
-WORD _viv_context_menu_items[] = 
-{
-	VIV_ID_NAV_NEXT,
-	VIV_ID_NAV_PREV,
-	0,
-	// one zoom submenu groups the zoom commands instead of a flat pile
-	// of them at the top level. the submenu markers push/pop the same way
-	// the rate and sort submenus always have.
-	_VIV_MENU_VIEW_ZOOM,
-	VIV_ID_VIEW_ZOOM_IN,
-	VIV_ID_VIEW_ZOOM_OUT,
-	0,
-	VIV_ID_VIEW_1TO1,
-	VIV_ID_VIEW_BESTFIT,
-	VIV_ID_VIEW_FILL_WINDOW,
-	0,
-	VIV_ID_VIEW_ALLOW_SHRINKING,
-	VIV_ID_VIEW_KEEP_ASPECT_RATIO,
-	_VIV_MENU_VIEW_ZOOM,
-	0,
-	VIV_ID_EDIT_ROTATE_90,
-	VIV_ID_EDIT_ROTATE_270,
-	0,
-	VIV_ID_VIEW_FULLSCREEN,
-	VIV_ID_SLIDESHOW_PAUSE,
-	_VIV_MENU_SLIDESHOW_RATE,
-	VIV_ID_SLIDESHOW_RATE_DEC,
-	VIV_ID_SLIDESHOW_RATE_INC,
-	0,
-	// keep the handful of rates people actually use here; the complete
-	// ladder still lives in the menu bar slideshow submenu.
-	VIV_ID_SLIDESHOW_RATE_1000,
-	VIV_ID_SLIDESHOW_RATE_3000,
-	VIV_ID_SLIDESHOW_RATE_5000,
-	VIV_ID_SLIDESHOW_RATE_10000,
-	VIV_ID_SLIDESHOW_RATE_30000,
-	VIV_ID_SLIDESHOW_RATE_60000,
-	VIV_ID_SLIDESHOW_RATE_CUSTOM,
-	_VIV_MENU_SLIDESHOW_RATE,
-	0,
-	VIV_ID_VIEW_MENU,
-	0,
-	_VIV_MENU_NAVIGATE_SORT,
-	VIV_ID_NAV_SORT_NAME,
-	VIV_ID_NAV_SORT_FULL_PATH,
-	VIV_ID_NAV_SORT_SIZE,
-	VIV_ID_NAV_SORT_DATE_MODIFIED,
-	VIV_ID_NAV_SORT_DATE_CREATED,
-	0,
-	VIV_ID_NAV_SORT_ASCENDING,
-	VIV_ID_NAV_SORT_DESCENDING,
-	_VIV_MENU_NAVIGATE_SORT,
-	0,
-	VIV_ID_FILE_OPEN_FILE_LOCATION,
-	VIV_ID_FILE_SET_DESKTOP_WALLPAPER,
-	VIV_ID_FILE_EDIT,
-	VIV_ID_FILE_PRINT,
-	VIV_ID_FILE_PREVIEW,
-	0,
-	VIV_ID_EDIT_CUT,
-	VIV_ID_EDIT_COPY,
-	VIV_ID_EDIT_COPY_IMAGE,
-	VIV_ID_EDIT_PASTE,
-	0,
-	VIV_ID_FILE_DELETE,
-	VIV_ID_FILE_RENAME,
-	0,
-	VIV_ID_FILE_PROPERTIES,
-	VIV_ID_VIEW_OPTIONS,
-	0,
-	VIV_ID_FILE_EXIT,
-};
-
-#define _VIV_CONTEXT_MENU_ITEM_COUNT	(sizeof(_viv_context_menu_items) / sizeof(WORD))
 
 
 _viv_key_list_t *_viv_key_list = 0;
