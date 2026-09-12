@@ -3607,6 +3607,12 @@ def t_carpet_repair_round76():
     check("the owner draw delete notification has a handler",
           "_viv_on_wm_deleteitem" in wnd)
 
+    # the comctl status bar sends its pane draws with CtlType == ODT_MENU:
+    # the pane branch must route by the control id BEFORE the menu branch,
+    # or the pane index (the itemData) gets dereferenced as a menu row.
+    check("the status pane draws route before the menu branch (the comctl ctltype quirk)",
+          0 <= wnd.find("wParam == VIV_ID_STATUS") < wnd.find("_viv_menu_draw_item((DRAWITEMSTRUCT *)lParam)"))
+
     check("a failed glyph build never poisons the cache",
           "if (!icon)" in glyphs
           and "return 0;" in glyphs.split("HICON glyphs_icon")[1][:1200])

@@ -1813,20 +1813,28 @@ static LRESULT _viv_on_wm_menuchar(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 
 static LRESULT _viv_on_wm_drawitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	// the status panes are owner drawn: draw them FIRST. the comctl
+	// status bar sends its pane draws with CtlType == ODT_MENU (a
+	// historical quirk), so the menu branch below can never be the
+	// discriminator: it would cast the pane index (the itemData) into a
+	// menu row pointer and dereference address 0x1 - the crash the
+	// smoke sweep caught on every slow-decoded image (the preload pane
+	// draws while the load thread still runs; the baseline routed the
+	// panes by the control id and that check is the true one).
+	if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))
+	{
+		return TRUE;
+	}
+	
 	// the popup menus are owner drawn: every row paints on the theme
-	// tokens (the system painter never touches them).
+	// tokens (the system painter never touches them). menu draws carry
+	// no control id, so the pane check above never takes them.
 	if ((lParam) && (((DRAWITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
 	{
 		if (_viv_menu_draw_item((DRAWITEMSTRUCT *)lParam))
 		{
 			return TRUE;
 		}
-	}
-	
-	// the status panes are owner drawn: draw them (dark ui support).
-	if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))
-	{
-		return TRUE;
 	}
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);

@@ -60,6 +60,16 @@ Pre-release: Version 1.1.12-rc.11 (the carpet repair round)
  before rc.7 (the callers were already commented upstream) - the rc.9
  "rides the tokens" line was written into that dead code and is hereby
  corrected rather than revived.
+*the crash the ci anomaly sweep caught: the comctl status bar sends its
+ owner-drawn pane draws with ctltype == odt_menu (a historical quirk),
+ so the menu branch the remake put first cast the pane index - the
+ itemdata - into a menu row pointer and dereferenced address 0x1 on
+ every slow-decoded image (the preload pane draws while the load thread
+ still runs; a fast gif/bmp decode never shows the pane, which is why
+ the crash looked png-specific). the panes route by the control id
+ first again, the menu rows after - the baseline's proven
+ discriminator. stack-captured under cdb on a diagnostic branch (the
+ fault resolved to the fixed offset 0x486dc in the release map).
 *verified: the full tree compiles (zig cc, 98 units, bit-comparable to
  the user's build), the three suites pass with 38 new carpet-repair
  guards, the link scan stays clean at 111/111, and every fix is pinned.
