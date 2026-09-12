@@ -755,13 +755,10 @@ debug_printf("ADDITIONAL FRAME TERMINATE\n");
 
 static LRESULT _viv_on_wm_initmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-{	
 	// the frame menu is gone: the popup state refresh runs against the
 	// app menu tree (the remade top bar opens the same popups).
 	_viv_check_menus(_viv_hmenu);
 	
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
@@ -1286,6 +1283,8 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 	_viv_in_popup_menu = 0;
 	_viv_update_show_cursor();
 	
+	_viv_recent_menu_flush();
+	
 	DestroyMenu(hmenu);
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -1771,6 +1770,31 @@ static LRESULT _viv_on_wm_measureitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+// the classic palette changed (system colors, high contrast): the token
+// brushes hold resolved system colors, so flush them and repaint - a
+// silent no-op when nothing actually moved.
+static LRESULT _viv_on_wm_syscolorchange(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	viv_theme_refresh();
+	
+	_viv_apply_dark_mode(1);
+	
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+// owner drawn rows ride static pools: the delete notification is just
+// acknowledged (nothing to free, but the reply must be TRUE so the
+// system knows the item data was consumed).
+static LRESULT _viv_on_wm_deleteitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	if ((lParam) && (((DELETEITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
+	{
+		return TRUE;
+	}
+	
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
 // mnemonic keys resolve against the live row text (owner drawn rows keep
 // their labels out of the system, so the scan is ours).
 static LRESULT _viv_on_wm_menuchar(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
@@ -1854,7 +1878,6 @@ static LRESULT _viv_on_wm_syskeyup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 
 static LRESULT _viv_on_wm_initmenupopup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-{	
 	// trackpopupmenuex sends this before showing a popup: the state
 	// refresh the frame menu used to get from wm_initmenu runs here.
 	_viv_check_menus(_viv_hmenu);
@@ -1875,8 +1898,6 @@ static LRESULT _viv_on_wm_initmenupopup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 		}
 	}
 	
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
@@ -2132,6 +2153,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	RECT rect;
 	int wide;
 	int high;
+	int view_top;
 	PAINTSTRUCT ps;
 
 	// paint the image.
@@ -2149,7 +2171,12 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	
 	GetClientRect(hwnd,&rect);
 	wide = rect.right - rect.left;
-	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	// the viewport sits between the top strips and the status bar: the
+	// image math below is viewport relative, the blits land in client
+	// coordinates (origin added at each dst y).
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
+	
+	view_top = _viv_get_view_top();
 
 	if (BeginPaint(hwnd,&ps))
 	{
@@ -2273,7 +2300,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 						{
 							if ((rw == mip_wide) && (rh == mip_high))
 							{
-								if (BitBlt(paint_hdc,rx,ry,rw,rh,mem_hdc,0,0,SRCCOPY))
+								if (BitBlt(paint_hdc,rx,ry + view_top,rw,rh,mem_hdc,0,0,SRCCOPY))
 								{
 								}
 								else
@@ -2303,7 +2330,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 									{
 										is_halftone = 1;
 										last_stretch_mode = SetStretchBltMode(paint_hdc,HALFTONE);
-										SetBrushOrgEx(paint_hdc,-rx,-ry,NULL);
+										SetBrushOrgEx(paint_hdc,-rx,-ry - view_top,NULL);
 									}
 									else
 									{
@@ -2367,7 +2394,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 													{
 														if (SelectClipRgn(paint_hdc,clip_hrgn) != ERROR)
 														{
-															if (StretchBlt(paint_hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY))
+															if (StretchBlt(paint_hdc,rx,ry + view_top,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY))
 															{
 															}
 															else
@@ -2428,7 +2455,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 														if ((rw <= wide) && (rh <= high) && (rect_p->right - rect_p->left >= paint_wide) && (rect_p->bottom - rect_p->top >= paint_high))
 														{
 															// if the clipping region is the full area, just use stretchblt, which is faster.
-															if (_viv_StretchBltStitch(paint_hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
+															if (_viv_StretchBltStitch(paint_hdc,rx,ry + view_top,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
 															{
 															}
 															else
@@ -2440,12 +2467,12 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 														{
 															// use our own stretch that only renders the clipping rect region.
 															// where-as StretchBlt ignores the clipping region and renders the entire dst region.
-															_viv_stretch_blt(paint_hdc,rx,ry,rw,rh,mem_hdc,mip_wide,mip_high,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top);
+															_viv_stretch_blt(paint_hdc,rx,ry + view_top,rw,rh,mem_hdc,mip_wide,mip_high,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top);
 														}
 													}
 													else
 													{
-														if (_viv_StretchBltStitch(paint_hdc,rx,ry,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
+														if (_viv_StretchBltStitch(paint_hdc,rx,ry + view_top,rw,rh,mem_hdc,0,0,mip_wide,mip_high,SRCCOPY,rect_p->left,rect_p->top,rect_p->right - rect_p->left,rect_p->bottom - rect_p->top))
 														{
 														}
 														else
@@ -2514,7 +2541,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 				
 				if (_viv_background_hbrush)
 				{
-					os_fill_clipped_rect(paint_hdc,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,rx,ry,rw,rh,_viv_background_hbrush);
+					os_fill_clipped_rect(paint_hdc,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,rx,ry + view_top,rw,rh,_viv_background_hbrush);
 				}
 			}
 		}
@@ -2578,7 +2605,7 @@ static LRESULT _viv_on_wm_getminmaxinfo(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 		// the strip is full width now: the minimum window is a floor, not
 		// the toolbar's content width (the overflow rule hides groups).
 		wide = (480 * os_logical_wide) / 96;
-		high = _viv_get_status_high() + _viv_get_controls_high();
+		high = _viv_get_status_high() + _viv_get_view_top();
 		
 		is_menu = GetMenu(_viv_hwnd) ? TRUE : FALSE;
 	
@@ -2677,8 +2704,12 @@ LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			return _viv_on_wm_move(hwnd,msg,wParam,lParam);
 		case WM_DRAWITEM:
 			return _viv_on_wm_drawitem(hwnd,msg,wParam,lParam);
+		case WM_DELETEITEM:
+			return _viv_on_wm_deleteitem(hwnd,msg,wParam,lParam);
 		case WM_MEASUREITEM:
 			return _viv_on_wm_measureitem(hwnd,msg,wParam,lParam);
+		case WM_SYSCOLORCHANGE:
+			return _viv_on_wm_syscolorchange(hwnd,msg,wParam,lParam);
 		case WM_MENUCHAR:
 			return _viv_on_wm_menuchar(hwnd,msg,wParam,lParam);
 		case WM_ENTERIDLE:

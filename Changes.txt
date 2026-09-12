@@ -1,3 +1,69 @@
+Pre-release: Version 1.1.12-rc.11 (the carpet repair round)
+*the user's gui remake (rc.8-rc.10) went through a seven-subagent
+ adversarial carpet review; this round repairs what the review found.
+ the two headline breaks: the menu bar roots measured empty (the rc.9
+ owner draw flip stored no label on the popup rows and the bar kept
+ reading miim_string - every root collapsed to a blank sliver and the
+ alt mnemonics died with them; the bar now re-derives the labels from
+ the live rows) and the status date pane rendered a lone "0" (a wide
+ format string through the narrow printf parser; the stamp now builds
+ with the localized getdateformat/gettimeformat pair).
+*the viewport geometry caught up with the top strips: the toolbar moved
+ under the menu bar in rc.8 but the image math still reserved its band
+ above the status bar - a 40dip dead strip at the bottom and the image
+ top hidden behind the strips. one view-top helper (menubar + toolbar)
+ now rides every size computation, paint blit, mouse anchor and scroll
+ clip, and the zoom pill lands at the viewport bottom instead of
+ floating one strip high.
+*the system theme flip never flushed the token brushes (the half-skinned
+ ui the field kept catching): the apply path refreshes the cache, heals
+ the #32768 class brush, and a classic palette change (wm_syscolorchange)
+ repaints too.
+*the toolbar: the play slot resolves from the live state (slideshow
+ pauses, an animated image toggles the animation clock, idle starts the
+ windowed slideshow - the fullscreen jump is gone), the faces ride the
+ theme tokens (the light hover is the quiet 3dlight, not the selection
+ blue; the private palette duplicate is deleted), the strip background
+ drag moves the window again (the rebar rule), and the leave tracking
+ re-arms after a captured press.
+*the themed message boxes: owned by the parent (no taskbar button, no
+ raising the disabled owner), the close button maps to cancel semantics
+ (an ok box closes as ok), four leaked brushes and a leaked font pair
+ per box are gone, wm_quit propagates, a second box brings the first to
+ the front instead of corrupting it, the light box gets a light caption,
+ the focus ring actually draws (the hpen-as-hbrush no-op), the secondary
+ button keeps a visible border, the height clamps to the work area, and
+ the dpi follows the box across monitors.
+*the settings window shortcut editor: an unchanged edit confirmed with
+ enter keeps the binding (it used to delete it), the "currently used by"
+ row is live during a capture, and modifier combos are capturable again
+ (ctrl+return - the app's own default - was un-rebindable).
+*win 7 closes the dpi ladder: the manifest declares the legacy
+ dpiaware tag next to the 2016 per-monitor-v2 section (the pre-1607
+ loaders ignore the 2016 namespace - without the legacy tag 7 and 8.0
+ ran the app dpi-unaware, bitmap-stretched), and the runtime chain ends
+ with the classic setprocessdpiaware tier. the rc.10 "win 7 keeps the
+ classic system aware behavior" claim was wrong - unaware, not aware.
+*the popup menus: the recent-files header is owner drawn like its
+ siblings (the type flag landed in fstate, which only takes mfs_
+ values, and the row painted in the system look), radio groups draw
+ the dot, grayed rows never fire from the keyboard, the idle pump
+ treats the getmessage error return as an error, the owner draw delete
+ notification is acknowledged, and a slideshow-timer mru rebuild
+ defers while a popup displays the old rows.
+*the pill percent reads the app-wide number (render over native, the
+ same value the status bar shows - the ladder scale read "100%" at
+ best fit on a photo the ui called 23%), the failed glyph build never
+ caches, the double-brace splice leftovers are unwound (the dispatch
+ is 49 handlers now: wm_deleteitem and wm_syscolorchange joined), and
+ the pixel probe tooltip correction: it has been dead code since
+ before rc.7 (the callers were already commented upstream) - the rc.9
+ "rides the tokens" line was written into that dead code and is hereby
+ corrected rather than revived.
+*verified: the full tree compiles (zig cc, 98 units, bit-comparable to
+ the user's build), the three suites pass with 38 new carpet-repair
+ guards, the link scan stays clean at 111/111, and every fix is pinned.
+
 Pre-release: Version 1.1.12-rc.10 (the dpi correctness round)
 *fixed the high dpi font bug for real: the per monitor v2 declaration
  never shipped in the binary the way it was read - the vs linker merged

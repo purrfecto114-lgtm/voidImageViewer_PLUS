@@ -215,6 +215,9 @@ static HANDLE (WINAPI *_os_SetThreadDpiAwarenessContext)(HANDLE context) = 0;
 // windows 8.1: shcore fallback.
 static HRESULT (WINAPI *_os_SetProcessDpiAwareness)(int value) = 0;
 static HMODULE _os_shcore_hmodule = 0;
+// windows vista / 7: the classic system aware claim - the only dpi api
+// those systems carry.
+static BOOL (WINAPI *_os_SetProcessDPIAware)(void) = 0;
 
 // windows 10 1607+: dpi aware system parameters, used by os_menu_font().
 static BOOL (WINAPI *_os_SystemParametersInfoForDpi)(UINT action,UINT param,void *pvparam,UINT winini,UINT dpi) = 0;
@@ -948,6 +951,7 @@ void os_init(void)
 		_os_SystemParametersInfoForDpi = (void *)GetProcAddress(_os_user32_hmodule,"SystemParametersInfoForDpi");
 		_os_SetThreadDpiAwarenessContext = (void *)GetProcAddress(_os_user32_hmodule,"SetThreadDpiAwarenessContext");
 		_os_SetProcessDpiAwarenessContext = (void *)GetProcAddress(_os_user32_hmodule,"SetProcessDpiAwarenessContext");
+		_os_SetProcessDPIAware = (void *)GetProcAddress(_os_user32_hmodule,"SetProcessDPIAware");
 	}
 
 	// dpi awareness: the embedded manifest normally declares per monitor
@@ -964,7 +968,11 @@ void os_init(void)
 	// each tier is a guarded no-op on systems without the api:
 	// win10 1703+ process wide, win10 1607+ per thread (covers the ui
 	// thread this process creates every window on), win 8.1 shcore
-	// process claim, win 7 keeps the classic system dpi aware behavior.
+	// process claim, and win 7 / vista close the chain with the classic
+	// setprocessdpiaware claim - without that last tier a manifest-less
+	// binary on 7 stayed fully unaware and the system bitmap-stretched
+	// everything (the manifest carries the same ladder through its dual
+	// dpiAware / dpiAwareness declaration).
 	if (_os_SetProcessDpiAwarenessContext)
 	{
 		// DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = ((DPI_CONTEXT_HANDLE)-4)
@@ -976,6 +984,10 @@ void os_init(void)
 	}
 	else
 	{
+		int claimed;
+
+		claimed = 0;
+
 		_os_shcore_hmodule = LoadLibraryA("shcore.dll");
 
 		if (_os_shcore_hmodule)
@@ -986,7 +998,16 @@ void os_init(void)
 			if (_os_SetProcessDpiAwareness)
 			{
 				_os_SetProcessDpiAwareness(2);
+
+				claimed = 1;
 			}
+		}
+
+		// win 7 / vista: the classic claim. a manifest-declared process
+		// is already aware - the call fails harmlessly there.
+		if ((!claimed) && (_os_SetProcessDPIAware))
+		{
+			_os_SetProcessDPIAware();
 		}
 	}
 

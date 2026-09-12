@@ -123,15 +123,14 @@ static int _viv_toolbar_hover = -1; // the item under the mouse, or -1.
 static int _viv_toolbar_pressed = -1; // the item held with capture, or -1.
 static BYTE _viv_toolbar_tracking = 0; // the mouse leave tracking is armed.
 
-// the dark faces are app owned and cached for the process (the chrome brush
-// cache idiom); the light faces are the system's own brushes.
-static HBRUSH _viv_toolbar_dark_face = 0; // 0x202024
-static HBRUSH _viv_toolbar_dark_hot = 0; // 0x2e2e33
-static HBRUSH _viv_toolbar_dark_press = 0; // 0x38383e
-static HBRUSH _viv_toolbar_dark_line = 0; // 0x3a3a40
-
+// the faces resolve through the theme tokens now: one palette for every
+// surface (the private dark values duplicated the token table), and a
+// theme or accent flip re-skins the strip through the cache flush in the
+// apply path. the light hover is the quiet 3dlight face, not the loud
+// selection blue the first cut painted.
 static void _viv_toolbar_measure(void);
 static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+void _viv_start_move_window(void); // viv_view.c: the strip background drag
 
 // dip macros: the 96 dpi design units at the window's current dpi.
 #define _VIV_TOOLBAR_DIP_X(dip) (((dip) * os_logical_wide) / 96)
@@ -139,62 +138,22 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 
 static HBRUSH _viv_toolbar_face_brush(void)
 {
-	if (_viv_toolbar_dark)
-	{
-		if (!_viv_toolbar_dark_face)
-		{
-			_viv_toolbar_dark_face = CreateSolidBrush(RGB(0x20,0x20,0x24));
-		}
-		
-		return _viv_toolbar_dark_face;
-	}
-	
-	return GetSysColorBrush(COLOR_BTNFACE);
+	return viv_theme_brush(VIV_TK_CHROME);
 }
 
 static HBRUSH _viv_toolbar_hot_brush(void)
 {
-	if (_viv_toolbar_dark)
-	{
-		if (!_viv_toolbar_dark_hot)
-		{
-			_viv_toolbar_dark_hot = CreateSolidBrush(RGB(0x2E,0x2E,0x33));
-		}
-		
-		return _viv_toolbar_dark_hot;
-	}
-	
-	return GetSysColorBrush(COLOR_HIGHLIGHT);
+	return viv_theme_brush(VIV_TK_HOVER);
 }
 
 static HBRUSH _viv_toolbar_press_brush(void)
 {
-	if (_viv_toolbar_dark)
-	{
-		if (!_viv_toolbar_dark_press)
-		{
-			_viv_toolbar_dark_press = CreateSolidBrush(RGB(0x38,0x38,0x3E));
-		}
-		
-		return _viv_toolbar_dark_press;
-	}
-	
-	return GetSysColorBrush(COLOR_HIGHLIGHT);
+	return viv_theme_brush(VIV_TK_DOWN);
 }
 
 static HBRUSH _viv_toolbar_line_brush(void)
 {
-	if (_viv_toolbar_dark)
-	{
-		if (!_viv_toolbar_dark_line)
-		{
-			_viv_toolbar_dark_line = CreateSolidBrush(RGB(0x3A,0x3A,0x40));
-		}
-		
-		return _viv_toolbar_dark_line;
-	}
-	
-	return GetSysColorBrush(COLOR_3DSHADOW);
+	return viv_theme_brush(VIV_TK_CHROME_LINE);
 }
 
 // the label and the glyph of one slot: the play slot swaps both while the
@@ -388,6 +347,26 @@ static void _viv_toolbar_fire(int itemi)
 	
 	command_id = _viv_toolbar_items[itemi].command_id;
 	
+	// the play slot resolves from the live state (the pill rule): a
+	// running slideshow pauses in place, an animated image toggles the
+	// animation clock, idle starts the windowed slideshow - the slot
+	// never forces the fullscreen jump the old command did.
+	if (itemi == _VIV_TOOLBAR_ITEM_PLAY)
+	{
+		if (_viv_is_slideshow)
+		{
+			command_id = VIV_ID_SLIDESHOW_PAUSE_ONLY;
+		}
+		else if (_viv_animation_play)
+		{
+			command_id = VIV_ID_ANIMATION_PLAY_PAUSE;
+		}
+		else
+		{
+			command_id = VIV_ID_SLIDESHOW_PLAY_ONLY;
+		}
+	}
+	
 	SendMessage(_viv_hwnd,WM_COMMAND,MAKEWPARAM(command_id,BN_CLICKED),0);
 	
 	SetFocus(_viv_hwnd);
@@ -443,8 +422,8 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			
 			SetBkMode(hdc,TRANSPARENT);
 			
-			text_color = _viv_toolbar_dark ? RGB(0xE8,0xE8,0xEA) : GetSysColor(COLOR_BTNTEXT);
-			disabled_color = _viv_toolbar_dark ? RGB(0x6A,0x6A,0x70) : GetSysColor(COLOR_GRAYTEXT);
+			text_color = viv_theme_color(VIV_TK_TEXT);
+			disabled_color = viv_theme_color(VIV_TK_TEXTOFF);
 			
 			// the hover faces draw through a null pen so the rounded fill
 			// carries no border of its own.
@@ -547,7 +526,10 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			TRACKMOUSEEVENT tme;
 			int hit;
 			
-			if ((!_viv_toolbar_tracking) && (_viv_toolbar_pressed < 0))
+			// re-arm the leave track on every uncaptured move: a press
+			// swallows leave generation, and without the re-arm the hover
+			// sticks after a drag-off release (the zoomui pattern).
+			if (GetCapture() != hwnd)
 			{
 				os_zero_memory(&tme,sizeof(tme));
 				tme.cbSize = sizeof(tme);
@@ -579,6 +561,13 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 		
 			_viv_toolbar_tracking = 0;
 			
+			// during a captured press the leave is stale: the release
+			// handler owns the hover accounting.
+			if (GetCapture() == hwnd)
+			{
+				return 0;
+			}
+			
 			if (_viv_toolbar_hover != -1)
 			{
 				_viv_toolbar_invalidate_item(_viv_toolbar_hover);
@@ -588,6 +577,9 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			
 			return 0;
 		
+		case WM_LBUTTONDBLCLK:
+		// the double click lands as a fresh press (the zoomui rule: the
+		// face follows the physical button, not the click count).
 		case WM_LBUTTONDOWN:
 		{
 			int hit;
@@ -608,6 +600,12 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				SetCapture(hwnd);
 				
 				_viv_toolbar_invalidate_item(hit);
+			}
+			else if ((hit < 0) && (config_toolbar_move_window))
+			{
+				// the rebar band drag lives on: dragging the strip
+				// background moves the window (the caption drag).
+				_viv_start_move_window();
 			}
 			
 			return 0;
@@ -679,7 +677,7 @@ void _viv_toolbar_create(HWND parent)
 	// handlers above, a draw that bypasses them must not erase white (the
 	// 1.1.03 lesson).
 	os_RegisterClassEx(
-		0,
+		CS_DBLCLKS,
 		_viv_toolbar_proc,
 		0,
 		LoadCursor(NULL,IDC_ARROW),
@@ -843,6 +841,8 @@ void _viv_toolbar_set_dark(int dark)
 	
 	if (dark != _viv_toolbar_dark)
 	{
+		// the colors resolve through the tokens at paint time now; the
+		// latch only owns this repaint (and the glyph dark variant).
 		_viv_toolbar_dark = dark;
 		
 		if (_viv_toolbar_hwnd)

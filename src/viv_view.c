@@ -700,14 +700,14 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				}
 				
 				client_wide = rect.right - rect.left;
-				client_high = rect.bottom - rect.top + _viv_get_status_high() + _viv_get_controls_high();
+				client_high = rect.bottom - rect.top + _viv_get_status_high() + _viv_get_view_top();
 				
 				AdjustWindowRect(&rect,GetWindowStyle(_viv_hwnd),GetMenu(_viv_hwnd) ? TRUE : FALSE);
 
 debug_printf("%d %d | %d %d %d %d\n",midx,midy,rect.left,rect.top,rect.right,rect.bottom);
 				
 				wide = rect.right - rect.left;
-				high = rect.bottom - rect.top + _viv_get_status_high() + _viv_get_controls_high();
+				high = rect.bottom - rect.top + _viv_get_status_high() + _viv_get_view_top();
 				
 				os_MonitorRectFromWindow(_viv_hwnd,0,&monitor_rect);
 				
@@ -1564,7 +1564,7 @@ void _viv_view_set(int view_x,int view_y,int invalidate)
 	
 	GetClientRect(_viv_hwnd,&rect);
 	wide = rect.right - rect.left;
-	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 
 	_viv_get_render_size(&rw,&rh);
 /*		
@@ -2255,12 +2255,15 @@ void _viv_zoom_set_percent(int percent,int screen_x,int screen_y,int force)
 	
 	GetClientRect(_viv_hwnd,&rect);
 	wide = rect.right - rect.left;
-	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 	
 	pt.x = screen_x;
 	pt.y = screen_y;
 	
 	ScreenToClient(_viv_hwnd,&pt);
+	
+	// the viewport origin: the anchor math below is viewport relative.
+	pt.y -= _viv_get_view_top();
 	
 	_viv_get_render_size(&old_rw,&old_rh);
 	
@@ -2385,7 +2388,7 @@ void _viv_zoom_in(int out,int have_xy,int x,int y)
 		RECT rect;
 		GetClientRect(_viv_hwnd,&rect);
 		pt.x = (rect.right - rect.left) / 2;
-		pt.y = (rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high()) / 2;
+		pt.y = (_viv_get_view_top() + (rect.bottom - rect.top - _viv_get_status_high())) / 2;
 	}
 
 	ClientToScreen(_viv_hwnd,&pt);
@@ -2443,8 +2446,9 @@ void _viv_view_scroll(int mx,int my)
 		GetClientRect(_viv_hwnd,&rect);
 		
 		// limit the scroll to the image viewport so the scroll blit never
-		// touches the status bar and the toolbar.
-		rect.bottom -= _viv_get_status_high() + _viv_get_controls_high();
+		// touches the status bar and the top strips.
+		rect.top += _viv_get_view_top();
+		rect.bottom -= _viv_get_status_high();
 		
 		if (ScrollWindowEx(_viv_hwnd,old_view_x - _viv_view_x,old_view_y - _viv_view_y,&rect,0,0,0,SW_INVALIDATE) == ERROR)
 		{
@@ -2491,13 +2495,13 @@ void _viv_update_1to1_scroll(int x,int y)
 	GetClientRect(_viv_hwnd,&rect);
 
 	wide = rect.right - rect.left;
-	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 	
 	pt.x = x ;
 	pt.y = y;
 	
 	cursor_x = pt.x; 
-	cursor_y = pt.y;
+	cursor_y = pt.y - _viv_get_view_top();
 
 	zoom_backup = _viv_zoom_pos;
 	backup_1to1 = _viv_1to1;
@@ -2566,7 +2570,7 @@ void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 		
 		GetClientRect(_viv_hwnd,&rect);
 		wide = rect.right - rect.left;
-		high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+		high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 		
 		pt.x = x;
 		pt.y = y;
@@ -2574,7 +2578,7 @@ void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 		ScreenToClient(_viv_hwnd,&pt);
 
 		cursor_x = pt.x; 
-		cursor_y = pt.y;
+		cursor_y = pt.y - _viv_get_view_top();
 	
 		_viv_get_render_size(&rw,&rh);
 		
@@ -2888,7 +2892,7 @@ void _viv_do_left_click_action(int action)
 				
 				GetClientRect(_viv_hwnd,&rect);
 				wide = rect.right - rect.left;
-				high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+				high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 
 				_viv_get_render_size(&rw,&rh);
 

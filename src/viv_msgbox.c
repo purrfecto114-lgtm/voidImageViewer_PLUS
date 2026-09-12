@@ -46,7 +46,6 @@ static int _viv_msgbox_hover = -1;
 static int _viv_msgbox_pressed = -1;
 static int _viv_msgbox_focus = 0;
 static HFONT _viv_msgbox_font = 0;
-static HFONT _viv_msgbox_font_bold = 0;
 
 // the button rows: index 0 is the primary (right most), 1 the secondary.
 #define _VIV_MSGBOX_BUTTONS		2
@@ -177,6 +176,7 @@ static void _viv_msgbox_draw_button(HDC hdc,int index)
 	int focused;
 	COLORREF fill;
 	COLORREF text;
+	HBRUSH brush;
 
 	rect = _viv_msgbox_button_rects[index];
 
@@ -196,46 +196,43 @@ static void _viv_msgbox_draw_button(HDC hdc,int index)
 		text = viv_theme_color(VIV_TK_TEXT);
 	}
 
-	FillRect(hdc,&rect,CreateSolidBrush(fill));
+	brush = CreateSolidBrush(fill);
 
-	// a quiet border keeps the neutral button visible on any backdrop.
+	FillRect(hdc,&rect,brush);
+
+	DeleteObject(brush);
+
+	// a quiet border keeps the neutral button visible: the secondary takes
+	// the line tone, the accent already contrasts (framerec takes a brush).
 	{
-		HPEN pen;
-		HPEN old_pen;
+		HBRUSH frame_brush;
 		RECT frame;
-
-		pen = CreatePen(PS_SOLID,1,viv_theme_color(focused ? VIV_TK_TEXT : VIV_TK_LINE));
-		old_pen = (HPEN)SelectObject(hdc,pen);
 
 		frame = rect;
 		frame.right--;
 		frame.bottom--;
 
-		FrameRect(hdc,&frame,CreateSolidBrush(fill));
+		frame_brush = CreateSolidBrush(index == _viv_msgbox_default_button() ? fill : viv_theme_color(VIV_TK_LINE));
 
-		SelectObject(hdc,old_pen);
-		DeleteObject(pen);
+		FrameRect(hdc,&frame,frame_brush);
+
+		DeleteObject(frame_brush);
 	}
 
 	if (focused)
 	{
 		RECT ring;
+		HBRUSH ring_brush;
 
 		ring = rect;
 		InflateRect(&ring,-_viv_msgbox_dip(3),-_viv_msgbox_dip(3));
 
-		{
-			HPEN pen;
-			HPEN old_pen;
+		// framerec draws with a brush: the old pen handle failed silently.
+		ring_brush = CreateSolidBrush(viv_theme_color(index == _viv_msgbox_default_button() ? VIV_TK_ON_ACCENT : VIV_TK_TEXT2));
 
-			pen = CreatePen(PS_SOLID,1,viv_theme_color(index == _viv_msgbox_default_button() ? VIV_TK_ON_ACCENT : VIV_TK_TEXT2));
-			old_pen = (HPEN)SelectObject(hdc,pen);
+		FrameRect(hdc,&ring,ring_brush);
 
-			FrameRect(hdc,&ring,pen);
-
-			SelectObject(hdc,old_pen);
-			DeleteObject(pen);
-		}
+		DeleteObject(ring_brush);
 	}
 
 	SetBkMode(hdc,TRANSPARENT);
@@ -316,7 +313,7 @@ static void _viv_msgbox_draw_icon(HDC hdc,int x,int y,int size)
 
 		white = _viv_msgbox_dip(2) < 1 ? 1 : _viv_msgbox_dip(2);
 
-		pen = CreatePen(PS_SOLID,_viv_msgbox_type & 0xf0 == MB_ICONERROR ? white + 1 : white,viv_theme_color(VIV_TK_ON_ACCENT));
+		pen = CreatePen(PS_SOLID,(_viv_msgbox_type & 0xf0) == MB_ICONERROR ? white + 1 : white,viv_theme_color(VIV_TK_ON_ACCENT));
 		old_pen = (HPEN)SelectObject(hdc,pen);
 
 		switch (_viv_msgbox_type & 0xf0)
@@ -379,7 +376,11 @@ static void _viv_msgbox_paint(void)
 
 	FillRect(hdc,&rect,viv_theme_brush(VIV_TK_FACE));
 
-	_viv_msgbox_draw_icon(hdc,_viv_msgbox_dip(24),_viv_msgbox_dip(24),_viv_msgbox_dip(32));
+	// skip the icon when the type carries no icon flag.
+	if (_viv_msgbox_type & 0xf0)
+	{
+		_viv_msgbox_draw_icon(hdc,_viv_msgbox_dip(24),_viv_msgbox_dip(24),_viv_msgbox_dip(32));
+	}
 
 	old_font = 0;
 
@@ -424,10 +425,6 @@ static void _viv_msgbox_fonts_create(void)
 		lf.lfWeight = FW_NORMAL;
 
 		_viv_msgbox_font = CreateFontIndirectW(&lf);
-
-		lf.lfWeight = FW_BOLD;
-
-		_viv_msgbox_font_bold = CreateFontIndirectW(&lf);
 	}
 }
 
@@ -437,12 +434,6 @@ static void _viv_msgbox_fonts_delete(void)
 	{
 		DeleteObject(_viv_msgbox_font);
 		_viv_msgbox_font = 0;
-	}
-
-	if (_viv_msgbox_font_bold)
-	{
-		DeleteObject(_viv_msgbox_font_bold);
-		_viv_msgbox_font_bold = 0;
 	}
 }
 
@@ -467,10 +458,38 @@ static LRESULT CALLBACK _viv_msgbox_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 		{
 			_viv_msgbox_hwnd = hwnd;
 
-			os_dark_titlebar(hwnd,1);
+			os_dark_titlebar(hwnd,_viv_is_dark());
 			os_window_modern_chrome(hwnd,viv_theme_color(VIV_TK_CHROME));
 
+			// the entry measure pass already made the pair: reuse it.
+			if (!_viv_msgbox_font)
+			{
+				_viv_msgbox_fonts_create();
+			}
+
+			return 0;
+		}
+
+		case WM_DPICHANGED:
+		{
+			RECT *suggested;
+
+			// follow the monitor: new dpi, rebuilt fonts, suggested rect.
+			_viv_msgbox_dpi = (int)LOWORD(wParam);
+
+			_viv_msgbox_fonts_delete();
 			_viv_msgbox_fonts_create();
+
+			_viv_msgbox_layout_buttons();
+
+			InvalidateRect(hwnd,0,FALSE);
+
+			suggested = (RECT *)lParam;
+
+			if (suggested)
+			{
+				SetWindowPos(hwnd,0,suggested->left,suggested->top,suggested->right - suggested->left,suggested->bottom - suggested->top,SWP_NOZORDER | SWP_NOACTIVATE);
+			}
 
 			return 0;
 		}
@@ -595,6 +614,14 @@ static LRESULT CALLBACK _viv_msgbox_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 			break;
 
 		case WM_CLOSE:
+			// a naked close still answers instead of leaving the initialized
+			// idok: like the cancel button, ok for a lone ok box (a fire has
+			// already stored its own result).
+			if (!_viv_msgbox_done)
+			{
+				_viv_msgbox_result = (_viv_msgbox_type & 0x0f) == MB_OK ? IDOK : IDCANCEL;
+			}
+
 			DestroyWindow(hwnd);
 			return 0;
 
@@ -615,13 +642,24 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 	RECT text_rect;
 	RECT window_rect;
 	int text_high;
+	int text_wide;
 	int wide;
 	int high;
 	MSG msg;
 	HFONT old_font;
+	DWORD style;
 
 	if (!text)
 	{
+		return IDOK;
+	}
+
+	// one box at a time: the shared statics are single-slot.
+	if (_viv_msgbox_hwnd)
+	{
+		SetForegroundWindow(_viv_msgbox_hwnd);
+		SetActiveWindow(_viv_msgbox_hwnd);
+
 		return IDOK;
 	}
 
@@ -655,8 +693,10 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 	// measure the text at the layout width, then size the panel around it.
 	hdc = GetDC(parent ? parent : 0);
 
+	text_wide = _viv_msgbox_dip(400);
+
 	text_rect.left = 0;
-	text_rect.right = _viv_msgbox_dip(400);
+	text_rect.right = text_wide;
 	text_rect.top = 0;
 	text_rect.bottom = 0;
 
@@ -671,6 +711,48 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 
 	DrawTextW(hdc,_viv_msgbox_text,-1,&text_rect,DT_WORDBREAK | DT_CALCRECT);
 
+	// the height clamp: a long text would push the buttons below the work
+	// area, so widen the column (up to a cap) and re-measure.
+	{
+		RECT work_rect;
+		int work_wide;
+		int work_high;
+		int max_wide;
+		int frame_high;
+		int window_high;
+
+		os_MonitorRectFromWindow(parent,0,&work_rect);
+
+		work_wide = work_rect.right - work_rect.left;
+		work_high = work_rect.bottom - work_rect.top;
+
+		// the caption and frame are not measured yet: a rough allowance.
+		frame_high = _viv_msgbox_dip(72);
+
+		max_wide = work_wide - _viv_msgbox_dip(24 + 32 + 20 + 24) - frame_high;
+
+		window_high = _viv_msgbox_dip(22 + 16 + 32 + 20) + frame_high + (text_rect.bottom - text_rect.top);
+
+		while ((window_high > work_high) && (text_wide < max_wide))
+		{
+			text_wide += _viv_msgbox_dip(100);
+
+			if (text_wide > max_wide)
+			{
+				text_wide = max_wide;
+			}
+
+			text_rect.left = 0;
+			text_rect.top = 0;
+			text_rect.right = text_wide;
+			text_rect.bottom = 0;
+
+			DrawTextW(hdc,_viv_msgbox_text,-1,&text_rect,DT_WORDBREAK | DT_CALCRECT);
+
+			window_high = _viv_msgbox_dip(22 + 16 + 32 + 20) + frame_high + (text_rect.bottom - text_rect.top);
+		}
+	}
+
 	if (old_font)
 	{
 		SelectObject(hdc,old_font);
@@ -684,7 +766,7 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 		text_high = _viv_msgbox_dip(32);
 	}
 
-	wide = _viv_msgbox_dip(24 + 32 + 20 + 400 + 24);
+	wide = _viv_msgbox_dip(24 + 32 + 20) + text_wide + _viv_msgbox_dip(24);
 	high = _viv_msgbox_dip(22) + text_high + _viv_msgbox_dip(16) + _viv_msgbox_dip(32) + _viv_msgbox_dip(20);
 
 	window_rect.left = 0;
@@ -692,14 +774,29 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 	window_rect.right = wide;
 	window_rect.bottom = high;
 
-	AdjustWindowRect(&window_rect,WS_POPUP | WS_CAPTION | WS_SYSMENU,FALSE);
+	// a yes/no box carries no close box (the native one disables it too).
+	if ((_viv_msgbox_type & 0x0f) == MB_YESNO)
+	{
+		style = WS_POPUP | WS_CAPTION;
+	}
+	else
+	{
+		style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
+	}
 
-	_viv_msgbox_hwnd = CreateWindowExW(0,L"VIV_MSGBOX",caption,WS_POPUP | WS_CAPTION | WS_SYSMENU,
+	// adjustwindowrect takes no dpi, a manual compensation would duplicate it.
+	AdjustWindowRect(&window_rect,style,FALSE);
+
+	// pass the owner: no taskbar button of its own, the parent stays behind.
+	_viv_msgbox_hwnd = CreateWindowExW(0,L"VIV_MSGBOX",caption,style,
 		0,0,window_rect.right - window_rect.left,window_rect.bottom - window_rect.top,
-		0,0,os_hinstance,0);
+		parent,0,os_hinstance,0);
 
 	if (!_viv_msgbox_hwnd)
 	{
+		// drop the measure pair: the failure path must not leak it.
+		_viv_msgbox_fonts_delete();
+
 		return IDOK;
 	}
 
@@ -745,6 +842,8 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 
 	// the modal pump: the box eats its keys, everything else keeps the
 	// normal dispatch (the parent is disabled so it only sees the paint).
+	os_zero_memory(&msg,sizeof(msg));
+
 	while ((!_viv_msgbox_done) && (GetMessageW(&msg,0,0,0) > 0))
 	{
 		if ((msg.message == WM_KEYDOWN) && (msg.hwnd == _viv_msgbox_hwnd))
@@ -756,6 +855,12 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 
 		TranslateMessage(&msg);
 		DispatchMessageW(&msg);
+	}
+
+	// a quit that ended the pump must reach the outer loop: re-post it.
+	if (msg.message == WM_QUIT)
+	{
+		PostQuitMessage((int)msg.wParam);
 	}
 
 	if (IsWindow(_viv_msgbox_hwnd))

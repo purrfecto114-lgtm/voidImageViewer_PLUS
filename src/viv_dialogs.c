@@ -1883,7 +1883,7 @@ void _viv_set_zoom_dialog(void)
 		{
 			GetClientRect(_viv_hwnd,&rect);
 			pt.x = (rect.right - rect.left) / 2;
-			pt.y = (rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high()) / 2;
+			pt.y = (_viv_get_view_top() + (rect.bottom - rect.top - _viv_get_status_high())) / 2;
 			
 			ClientToScreen(_viv_hwnd,&pt);
 			

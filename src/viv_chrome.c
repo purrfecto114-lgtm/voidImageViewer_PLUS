@@ -38,7 +38,6 @@ static LRESULT (CALLBACK *_viv_old_status_proc)(HWND hwnd,UINT msg,WPARAM wParam
 void _viv_update_title(void);
 void _viv_on_size(void);
 HBRUSH _viv_dark_chrome_brush(int which);
-static HBRUSH _viv_light_chrome_brush(int which);
 int _viv_paint_begin(HDC hdc,int wide,int high);
 void _viv_paint_kill(void);
 void _viv_toggle_fullscreen(void);
@@ -484,22 +483,6 @@ HBRUSH _viv_dark_chrome_brush(int which)
 	
 	return viv_theme_brush(tokens[which]);
 }
-static HBRUSH _viv_light_chrome_brush(int which)
-{
-	static const COLORREF colors[2] = {RGB(0xE0,0xE0,0xE0),RGB(0xFF,0xFF,0xFF)};
-	
-	if ((which < 0) || (which > 1))
-	{
-		return 0;
-	}
-	
-	if (!_viv_light_chrome_hbrushes[which])
-	{
-		_viv_light_chrome_hbrushes[which] = CreateSolidBrush(colors[which]);
-	}
-	
-	return _viv_light_chrome_hbrushes[which];
-}
 // prepare the paint backbuffer for a client area of wide x high pixels.
 // returns 1 when the caller should draw into _viv_paint_hdc instead of the screen dc.
 int _viv_paint_begin(HDC hdc,int wide,int high)
@@ -875,6 +858,27 @@ void _viv_apply_dark_mode(int repaint)
 	int dark;
 	
 	dark = _viv_is_dark();
+	
+	// the token layer re-resolves before anything repaints from it: the
+	// cached brushes follow the flip (every surface that paints through
+	// viv_theme_brush rides this, and the auto flip paths used to leave
+	// the cache on the old palette - the half-skinned ui the field kept
+	// catching).
+	viv_theme_refresh();
+	
+	{
+		HWND menu_hwnd;
+
+		// the #32768 class holds a token brush; the refresh just deleted
+		// it. an open popup would erase with a dead handle - re-install
+		// now (every menu open re-installs it again anyway).
+		menu_hwnd = FindWindowW(L"#32768",0);
+
+		if (menu_hwnd)
+		{
+			SetClassLongPtrW(menu_hwnd,GCLP_HBRBACKGROUND,(LONG_PTR)viv_theme_brush(VIV_TK_FACE));
+		}
+	}
 	
 	os_dark_titlebar(_viv_hwnd,dark);
 	
@@ -1291,7 +1295,27 @@ void _viv_status_update(void)
 			if (FileTimeToLocalFileTime(&_viv_frame_fd->ftLastWriteTime,&local_filetime) &&
 			    FileTimeToSystemTime(&local_filetime,&systemtime))
 			{
-				string_printf(date_buf,L"%04u/%02u/%02u %02u:%02u",systemtime.wYear,systemtime.wMonth,systemtime.wDay,systemtime.wHour,systemtime.wMinute);
+				wchar_t time_buf[64];
+				int date_len;
+
+				// the localized stamp: the system formatters take wide
+				// formats (the old wide-literal printf went through the
+				// narrow parser and rendered a lone "0").
+				date_buf[0] = 0;
+
+				GetDateFormatW(LOCALE_USER_DEFAULT,DATE_SHORTDATE,&systemtime,0,date_buf,STRING_SIZE - 1);
+
+				date_len = string_get_length(date_buf);
+
+				if ((date_len) && (date_len < STRING_SIZE - 2))
+				{
+					date_buf[date_len] = L' ';
+					date_buf[date_len + 1] = 0;
+				}
+
+				GetTimeFormatW(LOCALE_USER_DEFAULT,TIME_NOSECONDS,&systemtime,0,time_buf,64);
+
+				string_cat(date_buf,time_buf);
 			}
 		}
 
@@ -1383,13 +1407,16 @@ void _viv_status_update(void)
 							zoom_wide = minwide;
 						}
 					}
+				}
 
-					if (*date_buf)
+				// the stamp measures on its own: a failed load with a
+				// filename still owns the date pane (it used to hide
+				// behind the zoom pane's block).
+				if (*date_buf)
+				{
+					if (GetTextExtentPoint32(hdc,date_buf,string_get_length(date_buf),&size))
 					{
-						if (GetTextExtentPoint32(hdc,date_buf,string_get_length(date_buf),&size))
-						{
-							date_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
-						}
+						date_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 					}
 				}
 
@@ -1430,7 +1457,7 @@ void _viv_status_update(void)
 			// last, so the dimension text clips instead of vanishing off the
 			// edge of the window.
 			while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide + date_wide > avail_wide)
-			&& (frame_wide || pixel_rgb_wide || pixel_pos_wide))
+			&& (frame_wide || pixel_rgb_wide || pixel_pos_wide || date_wide))
 			{
 				if (frame_wide)
 				{
@@ -1748,6 +1775,15 @@ int _viv_get_status_high(void)
 	
 	return 0;
 }
+// the top chrome stack: the menubar plus the toolbar strip, both client
+// side children that own the top of the client area. the image viewport
+// starts below them (and above the status bar); the helpers return 0 for
+// hidden strips, so fullscreen collapses this to the plain client top.
+int _viv_get_view_top(void)
+{
+	return _viv_menubar_high() + _viv_get_controls_high();
+}
+
 int _viv_get_controls_high(void)
 {
 	// the window fit math only wants the strip height; the strip owns

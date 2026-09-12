@@ -57,5 +57,6 @@ void _viv_menu_row_pool_reset(int pool);
 int _viv_menu_measure_item(MEASUREITEMSTRUCT *measure_item);
 int _viv_menu_draw_item(DRAWITEMSTRUCT *draw_item);
 int _viv_menu_char_item(HMENU hmenu,wchar_t ch,int popup);
+void _viv_menu_row_item_text(void *row,wchar_t *wbuf);
 
 #endif

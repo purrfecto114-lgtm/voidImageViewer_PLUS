@@ -235,6 +235,18 @@ HMENU _viv_create_recent_menu(void)
 	
 	return recent_menu;
 }
+// run a deferred mru swap (an open popup blocked it). called from the
+// popup close sites - both the menubar loop and the context menu.
+static BYTE _viv_recent_menu_pending = 0; // an open popup deferred the swap.
+
+void _viv_recent_menu_flush(void)
+{
+	if (_viv_recent_menu_pending)
+	{
+		_viv_recent_menu_update();
+	}
+}
+
 // the mru rows changed (open, remove, clear): swap just the recent popup
 // inside the live file menu. the full rebuild (destroy + create + setmenu
 // + dark re-apply) repaints the whole non-client area and was the second
@@ -252,6 +264,19 @@ static void _viv_recent_menu_update(void)
 	{
 		return;
 	}
+	
+	// a popup may be displaying the old rows right now (the slideshow
+	// timer rebuilds the mru while the file menu is open): swapping or
+	// destroying the submenu under a live menu is undefined. defer to
+	// the popup close - _viv_recent_menu_flush runs there.
+	if (_viv_in_popup_menu)
+	{
+		_viv_recent_menu_pending = 1;
+		
+		return;
+	}
+	
+	_viv_recent_menu_pending = 0;
 	
 	// find the live file menu: the only popup carrying the recent row id.
 	file_menu = 0;

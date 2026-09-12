@@ -341,7 +341,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		_viv_preload_state = 0;
 		_viv_should_activate_preload_on_load = 0;
 		_viv_load_render_wide = rect.right - rect.left;
-		_viv_load_render_high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+		_viv_load_render_high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 		_viv_load_frame_count = 0;
 		os_copy_memory(_viv_load_fd,fd,sizeof(WIN32_FIND_DATA));
 		
@@ -736,6 +736,7 @@ void _viv_save_image_as(void)
 					wchar_t caption_wbuf[STRING_SIZE];
 					
 					string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_SAVE_AS_FAILED));
+					string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
 					
 					viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OK|MB_ICONERROR);
 				}

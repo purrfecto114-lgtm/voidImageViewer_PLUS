@@ -645,8 +645,11 @@ HMENU _viv_create_menu(void)
 				
 				os_zero_memory(&mii,sizeof(mii));
 				mii.cbSize = sizeof(mii);
-				mii.fMask = MIIM_SUBMENU | MIIM_STRING | MIIM_ID | MIIM_DATA | MIIM_STATE;
-				mii.fState = MFT_OWNERDRAW;
+				// owner drawn like every other row: the type flag lives in fType
+				// (fState only takes MFS_ values; the old line was silently ignored
+				// and the header painted in the system look).
+				mii.fMask = MIIM_SUBMENU | MIIM_FTYPE | MIIM_ID | MIIM_DATA;
+				mii.fType = MFT_OWNERDRAW;
 				mii.wID = _VIV_MENU_FILE_RECENT;
 				mii.hSubMenu = recent_menu;
 				mii.dwTypeData = text_wbuf;
@@ -916,6 +919,20 @@ static void _viv_menu_row_text(_viv_menu_draw_t *draw,wchar_t *wbuf)
 	}
 }
 
+// public: resolve a menu row's live label. owner drawn rows carry no
+// stored string on the item, so the menubar reads its root labels back
+// through this (the item data holds the row, the text re-derives from
+// the live localization and key tables at ask time).
+void _viv_menu_row_item_text(void *row,wchar_t *wbuf)
+{
+	*wbuf = 0;
+
+	if (row)
+	{
+		_viv_menu_row_text((_viv_menu_draw_t *)row,wbuf);
+	}
+}
+
 int _viv_menu_measure_item(MEASUREITEMSTRUCT *measure_item)
 {
 	_viv_menu_draw_t *draw;
@@ -1038,6 +1055,33 @@ static void _viv_menu_draw_mark(HDC hdc,const RECT *rect,int center_y)
 	DeleteObject(pen);
 }
 
+// the radio mark: a filled accent circle centered in the check gutter.
+static void _viv_menu_draw_dot(HDC hdc,const RECT *rect,int center_y)
+{
+	HBRUSH brush;
+	HBRUSH old_brush;
+	int radius;
+	int x;
+
+	radius = _viv_menu_dip(4);
+
+	if (radius < 2)
+	{
+		radius = 2;
+	}
+
+	// the dot centers in the same gutter the checkmark occupies.
+	x = rect->left + _viv_menu_dip(10);
+
+	brush = CreateSolidBrush(viv_theme_color(VIV_TK_ACCENT));
+	old_brush = (HBRUSH)SelectObject(hdc,brush);
+
+	Ellipse(hdc,x - radius,center_y - radius,x + radius + 1,center_y + radius + 1);
+
+	SelectObject(hdc,old_brush);
+	DeleteObject(brush);
+}
+
 static void _viv_menu_draw_arrow(HDC hdc,int right,int center_y)
 {
 	HBRUSH brush;
@@ -1114,7 +1158,29 @@ int _viv_menu_draw_item(DRAWITEMSTRUCT *draw_item)
 
 	if (draw_item->itemState & ODS_CHECKED)
 	{
-		_viv_menu_draw_mark(hdc,&rect,center_y);
+		MENUITEMINFOW mii;
+		int is_radio;
+
+		// radio groups (backdrop, on top, sort, the rate ladder) draw the
+		// dot instead of the checkmark; the type lives on the live item.
+		os_zero_memory(&mii,sizeof(mii));
+		mii.cbSize = sizeof(mii);
+		mii.fMask = MIIM_FTYPE;
+		is_radio = 0;
+
+		if ((draw_item->hwndItem) && (GetMenuItemInfoW((HMENU)draw_item->hwndItem,draw_item->itemID,FALSE,&mii)))
+		{
+			is_radio = (mii.fType & MFT_RADIOCHECK) != 0;
+		}
+
+		if (is_radio)
+		{
+			_viv_menu_draw_dot(hdc,&rect,center_y);
+		}
+		else
+		{
+			_viv_menu_draw_mark(hdc,&rect,center_y);
+		}
 	}
 
 	font = _viv_menu_font();
@@ -1189,7 +1255,8 @@ int _viv_menu_char_item(HMENU hmenu,wchar_t ch,int popup)
 
 		os_zero_memory(&mii,sizeof(mii));
 		mii.cbSize = sizeof(mii);
-		mii.fMask = MIIM_DATA | MIIM_FTYPE;
+		// grayed rows never fire from the keyboard (system parity).
+		mii.fMask = MIIM_DATA | MIIM_FTYPE | MIIM_STATE;
 
 		if (!GetMenuItemInfoW(hmenu,i,TRUE,&mii))
 		{
@@ -1198,7 +1265,7 @@ int _viv_menu_char_item(HMENU hmenu,wchar_t ch,int popup)
 
 		draw = (_viv_menu_draw_t *)mii.dwItemData;
 
-		if (!draw)
+		if ((!draw) || (mii.fState & MF_GRAYED))
 		{
 			continue;
 		}

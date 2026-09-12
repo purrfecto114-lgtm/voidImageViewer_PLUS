@@ -45,6 +45,7 @@ void _viv_status_update(void);
 int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item);
 int _viv_get_status_high(void);
 int _viv_get_controls_high(void);
+int _viv_get_view_top(void);
 void _viv_status_set_temp_text(wchar_t *text);
 void _viv_status_update_temp_pos_zoom(void);
 void _viv_status_update_slideshow_rate(void);

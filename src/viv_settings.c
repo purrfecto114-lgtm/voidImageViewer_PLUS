@@ -230,6 +230,10 @@ static BYTE _viv_settings_snap_fullscreen_b;
 // each toggle so painting does not hit the registry).
 static int _viv_settings_assoc[_VIV_ASSOCIATION_COUNT];
 
+// the run key switch state, cached the same way: the paint pass reads
+// this, the registry is touched at open, on page enter and on writes.
+static int _viv_settings_run_key_state;
+
 // keyboard shortcut editor: a private copy of the key list. the real
 // list is replaced only on ok (the options dialog behavior).
 static _viv_key_list_t _viv_settings_keylist;
@@ -564,7 +568,6 @@ static int _viv_settings_ctl_enabled(const _viv_settings_ctl_t *ctl)
 // exist on every page; the content cursor flows top to bottom.
 static void _viv_settings_layout(void)
 {
-	vivp_dpi_probe("layout");
 	RECT client;
 	int nav_wide;
 	int content_x;
@@ -575,6 +578,8 @@ static void _viv_settings_layout(void)
 	int cell_wide;
 	int row_high;
 	int footer_y;
+
+	vivp_dpi_probe("layout");
 
 	if (!_viv_settings_hwnd)
 	{
@@ -871,6 +876,13 @@ static void _viv_settings_layout(void)
 	_viv_settings_ctl_add(_VIV_SETTINGS_CT_BUTTON,_VIV_SETTINGS_ID_CANCEL,0,client.right - _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE) * 2 - _viv_settings_dip(12),footer_y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
 	_viv_settings_ctl_add(_VIV_SETTINGS_CT_BUTTON,_VIV_SETTINGS_ID_OK,0,client.right - _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),footer_y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
 
+	// the relayout runs on every page enter: the general page refreshes
+	// the run key cache here (its switch paints from the cache).
+	if (_viv_settings_page == _VIV_SETTINGS_PAGE_GENERAL)
+	{
+		_viv_settings_run_key_state = _viv_settings_run_key_present();
+	}
+
 	_viv_settings_key_index_clamp();
 }
 
@@ -992,13 +1004,9 @@ static void _viv_settings_focus_cycle(int dir)
 		index = _viv_settings_focus_next(index,dir);
 	}
 
-	// focusing a navigation item switches to its page.
-	if (_viv_settings_ctls[index].type == _VIV_SETTINGS_CT_NAV)
-	{
-		_viv_settings_page = _viv_settings_ctls[index].param;
-
-		_viv_settings_layout();
-	}
+	// the tab pass moves the focus ring only: a navigation item reached
+	// by tab (the wrap from ok) is not a selection - only a click or an
+	// arrow walk switches the page.
 
 	_viv_settings_focus_set(index,1);
 
@@ -1215,6 +1223,9 @@ static void _viv_settings_language_refresh(void)
 	// relayout and redraw. (the title bar and status bar update here too)
 	_viv_on_size();
 
+	// this window's own native caption was set at open: re-localize it.
+	os_SetWindowText_localization_id(_viv_settings_hwnd,LOCALIZATION_ID_SETTINGS);
+
 	InvalidateRect(_viv_hwnd,0,FALSE);
 }
 
@@ -1315,6 +1326,9 @@ static void _viv_settings_snapshot(void)
 	_viv_settings_appdata = config_appdata ? 1 : 0;
 	_viv_settings_startmenu = _viv_is_start_menu_shortcuts() ? 1 : 0;
 	_viv_settings_snap_run_key = _viv_settings_run_key_present();
+
+	// the cache starts at the live registry state.
+	_viv_settings_run_key_state = _viv_settings_snap_run_key;
 	_viv_settings_snap_shrink_blit = config_shrink_blit_mode;
 	_viv_settings_snap_mag = config_mag_filter;
 	_viv_settings_snap_title = config_title_bar_format;
@@ -1402,6 +1416,9 @@ static void _viv_settings_restore(void)
 	{
 		_viv_settings_run_key_set(_viv_settings_snap_run_key);
 	}
+
+	// the cache follows the rewind.
+	_viv_settings_run_key_state = _viv_settings_snap_run_key;
 
 	// file associations.
 	for(i=0;i<_VIV_ASSOCIATION_COUNT;i++)
@@ -1645,10 +1662,15 @@ static void _viv_settings_capture_commit(void)
 	if (_viv_settings_capture_key)
 	{
 		// the dialog removes the new key from every command first
-		// (_viv_edit_key_remove_currently_used_by).
-		for(i=0;i<_VIV_COMMAND_COUNT;i++)
+		// (_viv_edit_key_remove_currently_used_by) - unless a confirmed
+		// edit kept the key: a no-op, the sweep would drop the binding
+		// and nothing re-adds it (a different key still steals below).
+		if ((!_viv_settings_capture_edit) || (old_key != (int)_viv_settings_capture_key))
 		{
-			_viv_key_remove(&_viv_settings_keylist,i,_viv_settings_capture_key);
+			for(i=0;i<_VIV_COMMAND_COUNT;i++)
+			{
+				_viv_key_remove(&_viv_settings_keylist,i,_viv_settings_capture_key);
+			}
 		}
 
 		if (_viv_settings_capture_edit)
@@ -2029,8 +2051,10 @@ static void _viv_settings_activate(int index,int x,int y)
 				case _VIV_SETTINGS_ID_RUNKEY:
 
 					// the registry is the source of truth: write, then
-					// read the answer back.
-					_viv_settings_run_key_set(_viv_settings_run_key_present() ? 0 : 1);
+					// read the answer back into the cache.
+					_viv_settings_run_key_set(_viv_settings_run_key_state ? 0 : 1);
+
+					_viv_settings_run_key_state = _viv_settings_run_key_present();
 					break;
 
 				case _VIV_SETTINGS_ID_STARTMENU:
@@ -3204,6 +3228,12 @@ static void _viv_settings_paint(HWND hwnd)
 
 					wbuf[0] = 0;
 
+					if (ctl->param)
+					{
+						// the used by line (empty while idle).
+						_viv_settings_capture_used_by_text(wbuf);
+					}
+					else
 					if (_viv_settings_capture_active)
 					{
 						wchar_t key_wbuf[STRING_SIZE];
@@ -3218,10 +3248,6 @@ static void _viv_settings_paint(HWND hwnd)
 						string_copy(wbuf,localization_get_string(_viv_settings_capture_edit ? LOCALIZATION_ID_EDIT_KEYBOARD_SHORTCUT_CAPTION : LOCALIZATION_ID_ADD_KEYBOARD_SHORTCUT_CAPTION));
 						string_cat(wbuf,L": ");
 						string_cat(wbuf,key_wbuf);
-					}
-					else
-					{
-						_viv_settings_capture_used_by_text(wbuf);
 					}
 
 					_viv_settings_draw_text_raw(mem,&ctl->rect,wbuf,_viv_settings_font_small ? _viv_settings_font_small : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT2),DT_VCENTER | DT_END_ELLIPSIS);
@@ -3372,7 +3398,7 @@ static void _viv_settings_paint(HWND hwnd)
 						break;
 
 					case _VIV_SETTINGS_ID_RUNKEY:
-						_viv_settings_draw_switch(mem,ctl,_viv_settings_run_key_present(),hot,focus);
+						_viv_settings_draw_switch(mem,ctl,_viv_settings_run_key_state,hot,focus);
 						break;
 
 					case _VIV_SETTINGS_ID_STARTMENU:
@@ -3486,6 +3512,10 @@ static void _viv_settings_capture_used_by_text(wchar_t *wbuf)
 		return;
 	}
 
+	// the label leads the line (the edit key dialog's static).
+	string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SHORTCUT_KEY_CURRENTLY_USED_BY));
+	string_cat(wbuf,L" ");
+
 	count = 0;
 
 	for(command_index=0;command_index<_VIV_COMMAND_COUNT;command_index++)
@@ -3516,6 +3546,12 @@ static void _viv_settings_capture_used_by_text(wchar_t *wbuf)
 
 			key = key->next;
 		}
+	}
+
+	if (!count)
+	{
+		// a free key keeps the line empty.
+		wbuf[0] = 0;
 	}
 }
 
@@ -3807,7 +3843,11 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			// want all keys behavior).
 			if (_viv_settings_capture_active)
 			{
-				if (msg == WM_KEYDOWN)
+				// bare enter confirms and bare escape cancels; the modifier
+				// combinations fall through to the capture (ctrl+return is the
+				// app's default open file location binding).
+				if ((msg == WM_KEYDOWN) && !(GetKeyState(VK_CONTROL) & 0x8000) &&
+					!(GetKeyState(VK_SHIFT) & 0x8000) && !(GetKeyState(VK_MENU) & 0x8000))
 				{
 					switch(vk)
 					{
@@ -4088,6 +4128,10 @@ void _viv_settings_show(void)
 
 void _viv_settings_kill(void)
 {
+	// app exit teardown: a window still open here is force destroyed by
+	// the owner and the live-applied changes stand (implicit ok - the
+	// cancel escape hatch only exists while the app runs).
+
 	if (_viv_settings_hwnd)
 	{
 		DestroyWindow(_viv_settings_hwnd);

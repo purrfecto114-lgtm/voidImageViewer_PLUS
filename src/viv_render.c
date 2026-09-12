@@ -96,7 +96,7 @@ void _viv_get_render_size(int *prw,int *prh)
 	
 	GetClientRect(_viv_hwnd,&rect);
 	wide = rect.right - rect.left;
-	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 	
 	if (!((wide) && (high)))
 	{
@@ -296,7 +296,7 @@ int _viv_zoom_pos_max(void)
 	// part of it: the top is always measured with the zoom state cleared.)
 	GetClientRect(_viv_hwnd,&rect);
 	wide = rect.right - rect.left;
-	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 	
 	if (_viv_is_fullscreen)
 	{
@@ -1354,7 +1354,7 @@ static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt
 	
 	GetClientRect(_viv_hwnd,&client_rect);
 	wide = client_rect.right - client_rect.left;
-	high = client_rect.bottom - client_rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	high = client_rect.bottom - client_rect.top - _viv_get_status_high() - _viv_get_view_top();
 
 	if (_viv_frame_count)
 	{
@@ -1362,7 +1362,8 @@ static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt
 
 
 		rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
-		ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
+		// the viewport origin: the mouse lands in client coords.
+		ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y + _viv_get_view_top();
 		
 		if ((rw) && (rh))
 		{
@@ -1392,7 +1393,7 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 	
 	GetClientRect(_viv_hwnd,&client_rect);
 	wide = client_rect.right - client_rect.left;
-	high = client_rect.bottom - client_rect.top - _viv_get_status_high() - _viv_get_controls_high();
+	high = client_rect.bottom - client_rect.top - _viv_get_status_high() - _viv_get_view_top();
 
 	if (_viv_frame_count)
 	{

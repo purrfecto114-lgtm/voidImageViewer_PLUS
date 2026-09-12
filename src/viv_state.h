@@ -82,10 +82,6 @@
 #define WM_DPICHANGED 0x02E0
 #endif
 
-#ifndef TB_GETTOOLTIPS
-#define TB_GETTOOLTIPS (WM_USER+35)
-#endif
-
 #ifndef TTM_SETTIPBKCOLOR
 #define TTM_SETTIPBKCOLOR (WM_USER+19)
 #endif
@@ -409,7 +405,6 @@ extern HDC _viv_paint_hdc;
 extern HBRUSH _viv_background_hbrush;
 extern HBRUSH _viv_dialog_dark_hbrush;
 extern HBRUSH _viv_dark_chrome_hbrushes[4];
-extern HBRUSH _viv_light_chrome_hbrushes[2];
 extern HBRUSH _viv_about_light_hbrushes[2];
 extern HBRUSH _viv_backdrop_solid_hbrush;
 extern COLORREF _viv_backdrop_solid_color;

@@ -39,6 +39,7 @@
 #include "viv_dark.h"
 #include "viv_menu.h"
 #include "viv_menubar.h"
+#include "viv_recent.h"
 
 #define _VIV_MENUBAR_ITEM_MAX 16
 
@@ -113,7 +114,9 @@ void _viv_menubar_idle_pump(void)
 			break;
 		}
 
-		if (!GetMessage(&msg,0,WM_MOUSEFIRST,WM_MOUSELAST))
+		// -1 is the error return; treating it as success dispatches a
+		// garbage message (the BOOL trap).
+		if (GetMessage(&msg,0,WM_MOUSEFIRST,WM_MOUSELAST) <= 0)
 		{
 			break;
 		}
@@ -217,6 +220,11 @@ static void _viv_menubar_open_popup(int itemi)
 	// followed the mouse across the roots; the synthetic arrow trick does
 	// not exist for trackpopupmenu, so the close plus reopen is the
 	// honest equivalent - same tick, no visible flash at popup scale).
+	// the in-popup flag covers the whole loop (the context menu site and
+	// the cursor hider share it): the slideshow timer's recent-file swap
+	// defers, and the cursor stays visible while a menu is up.
+	_viv_in_popup_menu = 1;
+	
 	do
 	{
 		_viv_menubar_deferred = -1;
@@ -257,6 +265,10 @@ static void _viv_menubar_open_popup(int itemi)
 		break;
 	} while(1);
 
+	_viv_in_popup_menu = 0;
+	
+	_viv_recent_menu_flush();
+	
 	// the loop is gone: the release that closed the menu can land on a
 	// sibling item, so the hover is allowed to re-arm on the next move.
 	_viv_menubar_open = -1;
@@ -327,13 +339,21 @@ void _viv_menubar_layout(void)
 		
 		os_zero_memory(&mii,sizeof(mii));
 		mii.cbSize = sizeof(mii);
-		mii.fMask = MIIM_SUBMENU | MIIM_STRING;
+		// owner drawn roots carry no stored string (the row rides in the
+		// item data), so the label re-derives from the live row; the plain
+		// string fallback rows still fill the buffer the classic way.
+		mii.fMask = MIIM_SUBMENU | MIIM_STRING | MIIM_FTYPE | MIIM_DATA;
 		mii.dwTypeData = _viv_menubar_item_text[_viv_menubar_item_count];
 		mii.cch = STRING_SIZE - 1;
 		
 		if ((!GetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii)) || (!mii.hSubMenu))
 		{
 			continue;
+		}
+		
+		if ((mii.fType & MFT_OWNERDRAW) && (mii.dwItemData))
+		{
+			_viv_menu_row_item_text((void *)mii.dwItemData,_viv_menubar_item_text[_viv_menubar_item_count]);
 		}
 		
 		size.cx = 0;
@@ -521,11 +541,16 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				press = (_viv_menubar_pressed && (itemi == _viv_menubar_hover) && (_viv_menubar_open == -1));
 				hot = (itemi == _viv_menubar_hover) || (itemi == _viv_menubar_open);
 
-				// one token path for both themes: the press item keeps its face
-				// while the popup runs, the open item keeps the hover face, and
-				// the inactive strip drops the labels a tone.
-				face = press ? viv_theme_brush(VIV_TK_DOWN) : (hot ? viv_theme_brush(VIV_TK_HOVER) : viv_theme_brush(VIV_TK_FRAME));
-				text_color = viv_theme_color(inactive ? VIV_TK_TEXT2 : VIV_TK_TEXT);
+				// one token path for both themes: the press item keeps its face
+
+				// while the popup runs, the open item keeps the hover face, and
+
+				// the inactive strip drops the labels a tone.
+
+				face = press ? viv_theme_brush(VIV_TK_DOWN) : (hot ? viv_theme_brush(VIV_TK_HOVER) : viv_theme_brush(VIV_TK_FRAME));
+
+				text_color = viv_theme_color(inactive ? VIV_TK_TEXT2 : VIV_TK_TEXT);
+
 				
 				FillRect(hdc,&rect,face);
 				
@@ -560,7 +585,10 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			TRACKMOUSEEVENT tme;
 			int hit;
 			
-			if ((!_viv_menubar_tracking) && (!_viv_menubar_pressed))
+			// re-arm the leave track on every uncaptured move: a press
+			// swallows leave generation, and without the re-arm the hover
+			// sticks after a drag-off release (the zoomui pattern).
+			if (GetCapture() != hwnd)
 			{
 				os_zero_memory(&tme,sizeof(tme));
 				tme.cbSize = sizeof(tme);
@@ -601,6 +629,13 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 		case WM_MOUSELEAVE:
 		
 			_viv_menubar_tracking = 0;
+			
+			// during a captured press the leave is stale: the release
+			// handler owns the hover accounting.
+			if (GetCapture() == hwnd)
+			{
+				return 0;
+			}
 			
 			if (_viv_menubar_hover != -1)
 			{

@@ -34,4 +34,6 @@ void _viv_recent_file_remove(int index);
 void _viv_recent_file_clear(void);
 HMENU _viv_create_recent_menu(void);
 
+void _viv_recent_menu_flush(void);
+
 #endif

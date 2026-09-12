@@ -168,6 +168,7 @@ static int _zoomui_row_wide(void);
 static void _zoomui_place(int wide,int high);
 static void _zoomui_measure_pct_wide(void);
 static int _zoomui_percent(void);
+int _viv_zoom_percent(void); // viv_render.c: the app-wide zoom percent
 static void _zoomui_build_pct_text(wchar_t *buf,int percent);
 static void _zoomui_poll_state(void);
 static void _zoomui_ensure_poll_timer(void);
@@ -340,26 +341,13 @@ static void _zoomui_build_pct_text(wchar_t *buf,int percent)
 
 // the percent the text cell shows: the zoom ladder value at the current
 // position as a whole percent. the rounding is the status bar zoom pane
-// formula (see _viv_zoom_percent in viv_render.c and the status zoom
-// text in viv_chrome.c: nearest integer percent via +0.5), the only
-// difference is the source: the cell reads the ladder scale directly so
-// the text follows the zoom position without depending on the rendered
-// size. below the fit the ladder position is negative and reads the
-// table through the reciprocal, exactly like the render size math does.
+// the app-wide number: the rendered size over the native size, the same
+// value the status bar zoom pane and the set-zoom dialog show (the
+// ladder scale disagreed: a best-fit photo read "100%" while the rest
+// of the ui read its true shrink factor).
 static int _zoomui_percent(void)
 {
-	double scale;
-
-	if (_viv_zoom_pos > 0)
-	{
-		scale = (double)_viv_zoom_scales[_viv_zoom_pos];
-	}
-	else
-	{
-		scale = 1.0 / (double)_viv_zoom_scales[-_viv_zoom_pos];
-	}
-
-	return (int)((scale * 100.0) + 0.5);
+	return _viv_zoom_percent();
 }
 
 // measure the percent text in the menu font and size the percent cell:
@@ -439,9 +427,11 @@ static void _zoomui_place(int wide,int high)
 		high = 0;
 	}
 
-	// the row hangs centered at the bottom of the image area.
+	// the row hangs centered at the bottom of the image area. the area
+	// height arrives viewport relative: land the y in client coordinates
+	// below the top strips (zero in fullscreen, where the strips hide).
 	x = (wide - container_wide) / 2;
-	y = high - container_high - _zoomui_margin;
+	y = _viv_get_view_top() + high - container_high - _zoomui_margin;
 
 	// clamp inside the image area so a tiny window never pushes the
 	// pill off screen; when the area is smaller than the pill, pin to
@@ -981,15 +971,16 @@ void zoomui_kill(void)
 }
 
 // tint the tooltip control with the palette: comctl tooltips have no dark
-// theme of their own, the colors are set by message.
+// theme of their own, the colors are set by message. the dark face rides
+// the theme tokens so the tip matches the themed menus.
 static void _zoomui_apply_tooltip_colors(void)
 {
 	if (_zoomui_tooltip_hwnd)
 	{
 		if (_zoomui_dark)
 		{
-			SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);
-			SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,RGB(0xE8,0xE8,0xE8),0);
+			SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,viv_theme_color(VIV_TK_FACE),0);
+			SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,viv_theme_color(VIV_TK_TEXT),0);
 		}
 		else
 		{

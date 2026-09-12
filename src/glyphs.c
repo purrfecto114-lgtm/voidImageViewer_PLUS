@@ -540,6 +540,7 @@ static HICON _glyphs_build(int glyph_id,int dark,int size)
 
 HICON glyphs_icon(int glyph_id,int dark,int size)
 {
+	HICON icon;
 	int i;
 
 	if (!_glyphs_load())
@@ -575,10 +576,19 @@ HICON glyphs_icon(int glyph_id,int dark,int size)
 		_glyphs_cache_count--;
 	}
 
+	icon = _glyphs_build(glyph_id,dark ? 1 : 0,size);
+	
+	// a failed build never caches: a zero entry would shadow every retry
+	// (a later flush would blank that glyph for good).
+	if (!icon)
+	{
+		return 0;
+	}
+
 	_glyphs_cache[_glyphs_cache_count].glyph = glyph_id;
 	_glyphs_cache[_glyphs_cache_count].dark = dark ? 1 : 0;
 	_glyphs_cache[_glyphs_cache_count].size = size;
-	_glyphs_cache[_glyphs_cache_count].icon = _glyphs_build(glyph_id,dark ? 1 : 0,size);
+	_glyphs_cache[_glyphs_cache_count].icon = icon;
 
 	return _glyphs_cache[_glyphs_cache_count++].icon;
 }

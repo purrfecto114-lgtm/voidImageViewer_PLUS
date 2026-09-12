@@ -798,7 +798,6 @@ HBRUSH _viv_dark_chrome_hbrushes[4];
 // tracks the theme for free), but the flat separator lines are fixed subtle
 // grays like the dark palette: 0 = the shadow line, 1 = the highlight line.
 // released in _viv_kill with the dark chrome brushes.
-HBRUSH _viv_light_chrome_hbrushes[2];
 
 
 HBRUSH _viv_about_light_hbrushes[2];
@@ -1686,16 +1685,6 @@ void _viv_kill(void)
 	
 	{
 		int i;
-		
-		for(i=0;i<2;i++)
-		{
-			if (_viv_light_chrome_hbrushes[i])
-			{
-				DeleteObject(_viv_light_chrome_hbrushes[i]);
-				
-				_viv_light_chrome_hbrushes[i] = 0;
-			}
-		}
 		
 				for(i=0;i<2;i++)
 		{

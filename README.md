@@ -18,7 +18,14 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.10 — the dpi correctness round (the current release candidate):**
+**1.1.12-rc.11 — the carpet repair round (the current release candidate):**
+
+- **The remake's two headline breaks are fixed** — the menu bar roots measured empty since the rc.9 owner-draw flip (the labels now re-derive from the live rows, Alt mnemonics with them), and the status date pane rendered a lone "0" (a wide format through the narrow parser; the stamp now uses the localized system formatters).
+- **The image viewport caught up with the top strips** — the toolbar moved under the menu bar in rc.8 but the image math still reserved its band above the status bar: a 40dip dead strip and the image top hidden behind the chrome. One view-top origin now rides every size, blit, mouse anchor and the zoom pill.
+- **The theme flip flushes the token cache** — the half-skinned UI after a system theme change is gone; the toolbar rides the same tokens as the menus (light hover is the quiet 3D-light, no more selection blue); the message boxes are owned, leak-free and close-correct; the shortcut editor keeps a no-op confirm a no-op; **Win 7 closes the DPI ladder** (legacy `dpiAware` + runtime `SetProcessDPIAware` — it was DPI-*unaware*, not system-aware); the pill percent matches the status bar; the play button stops forcing fullscreen.
+- Full narrative: `Changes.txt`.
+
+**1.1.12-rc.10 — the dpi correctness round (the previous release candidate):**
 
 - **The high-dpi font bug is fixed at the root** — the per-monitor-v2 declaration never reached the binary the way it was read: the zig builds shipped no manifest at all, and the `os_init` runtime safety net sat *before* its own `GetProcAddress` block, so the pointers were still null when it ran and it silently never fired. A dpi-unaware process gets bitmap-stretched by the system at high dpi — every font blurry and oversized. The claim now runs after the api probes and stacks three independent, all-guarded layers: a process-wide claim (Win10 1703+ `SetProcessDpiAwarenessContext`), a per-thread claim (1607+), and the Win 8.1 `shcore` fallback (Win 7 keeps the classic system-aware behavior); the zig build also drops a `viv.exe.manifest` next to the exe for loader-level coverage.
 - **The message box scales from its parent's monitor** (not the stale global logical dpi) — correct on mixed-dpi monitor pairs.

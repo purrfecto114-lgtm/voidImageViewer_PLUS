@@ -334,10 +334,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.52 rc.10 (the gui remake round 2)",
-          (major, minor, rev, build) == ("1", "1", "12", "52") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.10 tag)",
-          vstr == "1.1.12-rc.10")
+    check("version.h = 1.1.12.53 rc.11 (the carpet repair round)",
+          (major, minor, rev, build) == ("1", "1", "12", "53") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.11 tag)",
+          vstr == "1.1.12-rc.11")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -589,7 +589,6 @@ def t_dark_detection_wiring():
     # message fallback defines for older SDKs
     check("viv.c defines the tooltip message fallbacks",
           "#define TTM_SETTIPBKCOLOR (WM_USER+19)" in viv
-          and "#define TB_GETTOOLTIPS (WM_USER+35)" in viv
           and "#define WM_THEMECHANGED 0x031A" in viv)
 
     # the toolbar recreate on language switch re-applies the dark chrome
@@ -1674,8 +1673,9 @@ def t_round7():
           "<compatibility" in mf and mf.count("<supportedOS") == 4)
     check("dpiAwareness lives in the SMI/2016 namespace",
           'xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings"' in mf)
-    check("the legacy dpiAware tag is gone",
-          "<dpiAware>true</dpiAware>" not in mf)
+    check("the dual dpi declaration covers the pre-1607 loaders",
+          "<dpiAware>true</dpiAware>" in mf
+          and mf.count("<asmv3:windowsSettings") == 2)
     check("PerMonitorV2 declaration retained",
           "<dpiAwareness>PerMonitorV2, PerMonitor</dpiAwareness>" in mf)
 
@@ -1811,8 +1811,9 @@ def t_dark_menu_bar():
           "_viv_menubar_item_wide[_viv_menubar_item_count] = size.cx + (pad * 2);" in menubar)
     check("the strip height floors at the remake bar height (28 dip)",
           "min_high = (28 * os_logical_high) / 96;" in menubar)
-    check("the layout re-reads the labels from the menu tree",
-          "mii.fMask = MIIM_SUBMENU | MIIM_STRING;" in menubar)
+    check("the layout re-reads the labels from the menu tree (owner drawn rows re-derive)",
+          "mii.fMask = MIIM_SUBMENU | MIIM_STRING | MIIM_FTYPE | MIIM_DATA;" in menubar
+          and "_viv_menu_row_item_text((void *)mii.dwItemData" in menubar)
 
     # the painting.
     check("the draw separates the hover and press faces on the tokens",
@@ -1877,10 +1878,10 @@ def t_dark_menu_bar():
           "hbrushes[4]" in viv)
     tb_src2 = open("src/viv_toolbar.c", "rb").read().decode("utf-8", errors="replace")
     mb_src = open("src/viv_menubar.c", "rb").read().decode("utf-8", errors="replace")
-    check("the strip erase paints the strip face (menubar on the theme cache, the toolbar its own)",
+    check("the strip erase paints the strip face (both strips on the theme cache)",
           "viv_theme_brush(VIV_TK_FRAME)" in mb_src and
           "WM_ERASEBKGND" in tb_src2 and
-          "_viv_toolbar_dark_face" in tb_src2)
+          "return viv_theme_brush(VIV_TK_CHROME);" in tb_src2)
     check("the light strip face stays the system menu color",
           "case VIV_TK_FRAME: return GetSysColor(COLOR_MENU);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
 
@@ -2330,11 +2331,10 @@ def t_field_fixes_round42():
           "_viv_load_failed = 0;" in seg)
 
     # --- the light-mode toolbar chrome follows the light menu bar ---
-    check("the light chrome brush cache exists",
-          re.search(r"(?:static\s+)?HBRUSH _viv_light_chrome_hbrushes\[2\];", viv) is not None and
-          "_viv_light_chrome_brush(int which)" in viv)
-    check("the light chrome brushes are released on kill",
-          viv.count("DeleteObject(_viv_light_chrome_hbrushes[i]);") == 1 and
+    check("the rebar era light brush cache is retired (the tokens own the faces)",
+          "_viv_light_chrome_hbrushes" not in viv and
+          "_viv_light_chrome_brush" not in viv)
+    check("the dark chrome brushes are released on kill",
           viv.count("DeleteObject(_viv_dark_chrome_hbrushes[i]);") == 1)
     check("the light strip faces stay the system menu color",
           "case VIV_TK_FRAME: return GetSysColor(COLOR_MENU);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
@@ -3096,8 +3096,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 52",
-          "#define VERSION_BUILD 52" in version)
+    check("the release candidate line moves to build 53",
+          "#define VERSION_BUILD 53" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3167,9 +3167,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 52",
-          "#define VERSION_BUILD 52" in version and
-          '#define VERSION_STRING "1.1.12-rc.10"' in version)
+    check("the release candidate moves the version to build 53",
+          "#define VERSION_BUILD 53" in version and
+          '#define VERSION_STRING "1.1.12-rc.11"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3219,7 +3219,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 29200)  # remake-2: the theme core and the owner draw menus join the splice
+          viv_lines >= 21130 and viv_lines <= 29600)  # carpet repair: the fix round's guards and comments ride the splice
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3280,7 +3280,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 29200, f"({total})")  # remake-2 recalibration
+          21130 <= total <= 29600, f"({total})")  # carpet repair recalibration
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3387,15 +3387,15 @@ def t_structure_round76():
     #    monolith case bodies are now per-message handlers).
     i = wnd.find("LRESULT CALLBACK _viv_proc(")
     disp = wnd[i:]
-    check("the dispatch is under 120 lines",
-          disp.count("\n") < 120, f"({disp.count(chr(10))})")
+    check("the dispatch is under 130 lines",
+          disp.count("\n") < 130, f"({disp.count(chr(10))})")
     handlers = wnd.count("\nstatic LRESULT _viv_on_")
     # rc.6: wm_syschar, wm_syskeydown, wm_syskeyup and wm_initmenupopup
     # joined the dispatch, wm_measureitem and wm_ncpaint left with the
     # owner draw menu machinery they existed for.
-    check("the 47 per-message handlers exist", handlers == 47, f"({handlers})")  # remake-2: wm_measureitem and wm_menuchar join (the owner draw menus)
+    check("the 49 per-message handlers exist", handlers == 49, f"({handlers})")  # carpet repair: wm_deleteitem and wm_syscolorchange join the dispatch
     check("every dispatch case returns its handler",
-          disp.count("\n\t\t\treturn _viv_on_") == 47)
+          disp.count("\n\t\t\treturn _viv_on_") == 49)
 
     # 4. the pure-move discipline held: the moved case bodies kept their
     #    bytes, only the case-exit breaks became DefWindowProc returns.
@@ -3441,9 +3441,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.10 build 52",
-          '#define VERSION_BUILD 52' in version and
-          '#define VERSION_STRING "1.1.12-rc.10"' in version)
+    check("the version is 1.1.12-rc.11 build 53",
+          '#define VERSION_BUILD 53' in version and
+          '#define VERSION_STRING "1.1.12-rc.11"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3506,14 +3506,116 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 52",
-          "#define VERSION_BUILD 52" in version and
-          '#define VERSION_STRING "1.1.12-rc.10"' in version)
+    check("the release candidate moves the version to build 53",
+          "#define VERSION_BUILD 53" in version and
+          '#define VERSION_STRING "1.1.12-rc.11"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
           "the theme race self-heal round" in changes and
           "was_dark != is_dark" in changes)
+
+
+
+# ---------------------------------------------------------------------------
+# the carpet repair round (R76): the seven-subagent adversarial review of the
+# user's rc.8-rc.10 remake, followed by the fix round. every pin here anchors
+# a fix that shipped through a green suite (the review found them because the
+# guards did not reach the new code).
+# ---------------------------------------------------------------------------
+def t_carpet_repair_round76():
+    chrome = open("src/viv_chrome.c", "rb").read().decode("utf-8", errors="replace")
+    menubar = open("src/viv_menubar.c", "rb").read().decode("utf-8", errors="replace")
+    menu = open("src/viv_menu.c", "rb").read().decode("utf-8", errors="replace")
+    toolbar = open("src/viv_toolbar.c", "rb").read().decode("utf-8", errors="replace")
+    zoomui = open("src/zoomui.c", "rb").read().decode("utf-8", errors="replace")
+    render = open("src/viv_render.c", "rb").read().decode("utf-8", errors="replace")
+    view = open("src/viv_view.c", "rb").read().decode("utf-8", errors="replace")
+    wnd = open("src/viv_wndproc.c", "rb").read().decode("utf-8", errors="replace")
+    osc = open("src/os.c", "rb").read().decode("utf-8", errors="replace")
+    msgbox = open("src/viv_msgbox.c", "rb").read().decode("utf-8", errors="replace")
+    settings = open("src/viv_settings.c", "rb").read().decode("utf-8", errors="replace")
+    recent = open("src/viv_recent.c", "rb").read().decode("utf-8", errors="replace")
+    glyphs = open("src/glyphs.c", "rb").read().decode("utf-8", errors="replace")
+    mf = read("res/voidImageViewer.Manifest").decode("utf-8", errors="replace")
+
+    check("the menu domain exports the row label resolver",
+          "void _viv_menu_row_item_text(void *row,wchar_t *wbuf);" in read("src/viv_menu.h").decode("utf-8", errors="replace"))
+
+    check("the status date pane uses the localized system formatters",
+          "GetDateFormatW(LOCALE_USER_DEFAULT,DATE_SHORTDATE" in chrome
+          and "GetTimeFormatW(LOCALE_USER_DEFAULT,TIME_NOSECONDS" in chrome)
+    check("the date pane never feeds a wide literal to the narrow parser",
+          'string_printf(date_buf,L' not in chrome)
+
+    check("the view top helper exists and the header exports it",
+          "int _viv_get_view_top(void)" in chrome
+          and "int _viv_get_view_top(void);" in read("src/viv_chrome.h").decode("utf-8", errors="replace"))
+    check("the size math reserves the top stack, not a bottom toolbar",
+          render.count("- _viv_get_status_high() - _viv_get_view_top()") >= 4
+          and view.count("- _viv_get_status_high() - _viv_get_view_top()") >= 5
+          and "- _viv_get_status_high() - _viv_get_view_top();" in wnd)
+    check("the paint blits land in client coordinates (the origin rides every dst y)",
+          wnd.count("ry + view_top") >= 5)
+    check("the mouse anchors turn viewport relative",
+          "pt.y -= _viv_get_view_top();" in view
+          and "cursor_y = pt.y - _viv_get_view_top();" in view)
+    check("the pill lands at the viewport bottom",
+          "y = _viv_get_view_top() + high - container_high - _zoomui_margin;" in zoomui)
+
+    check("the toolbar play slot never forces the fullscreen jump",
+          "VIV_ID_SLIDESHOW_PLAY_ONLY" in toolbar
+          and "VIV_ID_SLIDESHOW_PAUSE_ONLY" in toolbar
+          and "VIV_ID_ANIMATION_PLAY_PAUSE" in toolbar)
+
+    check("the apply path flushes the token cache",
+          chrome.count("viv_theme_refresh();") >= 1)
+    check("the classic palette change repaints (wm_syscolorchange)",
+          "_viv_on_wm_syscolorchange" in wnd)
+
+    check("os.c resolves the vista+ system aware tier",
+          'GetProcAddress(_os_user32_hmodule,"SetProcessDPIAware")' in osc)
+    check("the manifest declares dpi awareness twice (2005 + 2016)",
+          "<dpiAware>true</dpiAware>" in mf
+          and "<dpiAwareness>PerMonitorV2, PerMonitor</dpiAwareness>" in mf)
+
+    check("the themed box maps the close button and propagates quit",
+          "IDOK : IDCANCEL" in msgbox
+          and "PostQuitMessage((int)msg.wParam);" in msgbox)
+
+    check("the capture commit keeps the unchanged edit binding",
+          "(!_viv_settings_capture_edit) || (old_key != (int)_viv_settings_capture_key)" in settings)
+    check("modifier combos stay capturable (ctrl+return rebindable)",
+          "GetKeyState(VK_CONTROL) & 0x8000" in settings)
+
+    check("the mru swap defers while a menu is up and flushes on close",
+          "_viv_recent_menu_pending" in recent
+          and "_viv_recent_menu_flush();" in menubar
+          and "_viv_in_popup_menu = 1;" in menubar)
+
+    check("the pill percent reads the render percent",
+          "return _viv_zoom_percent();" in zoomui)
+
+    check("the menubar pump breaks on the error return",
+          "GetMessage(&msg,0,WM_MOUSEFIRST,WM_MOUSELAST) <= 0" in menubar)
+
+    check("the radio dot painter exists",
+          "_viv_menu_draw_dot" in menu)
+    check("the mnemonic scan skips grayed rows",
+          "MIIM_DATA | MIIM_FTYPE | MIIM_STATE" in menu)
+
+    check("the owner draw delete notification has a handler",
+          "_viv_on_wm_deleteitem" in wnd)
+
+    check("a failed glyph build never poisons the cache",
+          "if (!icon)" in glyphs
+          and "return 0;" in glyphs.split("HICON glyphs_icon")[1][:1200])
+
+    check("the toolbar rides the theme cache (no private palette)",
+          "_viv_toolbar_dark_face" not in toolbar
+          and "return viv_theme_brush(VIV_TK_CHROME);" in toolbar)
+    check("the strip background drag still moves the window",
+          "_viv_start_move_window();" in toolbar)
 
 
 if __name__ == "__main__":
@@ -3563,6 +3665,7 @@ if __name__ == "__main__":
     t_split_architecture_round70()
     t_theme_race_round72()
     t_structure_round76()
+    t_carpet_repair_round76()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

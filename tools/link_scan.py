@@ -34,7 +34,8 @@ def strip_comments(text):
 def extern_names():
     names = set()
     for h in ["viv_state.h"] + sorted(glob.glob("viv_*.h")):
-        for m in re.finditer(r"^extern\s+(.+?);", strip_comments(open(h, encoding="utf-8", errors="replace").read()), re.M):
+        text = strip_comments(open(h, encoding="utf-8", errors="replace").read())
+        for m in re.finditer(r"^extern\s+(.+?);", text, re.M):
             decl = m.group(1)
             fm = re.search(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(", decl)
             if fm:
@@ -43,6 +44,20 @@ def extern_names():
                 vm = re.search(r"([A-Za-z_][A-Za-z0-9_]*)((?:\[[^\]]*\])+)?\s*$", decl)
                 if vm:
                     names.add(vm.group(1))
+        # the remake domains declare their public api as plain prototypes
+        # (no extern keyword): every single-line header prototype joins the
+        # audit the same way (multi-line prototypes are conservative skips -
+        # an unaudited name is safe, a mis-parsed one is not).
+        if h != "viv_state.h":
+            for line in text.split("\n"):
+                s = line.strip()
+                if (not s) or s.startswith(("#", "extern ", "typedef", "static", "struct", "enum", "union")):
+                    continue
+                if not (s.endswith(");") and ("(" in s)):
+                    continue
+                fm = re.search(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(", s)
+                if fm and fm.group(1) not in KEYWORDS:
+                    names.add(fm.group(1))
     return names
 
 
@@ -64,6 +79,12 @@ def scan():
             if any(tok in KEYWORDS for tok in m.group(1).split()):
                 continue
             if m.group(2) in externs:
+                # a line that ends in a semicolon and carries a parameter
+                # list is a prototype, not a definition (the domains keep
+                # local prototypes for their own public functions; the
+                # variable externs keep their = / ; definitions).
+                if s.endswith(";") and ("(" in s):
+                    continue
                 defs.setdefault(m.group(2), []).append((u, i))
 
     # reverse: static definition -> cross-unit reference

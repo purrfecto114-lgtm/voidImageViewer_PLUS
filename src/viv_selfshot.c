@@ -325,7 +325,8 @@ static DWORD WINAPI _viv_self_thread(void *param)
 static void _viv_self_log(const char *text,int value);
 
 int vivp_selfshot_init(void)
-{	_viv_self_log("init",0);
+{
+	_viv_self_log("init",0);
 
 	os_GdiplusStartupInput_t gdi_input;
 	ULONG_PTR gdi_token;
