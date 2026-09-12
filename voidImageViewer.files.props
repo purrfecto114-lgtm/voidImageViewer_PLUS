@@ -96,6 +96,10 @@
     <ClCompile Include="..\src\viv_playlist.c" />
     <ClCompile Include="..\src\viv_recent.c" />
     <ClCompile Include="..\src\viv_render.c" />
+    <ClCompile Include="..\src\viv_settings.c" />
+    <ClCompile Include="..\src\viv_theme.c" />
+    <ClCompile Include="..\src\viv_msgbox.c" />
+    <ClCompile Include="..\src\viv_toolbar.c" />
     <ClCompile Include="..\src\viv_view.c" />
     <ClCompile Include="..\src\viv_wndproc.c" />
     <ClCompile Include="..\src\wchar.c" />
@@ -162,6 +166,10 @@
     <ClInclude Include="..\src\viv_recent.h" />
     <ClInclude Include="..\src\viv_render.h" />
     <ClInclude Include="..\src\viv_state.h" />
+    <ClInclude Include="..\src\viv_settings.h" />
+    <ClInclude Include="..\src\viv_theme.h" />
+    <ClInclude Include="..\src\viv_msgbox.h" />
+    <ClInclude Include="..\src\viv_toolbar.h" />
     <ClInclude Include="..\src\viv_view.h" />
     <ClInclude Include="..\src\viv_wndproc.h" />
     <ClInclude Include="..\src\wchar.h" />

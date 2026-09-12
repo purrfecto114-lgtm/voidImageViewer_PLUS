@@ -27,6 +27,7 @@
 // MUST be used when allocating memory.
 
 #include "viv.h"
+#include <stdint.h> // SIZE_MAX
 
 // safely add two values.
 // SIZE_MAX is used as an invalid value.

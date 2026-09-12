@@ -27,6 +27,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_wndproc.h"
+#include "viv_menu.h"
 #include "viv_menubar.h"
 #include "viv_recent.h"
 #include "viv_playlist.h"
@@ -399,7 +400,6 @@ static LRESULT _viv_on__retry_random_everything_search(HWND hwnd,UINT msg,WPARAM
 
 static LRESULT _viv_on__reply(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-{
 	_viv_reply_t *e;
 	
 	EnterCriticalSection(&_viv_cs);
@@ -752,8 +752,6 @@ debug_printf("ADDITIONAL FRAME TERMINATE\n");
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_initmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
@@ -769,15 +767,12 @@ static LRESULT _viv_on_wm_initmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 
 static LRESULT _viv_on_wm_dropfiles(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-{
 	_viv_drop_files(hwnd,(HDROP)wParam);
 	
 	// the shell allocated the file list for this drop and expects
 	// dragfinish to release it: every drop used to leak it.
 	DragFinish((HDROP)wParam);
 	
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
@@ -1085,7 +1080,6 @@ static LRESULT _viv_on_wm_rbuttonup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 
 static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-{
 	HMENU hmenu;
 	POINT pt;
 	DWORD tpm_flags;
@@ -1108,6 +1102,9 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 	}
 	
 	hmenu = CreatePopupMenu();
+	
+	// fresh owner draw rows for this throwaway menu (it is destroyed below).
+	_viv_menu_row_pool_reset(_VIV_MENU_POOL_CONTEXT);
 	
 	{
 		int i;
@@ -1182,7 +1179,20 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 							}
 						}
 							
-						AppendMenu(curmenu,_viv_commands[command_index].flags & (~(MF_DELETE|MF_OWNERDRAW)),_viv_commands[command_index].command_id,text_wbuf);
+						{
+							void *row;
+
+							row = _viv_menu_row_alloc(_VIV_MENU_POOL_CONTEXT,_VIV_MENU_DRAW_COMMAND,command_index,0,0);
+
+							if (row)
+							{
+								AppendMenuW(curmenu,(_viv_commands[command_index].flags & (~(MF_DELETE|MF_OWNERDRAW))) | MF_OWNERDRAW,_viv_commands[command_index].command_id,(LPCWSTR)row);
+							}
+							else
+							{
+								AppendMenuW(curmenu,_viv_commands[command_index].flags & (~(MF_DELETE|MF_OWNERDRAW)),_viv_commands[command_index].command_id,text_wbuf);
+							}
+						}
 						was_seperator = 0;
 					}
 				}
@@ -1219,7 +1229,20 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 						
 						submenuid = _viv_context_menu_items[i];
 						submenu = CreatePopupMenu();
-						AppendMenu(curmenu,MF_POPUP,(UINT_PTR)submenu,text_wbuf);
+						{
+							void *row;
+
+							row = _viv_menu_row_alloc(_VIV_MENU_POOL_CONTEXT,_VIV_MENU_DRAW_POPUP,command_index,0,0);
+
+							if (row)
+							{
+								AppendMenuW(curmenu,MF_POPUP | MF_OWNERDRAW,(UINT_PTR)submenu,(LPCWSTR)row);
+							}
+							else
+							{
+								AppendMenuW(curmenu,MF_POPUP,(UINT_PTR)submenu,text_wbuf);
+							}
+						}
 						curmenu = submenu;
 						was_seperator = 0;
 					}
@@ -1230,7 +1253,20 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 				// seperator
 				if (!was_seperator)
 				{
-					AppendMenu(curmenu,MF_SEPARATOR,0,0);
+					{
+					void *row;
+
+					row = _viv_menu_row_alloc(_VIV_MENU_POOL_CONTEXT,_VIV_MENU_DRAW_SEPARATOR,0,0,0);
+
+					if (row)
+					{
+						AppendMenuW(curmenu,MF_SEPARATOR | MF_OWNERDRAW,0,(LPCWSTR)row);
+					}
+					else
+					{
+						AppendMenuW(curmenu,MF_SEPARATOR,0,0);
+					}
+				}
 
 					was_seperator = 1;
 				}
@@ -1252,8 +1288,6 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 	
 	DestroyMenu(hmenu);
 	
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
@@ -1400,16 +1434,12 @@ static LRESULT _viv_on_wm_lbuttonup_wm_mbuttonup(HWND hwnd,UINT msg,WPARAM wPara
 
 static LRESULT _viv_on_wm_mousewheel(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-{
 	_viv_do_mousewheel_action(_viv_get_current_key_mod_flags() == CONFIG_KEYFLAG_CTRL ? config_ctrl_mouse_wheel_action : config_mouse_wheel_action,GET_WHEEL_DELTA_WPARAM(wParam),GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_gesturenotify(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
 {
 	if (os_SetGestureConfig)
 	{
@@ -1440,11 +1470,8 @@ static LRESULT _viv_on_wm_gesturenotify(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_gesture(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
 {
 	if (_viv_on_gesture(hwnd,(void *)lParam))
 	{
@@ -1453,22 +1480,16 @@ static LRESULT _viv_on_wm_gesture(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_tablet_querysystemgesturestatus(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
 {
 	// disable press-and-hold (0x1, the wait circle) and flicks
 	// (0x10000, the navigation gestures): both fight the touch pan
 	// and the two finger tap. tap and pen feedback stay enabled.
 	return 0x00000001 | 0x00010000;
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
 {
 	COPYDATASTRUCT *cds;
 		
@@ -1632,8 +1653,6 @@ static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_close(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
@@ -1682,7 +1701,6 @@ static LRESULT _viv_on_wm_size(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 
 static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-{
 	const RECT *suggested_rect;
 	int dpi_changed;
 	
@@ -1706,13 +1724,9 @@ static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	
 	if (dpi_changed)
 	{
-		// rebuild the dpi scaled toolbar icons and relayout.
-		_viv_toolbar_build_image_list();
-		
-		// the uniform button widths are dpi scaled: re-pin them.
-		_viv_toolbar_pin_button_sizes();
-		
-		// the top bar re-reads its labels at the new font size.
+		// the strip re-measures its labels at the new dpi inside the size
+		// sweep (the self drawn strip owns its metrics); the top bar
+		// re-reads its labels at the new font size too.
 		_viv_menubar_layout();
 		
 		_viv_on_size();
@@ -1720,11 +1734,8 @@ static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	
 	return 0;
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_move(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
 {
 	if (!IsIconic(hwnd))
 	{
@@ -1744,12 +1755,50 @@ static LRESULT _viv_on_wm_move(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
+
+// the popup menu rows measure themselves on the theme font: the menu
+// sizes to the widest row.
+static LRESULT _viv_on_wm_measureitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	if ((lParam) && (((MEASUREITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
+	{
+		if (_viv_menu_measure_item((MEASUREITEMSTRUCT *)lParam))
+		{
+			return TRUE;
+		}
+	}
+	
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+// mnemonic keys resolve against the live row text (owner drawn rows keep
+// their labels out of the system, so the scan is ours).
+static LRESULT _viv_on_wm_menuchar(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	int index;
+	
+	index = _viv_menu_char_item((HMENU)lParam,(wchar_t)(wParam & 0xffff),(int)HIWORD(wParam));
+	
+	if (index != -1)
+	{
+		return MAKELRESULT(index,MNC_EXECUTE);
+	}
+	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
 static LRESULT _viv_on_wm_drawitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-{
+	// the popup menus are owner drawn: every row paints on the theme
+	// tokens (the system painter never touches them).
+	if ((lParam) && (((DRAWITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
+	{
+		if (_viv_menu_draw_item((DRAWITEMSTRUCT *)lParam))
+		{
+			return TRUE;
+		}
+	}
+	
 	// the status panes are owner drawn: draw them (dark ui support).
 	if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))
 	{
@@ -1758,11 +1807,8 @@ static LRESULT _viv_on_wm_drawitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_syschar(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
 {
 	// alt + mnemonic: the remade top bar owns the root item mnemonics
 	// (the frame menu is gone, so the system no longer handles them).
@@ -1773,11 +1819,8 @@ static LRESULT _viv_on_wm_syschar(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_syskeydown(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
 {
 	// f10 opens the first menu: the classic menu key the frame menu
 	// used to own.
@@ -1797,11 +1840,8 @@ static LRESULT _viv_on_wm_syskeydown(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_syskeyup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
 {
 	// the alt release hides the mnemonics again: repaint the bar.
 	if (wParam == VK_MENU)
@@ -1811,8 +1851,6 @@ static LRESULT _viv_on_wm_syskeyup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_initmenupopup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
@@ -1820,6 +1858,22 @@ static LRESULT _viv_on_wm_initmenupopup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 	// trackpopupmenuex sends this before showing a popup: the state
 	// refresh the frame menu used to get from wm_initmenu runs here.
 	_viv_check_menus(_viv_hmenu);
+	
+	// the popup layer joins the theme: the #32768 class brush paints the
+	// margins between the owner drawn rows, and the dwm rounds the layer
+	// and colors its border where the attributes exist.
+	{
+		HWND menu_hwnd;
+		
+		menu_hwnd = FindWindowW(L"#32768",0);
+		
+		if (menu_hwnd)
+		{
+			SetClassLongPtrW(menu_hwnd,GCLP_HBRBACKGROUND,(LONG_PTR)viv_theme_brush(VIV_TK_FACE));
+			
+			os_menu_modern_chrome(menu_hwnd,viv_theme_color(VIV_TK_LINE));
+		}
+	}
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -2014,11 +2068,8 @@ static LRESULT _viv_on_wm_notify(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 
 static LRESULT _viv_on_wm_command(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-{
 	_viv_command(LOWORD(wParam));
 
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
@@ -2063,8 +2114,20 @@ debug_printf("paste\n");
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
-static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+static LRESULT _viv_on_wm_enter_idle(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	// the menu modal loop idles on the owner while a popup tracks: pump the
+	// pending mouse moves so the bar keeps hovering and the popup follows
+	// across the roots.
+	if (wParam == MSGF_MENU)
+	{
+		_viv_menubar_idle_pump();
+	}
+
+	return 0;
+}
+
+static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	RECT rect;
 	int wide;
@@ -2482,11 +2545,8 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 	
 	return 0;
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_erasebkgnd(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
 {
 	// the dark ui erases with the chrome face: a paint that bypasses the
 	// handlers (a relayout gap, a system ghost redraw) must not flash the
@@ -2505,8 +2565,6 @@ static LRESULT _viv_on_wm_erasebkgnd(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	
 	return 1;
 }
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
 
 static LRESULT _viv_on_wm_getminmaxinfo(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
@@ -2517,7 +2575,9 @@ static LRESULT _viv_on_wm_getminmaxinfo(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 		RECT rect;
 		BOOL is_menu;
 		
-		wide = _viv_toolbar_get_wide();
+		// the strip is full width now: the minimum window is a floor, not
+		// the toolbar's content width (the overflow rule hides groups).
+		wide = (480 * os_logical_wide) / 96;
 		high = _viv_get_status_high() + _viv_get_controls_high();
 		
 		is_menu = GetMenu(_viv_hwnd) ? TRUE : FALSE;
@@ -2538,6 +2598,19 @@ static LRESULT _viv_on_wm_getminmaxinfo(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 
 LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+#ifdef VIVP_SELF_SHOT
+	{
+		static HANDLE fh;
+		char m[4];
+		DWORD w;
+		if (!fh) fh = CreateFileW(L"C:\\shots\\msgs.log",FILE_APPEND_DATA,FILE_SHARE_READ|FILE_SHARE_WRITE,0,OPEN_ALWAYS,0,0);
+		m[0]=(char)(msg&0xff);
+		m[1]=(char)((msg>>8)&0xff);
+		m[2]=(char)((msg>>16)&0xff);
+		m[3]=(char)((msg>>24)&0xff);
+		if (fh != INVALID_HANDLE_VALUE) { WriteFile(fh,m,4,&w,0); FlushFileBuffers(fh); }
+	}
+#endif
 	switch (msg)
 	{
 		case WM_NCHITTEST:
@@ -2604,6 +2677,12 @@ LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			return _viv_on_wm_move(hwnd,msg,wParam,lParam);
 		case WM_DRAWITEM:
 			return _viv_on_wm_drawitem(hwnd,msg,wParam,lParam);
+		case WM_MEASUREITEM:
+			return _viv_on_wm_measureitem(hwnd,msg,wParam,lParam);
+		case WM_MENUCHAR:
+			return _viv_on_wm_menuchar(hwnd,msg,wParam,lParam);
+		case WM_ENTERIDLE:
+			return _viv_on_wm_enter_idle(hwnd,msg,wParam,lParam);
 		case WM_SYSCHAR:
 			return _viv_on_wm_syschar(hwnd,msg,wParam,lParam);
 		case WM_SYSKEYDOWN:

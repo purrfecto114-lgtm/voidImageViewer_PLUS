@@ -25,6 +25,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_recent.h"
+#include "viv_menu.h"
 #include "viv_playlist.h"
 
 // forward declarations (order preserved from viv.c)
@@ -153,32 +154,82 @@ HMENU _viv_create_recent_menu(void)
 		
 		count = (config_recent_file_count < CONFIG_RECENT_FILE_COUNT) ? config_recent_file_count : CONFIG_RECENT_FILE_COUNT;
 		
+		_viv_menu_row_pool_reset(_VIV_MENU_POOL_RECENT);
+		
 		if (count > 0)
 		{
 			for(i=0;i<count;i++)
 			{
-				wchar_t num_wbuf[64];
+				void *row;
 				
-				// the mru convention: an ampersand digit prefix selects the
-				// entry from the keyboard while the submenu is open.
-				string_format_number(num_wbuf,i + 1);
-				string_copy(text_wbuf,L"&");
-				string_cat(text_wbuf,num_wbuf);
-				string_cat(text_wbuf,L" ");
-				string_cat(text_wbuf,string_get_filename_part(config_recent_files[i]));
+				row = _viv_menu_row_alloc(_VIV_MENU_POOL_RECENT,_VIV_MENU_DRAW_RECENT,i,0,0);
 				
-				AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_0 + i,text_wbuf);
+				if (row)
+				{
+					AppendMenu(recent_menu,MF_STRING | MF_OWNERDRAW,VIV_ID_FILE_RECENT_0 + i,(LPCWSTR)row);
+				}
+				else
+				{
+					wchar_t num_wbuf[64];
+					
+					// the mru convention: an ampersand digit prefix selects the
+					// entry from the keyboard while the submenu is open.
+					string_format_number(num_wbuf,i + 1);
+					string_copy(text_wbuf,L"&");
+					string_cat(text_wbuf,num_wbuf);
+					string_cat(text_wbuf,L" ");
+					string_cat(text_wbuf,string_get_filename_part(config_recent_files[i]));
+					
+					AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_0 + i,text_wbuf);
+				}
 			}
 			
-			AppendMenu(recent_menu,MF_SEPARATOR,0,L"");
+			{
+				void *row;
+				
+				row = _viv_menu_row_alloc(_VIV_MENU_POOL_RECENT,_VIV_MENU_DRAW_SEPARATOR,0,0,0);
+				
+				if (row)
+				{
+					AppendMenu(recent_menu,MF_SEPARATOR | MF_OWNERDRAW,0,(LPCWSTR)row);
+				}
+				else
+				{
+					AppendMenu(recent_menu,MF_SEPARATOR,0,L"");
+				}
+			}
 			
-			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_CLEAR));
-			AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+			{
+				void *row;
+				
+				row = _viv_menu_row_alloc(_VIV_MENU_POOL_RECENT,_VIV_MENU_DRAW_LOCALIZED,0,LOCALIZATION_ID_RECENT_FILES_CLEAR,0);
+				
+				if (row)
+				{
+					AppendMenu(recent_menu,MF_STRING | MF_OWNERDRAW,VIV_ID_FILE_RECENT_CLEAR,(LPCWSTR)row);
+				}
+				else
+				{
+					string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_CLEAR));
+					AppendMenu(recent_menu,MF_STRING,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+				}
+			}
 		}
 		else
 		{
-			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_EMPTY));
-			AppendMenu(recent_menu,MF_STRING | MF_GRAYED,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+			void *row;
+			
+			row = _viv_menu_row_alloc(_VIV_MENU_POOL_RECENT,_VIV_MENU_DRAW_LOCALIZED,0,LOCALIZATION_ID_RECENT_FILES_EMPTY,0);
+			
+			if (row)
+			{
+				AppendMenu(recent_menu,MF_STRING | MF_GRAYED | MF_OWNERDRAW,VIV_ID_FILE_RECENT_CLEAR,(LPCWSTR)row);
+			}
+			else
+			{
+				string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_RECENT_FILES_EMPTY));
+				AppendMenu(recent_menu,MF_STRING | MF_GRAYED,VIV_ID_FILE_RECENT_CLEAR,text_wbuf);
+			}
 		}
 	}
 	

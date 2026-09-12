@@ -220,6 +220,7 @@ int os_dialog_font(LOGFONTW *lf,HWND hwnd);
 // windows 11 chrome: rounded corners + a caption color matching the canvas.
 // silently ignored on windows 10 and older.
 void os_window_modern_chrome(HWND hwnd,COLORREF caption_color);
+void os_menu_modern_chrome(HWND hwnd,COLORREF border_color);
 
 // touch / gesture support (Windows 7+)
 // self-declared, binary compatible structures.

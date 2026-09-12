@@ -25,6 +25,7 @@
 // Pure physical move from viv.c (R70 split): bodies are unchanged.
 #include "viv.h"
 #include "viv_state.h"
+#include "viv_toolbar.h"
 #include "viv_chrome.h"
 #include "viv_dark.h"
 #include "viv_menubar.h"
@@ -32,6 +33,8 @@
 #include "viv_view.h"
 
 // forward declarations (order preserved from viv.c)
+static LRESULT (CALLBACK *_viv_old_status_proc)(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam) = NULL; // old status bar proc
+
 void _viv_update_title(void);
 void _viv_on_size(void);
 HBRUSH _viv_dark_chrome_brush(int which);
@@ -46,18 +49,285 @@ int _viv_is_window_maximized(HWND hwnd);
 void _viv_update_ontop(void);
 void _viv_update_prevent_sleep(void);
 void _viv_status_show(int show);
-void _viv_toolbar_build_image_list(void);
-void _viv_toolbar_pin_button_sizes(void);
 void _viv_controls_show(int show);
 void _viv_status_update(void);
 static void _viv_status_set(int part,const wchar_t *text);
 int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item);
 int _viv_get_status_high(void);
 int _viv_get_controls_high(void);
-static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
-int _viv_toolbar_get_wide(void);
-void _viv_toolbar_update_buttons(void);
+static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+
+
+
+static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+
+{
+
+	switch (msg) 
+
+	{	
+
+		case WM_ERASEBKGND:
+
+		{
+
+			RECT rect;
+
+			
+
+				// the comctl status class paints its own face from the light
+
+				// palette even under the dark theme class (the field report: the
+
+				// flat light slab under the dark canvas). the strip erases with
+
+				// the dark face in the dark ui; the owner drawn panes paint over
+
+				// it and the light ui keeps the native face.
+
+				GetClientRect(hwnd,&rect);
+
+				
+
+				FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dialog_dark_brush() : (HBRUSH)(COLOR_BTNFACE + 1));
+
+				
+
+				return 1;
+
+		}
+
+		
+
+		case WM_PAINT:
+
+		{
+
+			LRESULT result;
+
+			
+
+			// the control paints the panes, the sunken top edge and the
+
+			// size grip. in the dark ui the edge and the grip are the two
+
+			// bits left light: repaint them with the chrome palette after
+
+			// the native pass, so the bottom band reads as one dark chrome.
+
+			result = CallWindowProc(_viv_old_status_proc,hwnd,msg,wParam,lParam);
+
+			
+
+			if (_viv_is_dark())
+
+			{
+
+				RECT client_rect;
+
+				RECT rect;
+
+				HDC hdc;
+
+				int wide;
+
+				
+
+				hdc = GetDC(hwnd);
+
+				
+
+				if (hdc)
+
+				{
+
+					GetClientRect(hwnd,&client_rect);
+
+					wide = client_rect.right - client_rect.left;
+
+					
+
+					// the top edge: the same pair the rebar strip draws
+
+					// (shadow over highlight), so the two bands read as one.
+
+					rect.left = 0;
+
+					rect.top = 0;
+
+					rect.right = wide;
+
+					rect.bottom = 1;
+
+					FillRect(hdc,&rect,_viv_dark_chrome_brush(1));
+
+					
+
+					rect.top = 1;
+
+					rect.bottom = 2;
+
+					FillRect(hdc,&rect,_viv_dark_chrome_brush(2));
+
+					
+
+					// the size grip: the native one paints light dots. repaint
+
+					// the box with the dark face and dot it ourselves, only when
+
+					// the native one is up (the parent is resizable and not
+
+					// maximized - the control suppresses it otherwise).
+
+					if (((GetWindowLong(_viv_hwnd,GWL_STYLE)) & WS_THICKFRAME) && (!IsZoomed(_viv_hwnd)) && (!_viv_is_fullscreen))
+
+					{
+
+						RECT grip_rect;
+
+						int grip_wide;
+
+						int grip_high;
+
+						int step;
+
+						int dot_x;
+
+						int dot_y;
+
+						
+
+						grip_wide = GetSystemMetrics(SM_CXVSCROLL);
+
+						grip_high = GetSystemMetrics(SM_CYVSCROLL);
+
+						
+
+						if ((grip_wide > 0) && (grip_high > 0) && (grip_wide < wide) && (grip_high < (client_rect.bottom - client_rect.top)))
+
+						{
+
+							grip_rect.left = client_rect.right - grip_wide;
+
+							grip_rect.top = client_rect.bottom - grip_high;
+
+							grip_rect.right = client_rect.right;
+
+							grip_rect.bottom = client_rect.bottom;
+
+							
+
+							FillRect(hdc,&grip_rect,_viv_dialog_dark_brush());
+
+							
+
+							step = (grip_wide < grip_high) ? (grip_wide / 6) : (grip_high / 6);
+
+							
+
+							if (step < 2)
+
+							{
+
+								step = 2;
+
+							}
+
+							
+
+							// the classic triangle of dots anchored at the corner.
+
+							for(dot_x=0;dot_x<3;dot_x++)
+
+							{
+
+								for(dot_y=0;dot_y<(3 - dot_x);dot_y++)
+
+								{
+
+									SetPixel(hdc,grip_rect.right - 2 - (dot_x * step),grip_rect.bottom - 2 - (dot_y * step),RGB(0x9A,0x9A,0x9A));
+
+								}
+
+							}
+
+						}
+
+					}
+
+					
+
+					ReleaseDC(hwnd,hdc);
+
+				}
+
+			}
+
+			
+
+			return result;
+
+		}
+
+		
+
+		case WM_DRAWITEM:
+
+		
+
+			// the owner drawn panes (defensive route: see _viv_status_draw_item).
+
+			if (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam))
+
+			{
+
+				return 1;
+
+			}
+
+		
+
+			break;
+
+		
+
+		case WM_LBUTTONDOWN:
+
+		
+
+			if (config_toolbar_move_window)
+
+			{
+
+				if (os_statusbar_index_from_x(hwnd,GET_X_LPARAM(lParam)) == 0)
+
+				{
+
+					_viv_start_move_window();
+
+
+
+					return 0;
+
+				}
+
+			}
+
+			
+
+			break;
+
+	}
+
+	
+
+	return CallWindowProc(_viv_old_status_proc,hwnd,msg,wParam,lParam);
+
+}
+
+
+
 static LRESULT CALLBACK _viv_fullscreen_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 void _viv_status_set_temp_text(wchar_t *text);
 void _viv_status_update_temp_pos_zoom(void);
@@ -70,13 +340,9 @@ void _viv_update_show_cursor(void);
 void _viv_start_hide_cursor_timer(void);
 
 
-static HWND _viv_toolbar_hwnd = 0;
-static HWND _viv_rebar_hwnd = 0;
 //static HWND _viv_tooltip_hwnd = 0;
-static HIMAGELIST _viv_toolbar_image_list = 0;
 static RECT _viv_fullscreen_rect;
 static int _viv_fullscreen_zoom_offset = 0;
-static LRESULT (CALLBACK *_viv_old_status_proc)(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam) = NULL; // old status bar proc
 static BYTE _viv_prevent_on_size = 0; // don't process WM_SIZE changes.
 static BYTE _viv_is_prevent_sleep = 0;
 void _viv_update_title(void)
@@ -170,16 +436,13 @@ void _viv_on_size(void)
 			high -= _viv_get_status_high();
 		}
 
-		if (_viv_toolbar_hwnd)
+		if (_viv_toolbar_high())
 		{
-			int toolbar_wide;
-			
-			toolbar_wide = _viv_toolbar_get_wide();
-			
-			SetWindowPos(_viv_rebar_hwnd,0,0,high - _viv_get_controls_high(),wide,_viv_get_controls_high(),SWP_NOZORDER|SWP_NOACTIVATE);
-			SetWindowPos(_viv_toolbar_hwnd,0,(wide / 2) - (toolbar_wide /2),6,toolbar_wide,_viv_get_controls_high() - 6,SWP_NOZORDER|SWP_NOACTIVATE);
-			
-			high -= _viv_get_controls_high();
+			// the strip anchors under the menu bar (the layout owns the y), so
+			// the height math only asks the strip how tall it is.
+			_viv_toolbar_layout(wide);
+
+			high -= _viv_toolbar_high();
 		}
 			zoomui_layout(wide,high);
 		
@@ -209,19 +472,17 @@ static int _viv_paint_wide = 0;
 static int _viv_paint_high = 0;
 HBRUSH _viv_dark_chrome_brush(int which)
 {
-	static const COLORREF colors[4] = {RGB(0x25,0x25,0x25),RGB(0x45,0x45,0x45),RGB(0x70,0x70,0x70),RGB(0x20,0x20,0x20)};
+	// the four chrome faces live in the shared theme cache now: the
+	// indices map to face, line, muted and frame, so a theme or accent
+	// flip re-skins every legacy dark surface for free.
+	static const int tokens[4] = {VIV_TK_CHROME,VIV_TK_CHROME_LINE,VIV_TK_CHROME_MUTED,VIV_TK_FRAME};
 	
 	if ((which < 0) || (which > 3))
 	{
 		return 0;
 	}
 	
-	if (!_viv_dark_chrome_hbrushes[which])
-	{
-		_viv_dark_chrome_hbrushes[which] = CreateSolidBrush(colors[which]);
-	}
-	
-	return _viv_dark_chrome_hbrushes[which];
+	return viv_theme_brush(tokens[which]);
 }
 static HBRUSH _viv_light_chrome_brush(int which)
 {
@@ -644,37 +905,17 @@ void _viv_apply_dark_mode(int repaint)
 		InvalidateRect(_viv_status_hwnd,0,FALSE);
 	}
 	
-	if (_viv_rebar_hwnd)
-	{
-		os_dark_titlebar(_viv_rebar_hwnd,dark);
-		
-		InvalidateRect(_viv_rebar_hwnd,0,FALSE);
-	}
 	
-	if (_viv_toolbar_hwnd)
-	{
-		os_dark_titlebar(_viv_toolbar_hwnd,dark);
-		
-		InvalidateRect(_viv_toolbar_hwnd,0,FALSE);
-	}
+	// the strip repaints through its own latch (the metrics are theme
+	// independent, so a flip never re-measures).
+	_viv_toolbar_set_dark(dark);
 	
 	// the remade menu bar repaints on the flip: its layout is theme
 	// independent, so no re-measure and no owner draw toggling.
 	_viv_menubar_repaint();
 	
-	// the toolbar glyphs bake the theme color into the icons: rebuild
-	// the image list so the palette follows the theme.
-	_viv_toolbar_build_image_list();
-	
-	// pin the uniform button widths: the comctl re-metrics on the theme
-	// switch and its auto sizes drift the spacing between the themes.
-	_viv_toolbar_pin_button_sizes();
-	
-	// the comctl toolbar re-metrics on the theme switch (the immersive
-	// flag changes the button paddings, the rebuilt image list can resize
-	// the buttons): relayout the strip windows now, the same sweep the dpi
-	// change and the language switch run. a stale rect clips the rightmost
-	// button (hideclippedbuttons) and widens the slab behind it.
+	// the strip metrics are theme independent: the on size sweep right
+	// below re-lays the strip against the current client width.
 	_viv_on_size();
 	
 	// the open dialogs re-theme live: the options dialog is usually on
@@ -687,28 +928,6 @@ void _viv_apply_dark_mode(int repaint)
 	
 	zoomui_set_dark(dark);
 	
-	// the toolbar tooltip control has no dark theme of its own: tint it
-	// with the palette so the hover hints match the ui.
-	if (_viv_toolbar_hwnd)
-	{
-		HWND tooltip_hwnd;
-		
-		tooltip_hwnd = (HWND)SendMessage(_viv_toolbar_hwnd,TB_GETTOOLTIPS,0,0);
-		
-		if (tooltip_hwnd)
-		{
-			if (dark)
-			{
-				SendMessage(tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);
-				SendMessage(tooltip_hwnd,TTM_SETTIPTEXTCOLOR,RGB(0xE8,0xE8,0xE8),0);
-			}
-			else
-			{
-				SendMessage(tooltip_hwnd,TTM_SETTIPBKCOLOR,GetSysColor(COLOR_INFOBK),0);
-				SendMessage(tooltip_hwnd,TTM_SETTIPTEXTCOLOR,GetSysColor(COLOR_INFOTEXT),0);
-			}
-		}
-	}
 	
 	// every flip repaints the whole window: the per-control
 	// InvalidateRect calls above cover their own windows, but a flip
@@ -845,290 +1064,67 @@ void _viv_status_show(int show)
 	
 	_viv_on_size();
 }
-// build (or rebuild) the toolbar image list. extracted from the toolbar
-// creation so it can run again when the window dpi or the theme changes:
-// the glyph icons are vector drawn at the exact size in the current theme
-// color. this also removes the old leak where the LoadImage icons were
-// never destroyed after ImageList_AddIcon copied them.
-void _viv_toolbar_build_image_list(void)
-{
-	int icon_size;
-	HIMAGELIST old_image_list;
-	
-	if (!_viv_toolbar_hwnd)
-	{
-		return;
-	}
-	
-	old_image_list = _viv_toolbar_image_list;
-	_viv_toolbar_image_list = 0;
-	
-	// larger toolbar icons on touch devices.
-	icon_size = os_is_touch_available() ? 24 : 16;
-	
-	// ILC_COLOR32 keeps the 32bpp alpha channel of the glyph icons: the old
-	// 24 bit list with a mask binarized the antialiased stroke edges, which
-	// washed the toolbar icons into a pale gray while the zoom pill drew the
-	// same glyphs from the raw icons at full contrast (the two-tone toolbar
-	// the field screenshots caught).
-	_viv_toolbar_image_list = ImageList_Create((icon_size * os_logical_wide) / 96,(icon_size * os_logical_high) / 96,ILC_COLOR32,0,0);
-	
-	if (_viv_toolbar_image_list)
-	{
-		int icon_wide;
-		int icon_high;
-		int dark;
-		
-		dark = _viv_is_dark();
-		
-		// the bitmap order matches the button table: prev, play, pause,
-		// next, bestfit, 1to1, zoom out, zoom in.
-		if (ImageList_GetIconSize(_viv_toolbar_image_list,&icon_wide,&icon_high))
-		{
-			int glyphi;
-			int glyph_size;
-			
-			glyph_size = (icon_wide < icon_high) ? icon_wide : icon_high;
-			
-			for(glyphi=0;glyphi<GLYPH_COUNT;glyphi++)
-			{
-				ImageList_AddIcon(_viv_toolbar_image_list,glyphs_icon(glyphi,dark,glyph_size));
-			}
-		}
-		
-		SendMessage(_viv_toolbar_hwnd,TB_SETIMAGELIST,0,(LPARAM)_viv_toolbar_image_list);
-	}
-	
-	// destroy the old list only after the toolbar owns the new one.
-	if (old_image_list)
-	{
-		ImageList_Destroy(old_image_list);
-	}
-	
-	// larger buttons on touch devices.
-	if (os_is_touch_available())
-	{
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONSIZE,0,MAKELPARAM((44 * os_logical_wide) / 96,(36 * os_logical_high) / 96));
-	}
-}
-// pin the toolbar button widths: the comctl auto size adapts each button
-// to its own icon width, so the visual gaps drift between the pairs (the
-// widest zoom icons sat 12px tighter than the prev/next pair) and the
-// theme re-metrics drift them again. one uniform width (and one uniform
-// separator width) keeps the spacing identical within a theme and across
-// the themes.
-void _viv_toolbar_pin_button_sizes(void)
-{
-	TBBUTTONINFO button_info;
-	TBBUTTON button;
-	int buttoni;
-	int button_wide;
-	int sep_wide;
-	
-	if (!_viv_toolbar_hwnd)
-	{
-		return;
-	}
-	
-	button_wide = os_is_touch_available() ? ((44 * os_logical_wide) / 96) : ((22 * os_logical_wide) / 96);
-	sep_wide = os_is_touch_available() ? ((8 * os_logical_wide) / 96) : ((6 * os_logical_wide) / 96);
-	
-	for(buttoni=0;buttoni<11;buttoni++)
-	{
-		os_zero_memory(&button,sizeof(button));
-		
-		if (!SendMessage(_viv_toolbar_hwnd,TB_GETBUTTON,buttoni,(LPARAM)&button))
-		{
-			continue;
-		}
-		
-		os_zero_memory(&button_info,sizeof(button_info));
-		button_info.cbSize = sizeof(button_info);
-		button_info.dwMask = TBIF_BYINDEX | TBIF_SIZE;
-		button_info.cx = (button.fsStyle & TBSTYLE_SEP) ? sep_wide : button_wide;
-		
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,buttoni,(LPARAM)&button_info);
-	}
-}
 void _viv_controls_show(int show)
 {
 	if (show)
 	{
-		if (!_viv_toolbar_hwnd)
+		if (!_viv_toolbar_high())
 		{
-			// no class brush: the strip face is painted by theme (the erase
-			// and the paint handlers below), a draw that bypasses them must
-			// not erase white (the 1.1.03 lesson: the light class brush left
-			// the slabs white whenever a paint skipped the handlers - and the
-			// register wrapper ignored this argument anyway, every class
-			// registered white; the wrapper honors its parameters now).
-			os_RegisterClassEx(
-				CS_DBLCLKS,
-				_viv_rebar_proc,
-				0,
-				LoadCursor(NULL,IDC_ARROW),
-				NULL,
-				"_VIV_REBAR",
-				0);
-
-			_viv_rebar_hwnd = os_CreateWindowEx(
-				0,
-				"_VIV_REBAR",
-				"",
-				WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | WS_VISIBLE,
-				0,0,0,0,
-				_viv_hwnd,(HMENU)VIV_ID_TOOLBAR,os_hinstance,NULL);
-
-			_viv_toolbar_hwnd = os_CreateWindowEx(
-				0,
-				TOOLBARCLASSNAMEA,
-				"",
-				WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | TBSTYLE_TRANSPARENT | TBSTYLE_LIST | TBSTYLE_FLAT | TBSTYLE_TOOLTIPS | CCS_NODIVIDER | CCS_NORESIZE | CCS_TOP,
-				0,0,0,0,
-				_viv_rebar_hwnd,(HMENU)VIV_ID_TOOLBAR,os_hinstance,NULL);
-			
-			SendMessage(_viv_toolbar_hwnd,TB_SETEXTENDEDSTYLE,0,TBSTYLE_EX_MIXEDBUTTONS|TBSTYLE_EX_HIDECLIPPEDBUTTONS|TBSTYLE_EX_DOUBLEBUFFER);
-			SendMessage(_viv_toolbar_hwnd,TB_BUTTONSTRUCTSIZE,sizeof(TBBUTTON),0);
-			
-			// the image list is built by _viv_toolbar_build_image_list() so it
-			// can be rebuilt when the window dpi or the theme changes.
-			_viv_toolbar_build_image_list();
-
-			{
-				TBBUTTON buttons[11];
-				wchar_t button_text[11][STRING_SIZE];
-				int buttoni;
-				
-				buttoni = 0;
-	
-				buttons[buttoni].iBitmap = 0;
-				buttons[buttoni].idCommand = VIV_ID_NAV_PREV;
-				buttons[buttoni].fsState = TBSTATE_ENABLED;
-				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON));
-				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
-				buttoni++;
-				
-				buttons[buttoni].iBitmap = 3;
-				buttons[buttoni].idCommand = VIV_ID_NAV_NEXT;
-				buttons[buttoni].fsState = TBSTATE_ENABLED;
-				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON));
-				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
-				buttoni++;
-	
-				buttons[buttoni].iBitmap = 0;
-				buttons[buttoni].idCommand = 0;
-				buttons[buttoni].fsState = 0;
-				buttons[buttoni].fsStyle = TBSTYLE_SEP;
-				buttons[buttoni].iString = 0;
-				buttoni++;
-				
-				buttons[buttoni].iBitmap = 1;
-				buttons[buttoni].idCommand = VIV_ID_SLIDESHOW_PLAY_ONLY;
-				buttons[buttoni].fsState = TBSTATE_ENABLED;
-				buttons[buttoni].fsStyle = TBSTYLE_BUTTON|TBSTYLE_CHECK|TBSTYLE_GROUP;
-				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_PLAY_SLIDESHOW_BUTTON));
-				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
-				buttoni++;
-	
-				buttons[buttoni].iBitmap = 2;
-				buttons[buttoni].idCommand = VIV_ID_SLIDESHOW_PAUSE_ONLY;
-				buttons[buttoni].fsState = TBSTATE_ENABLED;
-				buttons[buttoni].fsStyle = TBSTYLE_BUTTON|TBSTYLE_CHECK|TBSTYLE_GROUP;
-				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_PAUSE_SLIDESHOW_BUTTON));
-				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
-				buttoni++;
-	
-				buttons[buttoni].iBitmap = 0;
-				buttons[buttoni].idCommand = 0;
-				buttons[buttoni].fsState = 0;
-				buttons[buttoni].fsStyle = TBSTYLE_SEP;
-				buttons[buttoni].iString = 0;
-				buttoni++;
-					
-				buttons[buttoni].iBitmap = 4;
-				buttons[buttoni].idCommand = VIV_ID_VIEW_BESTFIT;
-				buttons[buttoni].fsState = TBSTATE_ENABLED;
-				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON));
-				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
-				buttoni++;				
-					
-				buttons[buttoni].iBitmap = 5;
-				buttons[buttoni].idCommand = VIV_ID_VIEW_1TO1;
-				buttons[buttoni].fsState = TBSTATE_ENABLED;
-				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON));
-				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
-				buttoni++;
-					
-				buttons[buttoni].iBitmap = 0;
-				buttons[buttoni].idCommand = 0;
-				buttons[buttoni].fsState = 0;
-				buttons[buttoni].fsStyle = TBSTYLE_SEP;
-				buttons[buttoni].iString = 0;
-				buttoni++;
-				
-				buttons[buttoni].iBitmap = 6;
-				buttons[buttoni].idCommand = VIV_ID_VIEW_ZOOM_OUT;
-				buttons[buttoni].fsState = TBSTATE_ENABLED;
-				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_ZOOM_OUT_BUTTON));
-				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
-				buttoni++;
-				
-				buttons[buttoni].iBitmap = 7;
-				buttons[buttoni].idCommand = VIV_ID_VIEW_ZOOM_IN;
-				buttons[buttoni].fsState = TBSTATE_ENABLED;
-				buttons[buttoni].fsStyle = TBSTYLE_BUTTON;
-				string_copy_utf8_string(button_text[buttoni],localization_get_string(LOCALIZATION_ID_TOOLBAR_ZOOM_IN_BUTTON));
-				buttons[buttoni].iString = (INT_PTR)button_text[buttoni];
-				buttoni++;
-				
-				SendMessage(_viv_toolbar_hwnd,TB_ADDBUTTONS,11,(LPARAM)buttons);
-				
-				// larger buttons on touch devices.
-				if (os_is_touch_available())
-				{
-					SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONSIZE,0,MAKELPARAM((44 * os_logical_wide) / 96,(36 * os_logical_high) / 96));
-				}
-				
-				// uniform button widths from the start: the comctl auto
-				// sizes must never own the spacing.
-				_viv_toolbar_pin_button_sizes();
-			}
-
-			_viv_toolbar_update_buttons();
-			ShowWindow(_viv_toolbar_hwnd,SW_SHOW);
+			// the remade strip: one self drawn window, the comctl toolbar,
+			// its image list and the pinned widths are gone.
+			_viv_toolbar_create(_viv_hwnd);
 		}
 	}
 	else
 	{
-		if (_viv_toolbar_hwnd)
-		{
-			DestroyWindow(_viv_toolbar_hwnd);
-			DestroyWindow(_viv_rebar_hwnd);
-
-			_viv_toolbar_hwnd = 0;
-			_viv_rebar_hwnd = 0;
-		}	
-		
-		if (_viv_toolbar_image_list)
-		{
-			ImageList_Destroy(_viv_toolbar_image_list);
-			
-			_viv_toolbar_image_list = 0;
-		}
+		_viv_toolbar_destroy();
 	}
-	
+
 	_viv_on_size();
 }
+// the playlist position of the loaded file, for the index pane. the walk
+// is cached on the fd pointer, so a steady image costs one compare.
+static int _viv_status_nav_index(void)
+{
+	static const WIN32_FIND_DATA *last_fd;
+	static int last_index;
+	_viv_playlist_t *item;
+	int index;
+
+	if (_viv_playlist_count <= 1)
+	{
+		return 0;
+	}
+
+	if ((last_fd == _viv_frame_fd) && (last_index))
+	{
+		return last_index;
+	}
+
+	index = 1;
+
+	for(item=_viv_playlist_start;item;item=item->next,index++)
+	{
+		if ((&item->fd == _viv_frame_fd) || (string_compare(item->fd.cFileName,_viv_frame_fd->cFileName) == 0))
+		{
+			last_fd = _viv_frame_fd;
+			last_index = index;
+
+			return index;
+		}
+	}
+
+	last_fd = _viv_frame_fd;
+	last_index = 0;
+
+	return 0;
+}
+
 void _viv_status_update(void)
 {
 	if (_viv_status_hwnd)
 	{
-		int part_array[7];
+		int part_array[_VIV_STATUS_PART_MAX];
 		RECT rect;
 		wchar_t widebuf[STRING_SIZE];
 		wchar_t highbuf[STRING_SIZE];
@@ -1138,6 +1134,7 @@ void _viv_status_update(void)
 		wchar_t pixel_rgb_buf[STRING_SIZE];
 		wchar_t preload_buf[STRING_SIZE];
 		wchar_t zoom_buf[STRING_SIZE];
+		wchar_t date_buf[STRING_SIZE];
 		HDC hdc;
 		int dimension_wide;
 		int frame_wide;
@@ -1145,6 +1142,7 @@ void _viv_status_update(void)
 		int pixel_pos_wide;
 		int pixel_rgb_wide;
 		int zoom_wide;
+		int date_wide;
 		int minwide;
 		
 		GetClientRect(_viv_hwnd,&rect);
@@ -1281,15 +1279,32 @@ void _viv_status_update(void)
 			string_copy_utf8_string(preload_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PRELOAD));
 		}
 
+		// the file time pane: the local last-modified stamp of the loaded
+		// file (the remake status row: rgb and the date at the right edge).
+		*date_buf = 0;
+
+		if (*_viv_frame_fd->cFileName)
+		{
+			FILETIME local_filetime;
+			SYSTEMTIME systemtime;
+
+			if (FileTimeToLocalFileTime(&_viv_frame_fd->ftLastWriteTime,&local_filetime) &&
+			    FileTimeToSystemTime(&local_filetime,&systemtime))
+			{
+				string_printf(date_buf,L"%04u/%02u/%02u %02u:%02u",systemtime.wYear,systemtime.wMonth,systemtime.wDay,systemtime.wHour,systemtime.wMinute);
+			}
+		}
+
 		if (config_pixel_info)
 		{
 			if ((_viv_src_pixel_x >= 0) && (_viv_src_pixel_y >= 0))
 			{		
 				string_printf(pixel_pos_buf,"POS: %d,%d",_viv_src_pixel_x,_viv_src_pixel_y);
-				string_printf(pixel_rgb_buf,"RGB: %d,%d,%d",_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
+				string_printf(pixel_rgb_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT),_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
 			}
 		}
 		
+		date_wide = 0;
 		dimension_wide = 0;
 		frame_wide = 0;
 		preload_wide = 0;
@@ -1368,6 +1383,14 @@ void _viv_status_update(void)
 							zoom_wide = minwide;
 						}
 					}
+
+					if (*date_buf)
+					{
+						if (GetTextExtentPoint32(hdc,date_buf,string_get_length(date_buf),&size))
+						{
+							date_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+						}
+					}
 				}
 
 				SelectObject(hdc,last_font);
@@ -1406,7 +1429,7 @@ void _viv_status_update(void)
 			// wider than the bar, the optional right panes give way, widest
 			// last, so the dimension text clips instead of vanishing off the
 			// edge of the window.
-			while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide > avail_wide)
+			while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide + date_wide > avail_wide)
 			&& (frame_wide || pixel_rgb_wide || pixel_pos_wide))
 			{
 				if (frame_wide)
@@ -1417,6 +1440,11 @@ void _viv_status_update(void)
 				if (pixel_rgb_wide)
 				{
 					pixel_rgb_wide = 0;
+				}
+				else
+				if (date_wide)
+				{
+					date_wide = 0;
 				}
 				else
 				{
@@ -1448,7 +1476,7 @@ void _viv_status_update(void)
 			}
 			
 			// the message pane flexes between the left and right clusters.
-			flex_wide = avail_wide - zoom_wide - preload_wide - dimension_wide - frame_wide - pixel_pos_wide - pixel_rgb_wide;
+			flex_wide = avail_wide - zoom_wide - preload_wide - dimension_wide - frame_wide - pixel_pos_wide - pixel_rgb_wide - date_wide;
 			
 			if (flex_wide < 0)
 			{
@@ -1476,6 +1504,14 @@ void _viv_status_update(void)
 				parti++;
 			}
 			
+			if (date_wide)
+			{
+				part_array[parti] = part_array[parti - 1] + date_wide;
+				parti++;
+			}
+
+			// the last pane: the file date, pinned to the bottom right (a
+			// -1 right edge extends to the window edge).
 			// the last pane: the resolution, pinned to the bottom right (a
 			// -1 right edge extends to the window edge).
 			part_array[parti] = -1;
@@ -1516,6 +1552,26 @@ void _viv_status_update(void)
 			if (_viv_is_slideshow)
 			{
 				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING));
+				text = text_buf;
+			}
+			else
+			if (*_viv_frame_fd->cFileName)
+			{
+				int nav_index;
+
+				nav_index = _viv_status_nav_index();
+
+				if (nav_index > 0)
+				{
+					string_printf(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT),nav_index,_viv_playlist_count);
+					string_cat_utf8(text_buf,(const utf8_t *)"  ");
+					string_cat(text_buf,_viv_frame_fd->cFileName);
+				}
+				else
+				{
+					string_copy(text_buf,_viv_frame_fd->cFileName);
+				}
+
 				text = text_buf;
 			}
 		
@@ -1559,6 +1615,12 @@ void _viv_status_update(void)
 			if (frame_wide)
 			{
 				_viv_status_set(parti,frame_buf);
+				parti++;
+			}
+
+			if (date_wide)
+			{
+				_viv_status_set(parti,date_buf);
 				parti++;
 			}
 			
@@ -1688,444 +1750,9 @@ int _viv_get_status_high(void)
 }
 int _viv_get_controls_high(void)
 {
-	if (_viv_toolbar_hwnd)
-	{
-		int controls_high;
-	
-		// larger toolbar on touch devices.
-		controls_high = os_is_touch_available() ? 44 : 32;
-	
-		return (controls_high * os_logical_high) / 96;
-	}
-	
-	return 0;
-}
-static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
-	switch (msg) 
-	{	
-		case WM_LBUTTONDOWN:
-			
-			if (config_toolbar_move_window)
-			{
-				_viv_start_move_window();
-				
-				return 0;
-			}
-			
-			break;
-			
-		case WM_NOTIFY:
-
-			switch(((NMHDR *)lParam)->idFrom)
-			{
-				case VIV_ID_TOOLBAR:
-
-					if (_viv_toolbar_hwnd)
-					{
-						switch(((NMHDR *)lParam)->code)
-						{
-							case NM_CUSTOMDRAW:
-							{
-								switch(((NMTBCUSTOMDRAW *)lParam)->nmcd.dwDrawStage)
-								{
-									case CDDS_PREPAINT:	
-									{
-										RECT rect;
-										GetClientRect(_viv_toolbar_hwnd,&rect);
-										// the strip follows the theme: the light menu face, or the dark chrome face.
-										FillRect(((NMTBCUSTOMDRAW *)lParam)->nmcd.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU+1));
-										return CDRF_NOTIFYITEMDRAW;
-									}
-									case CDDS_ITEMPREPAINT:
-									{
-										NMTBCUSTOMDRAW *draw;
-										DWORD state;
-										
-										draw = (NMTBCUSTOMDRAW *)lParam;
-										
-										// the button states (hover, pressed, checked) draw with the light
-										// toolbar theme on every build: the comctl toolbar has no dark
-										// explorer variant, so the play/pause toggle showed the light
-										// blue highlight over the dark strip (the field report). paint
-										// the states ourselves and hand the icon back to the control.
-										if ((_viv_is_dark()) && (draw->nmcd.dwItemSpec))
-										{
-											state = draw->nmcd.uItemState;
-											
-											if (state & (CDIS_HOT | CDIS_SELECTED | CDIS_CHECKED))
-											{
-												FillRect(draw->nmcd.hdc,&draw->nmcd.rc,_viv_dark_chrome_brush(1));
-											}
-											
-											// TBCDRF_NOEDGES (0x00010000) | TBCDRF_NOMARK (0x00080000) |
-											// TBCDRF_NOBACKGROUND (0x00400000): keep the control from drawing
-											// its light edges, highlight mark and button background over
-											// the dark strip. the icon draws on our fill.
-											return CDRF_DODEFAULT | 0x00010000 | 0x00080000 | 0x00400000;
-										}
-										
-										break;
-									}
-								}
-								
-								break;
-							}
-						}
-					}
-	
-					break;
-			}
-			
-			break;
-
-			
-		case WM_COMMAND:
-			return SendMessage(_viv_hwnd,WM_COMMAND,wParam,lParam);
-			
-		case WM_PAINT:
-		{
-			RECT rect;
-			int wide;
-			int high;
-			PAINTSTRUCT ps;
-			
-			GetClientRect(hwnd,&rect);
-			wide = rect.right - rect.left;
-			high = rect.bottom - rect.top;
-
-			BeginPaint(hwnd,&ps);
-			
-			// the strip and its two separator lines follow the theme. the
-			// dark palette matches the zoom bar (face 0x252525, lines
-			// 0x454545 shadow / 0x707070 highlight); the light palette is the
-					// menu face with flat soft lines instead of the 3d etch, so both
-					// themes read as one chrome band above the canvas.
-			rect.left = 0;
-			rect.top = 0;
-			rect.right = wide;
-			rect.bottom = 1;
-			
-//			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(1) : _viv_light_chrome_brush(0));
-			
-			rect.left = 0;
-			rect.top = 1;
-			rect.right = wide;
-			rect.bottom = 2;
-			
-//			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(2) : _viv_light_chrome_brush(1));
-			
-			rect.left = 0;
-			rect.top = 2;
-			rect.right = wide;
-			rect.bottom = high;
-			
-//			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU + 1));
-			
-			EndPaint(hwnd,&ps);
-			
-			return 0;
-		}
-			
-		case WM_ERASEBKGND:
-		{
-			RECT rect;
-			
-			// erase with the strip face: the comctl transparent toolbar
-			// and its back buffers ask the parent to paint the background
-			// (an erase that claims to be handled without painting would
-			// leave a fresh white buffer behind the buttons).
-			GetClientRect(hwnd,&rect);
-			
-			FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU+1));
-			
-			return 1;
-		}
-	}
-	
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
-static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
-	switch (msg) 
-	{	
-		case WM_ERASEBKGND:
-		{
-			RECT rect;
-			
-				// the comctl status class paints its own face from the light
-				// palette even under the dark theme class (the field report: the
-				// flat light slab under the dark canvas). the strip erases with
-				// the dark face in the dark ui; the owner drawn panes paint over
-				// it and the light ui keeps the native face.
-				GetClientRect(hwnd,&rect);
-				
-				FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dialog_dark_brush() : (HBRUSH)(COLOR_BTNFACE + 1));
-				
-				return 1;
-		}
-		
-		case WM_PAINT:
-		{
-			LRESULT result;
-			
-			// the control paints the panes, the sunken top edge and the
-			// size grip. in the dark ui the edge and the grip are the two
-			// bits left light: repaint them with the chrome palette after
-			// the native pass, so the bottom band reads as one dark chrome.
-			result = CallWindowProc(_viv_old_status_proc,hwnd,msg,wParam,lParam);
-			
-			if (_viv_is_dark())
-			{
-				RECT client_rect;
-				RECT rect;
-				HDC hdc;
-				int wide;
-				
-				hdc = GetDC(hwnd);
-				
-				if (hdc)
-				{
-					GetClientRect(hwnd,&client_rect);
-					wide = client_rect.right - client_rect.left;
-					
-					// the top edge: the same pair the rebar strip draws
-					// (shadow over highlight), so the two bands read as one.
-					rect.left = 0;
-					rect.top = 0;
-					rect.right = wide;
-					rect.bottom = 1;
-					FillRect(hdc,&rect,_viv_dark_chrome_brush(1));
-					
-					rect.top = 1;
-					rect.bottom = 2;
-					FillRect(hdc,&rect,_viv_dark_chrome_brush(2));
-					
-					// the size grip: the native one paints light dots. repaint
-					// the box with the dark face and dot it ourselves, only when
-					// the native one is up (the parent is resizable and not
-					// maximized - the control suppresses it otherwise).
-					if (((GetWindowLong(_viv_hwnd,GWL_STYLE)) & WS_THICKFRAME) && (!IsZoomed(_viv_hwnd)) && (!_viv_is_fullscreen))
-					{
-						RECT grip_rect;
-						int grip_wide;
-						int grip_high;
-						int step;
-						int dot_x;
-						int dot_y;
-						
-						grip_wide = GetSystemMetrics(SM_CXVSCROLL);
-						grip_high = GetSystemMetrics(SM_CYVSCROLL);
-						
-						if ((grip_wide > 0) && (grip_high > 0) && (grip_wide < wide) && (grip_high < (client_rect.bottom - client_rect.top)))
-						{
-							grip_rect.left = client_rect.right - grip_wide;
-							grip_rect.top = client_rect.bottom - grip_high;
-							grip_rect.right = client_rect.right;
-							grip_rect.bottom = client_rect.bottom;
-							
-							FillRect(hdc,&grip_rect,_viv_dialog_dark_brush());
-							
-							step = (grip_wide < grip_high) ? (grip_wide / 6) : (grip_high / 6);
-							
-							if (step < 2)
-							{
-								step = 2;
-							}
-							
-							// the classic triangle of dots anchored at the corner.
-							for(dot_x=0;dot_x<3;dot_x++)
-							{
-								for(dot_y=0;dot_y<(3 - dot_x);dot_y++)
-								{
-									SetPixel(hdc,grip_rect.right - 2 - (dot_x * step),grip_rect.bottom - 2 - (dot_y * step),RGB(0x9A,0x9A,0x9A));
-								}
-							}
-						}
-					}
-					
-					ReleaseDC(hwnd,hdc);
-				}
-			}
-			
-			return result;
-		}
-		
-		case WM_DRAWITEM:
-		
-			// the owner drawn panes (defensive route: see _viv_status_draw_item).
-			if (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam))
-			{
-				return 1;
-			}
-		
-			break;
-		
-		case WM_LBUTTONDOWN:
-		
-			if (config_toolbar_move_window)
-			{
-				if (os_statusbar_index_from_x(hwnd,GET_X_LPARAM(lParam)) == 0)
-				{
-					_viv_start_move_window();
-
-					return 0;
-				}
-			}
-			
-			break;
-	}
-	
-	return CallWindowProc(_viv_old_status_proc,hwnd,msg,wParam,lParam);
-}
-int _viv_toolbar_get_wide(void)
-{
-	if (_viv_toolbar_hwnd)
-	{
-		SIZE size;
-		
-		// the official window query: tb_getmaxsize returns the total size
-		// of all the visible buttons and separators - the width the toolbar
-		// actually needs (wm_user + 83, every comctl since 5.80). the content
-		// scan below it returns the union of the item rects, which loses the
-		// first item's left inset twice against the window the toolbar needs:
-		// the rightmost button could hide (hideclippedbuttons) and the slab
-		// behind the strip widened - the band the field saw right of the
-		// buttons. a failure or a zero (the pre 5.80 comctl sets) falls back
-		// to the scan.
-		if (SendMessage(_viv_toolbar_hwnd,TB_GETMAXSIZE,0,(LPARAM)&size))
-		{
-			if (size.cx > 0)
-			{
-				return size.cx;
-			}
-		}
-		
-		{
-		DWORD count;
-		DWORD button_index;
-		int min_x;
-		int max_x;
-		int got_x;
-		
-		count = (DWORD)SendMessage(_viv_toolbar_hwnd,TB_BUTTONCOUNT,0,0);
-		got_x = 0;
-		
-		for(button_index=0;button_index<count;button_index++)
-		{
-		    RECT button_rect;
-		    
-		    if (SendMessage(_viv_toolbar_hwnd,TB_GETITEMRECT,button_index,(LPARAM)&button_rect))
-		    {
-				if (got_x)
-				{
-					if (button_rect.left < min_x)
-					{
-						min_x = button_rect.left;
-					}
-
-					if (button_rect.right > max_x)
-					{
-						max_x = button_rect.right;
-					}
-				}
-				else
-				{
-					min_x = button_rect.left;
-					max_x = button_rect.right;
-					
-					got_x = 1;
-				}
-		    }
-		}
-		
-		if (got_x)
-		{
-			return max_x - min_x;
-		}
-
-/*		
-{
-	TBMETRICS tbmetrics;
-	DWORD button_size;
-	
-	os_zero_memory(&tbmetrics,sizeof(TBMETRICS));
-	
-	tbmetrics.cbSize = sizeof(TBMETRICS);
-	tbmetrics.dwMask = TBMF_PAD | TBMF_BARPAD | TBMF_BUTTONSPACING;
-	
-	SendMessage(_viv_toolbar_hwnd,TB_GETMETRICS,0,(LPARAM)&tbmetrics);
-
-	debug_printf("TB_GETMETRICS cbSize %u %u %p\n",tbmetrics.cbSize,sizeof(TB_GETMETRICS),&tbmetrics);
-	debug_printf("TB_GETMETRICS dwMask %u\n",tbmetrics.dwMask);
-	debug_printf("TB_GETMETRICS cxPad %d\n",tbmetrics.cxPad);
-	debug_printf("TB_GETMETRICS cyPad %d\n",tbmetrics.cyPad);
-	debug_printf("TB_GETMETRICS cxBarPad %d\n",tbmetrics.cxBarPad);
-	debug_printf("TB_GETMETRICS cyBarPad %d\n",tbmetrics.cyBarPad);
-	debug_printf("TB_GETMETRICS cxButtonSpacing %d\n",tbmetrics.cxButtonSpacing);
-	debug_printf("TB_GETMETRICS cyButtonSpacing %d\n",tbmetrics.cyButtonSpacing);
-	
-	button_size = SendMessage(_viv_toolbar_hwnd,TB_GETBUTTONSIZE,0,0);
-	debug_printf("TB_GETBUTTONSIZE wide %u\n",LOWORD(button_size));
-	debug_printf("TB_GETBUTTONSIZE high %u\n",HIWORD(button_size));
-	
-	if (SendMessage(_viv_toolbar_hwnd,TB_GETMAXSIZE,0,(LPARAM)&size))
-	{
-		debug_printf("TB_GETMAXSIZE wide %u\n",size.cx);
-		debug_printf("TB_GETMAXSIZE high %u\n",size.cy);
-	}	
-}*/
-
-/*
-		SIZE size;
-		
-		// doesn't work at all on win9x / older than common controls v6 
-		if (SendMessage(_viv_toolbar_hwnd,TB_GETMAXSIZE,0,(LPARAM)&size))
-		{
-			return size.cx;
-		}*/
-		}
-	}
-	
-	return 0;
-}
-void _viv_toolbar_update_buttons(void)
-{
-	if (_viv_toolbar_hwnd)
-	{
-		TBBUTTONINFO tbbinfo;
-		int rw;
-		int rh;
-		
-		tbbinfo.cbSize = sizeof(TBBUTTONINFO);
-		tbbinfo.dwMask = TBIF_STATE;
-		tbbinfo.fsState = _viv_is_slideshow ? (TBSTATE_ENABLED | TBSTATE_CHECKED) : (TBSTATE_ENABLED);
-		
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_SLIDESHOW_PLAY_ONLY,(LPARAM)&tbbinfo);
-		
-		tbbinfo.cbSize = sizeof(TBBUTTONINFO);
-		tbbinfo.dwMask = TBIF_STATE;
-		tbbinfo.fsState = _viv_is_slideshow ? (TBSTATE_ENABLED) : (TBSTATE_ENABLED | TBSTATE_CHECKED);
-		
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_SLIDESHOW_PAUSE_ONLY,(LPARAM)&tbbinfo);
-		
-		_viv_get_render_size(&rw,&rh);
-		
-		tbbinfo.cbSize = sizeof(TBBUTTONINFO);
-		tbbinfo.dwMask = TBIF_STATE;
-		tbbinfo.fsState = ((rw == _viv_image_wide) && (rh == _viv_image_high)) ? (0) : (TBSTATE_ENABLED);
-		
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_VIEW_1TO1,(LPARAM)&tbbinfo);
-		
-		tbbinfo.cbSize = sizeof(TBBUTTONINFO);
-		tbbinfo.dwMask = TBIF_STATE;
-		tbbinfo.fsState = ((_viv_zoom_pos == 0) && (!_viv_1to1)) ? (0) : (TBSTATE_ENABLED);
-		
-		SendMessage(_viv_toolbar_hwnd,TB_SETBUTTONINFO,VIV_ID_VIEW_BESTFIT,(LPARAM)&tbbinfo);
-	}
+	// the window fit math only wants the strip height; the strip owns
+	// the touch scaling now.
+	return _viv_toolbar_high();
 }
 static LRESULT CALLBACK _viv_fullscreen_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {

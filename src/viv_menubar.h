@@ -42,6 +42,8 @@ void _viv_menubar_repaint(void);
 // the keyboard entry points: wm_syschar (alt + mnemonic) returns 1 when
 // the key opened a menu, wm_syskeydown f10 opens the first one.
 int _viv_menubar_open_mnemonic(int key);
+void _viv_menubar_idle_pump(void);
+void _viv_menubar_kill(void);
 void _viv_menubar_open_first(void);
 
 #endif // VIV_MENUBAR_H

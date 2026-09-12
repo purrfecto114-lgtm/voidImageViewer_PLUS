@@ -207,6 +207,14 @@ static HMONITOR (WINAPI *_os_MonitorFromPoint)(POINT pt,DWORD dwFlags) = 0;
 
 // windows 10 1607+: per window dpi query, used by os_window_update_dpi().
 static UINT (WINAPI *_os_GetDpiForWindow)(HWND hwnd) = 0;
+// windows 10 1703+: process wide dpi awareness claim, used when the
+// embedded manifest is missing or was stripped.
+static BOOL (WINAPI *_os_SetProcessDpiAwarenessContext)(HANDLE context) = 0;
+// windows 10 1607+: per thread dpi awareness claim, same purpose.
+static HANDLE (WINAPI *_os_SetThreadDpiAwarenessContext)(HANDLE context) = 0;
+// windows 8.1: shcore fallback.
+static HRESULT (WINAPI *_os_SetProcessDpiAwareness)(int value) = 0;
+static HMODULE _os_shcore_hmodule = 0;
 
 // windows 10 1607+: dpi aware system parameters, used by os_menu_font().
 static BOOL (WINAPI *_os_SystemParametersInfoForDpi)(UINT action,UINT param,void *pvparam,UINT winini,UINT dpi) = 0;
@@ -938,6 +946,48 @@ void os_init(void)
 		_os_MonitorFromPoint = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromPoint");
 		_os_GetDpiForWindow = (void *)GetProcAddress(_os_user32_hmodule,"GetDpiForWindow");
 		_os_SystemParametersInfoForDpi = (void *)GetProcAddress(_os_user32_hmodule,"SystemParametersInfoForDpi");
+		_os_SetThreadDpiAwarenessContext = (void *)GetProcAddress(_os_user32_hmodule,"SetThreadDpiAwarenessContext");
+		_os_SetProcessDpiAwarenessContext = (void *)GetProcAddress(_os_user32_hmodule,"SetProcessDpiAwarenessContext");
+	}
+
+	// dpi awareness: the embedded manifest normally declares per monitor
+	// v2 (res/voidImageViewer.Manifest, merged by the vs linker through
+	// AdditionalManifestFiles; a viv.exe.manifest next to the exe covers
+	// manifest-less builds). the runtime claim below is the safety net
+	// for a manifest-less binary (repackaged or stripped exes): without
+	// it the process stays dpi unaware, the system bitmap-stretches every
+	// window at high dpi and the ui turns blurry and oversized.
+	// the claim must happen before the first window exists: os_init is
+	// exactly that point, and the GetProcAddress block above must come
+	// first -- this used to sit before the pointers were resolved and
+	// silently never fired.
+	// each tier is a guarded no-op on systems without the api:
+	// win10 1703+ process wide, win10 1607+ per thread (covers the ui
+	// thread this process creates every window on), win 8.1 shcore
+	// process claim, win 7 keeps the classic system dpi aware behavior.
+	if (_os_SetProcessDpiAwarenessContext)
+	{
+		// DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = ((DPI_CONTEXT_HANDLE)-4)
+		_os_SetProcessDpiAwarenessContext((HANDLE)-4);
+	}
+	else if (_os_SetThreadDpiAwarenessContext)
+	{
+		_os_SetThreadDpiAwarenessContext((HANDLE)-4);
+	}
+	else
+	{
+		_os_shcore_hmodule = LoadLibraryA("shcore.dll");
+
+		if (_os_shcore_hmodule)
+		{
+			_os_SetProcessDpiAwareness = (void *)GetProcAddress(_os_shcore_hmodule,"SetProcessDpiAwareness");
+
+			// PROCESS_PER_MONITOR_DPI_AWARE = 2.
+			if (_os_SetProcessDpiAwareness)
+			{
+				_os_SetProcessDpiAwareness(2);
+			}
+		}
 	}
 
 	_os_UxTheme_hmodule = LoadLibraryA("UxTheme.dll");
@@ -1690,6 +1740,26 @@ void os_window_modern_chrome(HWND hwnd,COLORREF caption_color)
 	_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));
 }
 
+// the popup menu layer gets the modern treatment too: rounded corners and
+// a themed border, when the dwm supports the attributes (win 11; a silent
+// no-op on earlier windows).
+void os_menu_modern_chrome(HWND hwnd,COLORREF border_color)
+{
+	int round;
+
+	if ((!_os_DwmSetWindowAttribute) || (!hwnd))
+	{
+		return;
+	}
+
+	// DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2.
+	round = 2;
+	_os_DwmSetWindowAttribute(hwnd,33,&round,sizeof(round));
+
+	// DWMWA_BORDER_COLOR = 34: a COLORREF in the native 0x00BBGGRR layout.
+	_os_DwmSetWindowAttribute(hwnd,34,&border_color,sizeof(border_color));
+}
+
 // re-read the system theme after a WM_SETTINGCHANGE.
 void os_dark_refresh(void)
 {
@@ -2364,8 +2434,10 @@ int os_get_orientation(const wchar_t *filename)
 	
 	ret = 0;
 	
+#ifdef _MSC_VER
 	__try
 	{
+#endif
 		if (_os_SHGetPropertyStoreFromIDList)
 		{
 			ITEMIDLIST *pidl;
@@ -2432,11 +2504,13 @@ int os_get_orientation(const wchar_t *filename)
 		{
 			debug_printf((const utf8_t *)"no SHGetPropertyStoreFromIDList\n")	;
 		}
+#ifdef _MSC_VER
 	}
 	__except(EXCEPTION_EXECUTE_HANDLER)
 	{
 		debug_printf((const utf8_t *)"IPropertyStore::GetValue exception %08x\n",GetExceptionCode());
 	}
+#endif
 	
 	return ret;
 }

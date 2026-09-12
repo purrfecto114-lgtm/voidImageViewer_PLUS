@@ -56,7 +56,7 @@ typedef struct _ini_s
 
 }_ini_t;
 
-static int _ini_keyvalue_compare(const _ini_keyvalue_t *a,const _ini_keyvalue_t *b);
+static int _ini_keyvalue_compare(const void *va,const void *vb);
 static _ini_keyvalue_t *_ini_keyvalue_find(ini_t *ini,const utf8_t *key);
 
 ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section)
@@ -439,13 +439,18 @@ static _ini_keyvalue_t *_ini_keyvalue_find(ini_t *ini,const utf8_t *key)
 }
 
 // compare two key values.
-static int _ini_keyvalue_compare(const _ini_keyvalue_t *a,const _ini_keyvalue_t *b)
+static int _ini_keyvalue_compare(const void *va,const void *vb)
 {
+	const _ini_keyvalue_t *a;
+	const _ini_keyvalue_t *b;
 	int i;
+
+	a = (_ini_keyvalue_t *)va;
+	b = (_ini_keyvalue_t *)vb;
 
 	i = utf8_compare(a->key,b->key);
 	if (i) return i;
-	
+
 	return a->index - b->index;
 }
 

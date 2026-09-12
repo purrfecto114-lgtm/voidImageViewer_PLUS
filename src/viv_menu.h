@@ -39,4 +39,23 @@ void _viv_key_list_init(_viv_key_list_t *list);
 int _viv_get_current_key_mod_flags(void);
 void _viv_key_remove(_viv_key_list_t *keylist,int command_index,DWORD keyflags);
 
+// owner drawn popup rows (viv_wndproc dispatches the messages here).
+// the row types and pools are part of the contract: the builders in the
+// menu, recent and context domains allocate rows, the painters here
+// resolve them back to live text at draw time.
+#define _VIV_MENU_DRAW_COMMAND		0
+#define _VIV_MENU_DRAW_POPUP		1
+#define _VIV_MENU_DRAW_SEPARATOR	2
+#define _VIV_MENU_DRAW_RECENT		3
+#define _VIV_MENU_DRAW_LOCALIZED	4
+
+#define _VIV_MENU_POOL_MAIN		0
+#define _VIV_MENU_POOL_RECENT		1
+#define _VIV_MENU_POOL_CONTEXT		2
+void *_viv_menu_row_alloc(int pool,int type,int command_index,int localization_id,int recent_index);
+void _viv_menu_row_pool_reset(int pool);
+int _viv_menu_measure_item(MEASUREITEMSTRUCT *measure_item);
+int _viv_menu_draw_item(DRAWITEMSTRUCT *draw_item);
+int _viv_menu_char_item(HMENU hmenu,wchar_t ch,int popup);
+
 #endif

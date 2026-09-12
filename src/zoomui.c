@@ -21,23 +21,31 @@
 //
 // Floating zoom controls (touch friendly) implementation.
 //
-// windowed mode keeps the signature two button pill (zoom out / zoom in)
-// in the bottom right corner. fullscreen mode grows the bar to six
-// buttons (prev / play / pause / next / zoom out / zoom in) centered at
-// the bottom, drawn on a WS_EX_LAYERED child window: after two idle
-// seconds the bar fades out in 15ms alpha steps and any mouse, key or
-// command activity fades it back in. on windows 7, where layered child
-// windows are not supported, the bar hides without the fade.
+// one seven cell row serves both modes now: prev / play-pause / next, a
+// hairline separator, then zoom out / zoom percent / zoom in. the row is
+// horizontally centered at the bottom of the image area in windowed mode
+// and in fullscreen alike, drawn on a WS_EX_LAYERED child window. the
+// percent cell is a plain text cell: it reads the zoom ladder value at
+// the current position with the same nearest integer rounding the status
+// bar zoom pane uses, has no hover, no click and no tooltip, and is only
+// HTCLIENT so clicks on it never fall through to the image. after two
+// idle seconds in fullscreen the bar fades out in 15ms alpha steps and
+// any mouse, key or command activity fades it back in. on windows 7,
+// where layered child windows are not supported, the bar hides without
+// the fade.
 //
 // single window self drawn pill (no embedded BUTTON child windows): one
-// WS_CHILD window paints the stadium tray and every capsule button in
+// WS_CHILD window paints the stadium tray and every capsule cell in
 // WM_PAINT, tracks hover / press with capture + hit testing, fires the
 // real commands with WM_COMMAND, hosts one rect based tooltip, and
-// answers HTTRANSPARENT outside the buttons so the rounded corners and
-// the tray gaps never eat clicks. no Mica, plain GDI only.
+// answers HTTRANSPARENT outside the button and percent cells so the
+// rounded corners and the tray gaps never eat clicks. no Mica, plain GDI
+// only.
 
 #include "viv.h"
 #include "zoomui.h"
+#include "viv_state.h"
+#include "viv_chrome.h"
 
 // per monitor dpi change message. (not defined in older SDKs)
 #ifndef WM_DPICHANGED
@@ -53,41 +61,46 @@
 #define BN_CLICKED 0
 #endif
 
-// master button table: the order matches the toolbar image list order.
-// the fullscreen bar uses all six entries; windowed mode uses the last
-// two only (the rc.1 signature pill).
-#define _ZOOMUI_BUTTON_COUNT_MAX 6
-#define _ZOOMUI_WINDOWED_FIRST 4
-#define _ZOOMUI_WINDOWED_COUNT 2
+// the seven cells of the row, left to right. the same row serves
+// windowed mode and fullscreen: the mode only decides the idle fade.
+#define _ZOOMUI_CELL_COUNT 7
+#define _ZOOMUI_CELL_PREV 0
+#define _ZOOMUI_CELL_PLAYPAUSE 1
+#define _ZOOMUI_CELL_NEXT 2
+#define _ZOOMUI_CELL_SEP 3
+#define _ZOOMUI_CELL_ZOOMOUT 4
+#define _ZOOMUI_CELL_PCT 5
+#define _ZOOMUI_CELL_ZOOMIN 6
 
-static const int _zoomui_command_ids[_ZOOMUI_BUTTON_COUNT_MAX] =
+// command ids for the fixed button cells. the play/pause cell resolves
+// its command from the slideshow state at fire time (play when stopped,
+// pause when running), the separator and the percent cell never fire.
+#define _ZOOMUI_CELL_COMMAND_NONE 0
+
+static const int _zoomui_cell_command_ids[_ZOOMUI_CELL_COUNT] =
 {
 	VIV_ID_NAV_PREV,
-	VIV_ID_SLIDESHOW_PLAY_ONLY,
-	VIV_ID_SLIDESHOW_PAUSE_ONLY,
+	_ZOOMUI_CELL_COMMAND_NONE,
 	VIV_ID_NAV_NEXT,
+	_ZOOMUI_CELL_COMMAND_NONE,
 	VIV_ID_VIEW_ZOOM_OUT,
+	_ZOOMUI_CELL_COMMAND_NONE,
 	VIV_ID_VIEW_ZOOM_IN,
 };
 
-static const localization_id_t _zoomui_tooltip_localization_ids[_ZOOMUI_BUTTON_COUNT_MAX] =
-{
-	LOCALIZATION_ID_ZOOMUI_TOOLTIP_PREV,
-	LOCALIZATION_ID_ZOOMUI_TOOLTIP_PLAY,
-	LOCALIZATION_ID_ZOOMUI_TOOLTIP_PAUSE,
-	LOCALIZATION_ID_ZOOMUI_TOOLTIP_NEXT,
-	LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_OUT,
-	LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_IN,
-};
+// glyphs for the fixed cells. the play/pause cell picks GLYPH_PLAY or
+// GLYPH_PAUSE at paint time from the slideshow state; the separator and
+// the percent cell draw no glyph at all.
+#define _ZOOMUI_CELL_GLYPH_NONE 0
 
-// vector glyphs shared with the toolbar (drawn at any size, both themes).
-static const int _zoomui_glyph_ids[_ZOOMUI_BUTTON_COUNT_MAX] =
+static const int _zoomui_cell_glyph_ids[_ZOOMUI_CELL_COUNT] =
 {
 	GLYPH_PREV,
-	GLYPH_PLAY,
-	GLYPH_PAUSE,
+	_ZOOMUI_CELL_GLYPH_NONE,
 	GLYPH_NEXT,
+	_ZOOMUI_CELL_GLYPH_NONE,
 	GLYPH_ZOOMOUT,
+	_ZOOMUI_CELL_GLYPH_NONE,
 	GLYPH_ZOOMIN,
 };
 
@@ -98,23 +111,35 @@ static const int _zoomui_glyph_ids[_ZOOMUI_BUTTON_COUNT_MAX] =
 #define _ZOOMUI_ALPHA_OPAQUE 255
 #define _ZOOMUI_IDLE_MS 2000         // idle before the fade out starts.
 
+// percent / play state poll. zoom changes that do not pass through the
+// pill (mouse wheel, pinch, the set zoom dialog) leave no message trace
+// in this window, so the text cell refreshes itself from the ladder on
+// a short poll instead.
+#define _ZOOMUI_PCT_TIMER_ID 2
+#define _ZOOMUI_PCT_POLL_INTERVAL 150 // ms between percent state checks.
+
 static HWND _zoomui_hwnd = 0;
 static HWND _zoomui_parent_hwnd = 0;
 static HWND _zoomui_tooltip_hwnd = 0;
 
-static int _zoomui_button_count = _ZOOMUI_WINDOWED_COUNT; // active buttons.
-static int _zoomui_button_first = _ZOOMUI_WINDOWED_FIRST; // first master table entry in use.
-
-static int _zoomui_button_wide = 0;
-static int _zoomui_button_high = 0;
-static int _zoomui_button_gap = 0; // spacing between the capsule buttons.
-static int _zoomui_margin = 0;
-static RECT _zoomui_button_rects[_ZOOMUI_BUTTON_COUNT_MAX]; // client coords, 0..count-1 valid.
+static int _zoomui_cell_wide = 0; // button capsule width (48 dip).
+static int _zoomui_cell_high = 0; // button capsule height (44 dip).
+static int _zoomui_cell_gap = 0; // spacing between the row cells (4 dip).
+static int _zoomui_margin = 0; // breathing room inside the tray (6 dip).
+static int _zoomui_sep_wide = 0; // separator rule width (1 dip).
+static int _zoomui_sep_high = 0; // separator rule height (24 dip).
+static int _zoomui_pct_pad = 0; // total padding around the percent text (16 dip).
+static int _zoomui_pct_wide = 0; // percent cell width: text width + pad.
+static int _zoomui_pct_percent = 100; // the percent the text cell shows.
+static int _zoomui_is_slideshow_cached = 0; // the play/pause face follows this.
+static RECT _zoomui_cell_rects[_ZOOMUI_CELL_COUNT]; // client coords.
+static int _zoomui_area_wide = 0; // last zoomui_layout image area width.
+static int _zoomui_area_high = 0; // last zoomui_layout image area height.
 static int _zoomui_is_registered = 0;
-static int _zoomui_hot_index = -1; // button under the cursor, or -1.
-static int _zoomui_pressed_index = -1; // button pressed with capture, or -1.
+static int _zoomui_hot_index = -1; // button cell under the cursor, or -1.
+static int _zoomui_pressed_index = -1; // button cell pressed with capture, or -1.
 static int _zoomui_dark = 0; // 1 = draw with the dark mode palette.
-static int _zoomui_is_fullscreen = 0; // 1 = six button fullscreen bar.
+static int _zoomui_is_fullscreen = 0; // 1 = the fullscreen overlay (idle fade).
 
 static int _zoomui_layered_ok = 0; // WS_EX_LAYERED child support (win8+).
 static int _zoomui_alpha = _ZOOMUI_ALPHA_OPAQUE; // current alpha value.
@@ -124,24 +149,38 @@ static int _zoomui_visible_wanted = 0; // the state zoomui_show() latched.
 
 static void _zoomui_apply_tooltip_colors(void);
 
-static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_pressed,int is_disabled,int is_hot,int has_focus);
-static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int buttoni,int offset,int is_disabled);
+static void _zoomui_draw_button(HDC hdc,const RECT *rect,int celli,int is_pressed,int is_disabled,int is_hot,int has_focus);
+static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int celli,int offset,int is_disabled);
+static void _zoomui_draw_separator(HDC hdc);
+static void _zoomui_draw_percent(HDC hdc,const RECT *rect);
 static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _zoomui_invalidate(void);
-static int _zoomui_hit_test(int x,int y);
-static int _zoomui_is_button_disabled(int buttoni);
-static void _zoomui_fire_button(int buttoni);
+static int _zoomui_cell_at(int x,int y);
+static int _zoomui_is_button_cell(int celli);
+static int _zoomui_step_button_cell(int fromi,int dir);
+static int _zoomui_is_button_disabled(int celli);
+static void _zoomui_fire_button(int celli);
 static void _zoomui_track_leave(HWND hwnd);
-static void _zoomui_update_button_rects(void);
+static void _zoomui_calc_metrics(void);
+static void _zoomui_update_cell_rects(void);
+static int _zoomui_cell_width(int celli);
+static int _zoomui_row_wide(void);
+static void _zoomui_place(int wide,int high);
+static void _zoomui_measure_pct_wide(void);
+static int _zoomui_percent(void);
+static void _zoomui_build_pct_text(wchar_t *buf,int percent);
+static void _zoomui_poll_state(void);
+static void _zoomui_ensure_poll_timer(void);
+static void _zoomui_kill_poll_timer(void);
+static localization_id_t _zoomui_tooltip_id_for_cell(int celli);
 static void _zoomui_tooltip_create(void);
 static void _zoomui_tooltip_destroy(void);
-static void _zoomui_tooltip_rebuild(void);
 static void _zoomui_tooltip_update_rects(void);
-static void _zoomui_tooltip_update_texts(void);
+static void _zoomui_tooltip_update_text(int celli);
 static void _zoomui_clear_hover_press(int invalidate);
 
-// the auto hide only applies to the fullscreen bar: the windowed pill is
-// the signature control and stays put.
+// the auto hide only applies to the fullscreen bar: the windowed row is
+// a plain control and stays put.
 static int _zoomui_autohide_enabled(void)
 {
 	return ((config_zoom_auto_hide) && (_zoomui_is_fullscreen)) ? 1 : 0;
@@ -163,6 +202,22 @@ static void _zoomui_kill_timer(void)
 	}
 }
 
+static void _zoomui_ensure_poll_timer(void)
+{
+	if (_zoomui_hwnd)
+	{
+		SetTimer(_zoomui_hwnd,_ZOOMUI_PCT_TIMER_ID,_ZOOMUI_PCT_POLL_INTERVAL,0);
+	}
+}
+
+static void _zoomui_kill_poll_timer(void)
+{
+	if (_zoomui_hwnd)
+	{
+		KillTimer(_zoomui_hwnd,_ZOOMUI_PCT_TIMER_ID);
+	}
+}
+
 // push the current alpha to the layered window. ignored when the
 // layered child support is missing (the bar is simply opaque then).
 static void _zoomui_set_alpha(int alpha)
@@ -175,62 +230,266 @@ static void _zoomui_set_alpha(int alpha)
 
 static void _zoomui_calc_metrics(void)
 {
-	// touch friendly sizing: 48x44 logical units per button.
-	_zoomui_button_wide = (48 * os_logical_wide) / 96;
-	_zoomui_button_high = (44 * os_logical_high) / 96;
+	// touch friendly sizing: 48x44 logical units per capsule.
+	_zoomui_cell_wide = (48 * os_logical_wide) / 96;
+	_zoomui_cell_high = (44 * os_logical_high) / 96;
 	_zoomui_margin = (6 * os_logical_high) / 96;
-	// breathing room between the capsule buttons: the old zero gap layout
-	// packed the two borders back to back in the middle, which read as a
-	// double line and crushed the two glyphs into one control.
-	_zoomui_button_gap = (4 * os_logical_high) / 96;
+	// breathing room between the row cells: the gaps keep the capsule
+	// borders from reading as one double line in the middle of the row.
+	_zoomui_cell_gap = (4 * os_logical_high) / 96;
+	// the separator rule: one logical unit wide, 24 tall.
+	_zoomui_sep_wide = (1 * os_logical_wide) / 96;
+	_zoomui_sep_high = (24 * os_logical_high) / 96;
+	// total padding around the percent text: 8 dip a side.
+	_zoomui_pct_pad = (16 * os_logical_wide) / 96;
 
-	if (_zoomui_button_wide < 32)
+	if (_zoomui_cell_wide < 32)
 	{
-		_zoomui_button_wide = 32;
+		_zoomui_cell_wide = 32;
 	}
 
-	if (_zoomui_button_high < 28)
+	if (_zoomui_cell_high < 28)
 	{
-		_zoomui_button_high = 28;
+		_zoomui_cell_high = 28;
 	}
 
-	if (_zoomui_button_gap < 2)
+	if (_zoomui_cell_gap < 2)
 	{
-		_zoomui_button_gap = 2;
+		_zoomui_cell_gap = 2;
+	}
+
+	if (_zoomui_sep_wide < 1)
+	{
+		_zoomui_sep_wide = 1;
+	}
+
+	if (_zoomui_sep_high < 12)
+	{
+		_zoomui_sep_high = 12;
+	}
+
+	if (_zoomui_pct_pad < 8)
+	{
+		_zoomui_pct_pad = 8;
 	}
 }
 
-// recompute the per button client rects from the current metrics and
-// mode. the container client size is:
-//   wide = count*button_wide + (count-1)*gap + 2*margin
-//   high = button_high + 2*margin
-static void _zoomui_update_button_rects(void)
+// the width of one row cell: capsules are 48 dip, the separator is its
+// hairline and the percent cell hugs its measured text.
+static int _zoomui_cell_width(int celli)
+{
+	if (celli == _ZOOMUI_CELL_SEP)
+	{
+		return _zoomui_sep_wide;
+	}
+
+	if (celli == _ZOOMUI_CELL_PCT)
+	{
+		return _zoomui_pct_wide;
+	}
+
+	return _zoomui_cell_wide;
+}
+
+// the whole row width: every cell plus the gaps between them.
+static int _zoomui_row_wide(void)
 {
 	int i;
+	int total;
 
-	for(i=0;i<_ZOOMUI_BUTTON_COUNT_MAX;i++)
+	total = 0;
+
+	for(i=0;i<_ZOOMUI_CELL_COUNT;i++)
 	{
-		_zoomui_button_rects[i].left = 0;
-		_zoomui_button_rects[i].top = 0;
-		_zoomui_button_rects[i].right = 0;
-		_zoomui_button_rects[i].bottom = 0;
+		total += _zoomui_cell_width(i);
 	}
 
-	for(i=0;i<_zoomui_button_count;i++)
+	total += (_ZOOMUI_CELL_COUNT - 1) * _zoomui_cell_gap;
+
+	return total;
+}
+
+// recompute the per cell client rects from the current metrics. every
+// cell spans the full capsule height; the separator centers its rule
+// inside its rect at draw time. the container client size is:
+//   wide = row_wide + 2*margin
+//   high = cell_high + 2*margin
+static void _zoomui_update_cell_rects(void)
+{
+	int i;
+	int x;
+
+	x = _zoomui_margin;
+
+	for(i=0;i<_ZOOMUI_CELL_COUNT;i++)
 	{
-		int left;
+		_zoomui_cell_rects[i].left = x;
+		_zoomui_cell_rects[i].top = _zoomui_margin;
+		_zoomui_cell_rects[i].right = x + _zoomui_cell_width(i);
+		_zoomui_cell_rects[i].bottom = _zoomui_margin + _zoomui_cell_high;
 
-		left = _zoomui_margin + (i * (_zoomui_button_wide + _zoomui_button_gap));
-
-		_zoomui_button_rects[i].left = left;
-		_zoomui_button_rects[i].top = _zoomui_margin;
-		_zoomui_button_rects[i].right = left + _zoomui_button_wide;
-		_zoomui_button_rects[i].bottom = _zoomui_margin + _zoomui_button_high;
+		x += _zoomui_cell_width(i) + _zoomui_cell_gap;
 	}
 }
 
-// hit test a client point against the live button rects.
-static int _zoomui_hit_test(int x,int y)
+// build the percent cell text: a plain whole percent.
+static void _zoomui_build_pct_text(wchar_t *buf,int percent)
+{
+	string_printf(buf,"%d%%",percent);
+}
+
+// the percent the text cell shows: the zoom ladder value at the current
+// position as a whole percent. the rounding is the status bar zoom pane
+// formula (see _viv_zoom_percent in viv_render.c and the status zoom
+// text in viv_chrome.c: nearest integer percent via +0.5), the only
+// difference is the source: the cell reads the ladder scale directly so
+// the text follows the zoom position without depending on the rendered
+// size. below the fit the ladder position is negative and reads the
+// table through the reciprocal, exactly like the render size math does.
+static int _zoomui_percent(void)
+{
+	double scale;
+
+	if (_viv_zoom_pos > 0)
+	{
+		scale = (double)_viv_zoom_scales[_viv_zoom_pos];
+	}
+	else
+	{
+		scale = 1.0 / (double)_viv_zoom_scales[-_viv_zoom_pos];
+	}
+
+	return (int)((scale * 100.0) + 0.5);
+}
+
+// measure the percent text in the menu font and size the percent cell:
+// text width + 16 dip, never narrower than one capsule so the row keeps
+// its rhythm with short strings like "6%".
+static void _zoomui_measure_pct_wide(void)
+{
+	wchar_t wbuf[STRING_SIZE];
+	HDC hdc;
+	HFONT font;
+	HFONT old_font;
+	SIZE size;
+	int wide;
+
+	_zoomui_build_pct_text(wbuf,_zoomui_pct_percent);
+
+	size.cx = 0;
+	size.cy = 0;
+
+	hdc = GetDC(_zoomui_hwnd ? _zoomui_hwnd : 0);
+
+	if (hdc)
+	{
+		font = _viv_menu_font();
+		old_font = 0;
+
+		if (font)
+		{
+			old_font = SelectObject(hdc,font);
+		}
+
+		GetTextExtentPoint32W(hdc,wbuf,string_get_length(wbuf),&size);
+
+		if (old_font)
+		{
+			SelectObject(hdc,old_font);
+		}
+
+		ReleaseDC(_zoomui_hwnd ? _zoomui_hwnd : 0,hdc);
+	}
+
+	wide = size.cx + _zoomui_pct_pad;
+
+	if (wide < _zoomui_cell_wide)
+	{
+		wide = _zoomui_cell_wide;
+	}
+
+	_zoomui_pct_wide = wide;
+}
+
+// position the row: bottom center of the image area in both modes, the
+// fullscreen overlay and the windowed pill share the anchor. wide,high
+// = the image area the parent passes through zoomui_layout.
+static void _zoomui_place(int wide,int high)
+{
+	int container_wide;
+	int container_high;
+	int x;
+	int y;
+
+	if (!_zoomui_hwnd)
+	{
+		return;
+	}
+
+	container_wide = _zoomui_row_wide() + (_zoomui_margin * 2);
+	container_high = _zoomui_cell_high + (_zoomui_margin * 2);
+
+	if (wide < 0)
+	{
+		wide = 0;
+	}
+
+	if (high < 0)
+	{
+		high = 0;
+	}
+
+	// the row hangs centered at the bottom of the image area.
+	x = (wide - container_wide) / 2;
+	y = high - container_high - _zoomui_margin;
+
+	// clamp inside the image area so a tiny window never pushes the
+	// pill off screen; when the area is smaller than the pill, pin to
+	// the origin and let the parent clip.
+	if (container_wide >= wide)
+	{
+		x = 0;
+	}
+	else
+	{
+		if (x < 0)
+		{
+			x = 0;
+		}
+
+		if (x + container_wide > wide)
+		{
+			x = wide - container_wide;
+		}
+	}
+
+	if (container_high >= high)
+	{
+		y = 0;
+	}
+	else
+	{
+		if (y < 0)
+		{
+			y = 0;
+		}
+
+		if (y + container_high > high)
+		{
+			y = high - container_high;
+		}
+	}
+
+	SetWindowPos(_zoomui_hwnd,HWND_TOP,x,y,container_wide,container_high,SWP_NOACTIVATE);
+
+	_zoomui_update_cell_rects();
+	_zoomui_tooltip_update_rects();
+}
+
+// hit test a client point against the live cell rects. returns the raw
+// cell index (separator and percent included) or -1 for the tray gaps,
+// the stadium corners and everything outside the cells.
+static int _zoomui_cell_at(int x,int y)
 {
 	int i;
 	POINT pt;
@@ -238,9 +497,9 @@ static int _zoomui_hit_test(int x,int y)
 	pt.x = x;
 	pt.y = y;
 
-	for(i=0;i<_zoomui_button_count;i++)
+	for(i=0;i<_ZOOMUI_CELL_COUNT;i++)
 	{
-		if (PtInRect(&_zoomui_button_rects[i],pt))
+		if (PtInRect(&_zoomui_cell_rects[i],pt))
 		{
 			return i;
 		}
@@ -249,14 +508,71 @@ static int _zoomui_hit_test(int x,int y)
 	return -1;
 }
 
+// the cells that behave as buttons: everything except the separator and
+// the percent text cell. only button cells hover, press, fire and carry
+// keyboard focus.
+static int _zoomui_is_button_cell(int celli)
+{
+	if ((celli < 0) || (celli >= _ZOOMUI_CELL_COUNT))
+	{
+		return 0;
+	}
+
+	if ((celli == _ZOOMUI_CELL_SEP) || (celli == _ZOOMUI_CELL_PCT))
+	{
+		return 0;
+	}
+
+	return 1;
+}
+
+// the next button cell walking dir (+1 / -1) from fromi, wrapping
+// around the row; -1 starts at the first (dir > 0) or last (dir < 0)
+// button cell. the separator and the percent cell are skipped: they are
+// never a keyboard target.
+static int _zoomui_step_button_cell(int fromi,int dir)
+{
+	int celli;
+	int guard;
+
+	if (fromi < 0)
+	{
+		return (dir < 0) ? _ZOOMUI_CELL_ZOOMIN : _ZOOMUI_CELL_PREV;
+	}
+
+	celli = fromi;
+
+	for(guard=0;guard<_ZOOMUI_CELL_COUNT;guard++)
+	{
+		celli += dir;
+
+		if (celli < 0)
+		{
+			celli = _ZOOMUI_CELL_COUNT - 1;
+		}
+
+		if (celli >= _ZOOMUI_CELL_COUNT)
+		{
+			celli = 0;
+		}
+
+		if (_zoomui_is_button_cell(celli))
+		{
+			return celli;
+		}
+	}
+
+	return fromi;
+}
+
 // per button enabled state. the pill mirrors the container: disabling
 // the zoomui window dims every button and blocks their commands while
 // keeping the same hit area so clicks never fall through to the image
 // by accident. (the viewer never disables single pill buttons today;
 // the path exists so a future per command gate has a stable visual.)
-static int _zoomui_is_button_disabled(int buttoni)
+static int _zoomui_is_button_disabled(int celli)
 {
-	(void)buttoni;
+	(void)celli;
 
 	if (_zoomui_hwnd)
 	{
@@ -307,8 +623,10 @@ static void _zoomui_track_leave(HWND hwnd)
 
 // fire a pill button: send the real command to the main window with the
 // same BN_CLICKED notification a BUTTON would have sent, then return
-// focus to the viewer so keyboard shortcuts keep working.
-static void _zoomui_fire_button(int buttoni)
+// focus to the viewer so keyboard shortcuts keep working. the
+// play/pause cell resolves its command from the slideshow state: play
+// when stopped, pause when running.
+static void _zoomui_fire_button(int celli)
 {
 	int command_id;
 
@@ -317,22 +635,33 @@ static void _zoomui_fire_button(int buttoni)
 		return;
 	}
 
-	if ((buttoni < 0) || (buttoni >= _zoomui_button_count))
+	if (!_zoomui_is_button_cell(celli))
 	{
 		return;
 	}
 
-	if (_zoomui_is_button_disabled(buttoni))
+	if (_zoomui_is_button_disabled(celli))
 	{
 		return;
 	}
 
-	command_id = _zoomui_command_ids[_zoomui_button_first + buttoni];
+	if (celli == _ZOOMUI_CELL_PLAYPAUSE)
+	{
+		command_id = _viv_is_slideshow ? VIV_ID_SLIDESHOW_PAUSE_ONLY : VIV_ID_SLIDESHOW_PLAY_ONLY;
+	}
+	else
+	{
+		command_id = _zoomui_cell_command_ids[celli];
+	}
 
 	SendMessage(_zoomui_parent_hwnd,WM_COMMAND,MAKEWPARAM(command_id,BN_CLICKED),(LPARAM)_zoomui_hwnd);
 
 	// return focus to the viewer so keyboard shortcuts keep working.
 	SetFocus(_zoomui_parent_hwnd);
+
+	// the command may have zoomed or toggled the slideshow: sync the
+	// percent text and the play/pause face right away.
+	_zoomui_poll_state();
 }
 
 static void _zoomui_tooltip_destroy(void)
@@ -345,11 +674,41 @@ static void _zoomui_tooltip_destroy(void)
 	}
 }
 
+// the tooltip text for one cell. the play/pause cell switches between
+// the play and pause strings with the slideshow state, the rest are
+// fixed. returns 0 for the cells that carry no tooltip (separator and
+// percent text cell: no hover, no tip).
+static localization_id_t _zoomui_tooltip_id_for_cell(int celli)
+{
+	switch (celli)
+	{
+		case _ZOOMUI_CELL_PREV:
+			return LOCALIZATION_ID_ZOOMUI_TOOLTIP_PREV;
+
+		case _ZOOMUI_CELL_PLAYPAUSE:
+			return _viv_is_slideshow ? LOCALIZATION_ID_ZOOMUI_TOOLTIP_PAUSE : LOCALIZATION_ID_ZOOMUI_TOOLTIP_PLAY;
+
+		case _ZOOMUI_CELL_NEXT:
+			return LOCALIZATION_ID_ZOOMUI_TOOLTIP_NEXT;
+
+		case _ZOOMUI_CELL_ZOOMOUT:
+			return LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_OUT;
+
+		case _ZOOMUI_CELL_ZOOMIN:
+			return LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_IN;
+	}
+
+	return (localization_id_t)0;
+}
+
 // create the single rect based tooltip for the pill. one tool per live
-// button (uId = button index), TTF_SUBCLASS so the tooltip relays the
-// mouse messages itself.
+// button cell (uId = cell index), TTF_SUBCLASS so the tooltip relays
+// the mouse messages itself. the separator and the percent cell get no
+// tool.
 static void _zoomui_tooltip_create(void)
 {
+	int i;
+
 	if ((!_zoomui_hwnd) || (_zoomui_tooltip_hwnd))
 	{
 		return;
@@ -368,12 +727,18 @@ static void _zoomui_tooltip_create(void)
 
 	if (_zoomui_tooltip_hwnd)
 	{
-		int i;
-
-		for(i=0;i<_zoomui_button_count;i++)
+		for(i=0;i<_ZOOMUI_CELL_COUNT;i++)
 		{
 			TOOLINFOW ti;
 			wchar_t wbuf[STRING_SIZE];
+			localization_id_t id;
+
+			id = _zoomui_tooltip_id_for_cell(i);
+
+			if (!id)
+			{
+				continue;
+			}
 
 			os_zero_memory(&ti,sizeof(ti));
 
@@ -381,9 +746,9 @@ static void _zoomui_tooltip_create(void)
 			ti.uFlags = TTF_SUBCLASS;
 			ti.hwnd = _zoomui_hwnd;
 			ti.uId = (UINT_PTR)i;
-			ti.rect = _zoomui_button_rects[i];
+			ti.rect = _zoomui_cell_rects[i];
 			ti.hinst = 0;
-			string_copy_utf8_string(wbuf,localization_get_string(_zoomui_tooltip_localization_ids[_zoomui_button_first + i]));
+			string_copy_utf8_string(wbuf,localization_get_string(id));
 			ti.lpszText = wbuf;
 
 			SendMessage(_zoomui_tooltip_hwnd,TTM_ADDTOOLW,0,(LPARAM)&ti);
@@ -396,53 +761,9 @@ static void _zoomui_tooltip_create(void)
 	}
 }
 
-// rebuild the tooltip tools after a mode switch (the tool count
-// changed). deletes every possible id, then adds the live ones.
-static void _zoomui_tooltip_rebuild(void)
-{
-	int i;
-
-	if (!_zoomui_tooltip_hwnd)
-	{
-		_zoomui_tooltip_create();
-
-		return;
-	}
-
-	for(i=0;i<_ZOOMUI_BUTTON_COUNT_MAX;i++)
-	{
-		TOOLINFOW ti;
-
-		os_zero_memory(&ti,sizeof(ti));
-
-		ti.cbSize = sizeof(ti);
-		ti.hwnd = _zoomui_hwnd;
-		ti.uId = (UINT_PTR)i;
-
-		SendMessage(_zoomui_tooltip_hwnd,TTM_DELTOOLW,0,(LPARAM)&ti);
-	}
-
-	for(i=0;i<_zoomui_button_count;i++)
-	{
-		TOOLINFOW ti;
-		wchar_t wbuf[STRING_SIZE];
-
-		os_zero_memory(&ti,sizeof(ti));
-
-		ti.cbSize = sizeof(ti);
-		ti.uFlags = TTF_SUBCLASS;
-		ti.hwnd = _zoomui_hwnd;
-		ti.uId = (UINT_PTR)i;
-		ti.rect = _zoomui_button_rects[i];
-		ti.hinst = 0;
-		string_copy_utf8_string(wbuf,localization_get_string(_zoomui_tooltip_localization_ids[_zoomui_button_first + i]));
-		ti.lpszText = wbuf;
-
-		SendMessage(_zoomui_tooltip_hwnd,TTM_ADDTOOLW,0,(LPARAM)&ti);
-	}
-}
-
-// refresh the tooltip rects after a layout / dpi change.
+// refresh one tool: the rect follows the current cell rect and the text
+// is re-fetched from localization (the play/pause cell resolves its
+// string fresh each time).
 static void _zoomui_tooltip_update_rects(void)
 {
 	int i;
@@ -452,10 +773,18 @@ static void _zoomui_tooltip_update_rects(void)
 		return;
 	}
 
-	for(i=0;i<_zoomui_button_count;i++)
+	for(i=0;i<_ZOOMUI_CELL_COUNT;i++)
 	{
 		TOOLINFOW ti;
 		wchar_t wbuf[STRING_SIZE];
+		localization_id_t id;
+
+		id = _zoomui_tooltip_id_for_cell(i);
+
+		if (!id)
+		{
+			continue;
+		}
 
 		os_zero_memory(&ti,sizeof(ti));
 
@@ -463,51 +792,103 @@ static void _zoomui_tooltip_update_rects(void)
 		ti.uFlags = TTF_SUBCLASS;
 		ti.hwnd = _zoomui_hwnd;
 		ti.uId = (UINT_PTR)i;
-		ti.rect = _zoomui_button_rects[i];
+		ti.rect = _zoomui_cell_rects[i];
 		ti.hinst = 0;
-		string_copy_utf8_string(wbuf,localization_get_string(_zoomui_tooltip_localization_ids[_zoomui_button_first + i]));
+		string_copy_utf8_string(wbuf,localization_get_string(id));
 		ti.lpszText = wbuf;
 
 		SendMessage(_zoomui_tooltip_hwnd,TTM_SETTOOLINFOW,0,(LPARAM)&ti);
 	}
 }
 
-// refresh the tooltip texts after a language change.
-static void _zoomui_tooltip_update_texts(void)
+// refresh one tool's text (language change, play state flip).
+static void _zoomui_tooltip_update_text(int celli)
 {
-	int i;
+	TOOLINFOW ti;
+	wchar_t wbuf[STRING_SIZE];
+	localization_id_t id;
 
 	if (!_zoomui_tooltip_hwnd)
 	{
 		return;
 	}
 
-	for(i=0;i<_zoomui_button_count;i++)
+	id = _zoomui_tooltip_id_for_cell(celli);
+
+	if (!id)
 	{
-		TOOLINFOW ti;
-		wchar_t wbuf[STRING_SIZE];
-
-		os_zero_memory(&ti,sizeof(ti));
-
-		ti.cbSize = sizeof(ti);
-		ti.hwnd = _zoomui_hwnd;
-		ti.uId = (UINT_PTR)i;
-		ti.hinst = 0;
-		string_copy_utf8_string(wbuf,localization_get_string(_zoomui_tooltip_localization_ids[_zoomui_button_first + i]));
-		ti.lpszText = wbuf;
-
-		SendMessage(_zoomui_tooltip_hwnd,TTM_UPDATETIPTEXTW,0,(LPARAM)&ti);
+		return;
 	}
 
-	_zoomui_tooltip_update_rects();
+	os_zero_memory(&ti,sizeof(ti));
+
+	ti.cbSize = sizeof(ti);
+	ti.hwnd = _zoomui_hwnd;
+	ti.uId = (UINT_PTR)celli;
+	ti.hinst = 0;
+	string_copy_utf8_string(wbuf,localization_get_string(id));
+	ti.lpszText = wbuf;
+
+	SendMessage(_zoomui_tooltip_hwnd,TTM_UPDATETIPTEXTW,0,(LPARAM)&ti);
+}
+
+// the percent / play state refresh. zoom changes that never touch this
+// window (mouse wheel, pinch, set zoom dialog) leave no message trace
+// here, so a short poll keeps the text cell honest; the pill's own
+// buttons call this directly after firing their command.
+static void _zoomui_poll_state(void)
+{
+	int percent;
+	int slideshow;
+
+	if (!_zoomui_hwnd)
+	{
+		return;
+	}
+
+	if (!IsWindowVisible(_zoomui_hwnd))
+	{
+		return;
+	}
+
+	percent = _zoomui_percent();
+	slideshow = _viv_is_slideshow ? 1 : 0;
+
+	if ((percent == _zoomui_pct_percent) && (slideshow == _zoomui_is_slideshow_cached))
+	{
+		return;
+	}
+
+	if (percent != _zoomui_pct_percent)
+	{
+		int old_wide;
+
+		_zoomui_pct_percent = percent;
+
+		old_wide = _zoomui_pct_wide;
+
+		_zoomui_measure_pct_wide();
+
+		// a wider or narrower text re-centers the whole row.
+		if (_zoomui_pct_wide != old_wide)
+		{
+			_zoomui_place(_zoomui_area_wide,_zoomui_area_high);
+		}
+	}
+
+	if (slideshow != _zoomui_is_slideshow_cached)
+	{
+		_zoomui_is_slideshow_cached = slideshow;
+
+		_zoomui_tooltip_update_text(_ZOOMUI_CELL_PLAYPAUSE);
+	}
+
+	_zoomui_invalidate();
 }
 
 void zoomui_init(HWND parent)
 {
 	_zoomui_parent_hwnd = parent;
-
-	_zoomui_calc_metrics();
-	_zoomui_update_button_rects();
 
 	if (!_zoomui_is_registered)
 	{
@@ -549,15 +930,26 @@ void zoomui_init(HWND parent)
 				_zoomui_layered_ok = 0;
 			}
 		}
-
-		_zoomui_update_button_rects();
-		_zoomui_tooltip_create();
 	}
+
+	// metrics, the percent cell width and the cell rects: the row is
+	// identical in both modes, so one pass serves windowed and
+	// fullscreen.
+	_zoomui_calc_metrics();
+
+	_zoomui_pct_percent = _zoomui_percent();
+	_zoomui_is_slideshow_cached = _viv_is_slideshow ? 1 : 0;
+	_zoomui_measure_pct_wide();
+
+	_zoomui_update_cell_rects();
+
+	_zoomui_tooltip_create();
 }
 
 void zoomui_kill(void)
 {
 	_zoomui_kill_timer();
+	_zoomui_kill_poll_timer();
 
 	if ((GetCapture()) && (_zoomui_hwnd) && (GetCapture() == _zoomui_hwnd))
 	{
@@ -579,6 +971,11 @@ void zoomui_kill(void)
 	_zoomui_alpha = _ZOOMUI_ALPHA_OPAQUE;
 	_zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;
 	_zoomui_visible_wanted = 0;
+	_zoomui_pct_percent = 100;
+	_zoomui_is_slideshow_cached = 0;
+	_zoomui_pct_wide = 0;
+	_zoomui_area_wide = 0;
+	_zoomui_area_high = 0;
 
 	_zoomui_parent_hwnd = 0;
 }
@@ -587,38 +984,54 @@ void zoomui_kill(void)
 // theme of their own, the colors are set by message.
 static void _zoomui_apply_tooltip_colors(void)
 {
-    if (_zoomui_tooltip_hwnd)
-    {
-        if (_zoomui_dark)
-        {
-            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);
-            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,RGB(0xE8,0xE8,0xE8),0);
-        }
-        else
-        {
-            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,GetSysColor(COLOR_INFOBK),0);
-            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,GetSysColor(COLOR_INFOTEXT),0);
-        }
-    }
+	if (_zoomui_tooltip_hwnd)
+	{
+		if (_zoomui_dark)
+		{
+			SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);
+			SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,RGB(0xE8,0xE8,0xE8),0);
+		}
+		else
+		{
+			SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,GetSysColor(COLOR_INFOBK),0);
+			SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,GetSysColor(COLOR_INFOTEXT),0);
+		}
+	}
 }
 
 // switch the palette between light and dark. called after creating and
 // whenever the app dark mode or the windows theme changes.
 void zoomui_set_dark(int dark)
 {
-    if (_zoomui_dark != (dark ? 1 : 0))
-    {
-        _zoomui_dark = dark ? 1 : 0;
+	int old_wide;
 
-        // the glyph colors are baked into the cached icons.
-        glyphs_flush_cache();
+	if (_zoomui_dark != (dark ? 1 : 0))
+	{
+		_zoomui_dark = dark ? 1 : 0;
 
-        _zoomui_invalidate();
-    }
+		// the glyph colors are baked into the cached icons.
+		glyphs_flush_cache();
 
-    // the tooltip control may exist before the first palette flip and a
-    // fresh control always starts light: tint it on every call.
-    _zoomui_apply_tooltip_colors();
+		_zoomui_invalidate();
+	}
+
+	// the theme change that delivered this call may have swapped the
+	// menu font: re-measure the percent cell so the row width stays
+	// right.
+	old_wide = _zoomui_pct_wide;
+
+	_zoomui_measure_pct_wide();
+
+	if (_zoomui_pct_wide != old_wide)
+	{
+		_zoomui_place(_zoomui_area_wide,_zoomui_area_high);
+	}
+
+	_zoomui_invalidate();
+
+	// the tooltip control may exist before the first palette flip and a
+	// fresh control always starts light: tint it on every call.
+	_zoomui_apply_tooltip_colors();
 }
 
 int zoomui_is_created(void)
@@ -628,29 +1041,26 @@ int zoomui_is_created(void)
 
 void zoomui_localize(void)
 {
-	// refresh the tooltip texts after the language has changed.
-	_zoomui_tooltip_update_texts();
+	int i;
+
+	// refresh the tooltip texts after the language has changed. the
+	// play/pause cell resolves its string fresh, so one pass covers
+	// every button.
+	for(i=0;i<_ZOOMUI_CELL_COUNT;i++)
+	{
+		_zoomui_tooltip_update_text(i);
+	}
 }
 
-// switch between the windowed pill (two buttons) and the fullscreen
-// overlay bar (six buttons). viv.c repositions the container right
-// after this through the regular on_size layout.
+// switch between the windowed pill and the fullscreen overlay bar. the
+// row layout is the same in both modes: only the idle fade differs.
+// viv.c repositions the container right after this through the regular
+// on_size layout.
 void zoomui_set_fullscreen(int fullscreen)
 {
 	if (_zoomui_is_fullscreen != (fullscreen ? 1 : 0))
 	{
 		_zoomui_is_fullscreen = fullscreen ? 1 : 0;
-
-		if (_zoomui_is_fullscreen)
-		{
-			_zoomui_button_count = _ZOOMUI_BUTTON_COUNT_MAX;
-			_zoomui_button_first = 0;
-		}
-		else
-		{
-			_zoomui_button_count = _ZOOMUI_WINDOWED_COUNT;
-			_zoomui_button_first = _ZOOMUI_WINDOWED_FIRST;
-		}
 
 		if (_zoomui_hwnd)
 		{
@@ -660,10 +1070,6 @@ void zoomui_set_fullscreen(int fullscreen)
 			}
 
 			_zoomui_clear_hover_press(0);
-
-			_zoomui_calc_metrics();
-			_zoomui_update_button_rects();
-			_zoomui_tooltip_rebuild();
 
 			_zoomui_invalidate();
 
@@ -680,6 +1086,8 @@ void zoomui_set_fullscreen(int fullscreen)
 
 // user input arrived (mouse motion, key press or a command): keep the
 // overlay awake, and show it again with a fade in when it was hidden.
+// the percent / play state sync rides along so the text cell stays
+// fresh in windowed mode too.
 void zoomui_activity(void)
 {
 	if ((!_zoomui_hwnd) || (!_zoomui_visible_wanted))
@@ -691,6 +1099,9 @@ void zoomui_activity(void)
 
 	if (!_zoomui_autohide_enabled())
 	{
+		// windowed row: no fade, just keep the text cell honest.
+		_zoomui_poll_state();
+
 		return;
 	}
 
@@ -703,9 +1114,13 @@ void zoomui_activity(void)
 		ShowWindow(_zoomui_hwnd,SW_SHOW);
 
 		_zoomui_set_alpha(0);
+
+		_zoomui_ensure_poll_timer();
 	}
 
 	_zoomui_ensure_timer();
+
+	_zoomui_poll_state();
 }
 
 void zoomui_show(int show)
@@ -733,6 +1148,8 @@ void zoomui_show(int show)
 			ShowWindow(_zoomui_hwnd,SW_SHOW);
 
 			_zoomui_set_alpha(_zoomui_alpha);
+
+			_zoomui_ensure_poll_timer();
 		}
 		else
 		{
@@ -749,6 +1166,10 @@ void zoomui_show(int show)
 		{
 			SendMessage(_zoomui_tooltip_hwnd,TTM_ACTIVATE,TRUE,0);
 		}
+
+		// first show after a mode or language change: sync the text
+		// cell and the tooltip face before anything paints stale.
+		_zoomui_poll_state();
 	}
 	else
 	{
@@ -763,6 +1184,7 @@ void zoomui_show(int show)
 		_zoomui_clear_hover_press(0);
 
 		_zoomui_kill_timer();
+		_zoomui_kill_poll_timer();
 		_zoomui_alpha = 0;
 		_zoomui_alpha_target = 0;
 
@@ -826,6 +1248,7 @@ static void _zoomui_on_timer(void)
 			ShowWindow(_zoomui_hwnd,SW_HIDE);
 
 			_zoomui_kill_timer();
+			_zoomui_kill_poll_timer();
 		}
 
 		return;
@@ -868,6 +1291,7 @@ static void _zoomui_on_timer(void)
 			ShowWindow(_zoomui_hwnd,SW_HIDE);
 
 			_zoomui_kill_timer();
+			_zoomui_kill_poll_timer();
 
 			return;
 		}
@@ -878,91 +1302,24 @@ static void _zoomui_on_timer(void)
 // (status bar and toolbar space already excluded)
 void zoomui_layout(int wide,int high)
 {
-	int container_wide;
-	int container_high;
-	int x;
-	int y;
-
 	if (!_zoomui_hwnd)
 	{
 		return;
 	}
 
+	_zoomui_area_wide = wide;
+	_zoomui_area_high = high;
+
 	_zoomui_calc_metrics();
-	_zoomui_update_button_rects();
 
-	container_wide = (_zoomui_button_count * _zoomui_button_wide) + ((_zoomui_button_count - 1) * _zoomui_button_gap) + (_zoomui_margin * 2);
-	container_high = _zoomui_button_high + (_zoomui_margin * 2);
+	_zoomui_measure_pct_wide();
 
-	if (wide < 0)
-	{
-		wide = 0;
-	}
-
-	if (high < 0)
-	{
-		high = 0;
-	}
-
-	if (_zoomui_is_fullscreen)
-	{
-		// the fullscreen overlay bar sits centered at the bottom.
-		x = (wide - container_wide) / 2;
-	}
-	else
-	{
-		// the windowed pill hugs the bottom right of the image area.
-		x = wide - container_wide - _zoomui_margin;
-	}
-
-	y = high - container_high - _zoomui_margin;
-
-	// clamp inside the image area so a tiny window never pushes the
-	// pill off screen; when the area is smaller than the pill, pin to
-	// the origin and let the parent clip.
-	if (container_wide >= wide)
-	{
-		x = 0;
-	}
-	else
-	{
-		if (x < 0)
-		{
-			x = 0;
-		}
-
-		if (x + container_wide > wide)
-		{
-			x = wide - container_wide;
-		}
-	}
-
-	if (container_high >= high)
-	{
-		y = 0;
-	}
-	else
-	{
-		if (y < 0)
-		{
-			y = 0;
-		}
-
-		if (y + container_high > high)
-		{
-			y = high - container_high;
-		}
-	}
-
-	SetWindowPos(_zoomui_hwnd,HWND_TOP,x,y,container_wide,container_high,SWP_NOACTIVATE);
-
-	_zoomui_update_button_rects();
-	_zoomui_tooltip_update_rects();
+	_zoomui_place(wide,high);
 
 	_zoomui_invalidate();
 }
 
-static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_pressed,int is_disabled,int is_hot,int has_focus)
+static void _zoomui_draw_button(HDC hdc,const RECT *rect,int celli,int is_pressed,int is_disabled,int is_hot,int has_focus)
 {
 	RECT fill_rect;
 	HBRUSH brush;
@@ -981,8 +1338,8 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_pres
 	CopyRect(&fill_rect,rect);
 
 	// the button body is a capsule: the corner ellipse is the full
-	// button height, so each end is a true semicircle and the zoom pair
-	// reads as the two signature pills instead of the square cornered
+	// button height, so each end is a true semicircle and the row reads
+	// as one rail of stadium cells instead of the square cornered
 	// blocks (which sat next to the flat toolbar like a patch from
 	// another toolkit). roundrect fills and outlines the same
 	// silhouette in one call.
@@ -991,23 +1348,23 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_pres
 
 		if ((is_disabled))
 		{
-			fill_color = _zoomui_dark ? RGB(0x25,0x25,0x25) : GetSysColor(COLOR_BTNFACE);
+			fill_color = viv_theme_color(VIV_TK_FACE);
 		}
 		else if ((is_pressed) && (is_hot))
 		{
-			fill_color = _zoomui_dark ? RGB(0x42,0x42,0x42) : GetSysColor(COLOR_3DLIGHT);
+			fill_color = viv_theme_color(VIV_TK_DOWN);
 		}
 		else if (is_hot)
 		{
-			fill_color = _zoomui_dark ? RGB(0x38,0x38,0x38) : GetSysColor(COLOR_3DLIGHT);
+			fill_color = viv_theme_color(VIV_TK_HOVER);
 		}
 		else
 		{
-			fill_color = _zoomui_dark ? RGB(0x25,0x25,0x25) : GetSysColor(COLOR_BTNFACE);
+			fill_color = viv_theme_color(VIV_TK_FACE);
 		}
 
 		brush = CreateSolidBrush(fill_color);
-		pen = CreatePen(PS_SOLID,1,_zoomui_dark ? ((is_pressed && is_hot) ? RGB(0x80,0x80,0x80) : RGB(0x45,0x45,0x45)) : GetSysColor(((is_pressed) && (is_hot)) ? COLOR_3DDKSHADOW : COLOR_3DSHADOW));
+		pen = CreatePen(PS_SOLID,1,viv_theme_color((is_pressed) && (is_hot) ? VIV_TK_DOWN : VIV_TK_LINE));
 
 		old_pen = SelectObject(hdc,pen);
 		old_brush = SelectObject(hdc,brush);
@@ -1037,17 +1394,17 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_pres
 
 	if (is_disabled)
 	{
-		SetTextColor(hdc,_zoomui_dark ? RGB(0x90,0x90,0x90) : GetSysColor(COLOR_3DSHADOW));
+		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXTOFF));
 	}
 	else
 	{
-		SetTextColor(hdc,_zoomui_dark ? RGB(0xE8,0xE8,0xE8) : GetSysColor(COLOR_BTNTEXT));
+		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
 	}
 
 	SetBkMode(hdc,TRANSPARENT);
 
 	// the vector glyphs make the buttons unmistakable.
-	_zoomui_draw_icon(hdc,rect,buttoni,offset,is_disabled);
+	_zoomui_draw_icon(hdc,rect,celli,offset,is_disabled);
 
 	// keyboard focus: a dotted ring inside the hot capsule.
 	if ((has_focus) && (is_hot) && (!is_disabled))
@@ -1065,8 +1422,20 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_pres
 	}
 }
 
+// the glyph id for one button cell: the play/pause cell follows the
+// slideshow state, the rest are fixed.
+static int _zoomui_cell_glyph_id(int celli)
+{
+	if (celli == _ZOOMUI_CELL_PLAYPAUSE)
+	{
+		return _viv_is_slideshow ? GLYPH_PAUSE : GLYPH_PLAY;
+	}
+
+	return _zoomui_cell_glyph_ids[celli];
+}
+
 // draw the glyph icon, centered in the button.
-static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int buttoni,int offset,int is_disabled)
+static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int celli,int offset,int is_disabled)
 {
 	int wide;
 	int high;
@@ -1087,7 +1456,7 @@ static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int buttoni,int offset,in
 		size = 8;
 	}
 
-	icon = glyphs_icon(_zoomui_glyph_ids[_zoomui_button_first + buttoni],_zoomui_dark,size);
+	icon = glyphs_icon(_zoomui_cell_glyph_id(celli),_zoomui_dark,size);
 
 	if (icon)
 	{
@@ -1110,6 +1479,68 @@ static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int buttoni,int offset,in
 	}
 }
 
+// draw the separator: a hairline rule centered vertically inside its
+// cell, splitting the navigation cells from the zoom cells.
+static void _zoomui_draw_separator(HDC hdc)
+{
+	RECT fill_rect;
+	HBRUSH brush;
+	int top;
+
+	fill_rect = _zoomui_cell_rects[_ZOOMUI_CELL_SEP];
+
+	top = fill_rect.top + ((_zoomui_cell_high - _zoomui_sep_high) / 2);
+
+	fill_rect.top = top;
+	fill_rect.bottom = top + _zoomui_sep_high;
+
+	brush = CreateSolidBrush(viv_theme_color(VIV_TK_LINE));
+
+	FillRect(hdc,&fill_rect,brush);
+
+	DeleteObject(brush);
+}
+
+// draw the percent text cell: plain text in the menu font, centered in
+// the cell. no fill, no border, no hover: the cell is a readout.
+static void _zoomui_draw_percent(HDC hdc,const RECT *rect)
+{
+	wchar_t wbuf[STRING_SIZE];
+	RECT text_rect;
+	HFONT font;
+	HFONT old_font;
+
+	_zoomui_build_pct_text(wbuf,_zoomui_pct_percent);
+
+	CopyRect(&text_rect,rect);
+
+	SetBkMode(hdc,TRANSPARENT);
+
+	if (_zoomui_is_button_disabled(_ZOOMUI_CELL_PCT))
+	{
+		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXTOFF));
+	}
+	else
+	{
+		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
+	}
+
+	font = _viv_menu_font();
+	old_font = 0;
+
+	if (font)
+	{
+		old_font = SelectObject(hdc,font);
+	}
+
+	DrawTextW(hdc,wbuf,-1,&text_rect,DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+
+	if (old_font)
+	{
+		SelectObject(hdc,old_font);
+	}
+}
+
 static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch (msg)
@@ -1118,6 +1549,7 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		{
 			POINT pt;
 			RECT client_rect;
+			int hit;
 
 			pt.x = GET_X_LPARAM(lParam);
 			pt.y = GET_Y_LPARAM(lParam);
@@ -1138,9 +1570,13 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 				return HTTRANSPARENT;
 			}
 
-			// only the capsule buttons hit: the stadium corners and the
-			// tray gaps are click through to the image behind.
-			if (_zoomui_hit_test(pt.x,pt.y) >= 0)
+			// only the button and percent cells hit: the stadium
+			// corners, the tray gaps and the separator are click
+			// through to the image behind. the percent cell swallows
+			// clicks without acting on them (no hover, no click).
+			hit = _zoomui_cell_at(pt.x,pt.y);
+
+			if ((hit >= 0) && (hit != _ZOOMUI_CELL_SEP))
 			{
 				return HTCLIENT;
 			}
@@ -1153,29 +1589,34 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			int x;
 			int y;
 			int hit;
+			int hot;
 
 			x = GET_X_LPARAM(lParam);
 			y = GET_Y_LPARAM(lParam);
 
-			hit = _zoomui_hit_test(x,y);
+			hit = _zoomui_cell_at(x,y);
+
+			// hover is a button-only state: the percent cell never
+			// lights up.
+			hot = _zoomui_is_button_cell(hit) ? hit : -1;
 
 			if (GetCapture() == hwnd)
 			{
 				// captured drag: the hot capsule follows the cursor so
 				// the press visual tracks, the command still fires only
 				// on release over the same button.
-				if (hit != _zoomui_hot_index)
+				if (hot != _zoomui_hot_index)
 				{
-					_zoomui_hot_index = hit;
+					_zoomui_hot_index = hot;
 
 					_zoomui_invalidate();
 				}
 			}
 			else
 			{
-				if (hit != _zoomui_hot_index)
+				if (hot != _zoomui_hot_index)
 				{
-					_zoomui_hot_index = hit;
+					_zoomui_hot_index = hot;
 
 					_zoomui_invalidate();
 				}
@@ -1215,29 +1656,35 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			int y;
 			int hit;
 
-			SetFocus(hwnd);
-
 			x = GET_X_LPARAM(lParam);
 			y = GET_Y_LPARAM(lParam);
 
-			hit = _zoomui_hit_test(x,y);
+			hit = _zoomui_cell_at(x,y);
 
-			if ((hit >= 0) && (!_zoomui_is_button_disabled(hit)))
+			// only button cells take the focus and the press: a click
+			// on the percent text cell is swallowed, silent and focus
+			// free.
+			if (_zoomui_is_button_cell(hit))
 			{
-				SetCapture(hwnd);
+				SetFocus(hwnd);
 
-				_zoomui_pressed_index = hit;
-				_zoomui_hot_index = hit;
-
-				_zoomui_invalidate();
-
-				// hovering the bar counts as activity (idle fade timer).
-				zoomui_activity();
-
-				// dismiss the hover tip while pressed.
-				if (_zoomui_tooltip_hwnd)
+				if (!_zoomui_is_button_disabled(hit))
 				{
-					SendMessage(_zoomui_tooltip_hwnd,TTM_POP,0,0);
+					SetCapture(hwnd);
+
+					_zoomui_pressed_index = hit;
+					_zoomui_hot_index = hit;
+
+					_zoomui_invalidate();
+
+					// hovering the bar counts as activity (idle fade timer).
+					zoomui_activity();
+
+					// dismiss the hover tip while pressed.
+					if (_zoomui_tooltip_hwnd)
+					{
+						SendMessage(_zoomui_tooltip_hwnd,TTM_POP,0,0);
+					}
 				}
 			}
 
@@ -1253,9 +1700,9 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			x = GET_X_LPARAM(lParam);
 			y = GET_Y_LPARAM(lParam);
 
-			hit = _zoomui_hit_test(x,y);
+			hit = _zoomui_cell_at(x,y);
 
-			if ((hit >= 0) && (!_zoomui_is_button_disabled(hit)))
+			if ((_zoomui_is_button_cell(hit)) && (!_zoomui_is_button_disabled(hit)))
 			{
 				SetCapture(hwnd);
 
@@ -1281,11 +1728,13 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			int y;
 			int hit;
 			int down;
+			int hot;
 
 			x = GET_X_LPARAM(lParam);
 			y = GET_Y_LPARAM(lParam);
 
-			hit = _zoomui_hit_test(x,y);
+			hit = _zoomui_cell_at(x,y);
+			hot = _zoomui_is_button_cell(hit) ? hit : -1;
 			down = _zoomui_pressed_index;
 
 			if (GetCapture() == hwnd)
@@ -1294,7 +1743,7 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			}
 
 			_zoomui_pressed_index = -1;
-			_zoomui_hot_index = hit;
+			_zoomui_hot_index = hot;
 
 			_zoomui_invalidate();
 
@@ -1352,9 +1801,9 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		{
 			// tabbed in with no hover yet: highlight the first capsule
 			// so space / enter has a visible target.
-			if ((_zoomui_hot_index == -1) && (_zoomui_button_count > 0))
+			if ((_zoomui_hot_index == -1) && (_zoomui_is_button_cell(_ZOOMUI_CELL_PREV)))
 			{
-				_zoomui_hot_index = 0;
+				_zoomui_hot_index = _ZOOMUI_CELL_PREV;
 
 				_zoomui_invalidate();
 			}
@@ -1386,9 +1835,9 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
 			hot = _zoomui_hot_index;
 
-			if ((hot < 0) && (_zoomui_button_count > 0))
+			if ((hot < 0) && (_zoomui_is_button_cell(_ZOOMUI_CELL_PREV)))
 			{
-				hot = 0;
+				hot = _ZOOMUI_CELL_PREV;
 			}
 
 			switch ((int)wParam)
@@ -1396,21 +1845,11 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 				case VK_LEFT:
 				case VK_UP:
 				{
-					if (_zoomui_button_count > 0)
-					{
-						if (_zoomui_hot_index < 0)
-						{
-							_zoomui_hot_index = 0;
-						}
-						else
-						{
-							_zoomui_hot_index = (_zoomui_hot_index + _zoomui_button_count - 1) % _zoomui_button_count;
-						}
+					_zoomui_hot_index = _zoomui_step_button_cell(_zoomui_hot_index,-1);
 
-						_zoomui_invalidate();
+					_zoomui_invalidate();
 
-						zoomui_activity();
-					}
+					zoomui_activity();
 
 					return 0;
 				}
@@ -1418,57 +1857,30 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 				case VK_RIGHT:
 				case VK_DOWN:
 				{
-					if (_zoomui_button_count > 0)
-					{
-						if (_zoomui_hot_index < 0)
-						{
-							_zoomui_hot_index = 0;
-						}
-						else
-						{
-							_zoomui_hot_index = (_zoomui_hot_index + 1) % _zoomui_button_count;
-						}
+					_zoomui_hot_index = _zoomui_step_button_cell(_zoomui_hot_index,1);
 
-						_zoomui_invalidate();
+					_zoomui_invalidate();
 
-						zoomui_activity();
-					}
+					zoomui_activity();
 
 					return 0;
 				}
 
 				case VK_TAB:
 				{
-					if (_zoomui_button_count > 0)
+					// shift+tab walks backwards, plain tab forwards.
+					if (GetKeyState(VK_SHIFT) < 0)
 					{
-						// shift+tab walks backwards, plain tab forwards.
-						if (GetKeyState(VK_SHIFT) < 0)
-						{
-							if (_zoomui_hot_index < 0)
-							{
-								_zoomui_hot_index = 0;
-							}
-							else
-							{
-								_zoomui_hot_index = (_zoomui_hot_index + _zoomui_button_count - 1) % _zoomui_button_count;
-							}
-						}
-						else
-						{
-							if (_zoomui_hot_index < 0)
-							{
-								_zoomui_hot_index = 0;
-							}
-							else
-							{
-								_zoomui_hot_index = (_zoomui_hot_index + 1) % _zoomui_button_count;
-							}
-						}
-
-						_zoomui_invalidate();
-
-						zoomui_activity();
+						_zoomui_hot_index = _zoomui_step_button_cell(_zoomui_hot_index,-1);
 					}
+					else
+					{
+						_zoomui_hot_index = _zoomui_step_button_cell(_zoomui_hot_index,1);
+					}
+
+					_zoomui_invalidate();
+
+					zoomui_activity();
 
 					return 0;
 				}
@@ -1505,14 +1917,15 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			int container_high;
 
 			_zoomui_calc_metrics();
-			_zoomui_update_button_rects();
 
-			container_wide = (_zoomui_button_count * _zoomui_button_wide) + ((_zoomui_button_count - 1) * _zoomui_button_gap) + (_zoomui_margin * 2);
-			container_high = _zoomui_button_high + (_zoomui_margin * 2);
+			_zoomui_measure_pct_wide();
+			_zoomui_update_cell_rects();
+
+			container_wide = _zoomui_row_wide() + (_zoomui_margin * 2);
+			container_high = _zoomui_cell_high + (_zoomui_margin * 2);
 
 			SetWindowPos(hwnd,0,0,0,container_wide,container_high,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
 
-			_zoomui_update_button_rects();
 			_zoomui_tooltip_update_rects();
 
 			_zoomui_invalidate();
@@ -1525,6 +1938,13 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			if ((int)wParam == _ZOOMUI_TIMER_ID)
 			{
 				_zoomui_on_timer();
+
+				return 0;
+			}
+
+			if ((int)wParam == _ZOOMUI_PCT_TIMER_ID)
+			{
+				_zoomui_poll_state();
 
 				return 0;
 			}
@@ -1545,6 +1965,7 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			HDC hdc;
 			RECT client_rect;
 			int has_focus;
+			int i;
 
 			hdc = BeginPaint(hwnd,&ps);
 
@@ -1554,10 +1975,11 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
 				has_focus = (GetFocus() == hwnd) ? 1 : 0;
 
-				// the pill tray: one stadium in the bar color with a hairline
-				// border. the capsule buttons float on it with gaps around them,
-				// so the tray reads as a soft rail under the pair instead of
-				// the old raised square block with its double edge.
+				// the pill tray: one stadium in the capsule face color
+				// with a hairline border. the capsule buttons float on
+				// it with gaps around them, so the tray reads as a soft
+				// rail under the row instead of the old raised square
+				// block with its double edge.
 				{
 					HBRUSH brush;
 					HPEN pen;
@@ -1565,8 +1987,8 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 					HGDIOBJ old_brush;
 					int corner;
 
-					brush = CreateSolidBrush(_zoomui_dark ? RGB(0x20,0x20,0x20) : GetSysColor(COLOR_BTNFACE));
-					pen = CreatePen(PS_SOLID,1,_zoomui_dark ? RGB(0x45,0x45,0x45) : GetSysColor(COLOR_3DSHADOW));
+					brush = CreateSolidBrush(viv_theme_color(VIV_TK_FACE));
+					pen = CreatePen(PS_SOLID,1,viv_theme_color(VIV_TK_LINE));
 
 					old_pen = SelectObject(hdc,pen);
 					old_brush = SelectObject(hdc,brush);
@@ -1588,10 +2010,18 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 					DeleteObject(brush);
 				}
 
+				for(i=0;i<_ZOOMUI_CELL_COUNT;i++)
 				{
-					int i;
-
-					for(i=0;i<_zoomui_button_count;i++)
+					if (i == _ZOOMUI_CELL_SEP)
+					{
+						_zoomui_draw_separator(hdc);
+					}
+					else
+					if (i == _ZOOMUI_CELL_PCT)
+					{
+						_zoomui_draw_percent(hdc,&_zoomui_cell_rects[i]);
+					}
+					else
 					{
 						int is_pressed;
 						int is_disabled;
@@ -1601,7 +2031,7 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 						is_disabled = _zoomui_is_button_disabled(i);
 						is_hot = (_zoomui_hot_index == i) ? 1 : 0;
 
-						_zoomui_draw_button(hdc,&_zoomui_button_rects[i],i,is_pressed,is_disabled,is_hot,has_focus);
+						_zoomui_draw_button(hdc,&_zoomui_cell_rects[i],i,is_pressed,is_disabled,is_hot,has_focus);
 					}
 				}
 			}

@@ -53,7 +53,7 @@ extern "C" {
 #define COBJMACROS // c object interface please
 #define CINTERFACE // c interface only
 
-#define VIV_UINT64_MAX	0xFFFFFFFFFFFFFFFFUI64
+#define VIV_UINT64_MAX	0xFFFFFFFFFFFFFFFFULL
 #define VIV_DWORD_MAX	0xffffffff
 
 // single image pixel budget: a corrupted or hostile header can
@@ -87,6 +87,11 @@ extern "C" {
 
 typedef unsigned char utf8_t;
 
+// __int64 is msvc only: mingw and zig cc spell it long long.
+#ifndef _MSC_VER
+#define __int64 long long
+#endif
+
 typedef unsigned __int64 VIV_UINT64;
 
 #include <windows.h>
@@ -99,7 +104,7 @@ typedef unsigned __int64 VIV_UINT64;
 //#include <shlobj.h>
 //#include <istream>
 #include <commdlg.h> // OPENFILENAME
-#include <Shellapi.h> // ShellExecute
+#include <shellapi.h> // ShellExecute
 #include <uxtheme.h>
 //#include <process.h> // _beginthreadex
 #include <shlobj.h> // DROPFILES
@@ -289,7 +294,11 @@ enum
 #include "utf8.h"
 #include "ini.h"
 #include "config.h"
+#include "viv_theme.h"
+#include "viv_msgbox.h"
 #include "zoomui.h"
+#include "viv_toolbar.h"
+#include "viv_settings.h"
 #include "glyphs.h"
 #include "webp.h"
 #include "small_pool.h"

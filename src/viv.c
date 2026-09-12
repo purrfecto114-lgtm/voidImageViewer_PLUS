@@ -260,6 +260,7 @@
 #include "viv_install.h"
 #include "viv_menu.h"
 #include "viv_wndproc.h"
+#include "viv_selfshot.h"
 
 // the recent-files mru command ids run VIV_ID_FILE_RECENT_0 .. +count-1 and
 // the menu builder emits ids straight off that base. this compile-time check
@@ -1745,6 +1746,11 @@ for(i=0;i<4;i++)
 	_viv_key_clear_all(_viv_key_list);
 	mem_free(_viv_key_list);
 	
+	// the remake domains: the settings window dies with the owner, the
+	// menubar drops its cached hover and press brushes.
+	_viv_settings_kill();
+	_viv_menubar_kill();
+
 	zoomui_kill();
 
 	os_kill();
@@ -1758,6 +1764,9 @@ static int _viv_main(int nCmdShow)
 {
 	if (_viv_init(nCmdShow))
 	{
+#ifdef VIVP_SELF_SHOT
+		vivp_selfshot_init();
+#endif
 		for(;;)
 		{
 			// Main message loop:
@@ -2294,6 +2303,14 @@ static void _viv_tooltip_update(void)
 	wchar_t pixel_info_buf[STRING_SIZE];
 
 	_viv_get_tooltip();
+	
+	// the pixel probe tooltip joins the theme (the comctl tooltip paints
+	// whatever colors it is told here).
+	if (_viv_tooltip_hwnd)
+	{
+		SendMessage(_viv_tooltip_hwnd,TTM_SETTIPBKCOLOR,viv_theme_color(VIV_TK_FACE),0);
+		SendMessage(_viv_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,viv_theme_color(VIV_TK_TEXT),0);
+	}
 	
 	string_printf(pixel_info_buf,"%d,%d: %d,%d,%d",_viv_src_pixel_x,_viv_src_pixel_y,_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
 

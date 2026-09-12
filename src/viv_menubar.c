@@ -35,6 +35,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_chrome.h"
+#include "viv_render.h"
 #include "viv_dark.h"
 #include "viv_menu.h"
 #include "viv_menubar.h"
@@ -50,6 +51,83 @@ static int _viv_menubar_hover = -1; // the item under the mouse
 static int _viv_menubar_open = -1; // the item whose popup is up
 static BYTE _viv_menubar_pressed = 0; // the button is held on the bar
 static BYTE _viv_menubar_tracking = 0; // the mouse leave tracking is armed
+static int _viv_menubar_deferred = -1; // the item to open once the current popup loop returns (the hover follow)
+
+// the measured width must not carry the '&' accelerators: the bar draws
+// with DT_HIDEPREFIX until alt is held, so a label measured with the
+// ampersand in place ran several pixels wider than the glyph run it
+// painted.
+static int _viv_menubar_strip_ampersand(wchar_t *dst,const wchar_t *src)
+{
+	int read;
+	int write;
+
+	read = 0;
+	write = 0;
+
+	while(src[read])
+	{
+		if (src[read] == L'&')
+		{
+			read++;
+
+			if (!src[read])
+			{
+				break;
+			}
+		}
+
+		dst[write] = src[read];
+
+		write++;
+		read++;
+	}
+
+	dst[write] = 0;
+
+	return write;
+}
+
+void _viv_menubar_kill(void)
+{
+	// the strip colors live in the shared theme brush cache now: the
+	// theme refresh owns their lifetime, nothing to free here.
+}
+
+// the menu modal loop idles on the owner: pump the pending mouse moves
+// so the bar keeps hovering (and following) while a popup is up.
+void _viv_menubar_idle_pump(void)
+{
+	MSG msg;
+	int guard;
+
+	if (_viv_menubar_open == -1)
+	{
+		return;
+	}
+
+	for(guard=0;guard<16;guard++)
+	{
+		if (!PeekMessage(&msg,0,WM_MOUSEFIRST,WM_MOUSELAST,PM_NOREMOVE))
+		{
+			break;
+		}
+
+		if (!GetMessage(&msg,0,WM_MOUSEFIRST,WM_MOUSELAST))
+		{
+			break;
+		}
+
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+
+		if (_viv_menubar_deferred >= 0)
+		{
+			break;
+		}
+	}
+}
+
 
 static void _viv_menubar_item_rect(int itemi,RECT *rect)
 {
@@ -134,19 +212,57 @@ static void _viv_menubar_open_popup(int itemi)
 	
 	ClientToScreen(_viv_menubar_hwnd,&pt);
 	
-	_viv_menubar_open = itemi;
-	_viv_menubar_hover = itemi;
-	
-	InvalidateRect(_viv_menubar_hwnd,0,FALSE);
-	UpdateWindow(_viv_menubar_hwnd);
-	
-	TrackPopupMenuEx(popup,TPM_LEFTALIGN | TPM_LEFTBUTTON,pt.x,pt.y,_viv_hwnd,0);
-	
+	// the hover follow: a move onto another root item while a popup is
+	// up cancels the loop and reopens at the new item (the classic bar
+	// followed the mouse across the roots; the synthetic arrow trick does
+	// not exist for trackpopupmenu, so the close plus reopen is the
+	// honest equivalent - same tick, no visible flash at popup scale).
+	do
+	{
+		_viv_menubar_deferred = -1;
+
+		_viv_menubar_open = itemi;
+		_viv_menubar_hover = itemi;
+
+		InvalidateRect(_viv_menubar_hwnd,0,FALSE);
+		UpdateWindow(_viv_menubar_hwnd);
+
+		TrackPopupMenuEx(popup,TPM_LEFTALIGN | TPM_RIGHTBUTTON,pt.x,pt.y,_viv_hwnd,0);
+
+		if (_viv_menubar_deferred >= 0)
+		{
+			itemi = _viv_menubar_deferred;
+
+			_viv_menubar_item_rect(itemi,&rect);
+
+			pt.x = rect.left;
+			pt.y = rect.bottom;
+
+			ClientToScreen(_viv_menubar_hwnd,&pt);
+
+			popup = GetSubMenu(_viv_hmenu,itemi);
+
+			if (!popup)
+			{
+				_viv_menubar_deferred = -1;
+
+				break;
+			}
+
+			_viv_check_menus(_viv_hmenu);
+
+			continue;
+		}
+
+		break;
+	} while(1);
+
 	// the loop is gone: the release that closed the menu can land on a
 	// sibling item, so the hover is allowed to re-arm on the next move.
 	_viv_menubar_open = -1;
 	_viv_menubar_hover = -1;
-	
+	_viv_menubar_deferred = -1;
+
 	InvalidateRect(_viv_menubar_hwnd,0,FALSE);
 }
 
@@ -205,7 +321,8 @@ void _viv_menubar_layout(void)
 	for(index=0;index<count;index++)
 	{
 		SIZE size;
-		
+		wchar_t plain[STRING_SIZE];
+
 		_viv_menubar_item_text[_viv_menubar_item_count][0] = 0;
 		
 		os_zero_memory(&mii,sizeof(mii));
@@ -222,8 +339,12 @@ void _viv_menubar_layout(void)
 		size.cx = 0;
 		size.cy = 0;
 		
-		GetTextExtentPoint32W(hdc,_viv_menubar_item_text[_viv_menubar_item_count],string_get_length(_viv_menubar_item_text[_viv_menubar_item_count]),&size);
-		
+		// measure the drawn form (accelerators stripped): the hidden
+		// ampersand never paints until alt is held.
+		_viv_menubar_strip_ampersand(plain,_viv_menubar_item_text[_viv_menubar_item_count]);
+
+		GetTextExtentPoint32W(hdc,plain,string_get_length(plain),&size);
+
 		_viv_menubar_item_wide[_viv_menubar_item_count] = size.cx + (pad * 2);
 		
 		if (size.cy > high)
@@ -248,8 +369,11 @@ void _viv_menubar_layout(void)
 	
 	// the strip height: the label plus vertical air, floored at the classic
 	// bar height so a failed metric query can never collapse the strip.
-	min_high = (18 * os_logical_high) / 96;
-	
+	// the strip height: the label plus vertical air, floored at the
+	// remake bar height (28 dip) so a failed metric query can never
+	// collapse the strip.
+	min_high = (28 * os_logical_high) / 96;
+
 	_viv_menubar_bar_high = high + ((6 * os_logical_high) / 96);
 	
 	if (_viv_menubar_bar_high < min_high)
@@ -359,6 +483,7 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			int itemi;
 			int inactive;
 			int hot;
+			int press;
 			int show_accel;
 			
 			hdc = BeginPaint(hwnd,&ps);
@@ -368,7 +493,7 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			// the face is one flat fill: dark chrome in the dark ui, the
 			// system menu face in the light ui. no system painter ever
 			// touches this strip again - that was the white bar.
-			FillRect(hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(3) : (HBRUSH)(COLOR_MENU + 1));
+			FillRect(hdc,&rect,viv_theme_brush(VIV_TK_FRAME));
 			
 			font = _viv_menu_font();
 			old_font = 0;
@@ -390,18 +515,17 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			{
 				_viv_menubar_item_rect(itemi,&rect);
 				
+				// the pressed item is its own face: the mouse is down on the bar
+				// and the popup has not taken over yet (the open item keeps the
+				// hover face while its menu runs).
+				press = (_viv_menubar_pressed && (itemi == _viv_menubar_hover) && (_viv_menubar_open == -1));
 				hot = (itemi == _viv_menubar_hover) || (itemi == _viv_menubar_open);
-				
-				if (_viv_is_dark())
-				{
-					face = hot ? _viv_dark_chrome_brush(1) : _viv_dark_chrome_brush(3);
-					text_color = inactive ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
-				}
-				else
-				{
-					face = GetSysColorBrush(hot ? COLOR_HIGHLIGHT : COLOR_MENU);
-					text_color = GetSysColor(inactive ? COLOR_GRAYTEXT : (hot ? COLOR_HIGHLIGHTTEXT : COLOR_MENUTEXT));
-				}
+
+				// one token path for both themes: the press item keeps its face
+				// while the popup runs, the open item keeps the hover face, and
+				// the inactive strip drops the labels a tone.
+				face = press ? viv_theme_brush(VIV_TK_DOWN) : (hot ? viv_theme_brush(VIV_TK_HOVER) : viv_theme_brush(VIV_TK_FRAME));
+				text_color = viv_theme_color(inactive ? VIV_TK_TEXT2 : VIV_TK_TEXT);
 				
 				FillRect(hdc,&rect,face);
 				
@@ -426,7 +550,7 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			
 			GetClientRect(hwnd,&rect);
 			
-			FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(3) : (HBRUSH)(COLOR_MENU + 1));
+			FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_FRAME));
 			
 			return 1;
 		}
@@ -455,9 +579,22 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				_viv_menubar_invalidate_item(_viv_menubar_hover);
 				_viv_menubar_invalidate_item(hit);
 				
-				_viv_menubar_hover = hit;
+			_viv_menubar_hover = hit;
 			}
-			
+
+			// the follow: a popup is up and the mouse moved to a different
+			// root - cancel the tracking loop, the open popup call reopens at
+			// the new item.
+			if ((_viv_menubar_open != -1) && (hit >= 0) && (hit != _viv_menubar_open) && (_viv_menubar_deferred == -1))
+			{
+				_viv_menubar_deferred = hit;
+
+				InvalidateRect(_viv_menubar_hwnd,0,FALSE);
+				UpdateWindow(_viv_menubar_hwnd);
+
+				EndMenu();
+			}
+
 			return 0;
 		}
 		

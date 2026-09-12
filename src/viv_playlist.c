@@ -47,7 +47,7 @@ void _viv_playlist_add_filename(const wchar_t *filename);
 static void _viv_shuffle_playlist(void);
 void _viv_nav_item_free_all(void);
 void _viv_nav_item_add(WIN32_FIND_DATA *fd);
-int _viv_nav_compare(const _viv_nav_item_t *a,const _viv_nav_item_t *b);
+int _viv_nav_compare(const void *va,const void *vb);
 static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 void _viv_search_everything(int add);
 int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wchar_t *search);
@@ -730,8 +730,14 @@ void _viv_nav_item_add(WIN32_FIND_DATA *fd)
 	_viv_nav_item_last = navitem;
 	_viv_nav_item_count++;				
 }
-int _viv_nav_compare(const _viv_nav_item_t *a,const _viv_nav_item_t *b)
+int _viv_nav_compare(const void *va,const void *vb)
 {
+	const _viv_nav_item_t *a;
+	const _viv_nav_item_t *b;
+
+	a = (_viv_nav_item_t *)va;
+	b = (_viv_nav_item_t *)vb;
+
 	return _viv_fd_compare_name(&a->fd,&b->fd);
 }
 static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
@@ -893,7 +899,7 @@ int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wchar_t *s
 			string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
 
 			// MB_ICONQUESTION avoids the messagebeep.
-			MessageBox(hwnd,text_wbuf,caption_wbuf,MB_OK|MB_ICONERROR);
+			viv_msgbox(hwnd,caption_wbuf,text_wbuf,MB_OK|MB_ICONERROR);
 				
 			mem_free(text_wbuf);
 			

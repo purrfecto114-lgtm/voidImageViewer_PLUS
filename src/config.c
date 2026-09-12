@@ -34,6 +34,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root);
 BYTE config_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
 BYTE config_language = 0; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
 BYTE config_dark_mode = 2; // ui theme: 0 = light, 1 = dark, 2 = auto (follow the windows theme).
+BYTE config_ui_accent = 0; // ui accent color index into the viv_theme accent table (0..4).
 BYTE config_backdrop_mode = CONFIG_BACKDROP_MODE_FOLLOW; // backdrop under transparent pixels: 0 = follow window background, 1 = black, 2 = white, 3 = custom, 4 = checkerboard
 BYTE config_backdrop_color_r = 128; // custom backdrop color
 BYTE config_backdrop_color_g = 128;
@@ -192,6 +193,14 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 					config_dark_mode = 2;
 				}
 			}
+		}
+
+		// accent color. an index into the viv_theme accent table, clamped.
+		config_ui_accent = (BYTE)ini_get_int(ini,(const utf8_t *)"accent_color",0);
+		
+		if (config_ui_accent >= VIV_THEME_ACCENT_COUNT)
+		{
+			config_ui_accent = 0;
 		}
 		config_backdrop_mode = ini_get_int(ini,(const utf8_t *)"backdrop_mode",config_backdrop_mode);
 		config_backdrop_color_r = ini_get_int(ini,(const utf8_t *)"backdrop_color_r",config_backdrop_color_r);
@@ -484,6 +493,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 				_config_write_int(h,"zoom_auto_hide",config_zoom_auto_hide);
 			_config_write_string(h,"language",config_language == 1 ? L"english" : (config_language == 2 ? L"chinese" : L"auto"));
 		_config_write_string(h,"dark_mode",config_dark_mode == 1 ? L"dark" : (config_dark_mode == 0 ? L"light" : L"auto"));
+		_config_write_int(h,"accent_color",config_ui_accent);
 		_config_write_int(h,"backdrop_mode",config_backdrop_mode);
 		_config_write_int(h,"backdrop_color_r",config_backdrop_color_r);
 		_config_write_int(h,"backdrop_color_g",config_backdrop_color_g);

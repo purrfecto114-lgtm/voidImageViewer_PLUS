@@ -8,6 +8,11 @@ build/
 *.iobj
 *.ipdb
 
+# zig build scratch (the object tree, logs and the generated manifest copy)
+build-zig/obj/
+build-zig/err.log
+build-zig/viv.exe.manifest
+
 # Visual Studio binary resource editor state (res/voidImageViewer.aps etc)
 *.aps
 

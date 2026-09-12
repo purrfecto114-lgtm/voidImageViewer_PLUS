@@ -1543,8 +1543,10 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 	return FALSE;
 }
 void _viv_options(void)
-{	
-	DialogBox(os_hinstance,MAKEINTRESOURCE(IDD_OPTIONS),_viv_hwnd,_viv_options_proc);
+{
+	// the remake settings window is the options surface now: the classic
+	// tabbed dialog stays retired (the template ships but nothing opens it).
+	_viv_settings_show();
 }
 INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
@@ -1996,9 +1998,7 @@ void _viv_command_line_options(void)
 	string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
 
 	// MB_ICONQUESTION avoids the messagebeep.
-	MessageBox(_viv_hwnd,
-		text_wbuf,
-		caption_wbuf,MB_OK|MB_ICONQUESTION);
+	viv_msgbox(_viv_hwnd,caption_wbuf,text_wbuf,MB_OK|MB_ICONQUESTION);
 		
 	mem_free(text_wbuf);
 }

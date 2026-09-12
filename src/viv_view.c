@@ -814,7 +814,9 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 			break;
 						
 		case VIV_ID_VIEW_OPTIONS:
-			_viv_options();
+			// the remake settings window (the modal options dialog is retired
+			// from the command path; its page code stays as the reference).
+			_viv_settings_show();
 			break;
 			
 		case VIV_ID_EDIT_COPY:
@@ -2034,7 +2036,7 @@ static void _viv_file_set_desktop_wallpaper(void)
 		string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_MESSAGE));
 		string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_CAPTION));
 		
-		if (MessageBox(_viv_hwnd,message_wbuf,caption_wbuf,MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
+		if (viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OKCANCEL | MB_ICONQUESTION) == IDOK)
 		{
 			if (!_viv_stobject_hmodule)
 			{

@@ -51,7 +51,7 @@ HBRUSH _viv_dialog_dark_brush(void)
 {
 	if (!_viv_dialog_dark_hbrush)
 	{
-		_viv_dialog_dark_hbrush = CreateSolidBrush(RGB(0x20,0x20,0x20));
+		_viv_dialog_dark_hbrush = CreateSolidBrush(viv_theme_color(VIV_TK_FACE));
 	}
 	
 	return _viv_dialog_dark_hbrush;
@@ -147,8 +147,8 @@ static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 			// text color - the same values the options initdialog applies - and
 			// hand them back to the system on the light flip (0xffffffff is
 			// clr_default).
-			SendMessage(hwnd,TVM_SETBKCOLOR,0,dark ? RGB(0x20,0x20,0x20) : (COLORREF)0xFFFFFFFF);
-			SendMessage(hwnd,TVM_SETTEXTCOLOR,0,dark ? RGB(0xE8,0xE8,0xE8) : (COLORREF)0xFFFFFFFF);
+			SendMessage(hwnd,TVM_SETBKCOLOR,0,dark ? viv_theme_color(VIV_TK_FACE) : (COLORREF)0xFFFFFFFF);
+			SendMessage(hwnd,TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF);
 			
 			if (dark)
 			{
@@ -293,6 +293,10 @@ static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
 // WM_INITDIALOG (the dialog manager creates the children before it).
 void _viv_dark_dialog(HWND hwnd)
 {
+	// the win11 frame treatment for every dialog: rounded corners and a
+	// caption color that follows the chrome (a silent no-op earlier).
+	os_window_modern_chrome(hwnd,viv_theme_color(VIV_TK_CHROME));
+	
 	if (_viv_is_dark())
 	{
 		os_dark_titlebar(hwnd,1);
@@ -341,8 +345,8 @@ static INT_PTR _viv_dialog_dark_ctlcolor(HDC hdc)
 {
 	if (_viv_is_dark())
 	{
-		SetTextColor(hdc,RGB(0xE8,0xE8,0xE8));
-		SetBkColor(hdc,RGB(0x20,0x20,0x20));
+		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
+		SetBkColor(hdc,viv_theme_color(VIV_TK_FACE));
 		
 		return (INT_PTR)_viv_dialog_dark_brush();
 	}
@@ -453,7 +457,7 @@ static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 				OffsetRect(&rect,1,1);
 			}
 			
-			text_color = (draw_item->itemState & ODS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
+			text_color = (draw_item->itemState & ODS_DISABLED) ? viv_theme_color(VIV_TK_TEXTOFF) : viv_theme_color(VIV_TK_TEXT);
 			
 			SetBkMode(draw_item->hDC,TRANSPARENT);
 			SetTextColor(draw_item->hDC,text_color);
@@ -510,7 +514,7 @@ static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
 			selected = (draw_item->itemState & (ODS_SELECTED | ODS_COMBOBOXEDIT)) ? 1 : 0;
 			
 			face_brush = selected ? _viv_dark_chrome_brush(1) : _viv_dark_chrome_brush(3);
-			text_color = (draw_item->itemState & ODS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
+			text_color = (draw_item->itemState & ODS_DISABLED) ? viv_theme_color(VIV_TK_TEXTOFF) : viv_theme_color(VIV_TK_TEXT);
 			
 			FillRect(draw_item->hDC,&rect,face_brush);
 			
@@ -740,7 +744,7 @@ static INT_PTR _viv_dialog_dark_notify(HWND hwnd,NMHDR *header)
 		
 		SetBkMode(custom_draw->hdc,TRANSPARENT);
 		
-		SetTextColor(custom_draw->hdc,(style & WS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8));
+		SetTextColor(custom_draw->hdc,(style & WS_DISABLED) ? viv_theme_color(VIV_TK_TEXTOFF) : viv_theme_color(VIV_TK_TEXT));
 		
 		DrawTextW(custom_draw->hdc,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
 		

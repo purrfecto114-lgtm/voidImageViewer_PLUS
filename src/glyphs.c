@@ -19,8 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-// vector glyph icon rendering. the eight toolbar / zoom control icons are
-// drawn as 48x48 grid line art (round capped strokes, the media transport
+// vector glyph icon rendering. the sixteen toolbar / zoom control icons
+// are drawn as 48x48 grid line art (round capped strokes, the media transport
 // and magnifier metaphors of the previous .ico frames) into a 32bpp argb
 // bitmap through the gdi+ flat api, then converted to an HICON. icons are
 // cached per (glyph, theme, size) so the hot draw paths never rebuild.
@@ -54,12 +54,26 @@ typedef struct _glyphs_ellipse_s
 	float ry;
 }_glyphs_ellipse_t;
 
+// one stroke: a true arc through the arc field (the rotate glyph: a sampled
+// polyline always wobbles the same way a hand written ring did, so the
+// three quarter circle is one arc primitive instead).
+typedef struct _glyphs_arc_s
+{
+	float cx;
+	float cy;
+	float rx;
+	float ry;
+	float start; // degrees, clockwise from the x axis (the y down grid).
+	float sweep; // degrees, positive = clockwise.
+}_glyphs_arc_t;
+
 typedef struct _glyphs_stroke_s
 {
-	int point_count; // 48 grid units; 0 = the ellipse stroke below.
+	int point_count; // 48 grid units; 0 = the ellipse / arc stroke below.
 	int width; // 48 grid units.
-	const _glyphs_point_t *points; // NULL = use ellipse.
+	const _glyphs_point_t *points; // NULL = use ellipse or arc.
 	const _glyphs_ellipse_t *ellipse; // used when points == NULL.
+	const _glyphs_arc_t *arc; // used when points and ellipse are NULL.
 }_glyphs_stroke_t;
 
 typedef struct _glyphs_glyph_s
@@ -76,6 +90,7 @@ static int (__stdcall *_glyphs_gdipDeletePen)(void *pen) = 0;
 static int (__stdcall *_glyphs_gdipDrawLinesI)(void *graphics,void *pen,const _glyphs_point_t *points,int count) = 0;
 static int (__stdcall *_glyphs_gdipDrawLinesF)(void *graphics,void *pen,const _glyphs_point_f_t *points,int count) = 0;
 static int (__stdcall *_glyphs_gdipDrawEllipseF)(void *graphics,void *pen,float x,float y,float width,float height) = 0;
+static int (__stdcall *_glyphs_gdipDrawArcF)(void *graphics,void *pen,float x,float y,float width,float height,float start_angle,float sweep_angle) = 0;
 static int (__stdcall *_glyphs_gdipCreateBitmapFromScan0)(int wide,int high,int stride,int format,unsigned char *scan0,void **bitmap) = 0;
 static int (__stdcall *_glyphs_gdipGetImageGraphicsContext)(void *image,void **graphics) = 0;
 static int (__stdcall *_glyphs_gdipSetSmoothingMode)(void *graphics,int mode) = 0;
@@ -217,6 +232,99 @@ static const _glyphs_stroke_t _glyphs_zoomin_strokes[] =
 	{2,5,_glyphs_zoomin_plus}
 };
 
+// folder open: the back tab panel with the tilted front flap (the classic
+// open folder; the flap reaches past the back panel's right edge).
+static const _glyphs_point_t _glyphs_folder_back[] = { {6,34},{6,13},{16,13},{20,17},{38,17},{38,21} };
+static const _glyphs_point_t _glyphs_folder_flap[] = { {6,34},{12,22},{42,22},{36,34},{6,34} };
+static const _glyphs_stroke_t _glyphs_folder_open_strokes[] =
+{
+	{6,4,_glyphs_folder_back},
+	{5,4,_glyphs_folder_flap}
+};
+
+// rotate cw: a three quarter arc as a true arc primitive, the arrow head at
+// the top end pointing clockwise (the 45 degree notch sits between the head
+// and the arc tail).
+static const _glyphs_arc_t _glyphs_rotate_arc = { 24.0f,24.0f,13.0f,13.0f,315.0f,315.0f };
+static const _glyphs_point_t _glyphs_rotate_head[] = { {19,6},{24,11},{19,16} };
+static const _glyphs_stroke_t _glyphs_rotate_strokes[] =
+{
+	{0,5,0,0,&_glyphs_rotate_arc},
+	{3,5,_glyphs_rotate_head}
+};
+
+// info: a thin ring with the i (dot and stem) kept clear of the ring band.
+static const _glyphs_ellipse_t _glyphs_info_ring = { 24.0f,24.0f,15.5f,15.5f };
+static const _glyphs_ellipse_t _glyphs_info_dot = { 24.0f,16.0f,2.0f,2.0f };
+static const _glyphs_point_t _glyphs_info_stem[] = { {24,24},{24,33} };
+static const _glyphs_stroke_t _glyphs_info_strokes[] =
+{
+	{0,4,0,&_glyphs_info_ring},
+	{0,4,0,&_glyphs_info_dot},
+	{2,4,_glyphs_info_stem}
+};
+
+// settings: a simplified eight tooth gear (the ring, the radial teeth, the
+// center hole). the diagonal teeth round to the grid, the half unit they
+// give back disappears under the round caps.
+static const _glyphs_ellipse_t _glyphs_gear_ring = { 24.0f,24.0f,10.0f,10.0f };
+static const _glyphs_ellipse_t _glyphs_gear_hole = { 24.0f,24.0f,4.0f,4.0f };
+static const _glyphs_point_t _glyphs_gear_tooth_e[] = { {33,24},{39,24} };
+static const _glyphs_point_t _glyphs_gear_tooth_w[] = { {15,24},{9,24} };
+static const _glyphs_point_t _glyphs_gear_tooth_s[] = { {24,33},{24,39} };
+static const _glyphs_point_t _glyphs_gear_tooth_n[] = { {24,15},{24,9} };
+static const _glyphs_point_t _glyphs_gear_tooth_ne[] = { {30,18},{35,13} };
+static const _glyphs_point_t _glyphs_gear_tooth_se[] = { {30,30},{35,35} };
+static const _glyphs_point_t _glyphs_gear_tooth_sw[] = { {18,30},{13,35} };
+static const _glyphs_point_t _glyphs_gear_tooth_nw[] = { {18,18},{13,13} };
+static const _glyphs_stroke_t _glyphs_settings_strokes[] =
+{
+	{0,4,0,&_glyphs_gear_ring},
+	{2,6,_glyphs_gear_tooth_e},
+	{2,6,_glyphs_gear_tooth_w},
+	{2,6,_glyphs_gear_tooth_s},
+	{2,6,_glyphs_gear_tooth_n},
+	{2,6,_glyphs_gear_tooth_ne},
+	{2,6,_glyphs_gear_tooth_se},
+	{2,6,_glyphs_gear_tooth_sw},
+	{2,6,_glyphs_gear_tooth_nw},
+	{0,4,0,&_glyphs_gear_hole}
+};
+
+// picture: the frame, the sun and a two peak mountain line that runs into
+// the frame sides.
+static const _glyphs_ellipse_t _glyphs_picture_sun = { 17.0f,18.0f,3.0f,3.0f };
+static const _glyphs_point_t _glyphs_picture_frame[] = { {8,10},{40,10},{40,38},{8,38},{8,10} };
+static const _glyphs_point_t _glyphs_picture_mountains[] = { {8,33},{17,24},{23,30},{30,22},{40,33} };
+static const _glyphs_stroke_t _glyphs_picture_strokes[] =
+{
+	{5,4,_glyphs_picture_frame},
+	{0,4,0,&_glyphs_picture_sun},
+	{5,4,_glyphs_picture_mountains}
+};
+
+// gamepad: a stadium body (two lines plus two true arc caps), the d pad
+// cross and the two buttons.
+static const _glyphs_point_t _glyphs_pad_top[] = { {16,14},{32,14} };
+static const _glyphs_point_t _glyphs_pad_bottom[] = { {32,34},{16,34} };
+static const _glyphs_arc_t _glyphs_pad_right_cap = { 32.0f,24.0f,10.0f,10.0f,270.0f,180.0f };
+static const _glyphs_arc_t _glyphs_pad_left_cap = { 16.0f,24.0f,10.0f,10.0f,90.0f,180.0f };
+static const _glyphs_point_t _glyphs_pad_dpad_v[] = { {16,20},{16,28} };
+static const _glyphs_point_t _glyphs_pad_dpad_h[] = { {12,24},{20,24} };
+static const _glyphs_ellipse_t _glyphs_pad_button1 = { 35.0f,21.0f,1.5f,1.5f };
+static const _glyphs_ellipse_t _glyphs_pad_button2 = { 29.0f,27.0f,1.5f,1.5f };
+static const _glyphs_stroke_t _glyphs_gamepad_strokes[] =
+{
+	{2,4,_glyphs_pad_top},
+	{0,4,0,0,&_glyphs_pad_right_cap},
+	{2,4,_glyphs_pad_bottom},
+	{0,4,0,0,&_glyphs_pad_left_cap},
+	{2,4,_glyphs_pad_dpad_v},
+	{2,4,_glyphs_pad_dpad_h},
+	{0,4,0,&_glyphs_pad_button1},
+	{0,4,0,&_glyphs_pad_button2}
+};
+
 static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
 {
 	{2,_glyphs_prev_strokes},
@@ -226,7 +334,15 @@ static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
 	{6,_glyphs_bestfit_strokes},
 	{7,_glyphs_1to1_strokes},
 	{3,_glyphs_zoomout_strokes},
-	{4,_glyphs_zoomin_strokes}
+	{4,_glyphs_zoomin_strokes},
+	{2,_glyphs_folder_open_strokes},
+	{3,_glyphs_zoomout_strokes},
+	{4,_glyphs_zoomin_strokes},
+	{2,_glyphs_rotate_strokes},
+	{3,_glyphs_info_strokes},
+	{10,_glyphs_settings_strokes},
+	{3,_glyphs_picture_strokes},
+	{8,_glyphs_gamepad_strokes}
 };
 
 // resolve the gdi+ flat api table. gdi+ must have been started before
@@ -257,6 +373,7 @@ static int _glyphs_load(void)
 	_glyphs_gdipDrawLinesI = (void *)GetProcAddress(module,"GdipDrawLinesI");
 	_glyphs_gdipDrawLinesF = (void *)GetProcAddress(module,"GdipDrawLines");
 	_glyphs_gdipDrawEllipseF = (void *)GetProcAddress(module,"GdipDrawEllipse");
+	_glyphs_gdipDrawArcF = (void *)GetProcAddress(module,"GdipDrawArc");
 	_glyphs_gdipCreateBitmapFromScan0 = (void *)GetProcAddress(module,"GdipCreateBitmapFromScan0");
 	_glyphs_gdipGetImageGraphicsContext = (void *)GetProcAddress(module,"GdipGetImageGraphicsContext");
 	_glyphs_gdipSetSmoothingMode = (void *)GetProcAddress(module,"GdipSetSmoothingMode");
@@ -266,7 +383,8 @@ static int _glyphs_load(void)
 
 	if ((!_glyphs_gdipCreatePen1) || (!_glyphs_gdipSetPenStartCap) || (!_glyphs_gdipSetPenEndCap) ||
 		(!_glyphs_gdipDeletePen) || (!_glyphs_gdipDrawLinesI) || (!_glyphs_gdipDrawLinesF) ||
-		(!_glyphs_gdipDrawEllipseF) || (!_glyphs_gdipCreateBitmapFromScan0) ||
+		(!_glyphs_gdipDrawEllipseF) || (!_glyphs_gdipDrawArcF) ||
+		(!_glyphs_gdipCreateBitmapFromScan0) ||
 		(!_glyphs_gdipGetImageGraphicsContext) || (!_glyphs_gdipSetSmoothingMode) ||
 		(!_glyphs_gdipDeleteGraphics) || (!_glyphs_gdipDisposeImage) || (!_glyphs_gdipCreateHICONFromBitmap))
 	{
@@ -357,12 +475,12 @@ static HICON _glyphs_build(int glyph_id,int dark,int size)
 					{
 						_glyphs_point_f_t *pts;
 
-					// round caps: the strokes end in soft dots instead of
-					// square cuts, the signature of the glyph family.
-					_glyphs_gdipSetPenStartCap(pen,_GLYPHS_LINE_CAP_ROUND);
-					_glyphs_gdipSetPenEndCap(pen,_GLYPHS_LINE_CAP_ROUND);
+						// round caps: the strokes end in soft dots instead of
+						// square cuts, the signature of the glyph family.
+						_glyphs_gdipSetPenStartCap(pen,_GLYPHS_LINE_CAP_ROUND);
+						_glyphs_gdipSetPenEndCap(pen,_GLYPHS_LINE_CAP_ROUND);
 
-											if (stroke->points)
+					if (stroke->points)
 					{
 						pts = (_glyphs_point_f_t *)mem_alloc(safe_size_mul(sizeof(_glyphs_point_f_t),(size_t)stroke->point_count));
 
@@ -390,6 +508,13 @@ static HICON _glyphs_build(int glyph_id,int dark,int size)
 						// single arc primitive instead of a sampled polyline,
 						// so no vertex wobble can reach the lens at any size.
 						_glyphs_gdipDrawEllipseF(graphics,pen,(stroke->ellipse->cx - stroke->ellipse->rx) * scale,(stroke->ellipse->cy - stroke->ellipse->ry) * scale,(stroke->ellipse->rx * 2.0f) * scale,(stroke->ellipse->ry * 2.0f) * scale);
+					}
+					else if (stroke->arc)
+					{
+						// the true arc stroke: the rotate glyph three quarter
+						// circle is one primitive (degrees, the same round capped
+						// pen), so no sampled polyline wobble can reach the curve.
+						_glyphs_gdipDrawArcF(graphics,pen,(stroke->arc->cx - stroke->arc->rx) * scale,(stroke->arc->cy - stroke->arc->ry) * scale,(stroke->arc->rx * 2.0f) * scale,(stroke->arc->ry * 2.0f) * scale,stroke->arc->start,stroke->arc->sweep);
 					}
 
 						_glyphs_gdipDeletePen(pen);

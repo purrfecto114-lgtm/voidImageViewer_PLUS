@@ -657,14 +657,20 @@ def t_sim_theme_flip():
           "RedrawWindow(_viv_hwnd,0,0,RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN | RDW_FRAME);" in apply_fn)
     # the per-control invalidations remain (they cover their own windows).
     check("the per-control invalidations stay in place",
-          apply_fn.count("InvalidateRect(") >= 4)
+          apply_fn.count("InvalidateRect(") >= 2)  # rc.8: the strip invalidations became the set_dark latch + the whole window flip
 
     # the one-shot re-check: the broadcast can arrive before the
     # personalize registry value settles.
+    # the settings window runs its own immersive probe, so scan every
+    # broadcast site for the one that arms the settle re-check.
     wm = VIV.find("ImmersiveColorSet")
-    seg = VIV[wm - 400:wm + 700]
-    check("an immersive broadcast arms the 400ms re-check",
-          "SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);" in seg)
+    armed = False
+    while wm != -1:
+        if "SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);" in VIV[wm - 400:wm + 700]:
+            armed = True
+            break
+        wm = VIV.find("ImmersiveColorSet", wm + 1)
+    check("an immersive broadcast arms the 400ms re-check", armed)
     recheck = VIV.find("case VIV_ID_DARK_RECHECK_TIMER:")
     seg2 = VIV[recheck:recheck + 900]
     check("the re-check is one-shot (kills its own timer)",
@@ -713,10 +719,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.12.49",
-          (major, minor, rev, build) == (1, 1, 12, 49), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.12-rc.7",
-          vstr is not None and vstr.group(1) == "1.1.12-rc.7", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.12.52",
+          (major, minor, rev, build) == (1, 1, 12, 52), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.12-rc.10",
+          vstr is not None and vstr.group(1) == "1.1.12-rc.10", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -724,13 +730,13 @@ def t_sim_version_117():
     check("the nsis derives the display version at compile time",
           '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
     top = CHANGES.lstrip("\ufeff").split("\r\n")[0] if "\r\n" in CHANGES else CHANGES.lstrip("\ufeff").split("\n")[0]
-    check("the changelog top entry is the 1.1.12-rc.7 zoom pill rework round",
-          top == "Pre-release: Version 1.1.12-rc.7 (the zoom pill rework round)", top)
+    check("the changelog top entry is the 1.1.12-rc.10 dpi correctness round",
+          top == "Pre-release: Version 1.1.12-rc.10 (the dpi correctness round)", top)
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
     check("the readme current line says the 1.1.12 release candidate",
-          "**1.1.12-rc.7 —" in readme and "(the current release candidate):**" in readme)
+          "**1.1.12-rc.10 —" in readme and "(the current release candidate):**" in readme)
 
 
 # ---------------------------------------------------------------------------
@@ -1069,10 +1075,10 @@ def t_sim_field_round47():
     # 5. the state machine: the reads stay live and no manual toggle
     #    compensation exists (the withdrawn build needed one and had
     #    none - that was the p0).
-    check("the check reads stay live (isdlgbuttonchecked x14, no bm_setcheck)",
+    check("the check reads stay live (isdlgbuttonchecked x14, no bm_setcheck in the legacy dialog)",
           VIV.count("IsDlgButtonChecked") == 14 and
           "BM_SETCHECK" not in VIV and
-          VIV.count("BN_CLICKED") == 0)
+          open("src/viv_dialogs.c", "rb").read().decode("utf-8", errors="replace").count("BN_CLICKED") == 0)  # rc.8: the remake domains post BN_CLICKED on purpose (5 sites)
     check("the flip never touches the glyph control styles",
           "((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON)))" in VIV and
           "|| (type == BS_AUTOCHECKBOX) || (type == BS_AUTORADIOBUTTON)))" not in VIV)
@@ -1217,8 +1223,8 @@ def t_sim_field_round46():
           op == 1)
 
     # --- both theme broadcasts schedule the settle re-check ---
-    check("the broadcasts and the options combo schedule the re-check",
-          VIV.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 3)
+    check("the broadcasts, the options combo and the settings combo schedule the re-check",
+          VIV.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 4)  # rc.8: the settings theme row joins
 
     # --- the view menu canvas picker and the backdrop rename ---
     check("the menu picker shares the options apply chain",

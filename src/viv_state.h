@@ -105,7 +105,7 @@
 #define _VIV_HIDE_CURSOR_DELAY		2000
 #define _VIV_RECENT_SAVE_DELAY		2000 // the deferred recent-files mru save: coalesces rapid opens so the ui thread never writes the ini mid-burst (the exit and endsession paths fold the pending write in).
 
-#define _VIV_STATUS_PART_MAX 7
+#define _VIV_STATUS_PART_MAX 8
 
 // R70: the five table counts are literals here, not sizeof measurements:
 // msvc c resolves sizeof on an unsized extern to zero (warning c4034, and

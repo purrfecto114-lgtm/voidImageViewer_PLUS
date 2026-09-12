@@ -18,7 +18,22 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.7 — the zoom pill rework (the current release candidate):**
+**1.1.12-rc.10 — the dpi correctness round (the current release candidate):**
+
+- **The high-dpi font bug is fixed at the root** — the per-monitor-v2 declaration never reached the binary the way it was read: the zig builds shipped no manifest at all, and the `os_init` runtime safety net sat *before* its own `GetProcAddress` block, so the pointers were still null when it ran and it silently never fired. A dpi-unaware process gets bitmap-stretched by the system at high dpi — every font blurry and oversized. The claim now runs after the api probes and stacks three independent, all-guarded layers: a process-wide claim (Win10 1703+ `SetProcessDpiAwarenessContext`), a per-thread claim (1607+), and the Win 8.1 `shcore` fallback (Win 7 keeps the classic system-aware behavior); the zig build also drops a `viv.exe.manifest` next to the exe for loader-level coverage.
+- **The message box scales from its parent's monitor** (not the stale global logical dpi) — correct on mixed-dpi monitor pairs.
+- **17 splice-accident double-brace wrappers with dead `DefWindowProc` tails unwound** in the wndproc domain.
+- Verified under wine: the pre-fix binary renders the settings window bitmap-stretched to ~2x at 150% scaling; the fixed binary renders 1:1 physical and self-scales to exactly 1.5x (660×628 → 990×942) with the fonts riding the same per-window dip pipeline.
+
+**1.1.12-rc.9 — the gui remake round 2: one palette for everything:**
+
+- **One theme system for the whole ui** — the new `viv_theme` domain holds 17 semantic tokens × dark/light × five accents (azure, teal, violet, amber, rose). The chrome strips, the menus, the dialogs, the settings window, the zoom pill and the tooltips all resolve their colors through it, so a theme or accent flip re-skins the app with zero per surface edits. The accent ships with an ini key (`accent_color`) and a live swatch row in the settings window.
+- **The popup menus are app drawn** — every visible row carries a draw record and the painters re-derive the label at draw time (command table + localization + live key bindings), so a language or shortcut change never shows a stale row. Accent check marks, right aligned shortcuts, hairline separators; the popup layer gets the win11 rounded corners and a themed border through the dwm; `WM_MENUCHAR` keeps alt+letter working. No undocumented uxtheme ordinal in the menu path anymore.
+- **Themed message boxes** — `viv_msgbox` draws the vector icon, the wrapped text and the accent primary button with a real modal pump (tab/enter/esc); the five `MessageBox` call sites moved over (the fatal paths in debug/mem keep the native box on purpose).
+- **The classic dialogs join the theme** — the dark dialog skin reads the same tokens (the old hardcoded palette is gone) and every dialog frame gets the win11 rounded corners plus the caption color from the dwm. The old tabbed options route opens the remade settings window.
+- **A build the mockup cannot drift from** — `scripts/extract-theme.mjs` transcribes `src/viv_theme.c` into the page simulator, and zig cc builds the whole tree (`build-zig/build.sh`, 98 translation units, about 465 KB x64 with `-Os`).
+
+**1.1.12-rc.7 — the zoom pill rework:**
 
 - **The zoom pill is one self-drawn window** — no nested owner-drawn buttons fighting the layered tray: `zoomui.c` paints the tray and every capsule in a single `WM_PAINT` pass (true stadium caps at every DPI), hit tests the button rects itself, tracks presses with capture (no command when the drag leaves the button), and passes clicks through everything outside the capsules so a fading pill never blocks the image.
 
@@ -73,6 +88,8 @@ Plain C + Win32 API, Visual Studio:
 1. Open `vs2019/voidImageViewer.sln` (VS2022+, v143 toolset) or `vs2026/voidImageViewer.sln` (v145 toolset). Both share one file list (`voidImageViewer.files.props`). VS2019 works with `/p:PlatformToolset=v142` (not CI-covered).
 2. Build the `voidImageViewer` project (x64 or Win32).
 3. Optional setup: NSIS 3 via `nsis\build_installer.ps1` (auto-detects the VS version; sources compile with `/utf-8`).
+
+The zig cross build needs no Visual Studio: `sh build-zig/build.sh` (98 translation units, about 465 KB x64 with `-Os`). The vs linker embeds `res/voidImageViewer.Manifest` (per-monitor v2); the zig build keeps no embedded manifest, so it writes `viv.exe.manifest` next to the exe and the runtime claim in `os_init` covers even a stripped copy — keep the two files together, or build through vs when you need a single-file binary.
 
 The source layout: one core (`src/viv.c` — the window procedure, startup, the command line, the state definitions) plus eleven domain modules (`src/viv_<domain>.c/.h`) and the shared-context header (`src/viv_state.h`); see `docs/architecture/viv-split-spec.md`.
 

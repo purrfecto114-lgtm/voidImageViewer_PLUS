@@ -636,10 +636,12 @@ void _viv_save_image_as(void)
 			if (_viv_image_is_low_res)
 			{
 				wchar_t message_wbuf[STRING_SIZE];
+				wchar_t caption_wbuf[STRING_SIZE];
 				
 				string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_LOADING));
+				string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
 				
-				MessageBox(_viv_hwnd,message_wbuf,L"voidImageViewer",MB_OK|MB_ICONINFORMATION);
+				viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OK|MB_ICONINFORMATION);
 				
 				return;
 			}
@@ -731,10 +733,11 @@ void _viv_save_image_as(void)
 				if (!os_save_hbitmap(_viv_frames[_viv_frame_position].hbitmap,tobuf,format))
 				{
 					wchar_t message_wbuf[STRING_SIZE];
+					wchar_t caption_wbuf[STRING_SIZE];
 					
 					string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_SAVE_AS_FAILED));
 					
-					MessageBox(_viv_hwnd,message_wbuf,L"voidImageViewer",MB_OK|MB_ICONERROR);
+					viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OK|MB_ICONERROR);
 				}
 			}
 		}
@@ -1405,7 +1408,9 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 				viv_webp.last_delay = 0;
 				viv_webp.orientation = orientation;
 				
-				if (webp_load(stream,&viv_webp,_viv_webp_info_proc,_viv_webp_frame_proc))
+				if (webp_load(stream,&viv_webp,
+					(int (*)(void *,DWORD,DWORD,DWORD,int))_viv_webp_info_proc,
+					(int (*)(void *,BYTE *,int))_viv_webp_frame_proc))
 				{
 					ret = 1;
 				}

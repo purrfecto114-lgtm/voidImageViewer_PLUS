@@ -40,7 +40,7 @@ void _viv_playlist_add_path(const wchar_t *full_path_and_filename);
 void _viv_playlist_add_filename(const wchar_t *filename);
 void _viv_nav_item_free_all(void);
 void _viv_nav_item_add(WIN32_FIND_DATA *fd);
-int _viv_nav_compare(const _viv_nav_item_t *a,const _viv_nav_item_t *b);
+int _viv_nav_compare(const void *va,const void *vb);
 void _viv_search_everything(int add);
 int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wchar_t *search);
 int _viv_playlist_shuffle_index_from_fd(const WIN32_FIND_DATA *fd);

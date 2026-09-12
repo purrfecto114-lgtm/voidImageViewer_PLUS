@@ -1,7 +1,7 @@
 #define VERSION_YEAR 2026
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 1
-#define VERSION_REVISION 12
-#define VERSION_BUILD 49
-#define VERSION_TYPE ""
-#define VERSION_STRING "1.1.12-rc.7"
+#define VERSION_REVISION 12
+#define VERSION_BUILD 52
+#define VERSION_TYPE ""
+#define VERSION_STRING "1.1.12-rc.10"

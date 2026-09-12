@@ -49,6 +49,87 @@ void _viv_key_list_init(_viv_key_list_t *list);
 int _viv_get_current_key_mod_flags(void);
 void _viv_key_remove(_viv_key_list_t *keylist,int command_index,DWORD keyflags);
 
+typedef struct _viv_menu_draw_t
+{
+	int type;			// _VIV_MENU_DRAW_*
+	int command_index;	// COMMAND / POPUP: index into _viv_commands
+	int localization_id;	// LOCALIZED
+	int recent_index;	// RECENT: index into config_recent_files
+} _viv_menu_draw_t;
+
+static _viv_menu_draw_t _viv_menu_draw_pool[_VIV_COMMAND_COUNT + 16];
+static int _viv_menu_draw_count;
+static _viv_menu_draw_t _viv_recent_draw_pool[CONFIG_RECENT_FILE_COUNT + 4];
+static int _viv_recent_draw_count;
+static _viv_menu_draw_t _viv_context_draw_pool[_VIV_COMMAND_COUNT + 16];
+static int _viv_context_draw_count;
+
+// dips at the primary monitor dpi (the menubar uses the same convention).
+static int _viv_menu_dip(int d)
+{
+	return (d * os_logical_high) / 96;
+}
+
+void _viv_menu_row_pool_reset(int pool)
+{
+	switch (pool)
+	{
+		case _VIV_MENU_POOL_RECENT:
+			_viv_recent_draw_count = 0;
+			break;
+
+		case _VIV_MENU_POOL_CONTEXT:
+			_viv_context_draw_count = 0;
+			break;
+
+		default:
+			_viv_menu_draw_count = 0;
+			break;
+	}
+}
+
+void *_viv_menu_row_alloc(int pool,int type,int command_index,int localization_id,int recent_index)
+{
+	_viv_menu_draw_t *table;
+	int *count;
+	int cap;
+	_viv_menu_draw_t *row;
+
+	table = _viv_menu_draw_pool;
+	count = &_viv_menu_draw_count;
+	cap = _VIV_COMMAND_COUNT + 16;
+
+	switch (pool)
+	{
+		case _VIV_MENU_POOL_RECENT:
+			table = _viv_recent_draw_pool;
+			count = &_viv_recent_draw_count;
+			cap = CONFIG_RECENT_FILE_COUNT + 4;
+			break;
+
+		case _VIV_MENU_POOL_CONTEXT:
+			table = _viv_context_draw_pool;
+			count = &_viv_context_draw_count;
+			break;
+	}
+
+	if (*count >= cap)
+	{
+		return 0;
+	}
+
+	row = &table[*count];
+	(*count)++;
+
+	row->type = type;
+	row->command_index = command_index;
+	row->localization_id = localization_id;
+	row->recent_index = recent_index;
+
+	return row;
+}
+
+
 
 void _viv_check_menus(HMENU hmenu)
 {
@@ -416,7 +497,7 @@ static int _viv_vk_to_text(wchar_t *wbuf,int vk)
 				// extended
 				lParam |= (1 << 24);
 				break;
-		}			
+		}		
 
 		if (GetKeyNameText(lParam,wbuf,STRING_SIZE))
 		{
@@ -470,6 +551,8 @@ HMENU _viv_create_menu(void)
 	
 	hmenu = CreateMenu();
 	
+	_viv_menu_row_pool_reset(_VIV_MENU_POOL_MAIN);
+	
 	{
 		int i;
 		HMENU menus[_VIV_MENU_COUNT];
@@ -484,51 +567,62 @@ HMENU _viv_create_menu(void)
 		{
 			if (!(_viv_commands[i].flags & MF_OWNERDRAW))
 			{
+				int flags;
+				void *row;
+
+				flags = _viv_commands[i].flags & (~MF_DELETE);
+
 				if (_viv_commands[i].flags & MF_SEPARATOR)
 				{
-					AppendMenu(menus[_viv_commands[i].menu_id],_viv_commands[i].flags & (~MF_DELETE),_viv_commands[i].command_id,L"");
+					row = _viv_menu_row_alloc(_VIV_MENU_POOL_MAIN,_VIV_MENU_DRAW_SEPARATOR,0,0,0);
+
+					if (row)
+					{
+						AppendMenu(menus[_viv_commands[i].menu_id],flags | MF_OWNERDRAW,_viv_commands[i].command_id,(LPCWSTR)row);
+					}
+					else
+					{
+						AppendMenu(menus[_viv_commands[i].menu_id],flags,_viv_commands[i].command_id,L"");
+					}
 				}
 				else
 				{
-					wchar_t text_wbuf[STRING_SIZE];
-					
-					string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[i].localization_id));
-
 					if (_viv_commands[i].flags & MF_POPUP)
 					{
 						if (!menus[_viv_commands[i].command_id])
 						{
 							menus[_viv_commands[i].command_id] = CreatePopupMenu();
 						}
-						
-						AppendMenu(menus[_viv_commands[i].menu_id],_viv_commands[i].flags & (~MF_DELETE),(UINT_PTR)menus[_viv_commands[i].command_id],text_wbuf);
+
+						row = _viv_menu_row_alloc(_VIV_MENU_POOL_MAIN,_VIV_MENU_DRAW_POPUP,i,0,0);
+
+						if (row)
+						{
+							AppendMenu(menus[_viv_commands[i].menu_id],flags | MF_OWNERDRAW,(UINT_PTR)menus[_viv_commands[i].command_id],(LPCWSTR)row);
+						}
+						else
+						{
+							wchar_t text_wbuf[STRING_SIZE];
+
+							string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[i].localization_id));
+							AppendMenu(menus[_viv_commands[i].menu_id],flags,(UINT_PTR)menus[_viv_commands[i].command_id],text_wbuf);
+						}
 					}
 					else
 					{
-						int key_command_index;
-						wchar_t key_text[STRING_SIZE];
-						
-						key_command_index = i;
-						
-						switch (_viv_commands[i].command_id)
+						row = _viv_menu_row_alloc(_VIV_MENU_POOL_MAIN,_VIV_MENU_DRAW_COMMAND,i,0,0);
+
+						if (row)
 						{
-							case VIV_ID_FILE_DELETE:
-								key_command_index = _viv_command_index_from_command_id(VIV_ID_FILE_DELETE_RECYCLE);
-								break;
+							AppendMenu(menus[_viv_commands[i].menu_id],flags | MF_OWNERDRAW,_viv_commands[i].command_id,(LPCWSTR)row);
 						}
-						
-						if (key_command_index >= 0)
+						else
 						{
-							if (_viv_key_list->start[key_command_index])
-							{
-								_viv_get_key_text(key_text,_viv_key_list->start[key_command_index]->key);
-								
-								string_cat_utf8(text_wbuf,(const utf8_t *)"\t");
-								string_cat(text_wbuf,key_text);
-							}
+							wchar_t text_wbuf[STRING_SIZE];
+
+							string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[i].localization_id));
+							AppendMenu(menus[_viv_commands[i].menu_id],flags,_viv_commands[i].command_id,text_wbuf);
 						}
-						
-						AppendMenu(menus[_viv_commands[i].menu_id],_viv_commands[i].flags & (~MF_DELETE),_viv_commands[i].command_id,text_wbuf);
 					}
 				}
 			}
@@ -551,10 +645,12 @@ HMENU _viv_create_menu(void)
 				
 				os_zero_memory(&mii,sizeof(mii));
 				mii.cbSize = sizeof(mii);
-				mii.fMask = MIIM_SUBMENU | MIIM_STRING | MIIM_ID;
+				mii.fMask = MIIM_SUBMENU | MIIM_STRING | MIIM_ID | MIIM_DATA | MIIM_STATE;
+				mii.fState = MFT_OWNERDRAW;
 				mii.wID = _VIV_MENU_FILE_RECENT;
 				mii.hSubMenu = recent_menu;
 				mii.dwTypeData = text_wbuf;
+				mii.dwItemData = (ULONG_PTR)_viv_menu_row_alloc(_VIV_MENU_POOL_MAIN,_VIV_MENU_DRAW_LOCALIZED,0,LOCALIZATION_ID_RECENT_FILES,0);
 				
 				// right before the exit item (the last row of the file menu).
 				insert_pos = GetMenuItemCount(menus[_VIV_MENU_FILE]) - 1;
@@ -721,4 +817,409 @@ config_key_t *viv_key_get_start(int command_index)
 int viv_get_command_count(void)
 {
 	return _VIV_COMMAND_COUNT;
+}
+
+// ------------------------------------------------------------------
+// owner drawn popup rows.
+//
+// every visible row in every popup carries a tiny _viv_menu_draw_t: the
+// painters re-derive the label at draw time from the command table, the
+// localization table and the live key bindings, so a language or shortcut
+// change can never show a stale row and no label text is stored anywhere.
+// the frame menu tree, the live recent rebuild and the canvas context menu
+// each get their own pool so none can trample another's rows.
+// ------------------------------------------------------------------
+
+// the label for a row. command rows carry the live shortcut after a tab;
+// the slideshow pause row reads as play/pause and the rate submenu header
+// reads as rate, mirroring the canvas context menu overrides.
+static void _viv_menu_row_text(_viv_menu_draw_t *draw,wchar_t *wbuf)
+{
+	*wbuf = 0;
+
+	switch (draw->type)
+	{
+		case _VIV_MENU_DRAW_COMMAND:
+		case _VIV_MENU_DRAW_POPUP:
+		{
+			int key_command_index;
+
+			if ((draw->command_index < 0) || (draw->command_index >= _VIV_COMMAND_COUNT))
+			{
+				break;
+			}
+
+			switch (_viv_commands[draw->command_index].command_id)
+			{
+				case VIV_ID_SLIDESHOW_PAUSE:
+					string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_PLAY_PAUSE));
+					break;
+
+				case _VIV_MENU_SLIDESHOW_RATE:
+					string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_RATE));
+					break;
+
+				default:
+					string_copy_utf8_string(wbuf,localization_get_string(_viv_commands[draw->command_index].localization_id));
+					break;
+			}
+
+			if (draw->type == _VIV_MENU_DRAW_COMMAND)
+			{
+				key_command_index = draw->command_index;
+
+				switch (_viv_commands[draw->command_index].command_id)
+				{
+					case VIV_ID_FILE_DELETE:
+						key_command_index = _viv_command_index_from_command_id(VIV_ID_FILE_DELETE_RECYCLE);
+						break;
+				}
+
+				if (key_command_index >= 0)
+				{
+					if (_viv_key_list->start[key_command_index])
+					{
+						wchar_t key_text[STRING_SIZE];
+
+						_viv_get_key_text(key_text,_viv_key_list->start[key_command_index]->key);
+
+						string_cat_utf8(wbuf,(const utf8_t *)"\t");
+						string_cat(wbuf,key_text);
+					}
+				}
+			}
+			break;
+		}
+
+		case _VIV_MENU_DRAW_RECENT:
+		{
+			wchar_t num_wbuf[64];
+
+			if ((draw->recent_index < 0) || (draw->recent_index >= config_recent_file_count))
+			{
+				break;
+			}
+
+			// the mru convention: an ampersand digit prefix selects the entry
+			// from the keyboard while the submenu is open.
+			string_format_number(num_wbuf,draw->recent_index + 1);
+			string_copy(wbuf,L"&");
+			string_cat(wbuf,num_wbuf);
+			string_cat(wbuf,L" ");
+			string_cat(wbuf,string_get_filename_part(config_recent_files[draw->recent_index]));
+			break;
+		}
+
+		case _VIV_MENU_DRAW_LOCALIZED:
+			string_copy_utf8_string(wbuf,localization_get_string(draw->localization_id));
+			break;
+	}
+}
+
+int _viv_menu_measure_item(MEASUREITEMSTRUCT *measure_item)
+{
+	_viv_menu_draw_t *draw;
+	HDC hdc;
+	HFONT font;
+	HFONT old_font;
+	wchar_t text_wbuf[STRING_SIZE];
+	wchar_t *tab;
+	SIZE size;
+	int wide;
+	int dpi;
+
+	if ((!measure_item) || (measure_item->CtlType != ODT_MENU))
+	{
+		return 0;
+	}
+
+	draw = (_viv_menu_draw_t *)measure_item->itemData;
+
+	if (!draw)
+	{
+		return 0;
+	}
+
+	dpi = os_logical_high;
+
+	if (draw->type == _VIV_MENU_DRAW_SEPARATOR)
+	{
+		// the menu width comes from the other rows.
+		measure_item->itemWidth = 0;
+		measure_item->itemHeight = (9 * dpi) / 96;
+
+		return 1;
+	}
+
+	hdc = GetDC(_viv_hwnd);
+
+	if (!hdc)
+	{
+		return 0;
+	}
+
+	_viv_menu_row_text(draw,text_wbuf);
+
+	tab = wcschr(text_wbuf,L'\t');
+
+	if (tab)
+	{
+		*tab = 0;
+	}
+
+	size.cx = 0;
+	size.cy = 0;
+
+	font = _viv_menu_font();
+	old_font = 0;
+
+	if (font)
+	{
+		old_font = SelectObject(hdc,font);
+	}
+
+	GetTextExtentPoint32W(hdc,text_wbuf,(int)wcslen(text_wbuf),&size);
+
+	if (tab)
+	{
+		SIZE key_size;
+
+		if (GetTextExtentPoint32W(hdc,tab + 1,(int)wcslen(tab + 1),&key_size))
+		{
+			// shortcut column: gap before, text, padding after.
+			size.cx += key_size.cx + (28 * dpi) / 96;
+		}
+	}
+	else
+	{
+		if (draw->type == _VIV_MENU_DRAW_POPUP)
+		{
+			size.cx += (18 * dpi) / 96;
+		}
+	}
+
+	if (old_font)
+	{
+		SelectObject(hdc,old_font);
+	}
+
+	ReleaseDC(_viv_hwnd,hdc);
+
+	// check gutter plus the right padding.
+	wide = size.cx + (24 * dpi) / 96 + (14 * dpi) / 96;
+
+	measure_item->itemWidth = wide;
+	measure_item->itemHeight = size.cy + (9 * dpi) / 96;
+
+	if (measure_item->itemHeight < (22 * dpi) / 96)
+	{
+		measure_item->itemHeight = (22 * dpi) / 96;
+	}
+
+	return 1;
+}
+
+static void _viv_menu_draw_mark(HDC hdc,const RECT *rect,int center_y)
+{
+	HPEN pen;
+	HPEN old_pen;
+	COLORREF accent;
+
+	accent = viv_theme_color(VIV_TK_ACCENT);
+
+	pen = CreatePen(PS_SOLID,_viv_menu_dip(2) < 1 ? 1 : _viv_menu_dip(2),accent);
+	old_pen = (HPEN)SelectObject(hdc,pen);
+
+	MoveToEx(hdc,rect->left + _viv_menu_dip(5),center_y,0);
+	LineTo(hdc,rect->left + _viv_menu_dip(9),center_y + _viv_menu_dip(4));
+	LineTo(hdc,rect->left + _viv_menu_dip(16),center_y - _viv_menu_dip(5));
+
+	SelectObject(hdc,old_pen);
+	DeleteObject(pen);
+}
+
+static void _viv_menu_draw_arrow(HDC hdc,int right,int center_y)
+{
+	HBRUSH brush;
+	HBRUSH old_brush;
+	POINT pts[3];
+	int x;
+	int y;
+
+	x = right - _viv_menu_dip(11);
+	y = center_y;
+
+	brush = CreateSolidBrush(viv_theme_color(VIV_TK_TEXT2));
+	old_brush = (HBRUSH)SelectObject(hdc,brush);
+
+	pts[0].x = x;			pts[0].y = y - _viv_menu_dip(4);
+	pts[1].x = x + _viv_menu_dip(5);	pts[1].y = y;
+	pts[2].x = x;			pts[2].y = y + _viv_menu_dip(4);
+
+	Polygon(hdc,pts,3);
+
+	SelectObject(hdc,old_brush);
+	DeleteObject(brush);
+}
+
+int _viv_menu_draw_item(DRAWITEMSTRUCT *draw_item)
+{
+	_viv_menu_draw_t *draw;
+	RECT rect;
+	HDC hdc;
+	HFONT font;
+	HFONT old_font;
+	wchar_t text_wbuf[STRING_SIZE];
+	wchar_t *tab;
+	int selected;
+	int disabled;
+	int center_y;
+
+	if ((!draw_item) || (draw_item->CtlType != ODT_MENU))
+	{
+		return 0;
+	}
+
+	draw = (_viv_menu_draw_t *)draw_item->itemData;
+
+	if (!draw)
+	{
+		return 0;
+	}
+
+	hdc = draw_item->hDC;
+	rect = draw_item->rcItem;
+	selected = (draw_item->itemState & (ODS_SELECTED | ODS_HOTLIGHT)) != 0;
+	disabled = (draw_item->itemState & (ODS_GRAYED | ODS_INACTIVE)) != 0;
+	center_y = rect.top + ((rect.bottom - rect.top) / 2);
+
+	if (draw->type == _VIV_MENU_DRAW_SEPARATOR)
+	{
+		RECT line_rect;
+
+		// hairline centered in the row, inset past the check gutter.
+		FillRect(hdc,&rect,viv_theme_brush(VIV_TK_FACE));
+
+		line_rect.left = rect.left + _viv_menu_dip(24);
+		line_rect.right = rect.right - _viv_menu_dip(10);
+		line_rect.top = center_y;
+		line_rect.bottom = center_y + 1;
+
+		FillRect(hdc,&line_rect,viv_theme_brush(VIV_TK_LINE));
+
+		return 1;
+	}
+
+	FillRect(hdc,&rect,selected ? viv_theme_brush(VIV_TK_HOVER) : viv_theme_brush(VIV_TK_FACE));
+
+	if (draw_item->itemState & ODS_CHECKED)
+	{
+		_viv_menu_draw_mark(hdc,&rect,center_y);
+	}
+
+	font = _viv_menu_font();
+	old_font = 0;
+
+	if (font)
+	{
+		old_font = SelectObject(hdc,font);
+	}
+
+	SetBkMode(hdc,TRANSPARENT);
+
+	_viv_menu_row_text(draw,text_wbuf);
+
+	tab = wcschr(text_wbuf,L'\t');
+
+	if (tab)
+	{
+		*tab = 0;
+	}
+
+	SetTextColor(hdc,viv_theme_color(disabled ? VIV_TK_TEXTOFF : VIV_TK_TEXT));
+
+	// the label starts past the check gutter.
+	rect.left += _viv_menu_dip(24);
+
+	DrawTextW(hdc,text_wbuf,-1,&rect,DT_SINGLELINE | DT_VCENTER | DT_LEFT);
+
+	if (tab)
+	{
+		RECT key_rect;
+
+		key_rect = rect;
+		key_rect.right -= _viv_menu_dip(12);
+
+		SetTextColor(hdc,viv_theme_color(disabled ? VIV_TK_TEXTOFF : VIV_TK_TEXT2));
+
+		DrawTextW(hdc,tab + 1,-1,&key_rect,DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_NOPREFIX);
+	}
+
+	if (draw->type == _VIV_MENU_DRAW_POPUP)
+	{
+		_viv_menu_draw_arrow(hdc,rect.right,center_y);
+	}
+
+	if (old_font)
+	{
+		SelectObject(hdc,old_font);
+	}
+
+	return 1;
+}
+
+int _viv_menu_char_item(HMENU hmenu,wchar_t ch,int popup)
+{
+	int i;
+	int count;
+
+	if (!hmenu)
+	{
+		return -1;
+	}
+
+	count = GetMenuItemCount(hmenu);
+
+	for(i=0;i<count;i++)
+	{
+		MENUITEMINFOW mii;
+		_viv_menu_draw_t *draw;
+		wchar_t text_wbuf[STRING_SIZE];
+		wchar_t *source;
+
+		os_zero_memory(&mii,sizeof(mii));
+		mii.cbSize = sizeof(mii);
+		mii.fMask = MIIM_DATA | MIIM_FTYPE;
+
+		if (!GetMenuItemInfoW(hmenu,i,TRUE,&mii))
+		{
+			continue;
+		}
+
+		draw = (_viv_menu_draw_t *)mii.dwItemData;
+
+		if (!draw)
+		{
+			continue;
+		}
+
+		_viv_menu_row_text(draw,text_wbuf);
+
+		source = wcschr(text_wbuf,L'&');
+
+		while ((source) && (source[1] == L'&'))
+		{
+			source = wcschr(source + 2,L'&');
+		}
+
+		if ((source) && (source[1]))
+		{
+			if (towupper(source[1]) == towupper(ch))
+			{
+				return i;
+			}
+		}
+	}
+
+	return -1;
 }

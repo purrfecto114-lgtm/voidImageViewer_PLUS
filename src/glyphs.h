@@ -31,17 +31,27 @@
 extern "C" {
 #endif
 
-// glyph ids. the order matches the toolbar image list order:
-// prev, play, pause, next, bestfit, 1to1, zoom out, zoom in.
-#define GLYPH_PREV     0
-#define GLYPH_PLAY     1
-#define GLYPH_PAUSE    2
-#define GLYPH_NEXT     3
-#define GLYPH_BESTFIT  4
-#define GLYPH_1TO1     5
-#define GLYPH_ZOOMOUT  6
-#define GLYPH_ZOOMIN   7
-#define GLYPH_COUNT    8
+// glyph ids. 0..7 are the media transport / zoom set (the old toolbar image
+// list order, still shared with the zoom pill); 8..15 are the remade
+// toolbar's set (open, the magnifier pair, rotate, info, settings, picture
+// and the gamepad for the settings window nav).
+#define GLYPH_PREV            0
+#define GLYPH_PLAY            1
+#define GLYPH_PAUSE           2
+#define GLYPH_NEXT            3
+#define GLYPH_BESTFIT         4
+#define GLYPH_1TO1            5
+#define GLYPH_ZOOMOUT         6
+#define GLYPH_ZOOMIN          7
+#define GLYPH_FOLDER_OPEN     8
+#define GLYPH_MAGNIFIER_MINUS 9
+#define GLYPH_MAGNIFIER_PLUS  10
+#define GLYPH_ROTATE_CW       11
+#define GLYPH_INFO            12
+#define GLYPH_SETTINGS        13
+#define GLYPH_PICTURE         14
+#define GLYPH_GAMEPAD         15
+#define GLYPH_COUNT           16
 
 // return the glyph icon at the requested size and theme. the icon is
 // owned by the glyphs cache: do not destroy it. building needs gdi+;

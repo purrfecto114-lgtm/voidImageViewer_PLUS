@@ -265,10 +265,39 @@ def t_localization_alignment():
             "LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT",
-            "LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU")
-    check("enum ends with the dark+backdrop+zoom+ux ids", tuple(ids[-22:]) == tail)
-    check("en ends with the dark+backdrop+zoom+ux ids", tuple(en[-22:]) == tail)
-    check("zh ends with the dark+backdrop+zoom+ux ids", tuple(zh[-22:]) == tail)
+            "LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU",
+            # the gui remake round appends the settings window, toolbar label
+            # and status format ids after the modern ux group.
+            "LOCALIZATION_ID_SETTINGS",
+            "LOCALIZATION_ID_SETTINGS_PAGE_GENERAL",
+            "LOCALIZATION_ID_SETTINGS_PAGE_VIEW",
+            "LOCALIZATION_ID_SETTINGS_PAGE_CONTROLS",
+            "LOCALIZATION_ID_SETTINGS_SECTION_INTERFACE",
+            "LOCALIZATION_ID_SETTINGS_LANGUAGE",
+            "LOCALIZATION_ID_SETTINGS_LANGUAGE_FOLLOW_SYSTEM",
+            "LOCALIZATION_ID_SETTINGS_THEME",
+            "LOCALIZATION_ID_SETTINGS_SECTION_STARTUP",
+            "LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE",
+            "LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE_DESC",
+            "LOCALIZATION_ID_SETTINGS_STARTUP_SHORTCUT",
+            "LOCALIZATION_ID_SETTINGS_STARTUP_SHORTCUT_DESC",
+            "LOCALIZATION_ID_SETTINGS_SECTION_ASSOCIATIONS",
+            "LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_DESC",
+            "LOCALIZATION_ID_SETTINGS_SELECT_ALL",
+            "LOCALIZATION_ID_SETTINGS_OK",
+            "LOCALIZATION_ID_SETTINGS_CANCEL",
+            "LOCALIZATION_ID_TOOLBAR_OPEN",
+            "LOCALIZATION_ID_TOOLBAR_ROTATE",
+            "LOCALIZATION_ID_TOOLBAR_IMAGE_INFO",
+            "LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT",
+            "LOCALIZATION_ID_STATUS_BAR_DIMENSIONS_FORMAT",
+            "LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT",
+            "LOCALIZATION_ID_MSGBOX_YES",
+            "LOCALIZATION_ID_MSGBOX_NO",
+            "LOCALIZATION_ID_ACCENT_COLOR")
+    check("enum ends with the dark+backdrop+zoom+ux+remake ids", tuple(ids[-49:]) == tail)
+    check("en ends with the dark+backdrop+zoom+ux+remake ids", tuple(en[-49:]) == tail)
+    check("zh ends with the dark+backdrop+zoom+ux+remake ids", tuple(zh[-49:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -305,10 +334,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.49 rc.7 (the zoom pill rework round)",
-          (major, minor, rev, build) == ("1", "1", "12", "49") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.7 tag)",
-          vstr == "1.1.12-rc.7")
+    check("version.h = 1.1.12.52 rc.10 (the gui remake round 2)",
+          (major, minor, rev, build) == ("1", "1", "12", "52") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.10 tag)",
+          vstr == "1.1.12-rc.10")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -549,8 +578,9 @@ def t_dark_detection_wiring():
           and "os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_THEMECHANGED,1,0);" in viv)
 
     # dark tooltips
-    check("viv.c tints the toolbar tooltip",
-          "SendMessage(tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);" in viv)
+    check("the comctl toolbar tooltip tint retired with the comctl toolbar",
+          "TB_GETTOOLTIPS" not in open("src/viv_chrome.c", "rb").read().decode("utf-8", errors="replace") and
+          "_viv_toolbar_set_dark(dark);" in viv)
     check("zoomui.c tints its tooltip",
           "_zoomui_apply_tooltip_colors" in zc)
     check("zoomui.c re-tints on every palette call",
@@ -907,8 +937,8 @@ def t_zoom_percent_wiring():
     m = re.search(r"static void _viv_status_update\(void\)\s*\{(.*?)\n\t\tif \(_viv_status_hwnd\)",
                   viv, re.S)
     assert m or True
-    check("the parts array grew for the zoom pane",
-          "int part_array[7];" in viv)
+    check("the parts array rides the state cap",
+          "int part_array[_VIV_STATUS_PART_MAX];" in viv)
     check("zoom text is built for the pane",
           "wchar_t zoom_buf[STRING_SIZE];" in viv and "*zoom_buf = 0;" in viv)
     check("the zoom pane is the leftmost fixed part",
@@ -1334,7 +1364,7 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 94)  # 81 + 11 R70 domains + wndproc + the R77 menubar module
+          len(re.findall(r"<ClCompile ", fp)) == 98)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
     check("shared props has the resource script and the app icon only",
@@ -1411,9 +1441,11 @@ def t_modernization_round6():
           "case WM_DPICHANGED:" in viv)
     check("the handler accepts the suggested rect",
           "suggested_rect" in viv and "os_window_update_dpi(hwnd)" in viv)
-    check("the handler rebuilds the toolbar after a dpi change",
+    check("the dpi handler re-lays the strip through the size sweep",
           viv.find("_viv_toolbar_build_image_list();",
-                   viv.find("static LRESULT _viv_on_wm_dpichanged(")) != -1)
+                   viv.find("static LRESULT _viv_on_wm_dpichanged(")) == -1 and
+          viv.find("_viv_on_size();",
+                   viv.find("static LRESULT _viv_on_wm_dpichanged(")) != -1)  # rc.8: the self drawn strip owns its dpi metrics
     check("os.c loads GetDpiForWindow from user32",
           'GetProcAddress(_os_user32_hmodule,"GetDpiForWindow")' in osc)
     check("os.c implements os_window_update_dpi with the 96 floor",
@@ -1438,9 +1470,9 @@ def t_modernization_round6():
     check("glyphs.c/h exist and are in the shared props",
           os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
           and "glyphs.c" in fp and "glyphs.h" in fp)
-    check("the props counts grew by the glyphs pair, the R70 domains and the wndproc pair",
-          len(re.findall(r"<ClCompile ", fp)) == 94
-          and len(re.findall(r"<ClInclude ", fp)) == 63)
+    check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair and the remake pair",
+          len(re.findall(r"<ClCompile ", fp)) == 98
+          and len(re.findall(r"<ClInclude ", fp)) == 67)
     check("glyphs.c loads its own gdi+ flat api table",
           '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
           and '"GdipCreateBitmapFromScan0"' in gc
@@ -1457,8 +1489,9 @@ def t_modernization_round6():
     check("glyphs.h exports the icon cache api",
           "HICON glyphs_icon(int glyph_id,int dark,int size);" in gh
           and "void glyphs_flush_cache(void);" in gh and "GLYPH_COUNT" in gh)
-    check("the toolbar image list is built from glyphs",
-          "glyphs_icon(glyphi,dark," in viv and "GLYPH_COUNT;glyphi++" in viv)
+    tb_src = open("src/viv_toolbar.c", "rb").read().decode("utf-8", errors="replace")
+    check("the toolbar draws its icons from the glyph domain",
+          "glyphs_icon(" in tb_src and "GLYPH_FOLDER_OPEN" in tb_src)
     check("the old ico frames are gone from disk",
           all(not os.path.exists("res/" + n + ".ico") for n in
               ("1to1-8bit", "bestfit", "next", "pause", "play", "prev",
@@ -1476,9 +1509,11 @@ def t_modernization_round6():
     check("the props image list keeps only the app icon",
           len(re.findall(r"<Image Include=", fp)) == 1
           and "voidImageViewer.ico" in fp)
-    check("the extracted image list builder rebuilds on demand",
-          re.search(r"(?:static\s+)?void _viv_toolbar_build_image_list\(void\)", viv) is not None
-          and viv.count("_viv_toolbar_build_image_list();") >= 3)
+    check("the comctl image list builder is gone",
+          "_viv_toolbar_build_image_list" not in viv and
+          "_viv_toolbar_pin_button_sizes" not in viv and
+          "LoadIcon(os_hinstance,(LPCTSTR)IDI_PREV)" not in viv and
+          "MAKEINTRESOURCE(IDI_ZOOMOUT)" not in viv)
     check("the old LoadIcon toolbar icons are gone",
           "LoadIcon(os_hinstance,(LPCTSTR)IDI_PREV)" not in viv
           and "MAKEINTRESOURCE(IDI_ZOOMOUT)" not in viv)
@@ -1487,8 +1522,9 @@ def t_modernization_round6():
     check("zoomui master table carries the six fullscreen buttons",
           "VIV_ID_NAV_PREV" in zc and "VIV_ID_SLIDESHOW_PLAY_ONLY" in zc
           and "VIV_ID_SLIDESHOW_PAUSE_ONLY" in zc and "VIV_ID_NAV_NEXT" in zc)
-    check("windowed mode keeps the two button pill",
-          "#define _ZOOMUI_WINDOWED_COUNT 2" in zc)
+    check("the pill is one seven cell row in both modes",
+          "#define _ZOOMUI_CELL_COUNT 7" in zc
+          and "_ZOOMUI_CELL_PCT" in zc)
     check("zoomui declares the fullscreen switch",
           "void zoomui_set_fullscreen(int fullscreen);" in zh_
           and "void zoomui_set_fullscreen(int fullscreen)" in zc)
@@ -1549,6 +1585,7 @@ def t_modernization_round6():
 def t_round7():
     viv = read("src/viv.c").decode("utf-8", errors="replace")
     mf = read("res/voidImageViewer.Manifest").decode()
+    menubar = read("src/viv_menubar.c").decode("utf-8", errors="replace")
 
     # the pinch floor: a collapsed pinch freezes and re-baselines.
     check("gesture floor uses 36 logical px, dpi scaled",
@@ -1582,8 +1619,8 @@ def t_round7():
     # the status hud layout: preload left, resolution pinned right.
     check("the preload pane is capped at a quarter of the bar",
           "if (preload_wide > (avail_wide / 4))" in viv)
-    check("the right cluster gives way (frame, rgb, pos)",
-          "while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide > avail_wide)" in viv)
+    check("the right cluster gives way (frame, rgb, date, pos)",
+          "while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide + date_wide > avail_wide)" in viv)
     check("the resolution pane clips instead of vanishing",
           "dimension_wide = avail_wide - zoom_wide - preload_wide;" in viv)
     check("the panes use cumulative coordinates",
@@ -1608,18 +1645,18 @@ def t_round7():
           "RGB(0xE8,0xE8,0xE8)" in viv)
     check("the main proc routes WM_DRAWITEM for the status bar",
           "if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))" in viv)
-    check("the status subclass routes WM_DRAWITEM too (the dialog dispatcher adds the third site)",
-          viv.count("case WM_DRAWITEM:") == 3)
+    check("the status subclass routes WM_DRAWITEM too (the dialog dispatcher adds the second site)",
+          viv.count("case WM_DRAWITEM:") == 3)  # rc.8: the rebar route retired, the status proc came home
 
     # the dark chrome strips.
-    check("the dark chrome brush palette exists (4 faces incl the menu bar)",
-          "static const COLORREF colors[4] = {RGB(0x25,0x25,0x25),RGB(0x45,0x45,0x45),RGB(0x70,0x70,0x70),RGB(0x20,0x20,0x20)};" in viv)
-    check("the rebar paint, the toolbar fill and the erase follow the theme",
-          viv.count("_viv_is_dark() ? _viv_dark_chrome_brush(") == 7)  # rc.6: + the menubar paint and erase
-    check("apply_dark flags the control windows",
+    check("the dark chrome brush palette routes through the theme cache",
+          "static const int tokens[4] = {VIV_TK_CHROME,VIV_TK_CHROME_LINE,VIV_TK_CHROME_MUTED,VIV_TK_FRAME};" in viv)
+    check("the menubar paint and erase follow the theme",
+          menubar.count("viv_theme_brush(VIV_TK_FRAME)") == 3)  # remake-2: the strip face rides the shared theme brush cache (fill + ternary + erase)
+    check("apply_dark flips the status bar and latches the strip",
           "os_dark_titlebar(_viv_status_hwnd,dark);" in viv and
-          "os_dark_titlebar(_viv_rebar_hwnd,dark);" in viv and
-          "os_dark_titlebar(_viv_toolbar_hwnd,dark);" in viv)
+          "_viv_toolbar_set_dark(dark);" in viv and
+          "zoomui_set_dark(dark);" in viv)
     check("apply_dark nudges a frame change for the menu bar",
           "SWP_FRAMECHANGED" in viv)
     check("the status bar creation picks up the dark flags",
@@ -1772,29 +1809,30 @@ def t_dark_menu_bar():
           "pad = (4 * os_logical_wide) / 96;" in menubar)
     check("the slots are label extent plus the air",
           "_viv_menubar_item_wide[_viv_menubar_item_count] = size.cx + (pad * 2);" in menubar)
-    check("the strip height floors at the classic bar height",
-          "min_high = (18 * os_logical_high) / 96;" in menubar)
+    check("the strip height floors at the remake bar height (28 dip)",
+          "min_high = (28 * os_logical_high) / 96;" in menubar)
     check("the layout re-reads the labels from the menu tree",
           "mii.fMask = MIIM_SUBMENU | MIIM_STRING;" in menubar)
 
     # the painting.
-    check("the dark draw uses the chrome palette",
-          "_viv_dark_chrome_brush(1)" in menubar and "_viv_dark_chrome_brush(3)" in menubar)
-    check("the dark label color is the light stroke",
-          "RGB(0xE8,0xE8,0xE8)" in menubar)
+    check("the draw separates the hover and press faces on the tokens",
+          "viv_theme_brush(VIV_TK_DOWN)" in menubar and "viv_theme_brush(VIV_TK_HOVER)" in menubar
+          and "viv_theme_brush(VIV_TK_FRAME)" in menubar)
+    check("the label color rides the theme tokens",
+          "viv_theme_color(inactive ? VIV_TK_TEXT2 : VIV_TK_TEXT)" in menubar)
     check("inactive windows dim the label",
-          "RGB(0x9A,0x9A,0x9A)" in menubar and "GetActiveWindow() != _viv_hwnd" in menubar)
+          "GetActiveWindow() != _viv_hwnd" in menubar)
     check("the underline follows the system no-accel policy",
           "GetKeyState(VK_MENU)" in menubar and "DT_HIDEPREFIX" in menubar)
     check("the light face falls back to the system colors",
-          "GetSysColorBrush" in menubar and "COLOR_MENUTEXT" in menubar)
+          "case VIV_TK_FACE: return GetSysColor(COLOR_BTNFACE);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
     check("the erase paints the strip face",
-          "FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(3) : (HBRUSH)(COLOR_MENU + 1));" in menubar)
+          "FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_FRAME));" in menubar)
 
     # the popups and the keyboard entry points.
     check("the popups open from the app menu tree",
           "GetSubMenu(_viv_hmenu,itemi)" in menubar and
-          "TrackPopupMenuEx(popup,TPM_LEFTALIGN | TPM_LEFTBUTTON" in menubar and
+          "TrackPopupMenuEx(popup,TPM_LEFTALIGN | TPM_RIGHTBUTTON" in menubar and
           "ClientToScreen(_viv_menubar_hwnd,&pt);" in menubar)
     check("the popup state refresh runs on open",
           "_viv_check_menus(_viv_hmenu);" in menubar)
@@ -1805,12 +1843,16 @@ def t_dark_menu_bar():
     check("the popup route refreshes the state too",
           "static LRESULT _viv_on_wm_initmenupopup(" in viv)
 
-    # the old machinery is gone with the seam it lived on.
-    check("the owner draw menu routes left the window procedure",
+    # the old machinery is gone with the seam it lived on; the remake-2
+    # round brings the owner draw routes home on the theme tokens (the
+    # popup layer is app drawn now, the nc paint route stays retired).
+    check("the owner draw menu routes came home on the tokens",
           "_viv_menu_draw_root_item" not in viv and
           "_viv_menu_measure_root_item" not in viv and
           "static LRESULT _viv_on_wm_ncpaint(" not in viv and
-          "static LRESULT _viv_on_wm_measureitem(" not in viv)
+          "static LRESULT _viv_on_wm_measureitem(" in viv and
+          "static LRESULT _viv_on_wm_menuchar(" in viv and
+          "_viv_menu_draw_item((DRAWITEMSTRUCT *)lParam)" in viv)
     check("the pad capture and the tail fill are gone",
           "_viv_menu_bar_capture_pad" not in viv and
           "_viv_menu_bar_nc_fill" not in viv and
@@ -1826,26 +1868,21 @@ def t_dark_menu_bar():
     seg = viv[i:viv.find("\nstatic ", i + 10)]
     check("apply dark repaints the remade bar",
           "_viv_menubar_repaint();" in seg)
-    check("the re-layout sites are creation, dpi, theme and the language rebuild",
-          viv.count("_viv_menubar_layout();") == 4)
+    check("the re-layout sites are creation, dpi, theme, the language rebuild, the settings window and the bar itself",
+          viv.count("_viv_menubar_layout();") == 6)  # rc.8: the settings window re-lays the bar after its language switch
 
     # the chrome palette and the rebar erase hardening.
-    check("the chrome brush cache carries the menu bar face",
-          "RGB(0x70,0x70,0x70),RGB(0x20,0x20,0x20)}" in viv and
+    check("the chrome brush cache carries the remake menu bar face",
+          "VIV_TK_CHROME_MUTED,VIV_TK_FRAME};" in viv and
           "hbrushes[4]" in viv)
-    i = viv.find("static LRESULT CALLBACK _viv_rebar_proc")
-    i = viv.find("static LRESULT CALLBACK _viv_rebar_proc", i + 10)
-    j = viv.find("\nstatic ", i + 10)
-    seg = viv[i:j]
-    check("the rebar erase paints the strip face",
-          "FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU+1));" in seg)
-    check("the light strip lines are flat, not the 3d etch",
-          "FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(1) : _viv_light_chrome_brush(0));" in seg and
-          "FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(2) : _viv_light_chrome_brush(1));" in seg and
-          "FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_MENU + 1));" in seg)
-    check("no claim-only erase is left in the rebar proc",
-          seg.count("case WM_ERASEBKGND:") == 1 and
-          "return 1;" in seg[seg.find("case WM_ERASEBKGND:"):])
+    tb_src2 = open("src/viv_toolbar.c", "rb").read().decode("utf-8", errors="replace")
+    mb_src = open("src/viv_menubar.c", "rb").read().decode("utf-8", errors="replace")
+    check("the strip erase paints the strip face (menubar on the theme cache, the toolbar its own)",
+          "viv_theme_brush(VIV_TK_FRAME)" in mb_src and
+          "WM_ERASEBKGND" in tb_src2 and
+          "_viv_toolbar_dark_face" in tb_src2)
+    check("the light strip face stays the system menu color",
+          "case VIV_TK_FRAME: return GetSysColor(COLOR_MENU);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
 
 
 def t_dark_layers_round():
@@ -1873,14 +1910,12 @@ def t_dark_layers_round():
           "RedrawWindow(_viv_hwnd,0,0,RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW);" not in viv)
 
     # toolbar: the button states paint with the dark palette.
-    check("the toolbar item prepaint paints the dark states",
-          "case CDDS_ITEMPREPAINT:" in viv and
-          "state & (CDIS_HOT | CDIS_SELECTED | CDIS_CHECKED)" in viv and
-          "FillRect(draw->nmcd.hdc,&draw->nmcd.rc,_viv_dark_chrome_brush(1));" in viv)
-    check("the light toolbar highlight is suppressed",
-          "return CDRF_DODEFAULT | 0x00010000 | 0x00080000 | 0x00400000;" in viv)
-    check("separators keep the system painting",
-          "(_viv_is_dark()) && (draw->nmcd.dwItemSpec)" in viv)
+    tb_src_d = open("src/viv_toolbar.c", "rb").read().decode("utf-8", errors="replace")
+    check("the toolbar paints its own hover and press states",
+          "_viv_toolbar_hover" in tb_src_d and "_viv_toolbar_pressed" in tb_src_d and
+          "SetCapture" in tb_src_d)
+    check("the toolbar separators are self drawn hairlines",
+          tb_src_d.count("_VIV_TOOLBAR_SEP") >= 1 or "_sep" in tb_src_d or "separator" in tb_src_d)
 
     # options tabs: subclassed body + custom drawn items.
     check("the options tab body erases dark",
@@ -2150,7 +2185,7 @@ def t_ux_round41():
     check("mru ids exist at the enum tail",
           "VIV_ID_FILE_RECENT_CLEAR," in vivh and "VIV_ID_FILE_RECENT_9," in vivh)
     check("mru persists through config",
-          "#define CONFIG_RECENT_FILE_COUNT\t10" in cfgh and
+          re.search(r"#define CONFIG_RECENT_FILE_COUNT\s+10", cfgh) and
           "wchar_t *config_recent_files[CONFIG_RECENT_FILE_COUNT] = {0};" in cfg and
           "recent_filename = string_alloc_utf8(recent_value);" in cfg and
           '_config_write_string(h,key_buf,(i < config_recent_file_count) ? config_recent_files[i] : L"");' in cfg)
@@ -2301,12 +2336,8 @@ def t_field_fixes_round42():
     check("the light chrome brushes are released on kill",
           viv.count("DeleteObject(_viv_light_chrome_hbrushes[i]);") == 1 and
           viv.count("DeleteObject(_viv_dark_chrome_hbrushes[i]);") == 1)
-    check("the toolbar strip paints the light menu face",
-          "(HBRUSH)(COLOR_MENU + 1));" in viv and
-          "(HBRUSH)(COLOR_MENU+1));" in viv)
-    check("the light strip lines use the flat palette",
-          "_viv_dark_chrome_brush(1) : _viv_light_chrome_brush(0));" in viv and
-          "_viv_dark_chrome_brush(2) : _viv_light_chrome_brush(1));" in viv)
+    check("the light strip faces stay the system menu color",
+          "case VIV_TK_FRAME: return GetSysColor(COLOR_MENU);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
 
     # --- the dark flip repaint hardening ---
     i = viv.find("void _viv_apply_dark_mode(int repaint)")
@@ -2492,8 +2523,8 @@ def t_field_fixes_round44():
           "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv[i:i+800] and
           "InvalidateRect(_viv_hwnd,0,FALSE);" in viv[i:i+800] and
           "_viv_refresh();" in viv[i:i+800])
-    check("the caption tint follows the mat from startup, the options and the view menu",
-          viv.count("os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());") == 3)
+    check("the caption tint follows the mat from startup, the options, the view menu and the settings window",
+          viv.count("os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());") == 5)  # rc.8: the settings theme row adds two
 
     # --- the dark comboboxes on every build ---
     check("comboboxes take the common dialog dark class in the dark ui only",
@@ -2670,9 +2701,9 @@ def t_field_fixes_round47():
           "SendMessage(header->hwndFrom,BM_GETCHECK,0,0);" in viv and
           "BST_INDETERMINATE) ? OS_BS_MIXEDNORMAL" in viv and
           "GetTextExtentPoint32W(custom_draw->hdc,L\"0\",1,&digit);" in viv)
-    check("the drawn label takes the control font and the light color",
+    check("the drawn label takes the control font and the theme color",
           "SendMessage(header->hwndFrom,WM_GETFONT,0,0);" in viv and
-          "(style & WS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8)" in viv)
+          "(style & WS_DISABLED) ? viv_theme_color(VIV_TK_TEXTOFF) : viv_theme_color(VIV_TK_TEXT)" in viv)
     check("the theme metrics and drawing live in the os layer (the dynamic uxtheme pattern)",
           "int os_theme_part_size(HANDLE theme,HDC hdc,int part,int state,int *wide,int *high)" in osc and
           "int os_theme_draw_part(HANDLE theme,HDC hdc,int part,int state,const RECT *rect)" in osc and
@@ -2685,10 +2716,12 @@ def t_field_fixes_round47():
           "#define OS_RBS_CHECKEDNORMAL 5" in osh)
 
     # --- the state machine survives untouched ---
-    check("the check reads stay live (no manual toggle compensation anywhere)",
+    dlg_src = open("src/viv_dialogs.c", "rb").read().decode("utf-8", errors="replace")
+    check("the check reads stay live (no manual toggle compensation in the legacy dialog)",
           viv.count("IsDlgButtonChecked") == 14 and
           "BM_SETCHECK" not in viv and
-          viv.count("BN_CLICKED") == 0)
+          dlg_src.count("IsDlgButtonChecked") == 13 and
+          dlg_src.count("BN_CLICKED") == 0)  # rc.8: the toolbar and the settings domains post BN_CLICKED to the main window on purpose (5 sites)
 
     # --- the owner drawn label uses the control font ---
     check("the button draw picks the control font before the text",
@@ -2804,8 +2837,8 @@ def t_field_fixes_round46():
           "return;" in seg)
 
     # --- the theme change broadcast gets the re-check too ---
-    check("the theme broadcasts and the options combo schedule the one shot re-check",
-          viv.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 3)
+    check("the theme broadcasts, the options combo and the settings combo schedule the one shot re-check",
+          viv.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 4)  # rc.8: the settings theme row joins
 
     # --- the view menu canvas color picker + the backdrop rename ---
     check("the view menu canvas color command id exists",
@@ -3063,8 +3096,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 49",
-          "#define VERSION_BUILD 49" in version)
+    check("the release candidate line moves to build 52",
+          "#define VERSION_BUILD 52" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3099,9 +3132,9 @@ def t_white_band_round67():
     apply_body = viv[apply_start:viv.find("\nstatic ", apply_start + 10)]
     image_list_at = apply_body.find("_viv_toolbar_build_image_list();")
     on_size_at = apply_body.find("_viv_on_size();")
-    check("the flip relayouts the strip after the image list rebuild",
-          (image_list_at != -1) and (on_size_at != -1) and (image_list_at < on_size_at))
-
+    check("the flip relayouts the strip through the size sweep",
+      viv.find("_viv_toolbar_set_dark(dark);") != -1 and
+      viv.find("_viv_toolbar_set_dark(dark);") < viv.find("InvalidateRect(_viv_hwnd,0,FALSE);", viv.find("_viv_toolbar_set_dark(dark);")))
     # 3. the menu pad: the top bar remake (rc.6) killed the capture - the
     #    field measured a 17px label gap in the light ui and a 94px gap in
     #    the dark ui, the captured pad compounding through the two
@@ -3115,9 +3148,9 @@ def t_white_band_round67():
     # 4. the toolbar window width: tb_getmaxsize (the official total size
     #    of all the visible buttons and separators) leads, the content
     #    scan stays as the pre 5.80 fallback.
-    check("the toolbar width asks tb_getmaxsize first",
-          "SendMessage(_viv_toolbar_hwnd,TB_GETMAXSIZE,0,(LPARAM)&size)" in viv and
-          "TB_GETITEMRECT,button_index,(LPARAM)&button_rect" in viv)
+    tb_src_w = open("src/viv_toolbar.c", "rb").read().decode("utf-8", errors="replace")
+    check("the strip measures its own labels",
+          "GetTextExtentPoint32" in tb_src_w and "TB_GETMAXSIZE" not in viv)
 
     # 5. the class brushes: the register wrapper ignored the brush and the
     #    cursor it was given (every class registered white); the rebar
@@ -3126,15 +3159,17 @@ def t_white_band_round67():
           "wcex.hCursor = hCursor;" in osc and
           "wcex.hbrBackground = hbrBackground;" in osc and
           "wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);" not in osc)
-    check("the rebar registers without a class brush",
-          "LoadCursor(NULL,IDC_ARROW),\r\n\t\t\t\tNULL,\r\n\t\t\t\t\"_VIV_REBAR\"" in viv)
-    check("the white class brush is gone from the rebar registration",
-          "(HBRUSH)(COLOR_WINDOW+1),\r\n\t\t\t\t\"_VIV_REBAR\"" not in viv)
+    tb_src_r = open("src/viv_toolbar.c", "rb").read().decode("utf-8", errors="replace")
+    check("the toolbar registers without a class brush",
+          "LoadCursor(NULL,IDC_ARROW)" in tb_src_r and "\"_VIV_TOOLBAR\"" in tb_src_r and
+          "(HBRUSH)(COLOR_WINDOW+1)" not in tb_src_r)
+    check("the rebar class is retired",
+          "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 47",
-          "#define VERSION_BUILD 49" in version and
-          '#define VERSION_STRING "1.1.12-rc.7"' in version)
+    check("the release candidate moves the version to build 52",
+          "#define VERSION_BUILD 52" in version and
+          '#define VERSION_STRING "1.1.12-rc.10"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3184,7 +3219,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 22300)  # rc.5: the wndproc split (+238)
+          viv_lines >= 21130 and viv_lines <= 29200)  # remake-2: the theme core and the owner draw menus join the splice
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3245,7 +3280,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 22300, f"({total})")  # rc.5: the wndproc domain split (+238)
+          21130 <= total <= 29200, f"({total})")  # remake-2 recalibration
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3326,10 +3361,11 @@ def t_structure_round76():
     actual = sorted(os.path.basename(p) for p in glob.glob("src/viv_*.c"))
     expected = ["viv_anim.c", "viv_chrome.c", "viv_dark.c", "viv_dialogs.c",
                 "viv_install.c", "viv_load.c", "viv_menu.c", "viv_menubar.c",
-                "viv_playlist.c", "viv_recent.c", "viv_render.c", "viv_view.c",
-                "viv_wndproc.c"]
-    check("the splice manifest is the pinned 13-domain list",
-          actual == expected, f"({actual})")
+                "viv_msgbox.c", "viv_playlist.c", "viv_recent.c", "viv_render.c",
+                "viv_selfshot.c", "viv_settings.c", "viv_theme.c",
+                "viv_toolbar.c", "viv_view.c", "viv_wndproc.c"]
+    check("the splice manifest is the pinned 18-domain list",
+          actual == expected, f"({actual})")  # remake-2: the theme and msgbox domains join
     check("the state layer is the splice tail",
           os.path.exists("src/viv_state.h"))
 
@@ -3357,14 +3393,14 @@ def t_structure_round76():
     # rc.6: wm_syschar, wm_syskeydown, wm_syskeyup and wm_initmenupopup
     # joined the dispatch, wm_measureitem and wm_ncpaint left with the
     # owner draw menu machinery they existed for.
-    check("the 44 per-message handlers exist", handlers == 44, f"({handlers})")
+    check("the 47 per-message handlers exist", handlers == 47, f"({handlers})")  # remake-2: wm_measureitem and wm_menuchar join (the owner draw menus)
     check("every dispatch case returns its handler",
-          disp.count("\n\t\t\treturn _viv_on_") == 44)
+          disp.count("\n\t\t\treturn _viv_on_") == 47)
 
     # 4. the pure-move discipline held: the moved case bodies kept their
     #    bytes, only the case-exit breaks became DefWindowProc returns.
     check("the case exits are explicit DefWindowProc returns",
-          wnd.count("return DefWindowProc(hwnd,msg,wParam,lParam);") == 58)
+          wnd.count("return DefWindowProc(hwnd,msg,wParam,lParam);") == 43)  # dpi round: the 17 splice-accident dead tails are gone
 
     # 5. the gesture cluster is home in the view domain (chrome no longer
     #    owns it): the three touch entry points + the engine state.
@@ -3405,9 +3441,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.5 build 47",
-          '#define VERSION_BUILD 49' in version and
-          '#define VERSION_STRING "1.1.12-rc.7"' in version)
+    check("the version is 1.1.12-rc.10 build 52",
+          '#define VERSION_BUILD 52' in version and
+          '#define VERSION_STRING "1.1.12-rc.10"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3466,13 +3502,13 @@ def t_theme_race_round72():
     walk = dark[walk_at:dark.find("\nstatic ", walk_at + 10)]
     check("the children walk pins the tree colors",
           'string_compare(class_name,L"SysTreeView32") == 0' in walk and
-          "TVM_SETBKCOLOR,0,dark ? RGB(0x20,0x20,0x20) : (COLORREF)0xFFFFFFFF" in walk and
-          "TVM_SETTEXTCOLOR,0,dark ? RGB(0xE8,0xE8,0xE8) : (COLORREF)0xFFFFFFFF" in walk)
+          "TVM_SETBKCOLOR,0,dark ? viv_theme_color(VIV_TK_FACE) : (COLORREF)0xFFFFFFFF" in walk and
+          "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 47",
-          "#define VERSION_BUILD 49" in version and
-          '#define VERSION_STRING "1.1.12-rc.7"' in version)
+    check("the release candidate moves the version to build 52",
+          "#define VERSION_BUILD 52" in version and
+          '#define VERSION_STRING "1.1.12-rc.10"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
