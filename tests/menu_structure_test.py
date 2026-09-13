@@ -333,10 +333,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.59 rc.17 (the review absorption round)",
-          (major, minor, rev, build) == ("1", "1", "12", "59") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.17 tag)",
-          vstr == "1.1.12-rc.17")
+    check("version.h = 1.1.12.60 stable (the remake stable)",
+          (major, minor, rev, build) == ("1", "1", "12", "60") and vtype == "")
+    check("VERSION_STRING is the release identity (the stable tag)",
+          vstr == "1.1.12")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3082,8 +3082,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 59",
-          "#define VERSION_BUILD 59" in version)
+    check("the stable line moves to build 60",
+          "#define VERSION_BUILD 60" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3153,9 +3153,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 59",
-          "#define VERSION_BUILD 59" in version and
-          '#define VERSION_STRING "1.1.12-rc.17"' in version)
+    check("the version moves to build 60",
+          "#define VERSION_BUILD 60" in version and
+          '#define VERSION_STRING "1.1.12"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3427,9 +3427,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.17 build 59",
-          '#define VERSION_BUILD 59' in version and
-          '#define VERSION_STRING "1.1.12-rc.17"' in version)
+    check("the version is 1.1.12 build 60",
+          '#define VERSION_BUILD 60' in version and
+          '#define VERSION_STRING "1.1.12"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3492,9 +3492,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 59",
-          "#define VERSION_BUILD 59" in version and
-          '#define VERSION_STRING "1.1.12-rc.17"' in version)
+    check("the version moves to build 60",
+          "#define VERSION_BUILD 60" in version and
+          '#define VERSION_STRING "1.1.12"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4056,9 +4056,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.17 build 59",
-          '#define VERSION_BUILD 59' in version and
-          '#define VERSION_STRING "1.1.12-rc.17"' in version)
+    check("the version is 1.1.12 build 60",
+          '#define VERSION_BUILD 60' in version and
+          '#define VERSION_STRING "1.1.12"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4068,6 +4068,32 @@ def t_review_absorption_round82():
     check("the changelog states the deferrals",
           "deferred on purpose" in flat and
           "the debt list" in flat)
+
+
+
+def t_stable_promotion_round83():
+    """Guards for the stable promotion round (1.1.12: the rc arc promoted -
+    no code rides the round, only the version identity, the changelog
+    and the readme)."""
+    version = read("src/version.h").decode()
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+
+    check("the stable identity is 1.1.12 build 60",
+          '#define VERSION_BUILD 60' in version and
+          '#define VERSION_STRING "1.1.12"' in version and
+          '#define VERSION_TYPE ""' in version)
+    check("the changelog top entry is the stable promotion",
+          changes.lstrip("\ufeff").startswith("Stable: Version 1.1.12 (the remake stable)"))
+    flat = " ".join(changes.split())
+    check("the changelog states the no-code promotion",
+          "carries no code" in flat and
+          "the verdict on the whole rc arc" in flat)
+    check("the readme current line is the stable",
+          "**1.1.12 \u2014" in readme and "(the current stable):**" in readme)
+    check("the rc.17 entry demotes to the previous candidate",
+          "**1.1.12-rc.17 \u2014" in readme and
+          "(the previous release candidate):**" in readme)
 
 
 if __name__ == "__main__":
@@ -4124,6 +4150,7 @@ if __name__ == "__main__":
     t_field_report_round80()
     t_open_intent_round81()
     t_review_absorption_round82()
+    t_stable_promotion_round83()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

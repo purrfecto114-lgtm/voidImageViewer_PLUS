@@ -1,3 +1,30 @@
+Stable: Version 1.1.12 (the remake stable)
+*the promotion round carries no code: every fix it rides already
+ shipped as 1.1.12-rc.17 and passed the full gate on real windows
+ (the three suites, both compile legs, the anomaly sweep smoke test,
+ and the release build itself). the stable mark is the verdict on
+ the whole rc arc, not a new behavior.
+*the arc in one breath: the gui remake (the theme token system, the
+ owner drawn menus, the remade settings window and message boxes,
+ the client side top bar, the self drawn zoom row), the structure
+ split (the 2,208 line window procedure became 42 per-message
+ handlers across the domain modules, the gesture cluster moved
+ home), the crash the remake planted and the ci smoke sweep caught
+ (the status panes route by the control id first), the platform
+ guardrails (the official manifest guid, the unicows clean, the
+ wm_dpichanged lparam guard), the field arcs (the non-win11
+ fallbacks, the zoom pane editor, the recent-list intent policy,
+ the text proportions at 4k 225%, the capture hint bridge, the
+ menu process check), and the external review absorption (the
+ itemid carrier, the token strip, the settings dpi correction,
+ the resize escape hatch, the startup dpi sync).
+*the discipline that earned the mark: seventeen release candidates,
+ each landed changelog first, each pinned by its own guard section
+ (the three suites carry a section per round back to the fork),
+ each version-guarded, each green on the ci legs before its tag -
+ the anomaly sweep smoke test opens real images on a real windows
+ runner for every tag, so no candidate could ship unproven.
+
 Pre-release: Version 1.1.12-rc.17 (the review absorption round)
 *an external carpet review (v2, two independent cross-validation
  passes) read the rc.16 tree line by line; this round absorbs its
