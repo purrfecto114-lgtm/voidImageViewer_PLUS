@@ -1837,13 +1837,15 @@ static LRESULT _viv_on_wm_menuchar(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 static LRESULT _viv_on_wm_drawitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	// the status panes are owner drawn: draw them FIRST. the comctl
-	// status bar sends its pane draws with CtlType == ODT_MENU (a
-	// historical quirk), so the menu branch below can never be the
-	// discriminator: it would cast the pane index (the itemData) into a
-	// menu row pointer and dereference address 0x1 - the crash the
-	// smoke sweep caught on every slow-decoded image (the preload pane
-	// draws while the load thread still runs; the baseline routed the
-	// panes by the control id and that check is the true one).
+	// status bar sends its pane draws with CtlType == ODT_MENU, but
+	// that is not a contract: comctl leaves the field uninitialized
+	// on this path, so the value is garbage that happens to look
+	// like the menu type - never a discriminator. the menu branch
+	// below would cast the pane index into a menu row pointer and
+	// dereference address 0x1 - the crash the smoke sweep caught on
+	// every slow-decoded image (the preload pane draws while the
+	// load thread still runs; the baseline routed the panes by the
+	// control id and that check is the true one).
 	if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))
 	{
 		return TRUE;

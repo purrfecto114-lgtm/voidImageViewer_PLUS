@@ -18,7 +18,17 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.16 — the open intent round (the current release candidate):**
+**1.1.12-rc.17 — the review absorption round (the current release candidate):**
+
+- **The external carpet review (v2) absorbed** — its confirmed findings fixed, its refutations recorded. The gesture "leak" it asked to self-check is not there (every unhandled WM_GESTURE path forwards to DefWindowProc, which owns the info handle), and the strip-height audit found every view geometry in the tree riding the one `_viv_get_view_top()` helper.
+- **The status pane index rides the official carrier** — the draw read `itemData` (the lParam our own SB_SETTEXTW happens to store there); it now reads `itemID` (the field comctl officially fills with the pane index), itemData stays the fallback — and an unresolvable pane paints the strip face instead of returning silently unhandled, closing the rc.11 bottom-white-bar failure mode for good.
+- **The status strip joins the token system** — the erase, the pane fill and text, the size grip fill and dots, and the zoom editor field all rode hardcoded RGB values while the menubar and toolbar ride the chrome token. Every site routes through the theme tokens now, so a theme or accent flip re-skins the strip too, and the three strips read as one chrome.
+- **The settings window DPI correction + the escape hatch** — the outer frame is re-measured at the window's own DPI after the create (the same correction WM_DPICHANGED applies after a move; the probe recorded the mismatch but never fixed it), and the window can now be enlarged from the left/right/bottom edges (minimum track size = the design size) so a page whose content outgrows the fixed panel can never trap its footer out of reach.
+- **The startup DPI sync** — GetDC(0) reads the primary monitor; one explicit `os_window_update_dpi` after the main window exists, before the first strip is built from the globals, so a launch restored onto another monitor builds every strip at the right scale.
+- **Deferred on purpose (the review's own advice)** — the retired options dialog stays frozen until the settings window regains list browsing; the per-window DPI refactor and the resource.h ID splits stay on the debt list.
+- Full narrative: `Changes.txt`.
+
+**1.1.12-rc.16 — the open intent round (the previous release candidate):**
 
 - **The recent-list trade refunded** — the last round's guard asked "is this the file already on screen" for *every* open, which cost the standard MRU behavior: clicking the recent entry of the displayed file stopped re-topping it. The intent is now declared where it is knowable instead of guessed where it is not: the open dialog, the drag-drop and the recent click feed the recent list unconditionally (re-opening the displayed file re-tops it, like every other Windows MRU). Only the one path that cannot know its own intent — the single-instance forward of a second launch, the re-entry the rotate verb's refresh and the rotate-then-recheck double-click ride — keeps the same-file question: a same-file forward is a reload, not a recent open. A forwarded new file still enters the list.
 - Full narrative: `Changes.txt`.

@@ -1,3 +1,81 @@
+Pre-release: Version 1.1.12-rc.17 (the review absorption round)
+*an external carpet review (v2, two independent cross-validation
+ passes) read the rc.16 tree line by line; this round absorbs its
+ confirmed findings and records its refutations. the refutations
+ matter as much as the fixes: the gesture leak it asked to
+ self-check is not there (the unhandled paths - gid_begin,
+ gid_end, the default, the failed decode - all return 0 and the
+ caller forwards every one of them to defwindowproc, which owns
+ the info handle; only the handled paths close it themselves;
+ setgestureconfig's cbsize is the single-struct size the api
+ wants), and the strip height audit found every view geometry in
+ the tree riding the one _viv_get_view_top() helper - no
+ hand-written offsets anywhere.
+*the status pane index now reads the official carrier: comctl
+ fills drawitemstruct.itemid with the drawing pane's index; the
+ code read itemdata instead - the lparam our own sb_settextw
+ happens to store there, which equals the index only on the
+ paths we sent ourselves. a draw arriving any other way fell out
+ of the range check and returned silently unhandled, leaving the
+ bare light comctl face - the exact shape of the rc.11 bottom
+ white bar. the draw reads itemid first (itemdata stays the
+ compatibility fallback), and an unresolvable pane paints the
+ strip face instead of painting nothing: a failure shows as a
+ quiet pane, not a light slab.
+*the crash-guard comment told the wrong story: it called the
+ status bar's ctltype == odt_menu "a historical quirk" - the
+ words of a stable system behavior. comctl leaves the field
+ uninitialized on that path (the value is garbage that happens
+ to look like the menu type), and the comment now says so: a
+ future maintainer trusting "quirk" could simplify the
+ control-id routing away and re-detonate the 0x1 dereference
+ the branch order exists to prevent. the logic did not move.
+*the status strip joins the token system: the erase, the pane
+ fill, the pane text, the size grip fill and dots, and the zoom
+ editor's field colors all rode hardcoded rgb values or the
+ dialogs face while the menu bar and the toolbar above them
+ ride the chrome token - the strip was the one surface a theme
+ or accent flip could not re-skin. all the sites route through
+ viv_theme_color / viv_theme_brush now; the dark strip face
+ moves from the dialogs tone to the chrome tone, so the three
+ strips read as one chrome.
+*the settings window owed its dpi correction: the outer frame
+ was measured at the viewer's dpi, the window was created with
+ cw_usedefault, and the layout then ran at the window's own dpi
+ - a window landing on a different-scaled monitor showed a
+ frame one size and content another (the probe the author left
+ recorded the mismatch and never fixed it). the show path now
+ re-measures the frame at the window's own dpi and sizes it
+ into place before the first layout - the same correction the
+ wm_dpichanged branch already applies after a move.
+*the settings window can grow: it was a fixed 660x628 dip panel
+ with no thick frame and no wheel handling - any page whose
+ content outgrows the design (long locale text, future rows)
+ would clip its footer out of reach with no escape. the left,
+ right and bottom edges now report the sizing hit codes (the
+ system runs its own resize loop on the borderless popup, no
+ native frame drawn), the minimum track size is the design
+ size, and the existing wm_size relayout stretches the page.
+ the title row keeps the drag; the close button keeps its
+ margin clear of the edge band.
+*the startup dpi sync: the init path read the dpi from GetDC(0)
+ - the primary monitor - and only wm_dpichanged ever refreshed
+ the globals; a launch restoring the window onto another
+ monitor would build every strip at the primary's scale,
+ because a create-time dpichanged is not something the system
+ documents. one explicit os_window_update_dpi runs after the
+ main window exists and before the first strip is built from
+ the globals.
+*recorded, deferred on purpose (the review's own advice): the
+ ~1400 lines of retired options dialog stay frozen in place
+ until the settings window regains list browsing (the old pages
+ are the only scrollable command list left), the per-window dpi
+ refactor (every surface still shares the process globals, each
+ new surface adding a private bypass) and the resource.h id
+ splits stay on the debt list, and the dpi probes stay - they
+ compile to nothing in release and earn their keep the next
+ time the field reports a dpi oddity.
+
 Pre-release: Version 1.1.12-rc.16 (the open intent round)
 *the follow-up on the recent-list fix: the guard asked the right
  question at the wrong place. "is this the file already on screen"

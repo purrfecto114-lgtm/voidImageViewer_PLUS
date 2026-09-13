@@ -3595,18 +3595,93 @@ static void _viv_settings_capture_used_by_text(wchar_t *wbuf)
 
 // ---- window ----
 
+// the invisible resize frame: a band along the left, right and bottom
+// edges reports the sizing hit codes, so the system runs its own resize
+// loop on the borderless popup (no native frame drawn, no thick frame
+// style). the band follows the system resize border with a dip floor
+// so thin borders still grab; the title row and the footer buttons sit
+// clear of it by their own margins.
+static int _viv_settings_edge_hit(HWND hwnd,POINT *pt)
+{
+	RECT client;
+	int band;
+
+	GetClientRect(hwnd,&client);
+
+	band = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+
+	if (band < _viv_settings_dip(6))
+	{
+		band = _viv_settings_dip(6);
+	}
+
+	if (pt->y >= (client.bottom - band))
+	{
+		if (pt->x < band)
+		{
+			return HTBOTTOMLEFT;
+		}
+
+		if (pt->x >= (client.right - band))
+		{
+			return HTBOTTOMRIGHT;
+		}
+
+		return HTBOTTOM;
+	}
+
+	if (pt->x < band)
+	{
+		return HTLEFT;
+	}
+
+	if (pt->x >= (client.right - band))
+	{
+		return HTRIGHT;
+	}
+
+	return 0;
+}
+
 static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch(msg)
 	{
+		case WM_GETMINMAXINFO:
+		{
+			MINMAXINFO *mmi;
+
+			// the floor is the design size: the window may grow (the content
+			// escape hatch) but never shrink below the page it lays out.
+			mmi = (MINMAXINFO *)lParam;
+
+			_viv_settings_window_size_px(&mmi->ptMinTrackSize.x,&mmi->ptMinTrackSize.y);
+
+			return 0;
+		}
+
 		case WM_NCHITTEST:
 		{
 			POINT pt;
+			int resize;
 
 			pt.x = GET_X_LPARAM(lParam);
 			pt.y = GET_Y_LPARAM(lParam);
 
 			ScreenToClient(hwnd,&pt);
+
+			// the invisible resize frame: a page whose content outgrows the
+			// fixed design (long locale text, future rows) would clip its
+			// footer out of reach with no escape - the left, right and bottom
+			// edges now size the window (the minimum is the design size and
+			// the wm_size relayout already follows); the title row keeps the
+			// drag.
+			resize = _viv_settings_edge_hit(hwnd,&pt);
+
+			if (resize)
+			{
+				return resize;
+			}
 
 			// the title row drags the window; the close button stays a
 			// client hit so it can press.
@@ -4186,6 +4261,15 @@ void _viv_settings_show(void)
 
 	_viv_settings_dpi = os_window_dpi(_viv_settings_hwnd);
 	vivp_dpi_probe("show-after-create");
+
+	// rc.17: the frame was measured at the viewer's dpi while the create
+	// used cw_usedefault - the window may have landed on a different-
+	// scaled monitor, and the layout below runs at the window's own dpi.
+	// re-measure the frame and size it into place so the two agree (the
+	// same correction the wm_dpichanged branch applies after a move).
+	_viv_settings_window_size_px(&wide,&high);
+
+	SetWindowPos(_viv_settings_hwnd,0,0,0,wide,high,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);
 
 	_viv_settings_fonts_create();
 

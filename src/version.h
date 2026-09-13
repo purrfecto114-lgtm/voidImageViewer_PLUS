@@ -3,8 +3,8 @@
 #define VERSION_MINOR 1
 #define VERSION_REVISION 12
 
-#define VERSION_BUILD 58
+#define VERSION_BUILD 59
 
 #define VERSION_TYPE ""
 
-#define VERSION_STRING "1.1.12-rc.16"
+#define VERSION_STRING "1.1.12-rc.17"

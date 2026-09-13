@@ -1484,6 +1484,14 @@ static int _viv_init(int nCmdShow)
 		
 	SetWindowPos(_viv_hwnd,0,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,SWP_NOZORDER|SWP_NOACTIVATE);
 	
+	// rc.17: the init-time dpi globals came from GetDC(0) - the primary
+	// monitor. a launch that restores the window onto another monitor
+	// would otherwise build every strip at the primary's scale
+	// (wm_dpichanged only fires on a change, and a create-time send is
+	// undocumented): one explicit sync after the window exists, before
+	// the first strip is built from the globals.
+	os_window_update_dpi(_viv_hwnd);
+	
 	// the top bar is a client side child now: show it before the first
 	// layout sweep (the frame menu is gone for good).
 	_viv_menubar_show(config_show_menu);

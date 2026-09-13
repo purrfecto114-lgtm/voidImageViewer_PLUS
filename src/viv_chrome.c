@@ -81,15 +81,15 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 				// flat light slab under the dark canvas). the strip erases with
 
-				// the dark face in the dark ui; the owner drawn panes paint over
+				// the chrome token - the same face the menu bar, the toolbar
 
-				// it and the light ui keeps the native face.
+				// and the owner drawn panes ride, in both themes.
 
 				GetClientRect(hwnd,&rect);
 
 				
 
-				FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dialog_dark_brush() : (HBRUSH)(COLOR_BTNFACE + 1));
+				FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_CHROME));
 
 				
 
@@ -217,7 +217,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 							
 
-							FillRect(hdc,&grip_rect,_viv_dialog_dark_brush());
+							FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_CHROME));
 
 							
 
@@ -245,7 +245,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 								{
 
-									SetPixel(hdc,grip_rect.right - 2 - (dot_x * step),grip_rect.bottom - 2 - (dot_y * step),RGB(0x9A,0x9A,0x9A));
+									SetPixel(hdc,grip_rect.right - 2 - (dot_x * step),grip_rect.bottom - 2 - (dot_y * step),viv_theme_color(VIV_TK_TEXT2));
 
 								}
 
@@ -295,13 +295,14 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 			// the zoom pane's in place editor: the strip palette owns the
 			// colors so the field reads as part of the chrome, not a foreign
-			// control. (the selection highlight stays the system color - the
-			// edit control offers no custom one; it lives only while the
-			// editor is open.)
-			SetBkColor((HDC)wParam,_viv_is_dark() ? RGB(0x20,0x20,0x20) : (COLORREF)GetSysColor(COLOR_BTNFACE));
-			SetTextColor((HDC)wParam,_viv_is_dark() ? RGB(0xE8,0xE8,0xE8) : (COLORREF)GetSysColor(COLOR_BTNTEXT));
+			// control - the chrome token and text token, the same pair the
+			// pane paint rides. (the selection highlight stays the system
+			// color - the edit control offers no custom one; it lives only
+			// while the editor is open.)
+			SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));
+			SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));
 			
-			return (LRESULT)(_viv_is_dark() ? _viv_dialog_dark_brush() : GetSysColorBrush(COLOR_BTNFACE));
+			return (LRESULT)viv_theme_brush(VIV_TK_CHROME);
 			
 
 
@@ -1683,8 +1684,9 @@ static void _viv_status_set(int part,const wchar_t *text)
 	// draw fill owns the strip even when every text is empty.
 	if ((string_compare(_viv_status_part_text[part],text) != 0) || (!part_live[part]))
 	{
-		// SBT_OWNERDRAW: the pane text lives in our store; the item data
-		// carries the pane index to WM_DRAWITEM.
+		// SBT_OWNERDRAW: the pane text lives in our store; the draw
+		// reads the pane index from itemID (the official carrier),
+		// with this lparam as the itemData fallback.
 		string_copy(_viv_status_part_text[part],text);
 		
 		SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);
@@ -1717,25 +1719,34 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 		return 0;
 	}
 	
-	part = (int)draw_item->itemData;
+	// comctl carries the pane index in itemID - the official carrier
+	// for status bar draws. the itemData holds whatever lparam the
+	// pane's SB_SETTEXTW stored (ours: the same index), so it stays the
+	// compatibility fallback for a draw that did not come from our own
+	// send.
+	part = (int)draw_item->itemID;
 	
 	if ((part < 0) || (part >= _VIV_STATUS_PART_MAX))
 	{
-		return 0;
+		part = (int)draw_item->itemData;
 	}
 	
-	if (_viv_is_dark())
+	if ((part < 0) || (part >= _VIV_STATUS_PART_MAX))
 	{
-		FillRect(hdc,&draw_item->rcItem,_viv_dialog_dark_brush());
+		// an unresolvable pane still owns its pixels: paint the strip
+		// face so a mystery draw reads as a quiet pane instead of the
+		// light comctl slab (the rc.11 bottom white bar was exactly a
+		// draw nobody answered).
+		FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_CHROME));
 		
-		text_color = RGB(0xE8,0xE8,0xE8);
+		return 1;
 	}
-	else
-	{
-		FillRect(hdc,&draw_item->rcItem,(HBRUSH)(COLOR_BTNFACE + 1));
-		
-		text_color = GetSysColor(COLOR_BTNTEXT);
-	}
+	
+	// the strip face and text ride the chrome tokens - the same pair
+	// the erase, the grip and the toolbar ride, in both themes.
+	FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_CHROME));
+	
+	text_color = viv_theme_color(VIV_TK_TEXT);
 	
 	// draw the text inset like the native panes.
 	text_rect = draw_item->rcItem;

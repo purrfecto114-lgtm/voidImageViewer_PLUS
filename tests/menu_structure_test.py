@@ -333,10 +333,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.58 rc.16 (the open intent round)",
-          (major, minor, rev, build) == ("1", "1", "12", "58") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.16 tag)",
-          vstr == "1.1.12-rc.16")
+    check("version.h = 1.1.12.59 rc.17 (the review absorption round)",
+          (major, minor, rev, build) == ("1", "1", "12", "59") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.17 tag)",
+          vstr == "1.1.12-rc.17")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1626,9 +1626,9 @@ def t_round7():
           "SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);" in viv)
     check("the old SB_GETTEXTW compare is gone",
           "SB_GETTEXTW" not in viv)
-    check("the draw function paints both palettes",
+    check("the draw function paints through the chrome tokens",
           "_viv_status_draw_item(DRAWITEMSTRUCT" in viv and
-          "RGB(0xE8,0xE8,0xE8)" in viv)
+          "text_color = viv_theme_color(VIV_TK_TEXT);" in viv)
     check("the main proc routes WM_DRAWITEM for the status bar",
           "if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))" in viv)
     check("the status subclass routes WM_DRAWITEM too (the dialog dispatcher adds the second site)",
@@ -3082,8 +3082,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 58",
-          "#define VERSION_BUILD 58" in version)
+    check("the release candidate line moves to build 59",
+          "#define VERSION_BUILD 59" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3153,9 +3153,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 58",
-          "#define VERSION_BUILD 58" in version and
-          '#define VERSION_STRING "1.1.12-rc.16"' in version)
+    check("the release candidate moves the version to build 59",
+          "#define VERSION_BUILD 59" in version and
+          '#define VERSION_STRING "1.1.12-rc.17"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3427,9 +3427,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.16 build 58",
-          '#define VERSION_BUILD 58' in version and
-          '#define VERSION_STRING "1.1.12-rc.16"' in version)
+    check("the version is 1.1.12-rc.17 build 59",
+          '#define VERSION_BUILD 59' in version and
+          '#define VERSION_STRING "1.1.12-rc.17"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3492,9 +3492,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 58",
-          "#define VERSION_BUILD 58" in version and
-          '#define VERSION_STRING "1.1.12-rc.16"' in version)
+    check("the release candidate moves the version to build 59",
+          "#define VERSION_BUILD 59" in version and
+          '#define VERSION_STRING "1.1.12-rc.17"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3594,9 +3594,10 @@ def t_carpet_repair_round76():
           "_viv_on_wm_deleteitem" in wnd)
 
     # the comctl status bar sends its pane draws with CtlType == ODT_MENU:
-    # the pane branch must route by the control id BEFORE the menu branch,
-    # or the pane index (the itemData) gets dereferenced as a menu row.
-    check("the status pane draws route before the menu branch (the comctl ctltype quirk)",
+    # the field is uninitialized garbage on that path, so the pane branch
+    # must route by the control id BEFORE the menu branch, or the pane
+    # index gets dereferenced as a menu row.
+    check("the status pane draws route before the menu branch (the comctl ctltype garbage)",
           0 <= wnd.find("wParam == VIV_ID_STATUS") < wnd.find("_viv_menu_draw_item((DRAWITEMSTRUCT *)lParam)"))
 
     check("a failed glyph build never poisons the cache",
@@ -3744,10 +3745,10 @@ def t_zoom_pane_editor_round79():
           "os_statusbar_index_from_x" not in chrome and
           "os_statusbar_index_from_x" not in osc and
           "os_statusbar_index_from_x" not in osh)
-    check("the status subclass answers the editor colors",
+    check("the status subclass answers the editor colors (the chrome tokens)",
           "case WM_CTLCOLOREDIT:" in chrome and
-          "_viv_dialog_dark_brush() : GetSysColorBrush(COLOR_BTNFACE));" in chrome and
-          "RGB(0x20,0x20,0x20) : (COLORREF)GetSysColor(COLOR_BTNFACE)" in chrome)
+          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));" in chrome and
+          "SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));" in chrome)
 
     # the field: created on the pane, themed by the strip.
     check("the editor is a borderless number field on the pane",
@@ -3982,6 +3983,91 @@ def t_open_intent_round81():
           "a same-file forward is a reload, not a recent open" in flat)
 
 
+
+def t_review_absorption_round82():
+    """Guards for the review absorption round (1.1.12-rc.17: the external
+    carpet review v2 - its confirmed fixes absorbed, its refutations
+    recorded)."""
+    chrome = read("src/viv_chrome.c").decode()
+    settings = read("src/viv_settings.c").decode()
+    wnd = read("src/viv_wndproc.c").decode()
+    vivc = read("src/viv.c").decode()
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+
+    # 1. the pane index rides the official carrier, with a fallback draw.
+    check("the pane draw reads itemID first with itemData as the fallback",
+          "part = (int)draw_item->itemID;" in chrome and
+          "part = (int)draw_item->itemData;" in chrome and
+          chrome.find("part = (int)draw_item->itemID;") <
+          chrome.find("part = (int)draw_item->itemData;"))
+    check("an unresolvable pane paints the face instead of returning unhandled",
+          chrome.count("FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_CHROME));") == 2 and
+          "the rc.11 bottom white bar was exactly a" in chrome)
+    check("the pane text rides the text token",
+          "text_color = viv_theme_color(VIV_TK_TEXT);" in chrome)
+
+    # 2. the status strip is on the tokens, no hardcoded palette of its own.
+    check("the erase rides the chrome brush",
+          "FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_CHROME));" in chrome)
+    check("the grip fill and dots ride the tokens",
+          "FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_CHROME));" in chrome and
+          "grip_rect.bottom - 2 - (dot_y * step),viv_theme_color(VIV_TK_TEXT2));" in chrome)
+    check("the zoom editor field rides the tokens",
+          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));" in chrome and
+          "SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));" in chrome and
+          "return (LRESULT)viv_theme_brush(VIV_TK_CHROME);" in chrome)
+    check("the strip carries no hardcoded palette of its own",
+          "RGB(0xE8,0xE8,0xE8)" not in chrome and
+          "RGB(0x20,0x20,0x20)" not in chrome and
+          "RGB(0x9A,0x9A,0x9A)" not in chrome and
+          "_viv_dialog_dark_brush() : GetSysColorBrush(COLOR_BTNFACE" not in chrome)
+
+    # 3. the crash-guard comment tells the true story.
+    check("the drawitem comment calls the ctltype what it is (uninitialized, not a quirk)",
+          "leaves the field uninitialized" in wnd and
+          "historical quirk" not in wnd)
+
+    # 4. the settings window: the dpi correction and the escape hatch.
+    check("the show path re-measures the frame at the window's own dpi",
+          "_viv_settings_window_size_px(&wide,&high);" in settings and
+          "SetWindowPos(_viv_settings_hwnd,0,0,0,wide,high,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE);" in settings and
+          settings.find("vivp_dpi_probe(\"show-after-create\")") <
+          settings.find("SetWindowPos(_viv_settings_hwnd,0,0,0,wide,high"))
+    check("the window grows: the edges hit the sizing codes",
+          "static int _viv_settings_edge_hit(HWND hwnd,POINT *pt)" in settings and
+          "return HTBOTTOMLEFT;" in settings and
+          "return HTLEFT;" in settings and
+          "return HTRIGHT;" in settings)
+    check("the edge hit runs before the title row drag",
+          settings.find("_viv_settings_edge_hit(hwnd,&pt);") <
+          settings.find("if (pt.y < _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH))"))
+    check("the minimum track size is the design size",
+          "case WM_GETMINMAXINFO:" in settings and
+          "_viv_settings_window_size_px(&mmi->ptMinTrackSize.x,&mmi->ptMinTrackSize.y);" in settings)
+
+    # 5. the startup dpi sync.
+    check("the init path syncs the window dpi before the first strip",
+          "os_window_update_dpi(_viv_hwnd);" in vivc and
+          vivc.find("os_CreateWindowEx(") <
+          vivc.find("os_window_update_dpi(_viv_hwnd);") <
+          vivc.find("_viv_menubar_show(config_show_menu);"))
+
+    # 6. the version and the changelog.
+    version = read("src/version.h").decode()
+    check("the version is 1.1.12-rc.17 build 59",
+          '#define VERSION_BUILD 59' in version and
+          '#define VERSION_STRING "1.1.12-rc.17"' in version)
+    flat = " ".join(changes.split())
+    check("the changelog states the review absorption",
+          "the review absorption round" in flat and
+          "records its refutations" in flat)
+    check("the changelog states the gesture refutation",
+          "the gesture leak it asked to self-check is not there" in flat)
+    check("the changelog states the deferrals",
+          "deferred on purpose" in flat and
+          "the debt list" in flat)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -4035,6 +4121,7 @@ if __name__ == "__main__":
     t_zoom_pane_editor_round79()
     t_field_report_round80()
     t_open_intent_round81()
+    t_review_absorption_round82()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
