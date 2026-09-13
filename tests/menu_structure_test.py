@@ -3205,7 +3205,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 29900)  # rc.13 recalibration: the non-win11 field round rides the splice (measured 29615)
+          viv_lines >= 21130 and viv_lines <= 30200)  # rc.17 recalibration: the review absorption round rides the splice (measured 29907)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3266,7 +3266,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 29900, f"({total})")  # rc.13 recalibration (the field round measured 29615)
+          21130 <= total <= 30200, f"({total})")  # rc.17 recalibration (the review absorption round measured 29907)
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -4038,6 +4038,8 @@ def t_review_absorption_round82():
           "return HTBOTTOMLEFT;" in settings and
           "return HTLEFT;" in settings and
           "return HTRIGHT;" in settings)
+    check("the resize band handles the older sdk headers",
+          "#define SM_CXPADDEDBORDER 92" in settings)
     check("the edge hit runs before the title row drag",
           settings.find("_viv_settings_edge_hit(hwnd,&pt);") <
           settings.find("if (pt.y < _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH))"))

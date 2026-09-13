@@ -3595,6 +3595,13 @@ static void _viv_settings_capture_used_by_text(wchar_t *wbuf)
 
 // ---- window ----
 
+// the padded border metric. (not defined in the sdk headers at the
+// 0x0501 level this tree builds against - the same gap class as the
+// gesture fallback defines in the wndproc domain.)
+#ifndef SM_CXPADDEDBORDER
+#define SM_CXPADDEDBORDER 92
+#endif
+
 // the invisible resize frame: a band along the left, right and bottom
 // edges reports the sizing hit codes, so the system runs its own resize
 // loop on the borderless popup (no native frame drawn, no thick frame
