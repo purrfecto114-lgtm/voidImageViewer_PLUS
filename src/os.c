@@ -1736,49 +1736,80 @@ int os_dialog_font(LOGFONTW *lf,HWND hwnd)
 	return 0;
 }
 
+// rc.13: the win11-only chrome attributes double as the platform probe.
+// a round request (attribute 33) fails with E_INVALIDARG on windows 10
+// and older; the first call latches the answer and the return tells the
+// caller whether the modern chrome landed - the non-win11 callers pick
+// their self drawn fallbacks from it (the drop shadow, the flat border).
+static int _os_win11_chrome = 0;	// 0 = not probed, 1 = win11, 2 = older
+
+int os_is_win11(void)
+{
+	return _os_win11_chrome == 1;
+}
+
 // windows 11 chrome: rounded window corners (attribute 33, round)
-// and a caption color that matches the canvas (attribute 35). both
-// attributes fail with E_INVALIDARG on windows 10 and older and are
-// silently ignored: the classic title bar stays.
-void os_window_modern_chrome(HWND hwnd,COLORREF caption_color)
+// and a caption color that matches the canvas (attribute 35). returns 0
+// on windows 10 and older (the classic title bar stays and the caller
+// falls back to its own frame).
+int os_window_modern_chrome(HWND hwnd,COLORREF caption_color)
 {
 	DWORD corner;
 	COLORREF color;
 	
 	if ((!hwnd) || (!_os_DwmSetWindowAttribute))
 	{
-		return;
+		return 0;
 	}
 	
-	// DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2.
+	// DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2. the call
+	// result is the platform probe.
 	corner = 2;
-	_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner));
+	if (_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner)) != 0)
+	{
+		_os_win11_chrome = 2;
+		
+		return 0;
+	}
+	
+	_os_win11_chrome = 1;
 	
 	// DWMWA_CAPTION_COLOR = 35: the windowed canvas color gives a
 	// seamless title bar in both themes (the dark mode attribute above
 	// keeps the caption text readable).
 	color = caption_color;
 	_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));
+	
+	return 1;
 }
 
 // the popup menu layer gets the modern treatment too: rounded corners and
-// a themed border, when the dwm supports the attributes (win 11; a silent
-// no-op on earlier windows).
-void os_menu_modern_chrome(HWND hwnd,COLORREF border_color)
+// a themed border. returns 0 on earlier windows (the native menu border
+// stays).
+int os_menu_modern_chrome(HWND hwnd,COLORREF border_color)
 {
 	int round;
 
 	if ((!_os_DwmSetWindowAttribute) || (!hwnd))
 	{
-		return;
+		return 0;
 	}
 
 	// DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2.
 	round = 2;
-	_os_DwmSetWindowAttribute(hwnd,33,&round,sizeof(round));
+	if (_os_DwmSetWindowAttribute(hwnd,33,&round,sizeof(round)) != 0)
+	{
+		_os_win11_chrome = 2;
+
+		return 0;
+	}
+
+	_os_win11_chrome = 1;
 
 	// DWMWA_BORDER_COLOR = 34: a COLORREF in the native 0x00BBGGRR layout.
 	_os_DwmSetWindowAttribute(hwnd,34,&border_color,sizeof(border_color));
+
+	return 1;
 }
 
 // re-read the system theme after a WM_SETTINGCHANGE.

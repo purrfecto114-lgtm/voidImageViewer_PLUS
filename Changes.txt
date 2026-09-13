@@ -1,3 +1,40 @@
+Pre-release: Version 1.1.12-rc.13 (the non-win11 field round)
+*the field report on a windows 10 machine, three roots, fixed.
+*"the play button shows pause on an idle photo": the toolbar read the
+ animation preference bit as the playing state; that bit defaults to 1
+ and every image switch resets it to 1, so the pause face sat on every
+ static image. the face now gates the clock on the frame count (the
+ ontop rule's own gate), and the five clock-changing paths (the pause
+ toggle, the frame step and prev, the frame home and end jumps) notify
+ the toolbar and recompute the on-top window.
+*"zoom needs two clicks to work": two roots in the button stepping.
+ the snap to the nearest multiple of ten could move against the click
+ direction (a fresh 31% best fit zoomed in to 30 on the first click -
+ invisible, the visible step only came on the second), and a zoom out
+ from the best fit hit a dead pos==0 gate written before the below-fit
+ extension. the snap is direction strict now (out lands on the multiple
+ strictly below, in on the one strictly above), the floor gate reads the
+ true ladder floor, and a sparse-zone fallback steps one position when
+ a ten-point target sits between two ladder positions.
+*"it looks bad on non-win11": the remade surfaces leaned on win11-only
+ dwm attributes with no fallback. the settings window is a borderless
+ popup that got no shadow at all on windows 10/7 (a bare floating
+ panel); its dropdowns opened as native string menus with the system
+ blue highlight and the native checkmark next to the accent pill
+ sidebar; the light hover token sat ~3 points off the strip and was
+ invisible; the light settings sidebar equaled the content face
+ exactly; and the light toolbar carried a private gray between the menu
+ and button faces. the round: the settings class registers the drop
+ shadow style off win11, the settings dropdowns ride the owner drawn
+ menu rows (the same painter, radio dots, one pool per open, the shared
+ popup theming), the light tokens recalibrate (hover contrast, the nav
+ layer, the menu-tone strip), and the message box buttons take the
+ settings window's pill radius.
+*the dwm chrome calls double as the platform probe now (the attribute
+ 33 result latches the answer, os_is_win11 reads it) so every fallback
+ decision is one honest check instead of a silent no-op. the zoom pill
+ no longer re-centers its row under an active press.
+
 Pre-release: Version 1.1.12-rc.12 (the platform guardrails round)
 *the import audit's three platform-level roots, fixed and pinned: the
  manifest's windows 8.1 supportedOS GUID was a hand-corrupted value

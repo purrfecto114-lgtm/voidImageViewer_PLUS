@@ -198,41 +198,54 @@ static void _viv_msgbox_draw_button(HDC hdc,int index)
 
 	brush = CreateSolidBrush(fill);
 
-	FillRect(hdc,&rect,brush);
+	// rc.13: the settings window's pill geometry - one rounded fill rides
+	// both faces (the square fillrect was the non-win11 eyesore next to
+	// the rounded settings controls). the primary's pen matches its fill
+	// (no border), the secondary keeps the quiet line tone.
+	{
+		HPEN pen;
+		HPEN old_pen;
+		HBRUSH old_brush;
+		int radius;
+
+		radius = _viv_msgbox_dip(6);
+
+		pen = CreatePen(PS_SOLID,1,index == _viv_msgbox_default_button() ? fill : viv_theme_color(VIV_TK_LINE));
+		old_pen = (HPEN)SelectObject(hdc,pen);
+		old_brush = (HBRUSH)SelectObject(hdc,brush);
+
+		RoundRect(hdc,rect.left,rect.top,rect.right,rect.bottom,radius * 2,radius * 2);
+
+		SelectObject(hdc,old_brush);
+		SelectObject(hdc,old_pen);
+
+		DeleteObject(pen);
+	}
 
 	DeleteObject(brush);
-
-	// a quiet border keeps the neutral button visible: the secondary takes
-	// the line tone, the accent already contrasts (framerec takes a brush).
-	{
-		HBRUSH frame_brush;
-		RECT frame;
-
-		frame = rect;
-		frame.right--;
-		frame.bottom--;
-
-		frame_brush = CreateSolidBrush(index == _viv_msgbox_default_button() ? fill : viv_theme_color(VIV_TK_LINE));
-
-		FrameRect(hdc,&frame,frame_brush);
-
-		DeleteObject(frame_brush);
-	}
 
 	if (focused)
 	{
 		RECT ring;
-		HBRUSH ring_brush;
+		HPEN pen;
+		HPEN old_pen;
+		HGDIOBJ old_null_brush;
 
 		ring = rect;
 		InflateRect(&ring,-_viv_msgbox_dip(3),-_viv_msgbox_dip(3));
 
-		// framerec draws with a brush: the old pen handle failed silently.
-		ring_brush = CreateSolidBrush(viv_theme_color(index == _viv_msgbox_default_button() ? VIV_TK_ON_ACCENT : VIV_TK_TEXT2));
+		// the ring follows the same radius (the old square framerec ring
+		// poked out of the rounded face).
+		pen = CreatePen(PS_SOLID,1,viv_theme_color(index == _viv_msgbox_default_button() ? VIV_TK_ON_ACCENT : VIV_TK_TEXT2));
+		old_pen = (HPEN)SelectObject(hdc,pen);
+		old_null_brush = SelectObject(hdc,GetStockObject(NULL_BRUSH));
 
-		FrameRect(hdc,&ring,ring_brush);
+		RoundRect(hdc,ring.left,ring.top,ring.right,ring.bottom,_viv_msgbox_dip(3) * 2,_viv_msgbox_dip(3) * 2);
 
-		DeleteObject(ring_brush);
+		SelectObject(hdc,old_null_brush);
+		SelectObject(hdc,old_pen);
+
+		DeleteObject(pen);
 	}
 
 	SetBkMode(hdc,TRANSPARENT);

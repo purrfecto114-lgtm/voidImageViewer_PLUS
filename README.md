@@ -18,7 +18,14 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.12 — the platform guardrails round (the current release candidate):**
+**1.1.12-rc.13 — the non-win11 field round (the current release candidate):**
+
+- **The play button showed “pause” on an idle photo** — the toolbar read the animation preference bit as the playing state (it defaults to on and every image switch resets it); the face now gates on the frame count, and every clock-changing path notifies the toolbar and recomputes the on-top window.
+- **“Zoom needs two clicks to work”** — the first zoom-in from a fresh best fit snapped the wrong way (31% → 30, invisible) and a zoom-out from best fit hit a dead gate written before the below-fit ladder. Stepping is direction-strict now, the floor gate reads the true ladder floor, and a sparse-zone fallback guarantees a move.
+- **The non-Win11 look** — the settings window gets a real drop shadow on Windows 10/7, its dropdowns ride the same owner-drawn rows as the menus (no more system-blue lists next to the accent pills), the light hover/nav/strip tokens recalibrate for real contrast and layering, and the message box buttons take the pill radius. The DWM chrome calls double as the platform probe, so every fallback is one honest check.
+- Full narrative: `Changes.txt`.
+
+**1.1.12-rc.12 — the platform guardrails round (the previous release candidate):**
 
 - **The Windows 8.1 manifest GUID was corrupted** — the supportedOS id for 8.1 was a hand-mangled value, so Windows 8.1 hosts never matched their own entry; the manifest now carries the official GUID (verified against the Microsoft application-manifests documentation).
 - **The dead UnicoWS dependency is gone** — the Win32 link lines carried `UnicoWS.lib` (the Windows 9x unicode layer) straight from the original upstream import; nothing in the code imports an MSLU symbol and the x64 builds never carried it. Modern SDKs are phasing the stub out, so its removal is the forward-compatibility clean — the CI legs still link today.

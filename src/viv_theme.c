@@ -57,21 +57,31 @@ static const COLORREF _viv_theme_dark_colors[VIV_TK_COUNT] =
 };
 
 // the light side keeps system colors so a classic light windows theme still
-// feels native. the custom entries preserve the light chrome look the field
-// already ships (the E0E0E0 strip and the white pane fills).
+// feels native. the custom entries carry the quiet fixed tones the field
+// rounds calibrated (rc.13: hover contrast, nav layering, the unified
+// menu-tone strip).
 static COLORREF _viv_theme_light_color(int token)
 {
 	switch (token)
 	{
 		case VIV_TK_FACE: return GetSysColor(COLOR_BTNFACE);
-		case VIV_TK_NAV_FACE: return GetSysColor(COLOR_BTNFACE);
-		case VIV_TK_CHROME: return RGB(0xE0,0xE0,0xE0);
+		// rc.13: a fixed quiet step below the face - the old light value
+		// equaled FACE exactly and the settings sidebar had zero
+		// layering (the dark side always had its own tone).
+		case VIV_TK_NAV_FACE: return RGB(0xE4,0xE4,0xE4);
+		// rc.13: the strip ties to the system menu color - the private
+		// E0E0E0 band sat between the menu face and the button face as
+		// a third gray on non-win11 machines.
+		case VIV_TK_CHROME: return GetSysColor(COLOR_MENU);
 		case VIV_TK_CHROME_LINE: return GetSysColor(COLOR_3DSHADOW);
 		case VIV_TK_CHROME_MUTED: return GetSysColor(COLOR_GRAYTEXT);
 		case VIV_TK_FRAME: return GetSysColor(COLOR_MENU);
 		case VIV_TK_INPUT: return GetSysColor(COLOR_WINDOW);
 		case VIV_TK_LINE: return GetSysColor(COLOR_3DSHADOW);
-		case VIV_TK_HOVER: return GetSysColor(COLOR_3DLIGHT);
+		// rc.13: a fixed hover with real contrast - 3dlight sat ~3
+		// points off the chrome strip and the menu/toolbar hover was
+		// invisible in the light ui (the field report's dead look).
+		case VIV_TK_HOVER: return RGB(0xDC,0xDC,0xDC);
 		case VIV_TK_DOWN: return GetSysColor(COLOR_3DSHADOW);
 		case VIV_TK_TEXT: return GetSysColor(COLOR_WINDOWTEXT);
 		case VIV_TK_TEXT2: return GetSysColor(COLOR_GRAYTEXT);

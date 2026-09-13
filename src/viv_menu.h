@@ -48,15 +48,30 @@ void _viv_key_remove(_viv_key_list_t *keylist,int command_index,DWORD keyflags);
 #define _VIV_MENU_DRAW_SEPARATOR	2
 #define _VIV_MENU_DRAW_RECENT		3
 #define _VIV_MENU_DRAW_LOCALIZED	4
+// rc.13: the settings dropdowns join the owner drawn pipeline - their
+// labels are ad hoc (not command or localization table entries), so the
+// row carries a text pointer the builder sets after the alloc.
+#define _VIV_MENU_DRAW_TEXT		5
+
 
 #define _VIV_MENU_POOL_MAIN		0
 #define _VIV_MENU_POOL_RECENT		1
 #define _VIV_MENU_POOL_CONTEXT		2
+#define _VIV_MENU_POOL_SETTINGS	3
 void *_viv_menu_row_alloc(int pool,int type,int command_index,int localization_id,int recent_index);
 void _viv_menu_row_pool_reset(int pool);
+// attach an ad hoc label to a _VIV_MENU_DRAW_TEXT row (the store behind
+// the pointer outlives the popup: the builder resets the pool first).
+void _viv_menu_row_set_text(void *row,const wchar_t *text);
 int _viv_menu_measure_item(MEASUREITEMSTRUCT *measure_item);
 int _viv_menu_draw_item(DRAWITEMSTRUCT *draw_item);
 int _viv_menu_char_item(HMENU hmenu,wchar_t ch,int popup);
 void _viv_menu_row_item_text(void *row,wchar_t *wbuf);
+
+// rc.13: the popup layer theming (the #32768 class brush + the dwm
+// chrome probe) extracted from the main window's wm_initmenupopup so
+// every popup owner - the menu bar, the canvas context menu and the
+// settings dropdowns - runs the same code.
+void _viv_menu_popup_theme(void);
 
 #endif

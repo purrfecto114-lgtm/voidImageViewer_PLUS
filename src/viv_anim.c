@@ -30,6 +30,7 @@
 #include "viv_load.h"
 #include "viv_render.h"
 #include "viv_view.h"
+#include "viv_toolbar.h"
 
 // forward declarations (order preserved from viv.c)
 void _viv_clear_frames(_viv_frame_t *frames,int loaded_count);
@@ -134,6 +135,13 @@ static void _viv_timer_start(void)
 void _viv_animation_pause(void)
 {
 	_viv_animation_play = !_viv_animation_play;
+	
+	// rc.13: the clock flip re-reads the play face and the on-top
+	// window (the ontop==2 mode follows the playing state, and the
+	// toolbar face did not move when the animation paused).
+	_viv_toolbar_update_buttons();
+	
+	_viv_update_ontop();
 }
 void _viv_frame_step(void)
 {
@@ -164,6 +172,12 @@ void _viv_frame_step(void)
 			UpdateWindow(_viv_hwnd);
 		}
 	}
+
+	// rc.13: a manual frame step pauses the clock - the play face and
+	// the on-top window follow it.
+	_viv_toolbar_update_buttons();
+	
+	_viv_update_ontop();
 }
 void _viv_frame_prev(void)
 {
@@ -194,6 +208,12 @@ void _viv_frame_prev(void)
 		InvalidateRect(_viv_hwnd,NULL,FALSE);
 		UpdateWindow(_viv_hwnd);
 	}
+
+	// rc.13: a manual frame step pauses the clock - the play face and
+	// the on-top window follow it.
+	_viv_toolbar_update_buttons();
+	
+	_viv_update_ontop();
 }
 void _viv_timer_stop(void)
 {

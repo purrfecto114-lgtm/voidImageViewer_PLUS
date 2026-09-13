@@ -380,6 +380,11 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				UpdateWindow(_viv_hwnd);
 			}
 			
+			// rc.13: this frame jump pauses the animation clock - the play
+			// face and the on-top window follow it.
+			_viv_toolbar_update_buttons();
+			
+			_viv_update_ontop();
 			break;
 
 		case VIV_ID_ANIMATION_FRAME_END:
@@ -404,6 +409,11 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				UpdateWindow(_viv_hwnd);
 			}
 			
+			// rc.13: this frame jump pauses the animation clock - the play
+			// face and the on-top window follow it.
+			_viv_toolbar_update_buttons();
+			
+			_viv_update_ontop();
 			break;
 
 		case VIV_ID_ANIMATION_RATE_DEC:
@@ -2328,6 +2338,16 @@ void _viv_zoom_set_percent(int percent,int screen_x,int screen_y,int force)
 			}
 			
 			_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos_for_percent(next,1));
+			
+			// sparse ladder zones (past ~1400% one position is worth
+			// ~14 points): a 10 point target can sit between two
+			// positions and even the strict jump lands on the old one.
+			// the click still owes the user a move: step one position
+			// in the click direction.
+			if ((force > 0) ? (_viv_zoom_pos <= old_zoom_pos) : (_viv_zoom_pos >= old_zoom_pos))
+			{
+				_viv_zoom_pos = _viv_clamp_zoom_pos(old_zoom_pos + ((force > 0) ? 1 : -1));
+			}
 		}
 	}
 	
@@ -2371,9 +2391,12 @@ void _viv_zoom_in(int out,int have_xy,int x,int y)
 		return;
 	}
 	
-	// at the bottom of the ladder a zoom out click has nothing below it:
-	// do nothing rather than snapping up to the nearest multiple above.
-	if (out && (!_viv_1to1) && (_viv_zoom_pos == 0))
+	// at the true bottom of the ladder a zoom out click has nothing
+	// below it: do nothing. (rc.13: the below-fit extension made position
+	// 0 the bestfit anchor rather than the floor - the old pos==0 gate
+	// ate the first out click on every freshly opened image, and the
+	// field read it as "zoom needs two clicks".)
+	if (out && (!_viv_1to1) && (_viv_zoom_pos <= _viv_zoom_pos_floor()))
 	{
 		return;
 	}
@@ -2393,38 +2416,28 @@ void _viv_zoom_in(int out,int have_xy,int x,int y)
 
 	ClientToScreen(_viv_hwnd,&pt);
 	
-	// discrete clicks (toolbar buttons, keyboard, the configured mouse zoom
-	// action) step whole 10% per click: a zoom that is not a multiple of 10
-	// first snaps to the nearest multiple of 10. the wheel and pinch
-	// gestures keep the proportional ladder stepping.
+	// discrete clicks (toolbar buttons, keyboard, the configured mouse
+	// action) step whole 10% per click, and the snap is direction strict:
+	// an out click lands on the multiple strictly below, an in click on
+	// the one strictly above, so the first click after a wheel stop (or
+	// from a fresh best fit) always moves in the click direction - the
+	// rc.1 nearest-multiple snap stepped a wheel-stopped 31% zoom-in
+	// down to 30 and the field read it as a dead first click. the wheel
+	// and pinch gestures keep the proportional ladder stepping.
 	percent = _viv_zoom_percent();
 	
-	if ((percent % 10) == 0)
+	if (out)
 	{
-		target = percent + (out ? -10 : 10);
+		target = ((percent - 1) / 10) * 10;
 	}
 	else
 	{
-		int lower;
-		int upper;
-		
-		lower = (percent / 10) * 10;
-		upper = lower + 10;
-		
-		if ((percent - lower) < (upper - percent))
-		{
-			target = lower;
-		}
-		else
-		if ((percent - lower) > (upper - percent))
-		{
-			target = upper;
-		}
-		else
-		{
-			// exact midpoint: round toward the click direction.
-			target = out ? lower : upper;
-		}
+		target = ((percent / 10) * 10) + 10;
+	}
+	
+	if (target < 1)
+	{
+		target = 1;
 	}
 	
 	_viv_zoom_set_percent(target,pt.x,pt.y,out ? -1 : 1);

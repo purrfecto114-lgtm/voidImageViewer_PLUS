@@ -55,6 +55,7 @@ typedef struct _viv_menu_draw_t
 	int command_index;	// COMMAND / POPUP: index into _viv_commands
 	int localization_id;	// LOCALIZED
 	int recent_index;	// RECENT: index into config_recent_files
+	const wchar_t *text;	// TEXT: the builder's label store
 } _viv_menu_draw_t;
 
 static _viv_menu_draw_t _viv_menu_draw_pool[_VIV_COMMAND_COUNT + 16];
@@ -63,6 +64,9 @@ static _viv_menu_draw_t _viv_recent_draw_pool[CONFIG_RECENT_FILE_COUNT + 4];
 static int _viv_recent_draw_count;
 static _viv_menu_draw_t _viv_context_draw_pool[_VIV_COMMAND_COUNT + 16];
 static int _viv_context_draw_count;
+// rc.13: the settings dropdown rows (one popup at a time, reset per open).
+static _viv_menu_draw_t _viv_settings_draw_pool[32];
+static int _viv_settings_draw_count;
 
 // dips at the primary monitor dpi (the menubar uses the same convention).
 static int _viv_menu_dip(int d)
@@ -80,6 +84,10 @@ void _viv_menu_row_pool_reset(int pool)
 
 		case _VIV_MENU_POOL_CONTEXT:
 			_viv_context_draw_count = 0;
+			break;
+
+		case _VIV_MENU_POOL_SETTINGS:
+			_viv_settings_draw_count = 0;
 			break;
 
 		default:
@@ -107,6 +115,12 @@ void *_viv_menu_row_alloc(int pool,int type,int command_index,int localization_i
 			cap = CONFIG_RECENT_FILE_COUNT + 4;
 			break;
 
+		case _VIV_MENU_POOL_SETTINGS:
+			table = _viv_settings_draw_pool;
+			count = &_viv_settings_draw_count;
+			cap = 32;
+			break;
+		
 		case _VIV_MENU_POOL_CONTEXT:
 			table = _viv_context_draw_pool;
 			count = &_viv_context_draw_count;
@@ -125,8 +139,24 @@ void *_viv_menu_row_alloc(int pool,int type,int command_index,int localization_i
 	row->command_index = command_index;
 	row->localization_id = localization_id;
 	row->recent_index = recent_index;
+	row->text = 0;
 
 	return row;
+}
+
+// rc.13: attach an ad hoc label to a text row. the store behind the
+// pointer belongs to the builder (the settings dropdowns keep a static
+// label array that the pool reset reclaims with the rows).
+void _viv_menu_row_set_text(void *row,const wchar_t *text)
+{
+	_viv_menu_draw_t *draw;
+	
+	draw = (_viv_menu_draw_t *)row;
+	
+	if (draw)
+	{
+		draw->text = text;
+	}
 }
 
 
@@ -915,6 +945,13 @@ static void _viv_menu_row_text(_viv_menu_draw_t *draw,wchar_t *wbuf)
 
 		case _VIV_MENU_DRAW_LOCALIZED:
 			string_copy_utf8_string(wbuf,localization_get_string(draw->localization_id));
+
+		case _VIV_MENU_DRAW_TEXT:
+			// the ad hoc settings dropdown labels.
+			if (draw->text)
+			{
+				string_copy(wbuf,draw->text);
+			}
 			break;
 	}
 }
@@ -1232,6 +1269,25 @@ int _viv_menu_draw_item(DRAWITEMSTRUCT *draw_item)
 	}
 
 	return 1;
+}
+
+// rc.13: the popup layer theming, extracted from the main window's
+// wm_initmenupopup: the #32768 class brush paints the margins between
+// the owner drawn rows, and the dwm rounds the layer and colors its
+// border where the attributes exist. every popup owner runs this - the
+// menu bar, the canvas context menu and the settings dropdowns.
+void _viv_menu_popup_theme(void)
+{
+	HWND menu_hwnd;
+	
+	menu_hwnd = FindWindowW(L"#32768",0);
+	
+	if (menu_hwnd)
+	{
+		SetClassLongPtrW(menu_hwnd,GCLP_HBRBACKGROUND,(LONG_PTR)viv_theme_brush(VIV_TK_FACE));
+		
+		os_menu_modern_chrome(menu_hwnd,viv_theme_color(VIV_TK_LINE));
+	}
 }
 
 int _viv_menu_char_item(HMENU hmenu,wchar_t ch,int popup)

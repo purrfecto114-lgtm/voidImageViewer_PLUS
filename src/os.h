@@ -218,9 +218,15 @@ int os_window_dpi(HWND hwnd);
 int os_dialog_font(LOGFONTW *lf,HWND hwnd);
 
 // windows 11 chrome: rounded corners + a caption color matching the canvas.
-// silently ignored on windows 10 and older.
-void os_window_modern_chrome(HWND hwnd,COLORREF caption_color);
-void os_menu_modern_chrome(HWND hwnd,COLORREF border_color);
+// returns 0 on windows 10 and older so the caller can fall back to its own
+// frame. the first call latches the platform answer.
+int os_window_modern_chrome(HWND hwnd,COLORREF caption_color);
+int os_menu_modern_chrome(HWND hwnd,COLORREF border_color);
+
+// the latched platform answer from the chrome probes: 1 on windows 11
+// (the modern attributes landed), 0 before the first probe or on older
+// windows. register-time decisions (the drop shadow class style) read it.
+int os_is_win11(void);
 
 // touch / gesture support (Windows 7+)
 // self-declared, binary compatible structures.

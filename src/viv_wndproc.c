@@ -1895,21 +1895,10 @@ static LRESULT _viv_on_wm_initmenupopup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 	// refresh the frame menu used to get from wm_initmenu runs here.
 	_viv_check_menus(_viv_hmenu);
 	
-	// the popup layer joins the theme: the #32768 class brush paints the
-	// margins between the owner drawn rows, and the dwm rounds the layer
-	// and colors its border where the attributes exist.
-	{
-		HWND menu_hwnd;
-		
-		menu_hwnd = FindWindowW(L"#32768",0);
-		
-		if (menu_hwnd)
-		{
-			SetClassLongPtrW(menu_hwnd,GCLP_HBRBACKGROUND,(LONG_PTR)viv_theme_brush(VIV_TK_FACE));
-			
-			os_menu_modern_chrome(menu_hwnd,viv_theme_color(VIV_TK_LINE));
-		}
-	}
+	// the popup layer theming is shared now (viv_menu owns it): the
+	// settings dropdowns run the same code from their own owner
+	// window.
+	_viv_menu_popup_theme();
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }

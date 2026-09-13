@@ -138,6 +138,7 @@ static int _zoomui_area_high = 0; // last zoomui_layout image area height.
 static int _zoomui_is_registered = 0;
 static int _zoomui_hot_index = -1; // button cell under the cursor, or -1.
 static int _zoomui_pressed_index = -1; // button cell pressed with capture, or -1.
+static int _zoomui_pct_recenter = 0; // rc.13: a percent width change deferred through a press.
 static int _zoomui_dark = 0; // 1 = draw with the dark mode palette.
 static int _zoomui_is_fullscreen = 0; // 1 = the fullscreen overlay (idle fade).
 
@@ -859,10 +860,19 @@ static void _zoomui_poll_state(void)
 
 		_zoomui_measure_pct_wide();
 
-		// a wider or narrower text re-centers the whole row.
+		// a wider or narrower text re-centers the whole row - but never
+		// under an active press: the cells would shift away from the
+		// cursor between two rapid clicks (rc.13). the release re-centers.
 		if (_zoomui_pct_wide != old_wide)
 		{
-			_zoomui_place(_zoomui_area_wide,_zoomui_area_high);
+			if (_zoomui_pressed_index >= 0)
+			{
+				_zoomui_pct_recenter = 1;
+			}
+			else
+			{
+				_zoomui_place(_zoomui_area_wide,_zoomui_area_high);
+			}
 		}
 	}
 
@@ -1741,6 +1751,15 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			if ((down >= 0) && (hit == down))
 			{
 				_zoomui_fire_button(down);
+			}
+
+			// rc.13: the deferred re-center lands now that the press is
+			// over (the row sat still through the rapid clicks).
+			if (_zoomui_pct_recenter)
+			{
+				_zoomui_pct_recenter = 0;
+
+				_zoomui_place(_zoomui_area_wide,_zoomui_area_high);
 			}
 
 			return 0;

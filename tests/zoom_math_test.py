@@ -431,23 +431,29 @@ def percent_of(fit_w, fit_h, image_w, image_h, pos):
 
 
 def snap_target(percent, out):
-    """the _viv_zoom_in target math, mirrored exactly."""
-    if (percent % 10) == 0:
-        return percent + (-10 if out else 10)
-    lower = (percent // 10) * 10
-    upper = lower + 10
-    if (percent - lower) < (upper - percent):
-        return lower
-    if (percent - lower) > (upper - percent):
-        return upper
-    return lower if out else upper   # midpoint tie -> click direction
+    """the _viv_zoom_in target math, mirrored exactly.
+    rc.13 (the field report): the snap is direction strict - an out click
+    lands on the multiple strictly below, an in click on the one strictly
+    above, so the first click after a wheel stop (or from a fresh best
+    fit) always moves in the click direction. the rc.1 nearest-multiple
+    snap stepped 31 -> 30 on a zoom-in click and the field read it as
+    "zoom needs two clicks to work"."""
+    if out:
+        target = ((percent - 1) // 10) * 10
+    else:
+        target = ((percent // 10) * 10) + 10
+    if target < 1:
+        target = 1
+    return target
 
 
 def pos_for_percent(target, pm, fit_w, fit_h, image_w, image_h, strict=0):
     """the _viv_zoom_pos_for_percent search, mirrored exactly.
     strict=1 returns the first position that reaches the target
-    (no closest-pick below) - used by the force fallback."""
-    lo, hi = 0, pm + 1
+    (no closest-pick below) - used by the force fallback.
+    rc.13: the search starts at the ladder floor (negative when shrinking
+    is allowed), mirroring the C lo = _viv_zoom_pos_floor()."""
+    lo, hi = pos_floor(), pm + 1
     while lo < hi:
         mid = lo + ((hi - lo) // 2)
         if percent_of(fit_w, fit_h, image_w, image_h, mid) >= target:
@@ -469,8 +475,11 @@ def button_click(state, out, pm, fit_w, fit_h, image_w, image_h):
     mirroring _viv_zoom_in + _viv_zoom_set_percent (with force)."""
     pos, is_1to1 = state
     percent = 100 if is_1to1 else percent_of(fit_w, fit_h, image_w, image_h, pos)
-    # floor guard: a zoom out click at the ladder floor is a no-op.
-    if out and (not is_1to1) and pos == 0:
+    # floor guard: a zoom out click at the true ladder floor is a no-op
+    # (rc.13: pos 0 is the bestfit anchor, not the floor - the below-fit
+    # extension reaches 278 steps under it, and the old pos==0 gate ate
+    # the first out click on every freshly opened image).
+    if out and (not is_1to1) and pos <= pos_floor():
         return (pos, is_1to1)
     old_percent = percent
     target = snap_target(percent, out)
@@ -494,22 +503,31 @@ def button_click(state, out, pm, fit_w, fit_h, image_w, image_h):
         if nxt < 1:
             nxt = 1
         new_pos = pos_for_percent(nxt, pm, fit_w, fit_h, image_w, image_h, strict=1)
+    # sparse ladder zones (past ~1400% one position is worth ~14 points):
+    # a 10 point target can sit between two positions and even the strict
+    # jump lands on the old one. the click still owes the user a move:
+    # step one position in the click direction (rc.13).
+    if (force > 0 and new_pos <= old_pos) or (force < 0 and new_pos >= old_pos):
+        new_pos = old_pos + (1 if force > 0 else -1)
+    # the live clamp: [floor, pm] (the old model clamped to 0 and hid the
+    # whole below-fit range).
+    new_pos = clamp_pos(new_pos)
     if new_pos > pm:
         new_pos = pm
-    if new_pos < 0:
-        new_pos = 0
     return (new_pos, is_1to1)
 
 
 def t_percent_stepping():
     # unit checks of the snap math (the user visible contract)
     cases = [
-        (34, False, 30), (34, True, 30),
-        (37, False, 40), (37, True, 40),
-        (35, False, 40), (35, True, 30),      # tie -> direction
+        (34, False, 40), (34, True, 30),
+        (37, False, 40), (37, True, 30),
+        (35, False, 40), (35, True, 30),
+        (30, False, 40), (30, True, 20),
         (100, False, 110), (100, True, 90),
-        (9, False, 10), (1600, True, 1590),
-        (1447, False, 1450),
+        (9, False, 10), (9, True, 1),
+        (1, False, 10), (1, True, 1),
+        (1600, True, 1590), (1447, False, 1450),
     ]
     for percent, out, want in cases:
         got = snap_target(percent, out)
@@ -536,40 +554,30 @@ def t_percent_stepping():
         #   (possibly moving toward it against the click direction - the
         #   literal spec) or makes visible progress where the ladder is too
         #   sparse to display multiples (~14% apart past 1400%)
+        # rc.13 contract: a button click always moves in its direction -
+        # up for zoom in (unless at the top), down for zoom out (unless at
+        # the below-fit floor). the old nearest-multiple snap could move
+        # against the click; the field read that as a dead first click.
+        # the live domain is [floor, pm]: an out click may land below the
+        # best fit (the below-fit extension).
         bad = 0
         for pos in range(0, pm + 1, max(1, pm // 128)):
             new_pos, is_1to1 = button_click((pos, False), False, pm, fw, fh, iw, ih)
-            if new_pos < 0 or new_pos > pm or (is_1to1 and new_pos != 0):
+            if new_pos < pos_floor() or new_pos > pm or (is_1to1 and new_pos != 0):
                 bad += 1000
-            elif is_1to1:
-                pass
-            else:
-                percent = percent_of(fw, fh, iw, ih, pos)
-                if (percent % 10) == 0:
-                    if new_pos <= pos and pos != pm:
-                        bad += 1
-                else:
-                    newp = percent_of(fw, fh, iw, ih, new_pos)
-                    if (newp % 10) != 0 and new_pos == pos and percent < 1000:
-                        bad += 1
-        check(f"{name}: zoom in steps by the spec", bad == 0, str(bad))
+            elif not is_1to1:
+                if new_pos <= pos and pos != pm:
+                    bad += 1
+        check(f"{name}: every zoom in click moves up", bad == 0, str(bad))
 
         bad = 0
         for pos in range(0, pm + 1, max(1, pm // 128)):
             new_pos, _ = button_click((pos, False), True, pm, fw, fh, iw, ih)
-            if new_pos < 0 or new_pos > pm:
+            if new_pos < pos_floor() or new_pos > pm:
                 bad += 1000
-            else:
-                percent = percent_of(fw, fh, iw, ih, pos)
-                if (percent % 10) == 0:
-                    if new_pos >= pos and pos != 0:
-                        bad += 1
-                elif pos != 0:
-                    # (pos 0 is the ladder floor: zoom out is a no-op there)
-                    newp = percent_of(fw, fh, iw, ih, new_pos)
-                    if (newp % 10) != 0 and new_pos == pos and percent < 1000:
-                        bad += 1
-        check(f"{name}: zoom out steps by the spec", bad == 0, str(bad))
+            elif new_pos >= pos and pos != pos_floor():
+                bad += 1
+        check(f"{name}: every zoom out click moves down", bad == 0, str(bad))
 
         # the domain is respected
         check(f"{name}: ladder domain percent {pmin}..{pmax}",
@@ -623,7 +631,7 @@ def t_percent_stepping():
         s1 = button_click(state, False, pm, fw, fh, iw, ih)
         s2 = button_click(state, True, pm, fw, fh, iw, ih)
         check(f"{name}: 1:1 in/out clicks leave the mode zoomed",
-              (not s1[1]) and (not s2[1]) and s1[0] >= 0 and s2[0] >= 0)
+              (not s1[1]) and (not s2[1]) and s1[0] >= pos_floor() and s2[0] >= pos_floor())
 
 
 
@@ -694,6 +702,51 @@ def t_below_fit_range():
           abs(rw - fw / 16) < 4, f"{rw} vs {fw/16:.1f}")
 
 
+
+# ---------------------------------------------------------------------------
+# rc.13: the field report. "zoom needs two clicks to work" on non-win11
+# machines: a fresh large photo sits at a non-multiple best fit percent
+# (31%), the nearest-multiple snap stepped the first zoom-in click DOWN
+# to 30 (invisible), and the first zoom-out click from best fit hit the
+# dead pos==0 gate. both clicks must now move on the FIRST press.
+# ---------------------------------------------------------------------------
+def t_field_report_first_click():
+    # 2580x1935 photo in an 800x600 viewport: best fit renders 800x600,
+    # the native-relative percent is ~31 (the report's exact scenario).
+    iw, ih, cw, ch = 2580, 1935, 800, 600
+    fw, fh = fit_size(iw, ih, cw, ch)
+    check("the report geometry fits the viewport", (fw, fh) == (800, 600),
+          f"{fw}x{fh}")
+    pm = pos_max(fw, fh, iw, ih)
+    p0 = percent_of(fw, fh, iw, ih, 0)
+    check("best fit sits at the reported ~31%", 28 <= p0 <= 34, str(p0))
+
+    # first zoom-in click: the percent must go UP onto the multiple above
+    # (31 -> 40), never down to 30.
+    npos, n1to1 = button_click((0, False), False, pm, fw, fh, iw, ih)
+    np = percent_of(fw, fh, iw, ih, npos)
+    check("the first zoom-in click enlarges (31 -> 40, not 30)",
+          (not n1to1) and np > p0 and (np % 10) == 0, f"{p0} -> {np}")
+
+    # first zoom-out click from best fit: the percent must go DOWN (the
+    # below-fit ladder answers; the pos==0 gate used to eat the click).
+    opos, _ = button_click((0, False), True, pm, fw, fh, iw, ih)
+    op = percent_of(fw, fh, iw, ih, opos)
+    check("the first zoom-out click from best fit shrinks",
+          op < p0 and opos < 0 and opos >= pos_floor(),
+          f"{p0} -> {op} (pos {opos})")
+
+    # the sparse zone stall: past ~1400% one ladder position is worth ~14
+    # points, so a 10 point target can land on the old position. the
+    # single-position fallback still owes the user a move.
+    # climb near the top first
+    pos = pm - 2 if pm >= 2 else pm
+    p = percent_of(fw, fh, iw, ih, pos)
+    npos2, _ = button_click((pos, False), True, pm, fw, fh, iw, ih)
+    check("a zoom out click in the sparse zone still moves down",
+          npos2 < pos or pos == pos_floor(), f"pos {pos} -> {npos2} at {p}%")
+
+
 if __name__ == "__main__":
     t_aspect_invariant()
     t_geometric_ladder()
@@ -708,6 +761,7 @@ if __name__ == "__main__":
     t_pos_max_cache_signature()
     t_percent_stepping()
     t_below_fit_range()
+    t_field_report_first_click()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

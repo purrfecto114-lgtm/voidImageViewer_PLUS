@@ -1104,6 +1104,15 @@ static int _viv_settings_command_at(int item_index)
 #define _VIV_SETTINGS_POPUP_IDS		0
 #define _VIV_SETTINGS_POPUP_COMMANDS	1
 #define _VIV_SETTINGS_POPUP_KEYS	2
+// rc.13: the language list mixes sources (a localization string plus two
+// self-named languages), so it reads by index.
+#define _VIV_SETTINGS_POPUP_LANGUAGE	3
+
+// rc.13: the owner drawn dropdown labels (one pool per open, reclaimed by
+// the row pool reset - the same lifetime rule the recent list follows).
+#define _VIV_SETTINGS_POPUP_MAX		32
+#define _VIV_SETTINGS_POPUP_LABEL_CHARS	96
+static wchar_t _viv_settings_popup_labels[_VIV_SETTINGS_POPUP_MAX][_VIV_SETTINGS_POPUP_LABEL_CHARS];
 
 static void _viv_settings_popup_text(int kind,const void *context,int index,wchar_t *wbuf)
 {
@@ -1123,13 +1132,39 @@ static void _viv_settings_popup_text(int kind,const void *context,int index,wcha
 			_viv_get_key_text(wbuf,_viv_settings_key_at(index));
 			break;
 
+		// rc.13: 0 = follow system, 1 = english (self named), 2 = chinese
+		// (self named). the two self-named entries read through the
+		// language table, not the localization string table.
+		case _VIV_SETTINGS_POPUP_LANGUAGE:
+			switch (index)
+			{
+				case 0:
+					string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_LANGUAGE_FOLLOW_SYSTEM));
+					break;
+
+				case 1:
+					string_copy_utf8_string(wbuf,localization_get_language_name(LOCALIZATION_LANGUAGE_ENGLISH));
+					break;
+
+				default:
+					string_copy_utf8_string(wbuf,localization_get_language_name(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED));
+					break;
+			}
+			break;
+
 		default:
 			break;
 	}
 }
 
 // open one dropdown list. returns the selected item index, -1 when
-// cancelled. the popup follows the app wide dark menu mode.
+// cancelled. rc.13: the rows join the owner drawn menu pipeline - the
+// native string rows painted the system blue highlight and the native
+// checkmark next to the accent pill sidebar (the field's "looks bad on
+// non-win11"), and the tpm_nonotify flag kept the shared popup theming
+// (the class brush, the dwm chrome) from ever running. one row pool per
+// open, radio dots for the current entry, the same painter as the main
+// menus.
 static int _viv_settings_popup(HWND hwnd,const RECT *anchor,int kind,const void *context,int count,int current)
 {
 	HMENU menu;
@@ -1145,11 +1180,40 @@ static int _viv_settings_popup(HWND hwnd,const RECT *anchor,int kind,const void 
 		return -1;
 	}
 
+	if (count > _VIV_SETTINGS_POPUP_MAX)
+	{
+		count = _VIV_SETTINGS_POPUP_MAX;
+	}
+
+	_viv_menu_row_pool_reset(_VIV_MENU_POOL_SETTINGS);
+
 	for(i=0;i<count;i++)
 	{
+		void *row;
+		MENUITEMINFOW mii;
+
 		_viv_settings_popup_text(kind,context,i,wbuf);
 
-		AppendMenuW(menu,MF_STRING | ((i == current) ? MF_CHECKED : 0),(UINT_PTR)(i + 1),wbuf);
+		string_copy_with_bufsize(_viv_settings_popup_labels[i],_VIV_SETTINGS_POPUP_LABEL_CHARS,wbuf);
+
+		row = _viv_menu_row_alloc(_VIV_MENU_POOL_SETTINGS,_VIV_MENU_DRAW_TEXT,0,0,0);
+
+		if (!row)
+		{
+			break;
+		}
+
+		_viv_menu_row_set_text(row,_viv_settings_popup_labels[i]);
+
+		os_zero_memory(&mii,sizeof(mii));
+		mii.cbSize = sizeof(mii);
+		mii.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STATE | MIIM_DATA;
+		mii.wID = (UINT)(i + 1);
+		mii.fType = MFT_OWNERDRAW | MFT_RADIOCHECK;
+		mii.fState = (i == current) ? MFS_CHECKED : 0;
+		mii.dwItemData = (ULONG_PTR)row;
+
+		InsertMenuItemW(menu,(UINT)i,TRUE,&mii);
 	}
 
 	pt.x = anchor->left;
@@ -1157,7 +1221,7 @@ static int _viv_settings_popup(HWND hwnd,const RECT *anchor,int kind,const void 
 
 	ClientToScreen(hwnd,&pt);
 
-	ret = TrackPopupMenuEx(menu,TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,pt.x,pt.y,hwnd,0);
+	ret = TrackPopupMenuEx(menu,TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_RETURNCMD,pt.x,pt.y,hwnd,0);
 
 	DestroyMenu(menu);
 
@@ -1757,48 +1821,18 @@ static void _viv_settings_run_dropdown(HWND hwnd,const _viv_settings_ctl_t *ctl)
 		{
 			int selected;
 
-			// entries 1 and 2 are the language names in their own language.
+			// rc.13: the inline native menu collapsed into the shared
+			// owner drawn popup (one code path for every dropdown; the
+			// language list reads its entries by index).
+			selected = _viv_settings_popup(hwnd,&drop_ctl->value,_VIV_SETTINGS_POPUP_LANGUAGE,0,3,config_language);
+
+			if ((selected >= 0) && (selected != (int)config_language))
 			{
-				HMENU menu;
-				POINT pt;
-				int ret;
-				wchar_t wbuf[STRING_SIZE];
+				_viv_settings_set_language(selected);
 
-				menu = CreatePopupMenu();
+				_viv_settings_language_refresh();
 
-				if (!menu)
-				{
-					return;
-				}
-
-				string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_LANGUAGE_FOLLOW_SYSTEM));
-				AppendMenuW(menu,MF_STRING | (config_language == 0 ? MF_CHECKED : 0),1,wbuf);
-
-				string_copy_utf8_string(wbuf,localization_get_language_name(LOCALIZATION_LANGUAGE_ENGLISH));
-				AppendMenuW(menu,MF_STRING | (config_language == 1 ? MF_CHECKED : 0),2,wbuf);
-
-				string_copy_utf8_string(wbuf,localization_get_language_name(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED));
-				AppendMenuW(menu,MF_STRING | (config_language == 2 ? MF_CHECKED : 0),3,wbuf);
-
-				pt.x = drop_ctl->value.left;
-				pt.y = drop_ctl->value.bottom;
-
-				ClientToScreen(hwnd,&pt);
-
-				ret = TrackPopupMenuEx(menu,TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,pt.x,pt.y,hwnd,0);
-
-				DestroyMenu(menu);
-
-				selected = ((ret >= 1) && (ret <= 3)) ? (ret - 1) : -1;
-
-				if ((selected >= 0) && (selected != (int)config_language))
-				{
-					_viv_settings_set_language(selected);
-
-					_viv_settings_language_refresh();
-
-					_viv_settings_invalidate();
-				}
+				_viv_settings_invalidate();
 			}
 
 			break;
@@ -4002,6 +4036,53 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 			return 0;
 
+		case WM_INITMENUPOPUP:
+
+			// rc.13: the dropdown popups open from this owner window -
+			// the shared popup theming (the class brush, the dwm chrome)
+			// must run here exactly as it runs for the main window.
+			_viv_menu_popup_theme();
+
+			break;
+
+		case WM_DRAWITEM:
+
+			// the dropdown rows paint through the shared menu painter (no
+			// status panes live on this window, so the menu branch is the
+			// whole answer).
+			if ((lParam) && (((DRAWITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
+			{
+				if (_viv_menu_draw_item((DRAWITEMSTRUCT *)lParam))
+				{
+					return TRUE;
+				}
+			}
+
+			break;
+
+		case WM_MEASUREITEM:
+
+			if ((lParam) && (((MEASUREITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
+			{
+				if (_viv_menu_measure_item((MEASUREITEMSTRUCT *)lParam))
+				{
+					return TRUE;
+				}
+			}
+
+			break;
+
+		case WM_DELETEITEM:
+
+			// the dropdown rows live in the static settings pool: nothing
+			// per item to free (the same rule the main menus follow).
+			if ((lParam) && (((DELETEITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
+			{
+				return TRUE;
+			}
+
+			break;
+
 		case WM_THEMECHANGED:
 
 			_viv_settings_theme_update();
@@ -4075,7 +4156,11 @@ void _viv_settings_show(void)
 
 	if (!_viv_settings_is_registered)
 	{
-		os_RegisterClassEx(0,_viv_settings_proc,0,LoadCursor(NULL,IDC_ARROW),NULL,"_VIV_SETTINGS",0);
+		// rc.13: the non-win11 frame fallback - the drop shadow class
+		// style. a borderless popup gets no dwm shadow on windows 10/7
+		// and the panel floated bare on the desktop (the field report);
+		// win11 keeps the dwm's own shadow with the rounded corners.
+		os_RegisterClassEx(os_is_win11() ? 0 : CS_DROPSHADOW,_viv_settings_proc,0,LoadCursor(NULL,IDC_ARROW),NULL,"_VIV_SETTINGS",0);
 
 		_viv_settings_is_registered = 1;
 	}

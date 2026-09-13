@@ -334,10 +334,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.54 rc.12 (the platform guardrails round)",
-          (major, minor, rev, build) == ("1", "1", "12", "54") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.12 tag)",
-          vstr == "1.1.12-rc.12")
+    check("version.h = 1.1.12.55 rc.13 (the non-win11 field round)",
+          (major, minor, rev, build) == ("1", "1", "12", "55") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.13 tag)",
+          vstr == "1.1.12-rc.13")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -889,12 +889,15 @@ def t_zoom_percent_wiring():
     body = m.group(1)
     check("button zoom uses the percent stepper",
           "_viv_zoom_percent();" in body and "_viv_zoom_set_percent(target" in body)
-    check("already a multiple of 10 steps 10 percent",
-          "target = percent + (out ? -10 : 10);" in body)
-    check("not a multiple snaps to the nearest 10",
-          "lower = (percent / 10) * 10;" in body and "upper = lower + 10;" in body)
-    check("midpoint ties round toward the click direction",
-          "target = out ? lower : upper;" in body)
+    # rc.13: the snap is direction strict (the field report - the rc.1
+    # nearest-multiple snap stepped a wheel-stopped 31% zoom-in down to 30
+    # and the first click looked dead).
+    check("the out snap lands on the multiple strictly below",
+          "target = ((percent - 1) / 10) * 10;" in body)
+    check("the in snap lands on the multiple strictly above",
+          "target = ((percent / 10) * 10) + 10;" in body)
+    check("the snap target never drops below 1 percent",
+          "if (target < 1)" in body and "target = 1;" in body)
     check("buttons no longer delegate to the wheel action",
           "_viv_do_mousewheel_action" not in body)
     check("percent steps are skipped without an image",
@@ -926,8 +929,8 @@ def t_zoom_percent_wiring():
           "if (force && (!_viv_1to1))" in body and
           "next = ((old_percent / 10) * 10) + ((force > 0) ? 10 : -10);" in body and
           "_viv_zoom_pos_for_percent(next,1)" in body)
-    check("a zoom out click at the ladder floor is a no-op",
-          "if (out && (!_viv_1to1) && (_viv_zoom_pos == 0))" in viv)
+    check("a zoom out click at the true ladder floor is a no-op",
+          "if (out && (!_viv_1to1) && (_viv_zoom_pos <= _viv_zoom_pos_floor()))" in viv)
     check("buttons pass the direction, the dialog does not force",
           "_viv_zoom_set_percent(target,pt.x,pt.y,out ? -1 : 1);" in viv and
           "_viv_zoom_set_percent(target,pt.x,pt.y,0);" in viv)
@@ -1453,15 +1456,17 @@ def t_modernization_round6():
           "int os_window_update_dpi(HWND hwnd);" in osh)
 
     # win11 chrome
+    # rc.13: the chrome calls return int and double as the platform probe
+    # (the attribute 33 result latches the win11 answer).
     check("os.c implements os_window_modern_chrome",
-          "void os_window_modern_chrome(HWND hwnd,COLORREF caption_color)" in osc)
-    check("chrome sets corner preference 33 to round",
-          "_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner));" in osc
-          and "corner = 2;" in osc)
+          "int os_window_modern_chrome(HWND hwnd,COLORREF caption_color)" in osc)
+    check("chrome sets corner preference 33 to round and probes the platform",
+          "if (_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner)) != 0)" in osc
+          and "corner = 2;" in osc and "_os_win11_chrome = 2;" in osc)
     check("chrome sets caption color 35",
           "_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));" in osc)
     check("os.h exports os_window_modern_chrome",
-          "void os_window_modern_chrome(HWND hwnd,COLORREF caption_color);" in osh)
+          "int os_window_modern_chrome(HWND hwnd,COLORREF caption_color);" in osh)
     check("viv.c applies the chrome from apply_dark_mode",
           "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv)
 
@@ -1645,7 +1650,7 @@ def t_round7():
     check("the main proc routes WM_DRAWITEM for the status bar",
           "if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))" in viv)
     check("the status subclass routes WM_DRAWITEM too (the dialog dispatcher adds the second site)",
-          viv.count("case WM_DRAWITEM:") == 3)  # rc.8: the rebar route retired, the status proc came home
+          viv.count("case WM_DRAWITEM:") == 4)  # rc.8: the rebar route retired, the status proc came home; rc.13: the settings dropdown owner joined
 
     # the dark chrome strips.
     check("the dark chrome brush palette routes through the theme cache",
@@ -3096,8 +3101,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 54",
-          "#define VERSION_BUILD 54" in version)
+    check("the release candidate line moves to build 55",
+          "#define VERSION_BUILD 55" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3167,9 +3172,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 54",
-          "#define VERSION_BUILD 54" in version and
-          '#define VERSION_STRING "1.1.12-rc.12"' in version)
+    check("the release candidate moves the version to build 55",
+          "#define VERSION_BUILD 55" in version and
+          '#define VERSION_STRING "1.1.12-rc.13"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3219,7 +3224,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 29600)  # carpet repair: the fix round's guards and comments ride the splice
+          viv_lines >= 21130 and viv_lines <= 29900)  # rc.13 recalibration: the non-win11 field round rides the splice (measured 29615)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3280,7 +3285,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 29600, f"({total})")  # carpet repair recalibration
+          21130 <= total <= 29900, f"({total})")  # rc.13 recalibration (the field round measured 29615)
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3441,9 +3446,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.12 build 54",
-          '#define VERSION_BUILD 54' in version and
-          '#define VERSION_STRING "1.1.12-rc.12"' in version)
+    check("the version is 1.1.12-rc.13 build 55",
+          '#define VERSION_BUILD 55' in version and
+          '#define VERSION_STRING "1.1.12-rc.13"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3506,9 +3511,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 54",
-          "#define VERSION_BUILD 54" in version and
-          '#define VERSION_STRING "1.1.12-rc.12"' in version)
+    check("the release candidate moves the version to build 55",
+          "#define VERSION_BUILD 55" in version and
+          '#define VERSION_STRING "1.1.12-rc.13"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3638,6 +3643,99 @@ def t_platform_guardrails():
           b"UnicoWS.lib" not in vc2019 and b"UnicoWS.lib" not in vc2026)
 
 
+
+def t_field_repair_round78():
+    """The non-win11 field round: the play face, the first-click zoom and
+    the non-win11 visual fallbacks (the windows 10 field report)."""
+    toolbar = read("src/viv_toolbar.c")
+    anim = read("src/viv_anim.c")
+    view = read("src/viv_view.c")
+    theme = read("src/viv_theme.c")
+    menu = read("src/viv_menu.c")
+    menuh = read("src/viv_menu.h")
+    settings = read("src/viv_settings.c")
+    msgbox = read("src/viv_msgbox.c")
+    zoomui = read("src/zoomui.c")
+    osc = read("src/os.c")
+    osh = read("src/os.h")
+    wndproc = read("src/viv_wndproc.c")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+
+    # the play face: the animation clock only counts when frames exist.
+    check("the play face gates the animation clock on the frame count",
+          b"((_viv_frame_count > 1) && (_viv_animation_play))" in toolbar)
+    check("the animation clock changes notify the toolbar and the ontop",
+          anim.count(b"_viv_toolbar_update_buttons();") >= 3 and
+          anim.count(b"_viv_update_ontop();") >= 3)
+    check("the frame home and end jumps notify too",
+          view.count(b"_viv_toolbar_update_buttons();") >= 2)
+    check("the destroy resets the play latch",
+          b"_viv_toolbar_playing = 0;" in toolbar)
+
+    # the first-click zoom: direction-strict snap + the true floor.
+    check("the zoom out snap rounds strictly down",
+          b"target = ((percent - 1) / 10) * 10;" in view)
+    check("the zoom in snap rounds strictly up",
+          b"target = ((percent / 10) * 10) + 10;" in view)
+    check("the zoom out floor gate reads the true ladder floor",
+          b"_viv_zoom_pos <= _viv_zoom_pos_floor()" in view)
+    check("the old dead pos==0 gate is gone",
+          b"(_viv_zoom_pos == 0))" not in view)
+    check("the sparse-zone single-position fallback exists",
+          b"step one position" in view and
+          b"old_zoom_pos + ((force > 0) ? 1 : -1)" in view)
+
+    # the non-win11 visuals: the platform probe and the fallbacks.
+    check("the dwm chrome calls are the platform probe",
+          b"int os_window_modern_chrome" in osh and
+          b"int os_menu_modern_chrome" in osh and
+          b"int os_is_win11(void);" in osh)
+    check("the probe latches the answer",
+          b"_os_win11_chrome = 2;" in osc and
+          b"int os_is_win11(void)" in osc)
+    check("the settings window drops a shadow off win11",
+          b"CS_DROPSHADOW" in settings and b"os_is_win11()" in settings)
+    check("the settings dropdowns ride the owner drawn menu rows",
+          b"_VIV_MENU_POOL_SETTINGS" in settings and
+          b"MFT_OWNERDRAW | MFT_RADIOCHECK" in settings and
+          b"_viv_menu_row_set_text(" in settings)
+    check("the settings dropdowns dropped tpm_nonotify",
+          b"TPM_NONOTIFY" not in settings)
+    check("the settings owner forwards the menu messages",
+          b"case WM_INITMENUPOPUP:" in settings and
+          b"case WM_DRAWITEM:" in settings and
+          b"case WM_MEASUREITEM:" in settings and
+          b"case WM_DELETEITEM:" in settings)
+    check("the popup theming is shared with the main window",
+          b"_viv_menu_popup_theme" in menuh and
+          b"void _viv_menu_popup_theme(void)" in menu and
+          b"_viv_menu_popup_theme();" in wndproc and
+          b"_viv_menu_popup_theme();" in settings)
+    check("the menu rows can carry an ad hoc label",
+          b"#define _VIV_MENU_DRAW_TEXT" in menuh and
+          b"case _VIV_MENU_DRAW_TEXT:" in menu and
+          b"_viv_settings_draw_pool" in menu)
+    check("the msgbox buttons take the pill radius",
+          b"RoundRect" in msgbox and b"pill geometry" in msgbox)
+    check("the light hover token has real contrast",
+          b"RGB(0xDC,0xDC,0xDC)" in theme)
+    check("the light nav face layers against the content face",
+          b"RGB(0xE4,0xE4,0xE4)" in theme)
+    check("the light strip ties to the system menu color",
+          b"case VIV_TK_CHROME: return GetSysColor(COLOR_MENU);" in theme)
+    check("the zoom pill keeps its row still under a press",
+          b"_zoomui_pct_recenter" in zoomui)
+
+    # the changelog states the round (phrases can wrap across the 70
+    # column discipline - normalize the whitespace before matching).
+    flat = " ".join(changes.split())
+    check("the changelog states the non-win11 field round",
+          "the non-win11 field round" in flat and
+          "gates the clock on the frame count" in flat and
+          "the snap is direction strict" in flat and
+          "the drop shadow style off win11" in flat and
+          "the same painter, radio dots" in flat)
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -3687,6 +3785,7 @@ if __name__ == "__main__":
     t_structure_round76()
     t_carpet_repair_round76()
     t_platform_guardrails()
+    t_field_repair_round78()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

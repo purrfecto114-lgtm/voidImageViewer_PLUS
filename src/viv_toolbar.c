@@ -721,6 +721,11 @@ void _viv_toolbar_destroy(void)
 		_viv_toolbar_hover = -1;
 		_viv_toolbar_pressed = -1;
 		_viv_toolbar_tracking = 0;
+		
+		// rc.13: the play latch rides the face state, not the window -
+		// a rebuild re-reads it anyway, but a stale latch must never
+		// survive into the next create.
+		_viv_toolbar_playing = 0;
 	}
 }
 
@@ -757,7 +762,11 @@ void _viv_toolbar_update_buttons(void)
 	}
 	
 	// the play / pause face follows the slideshow and the animation clock.
-	playing = ((_viv_is_slideshow) || (_viv_animation_play)) ? 1 : 0;
+	// (rc.13: the animation clock only counts when frames exist - the
+	// bare preference bit sits at 1 on every static image, so the face
+	// showed the pause bars on an idle photo. the ontop rule and the
+	// animation timer gate the same way.)
+	playing = ((_viv_is_slideshow) || ((_viv_frame_count > 1) && (_viv_animation_play))) ? 1 : 0;
 	
 	// the menu bar's no image gate: no file, a missed file or a failed load
 	// disables everything that acts on the image.
