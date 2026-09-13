@@ -18,7 +18,14 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.11 — the carpet repair round (the current release candidate):**
+**1.1.12-rc.12 — the platform guardrails round (the current release candidate):**
+
+- **The Windows 8.1 manifest GUID was corrupted** — the supportedOS id for 8.1 was a hand-mangled value, so Windows 8.1 hosts never matched their own entry; the manifest now carries the official GUID (verified against the Microsoft application-manifests documentation).
+- **The dead UnicoWS dependency is gone** — the Win32 link lines carried `UnicoWS.lib` (the Windows 9x unicode layer) straight from the original upstream import; nothing in the code imports an MSLU symbol and the x64 builds never carried it. Modern SDKs are phasing the stub out, so its removal is the forward-compatibility clean — the CI legs still link today.
+- **`WM_DPICHANGED` no longer dereferences a null rect** — the system always supplies the suggested rectangle, but synthetic messages and compatibility layers may not; the resize is now optional while the DPI refresh still runs.
+- Full narrative: `Changes.txt`.
+
+**1.1.12-rc.11 — the carpet repair round (the previous release candidate):**
 
 - **The remake's two headline breaks are fixed** — the menu bar roots measured empty since the rc.9 owner-draw flip (the labels now re-derive from the live rows, Alt mnemonics with them), and the status date pane rendered a lone "0" (a wide format through the narrow parser; the stamp now uses the localized system formatters).
 - **The image viewport caught up with the top strips** — the toolbar moved under the menu bar in rc.8 but the image math still reserved its band above the status bar: a 40dip dead strip and the image top hidden behind the chrome. One view-top origin now rides every size, blit, mouse anchor and the zoom pill.

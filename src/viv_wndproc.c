@@ -1718,8 +1718,13 @@ static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	// accept the suggested rectangle: it keeps the window at its
 	// logical size at the new dpi.
 	suggested_rect = (const RECT *)lParam;
-	
-	SetWindowPos(hwnd,0,suggested_rect->left,suggested_rect->top,suggested_rect->right - suggested_rect->left,suggested_rect->bottom - suggested_rect->top,SWP_NOZORDER|SWP_NOACTIVATE);
+	/* WM_DPICHANGED supplies a suggested RECT, but synthetic messages and
+	 * compatibility layers may not.  Keep the resize optional instead of
+	 * dereferencing an invalid pointer on older Windows paths. */
+	if (suggested_rect)
+	{
+		SetWindowPos(hwnd,0,suggested_rect->left,suggested_rect->top,suggested_rect->right - suggested_rect->left,suggested_rect->bottom - suggested_rect->top,SWP_NOZORDER|SWP_NOACTIVATE);
+	}
 	
 	if (dpi_changed)
 	{

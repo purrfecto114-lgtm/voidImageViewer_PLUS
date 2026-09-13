@@ -1,3 +1,29 @@
+Pre-release: Version 1.1.12-rc.12 (the platform guardrails round)
+*the import audit's three platform-level roots, fixed and pinned: the
+ manifest's windows 8.1 supportedOS GUID was a hand-corrupted value
+ (the first block matched the official guid and the rest did not), so
+ a windows 8.1 host never matched the 8.1 entry and kept the 8.0 view;
+ the manifest now carries the official
+ {1f676c76-80e1-4239-95bb-83d0f6d0da78}, verified against the
+ microsoft application-manifests documentation.
+*unicows is dead weight for a win7+ target: the win32 link lines of
+ both project files carried UnicoWS.lib straight from the original
+ upstream import - a windows 9x compatibility stub the modern sdks are
+ phasing out, and the link dies with lnk1104 the moment an sdk drops
+ it. nothing in the tree imports an mslu symbol (the x64 configurations
+ never carried the lib and always linked), so the dependency is deleted
+ from the vs2019 and vs2026 win32 configurations. the ci legs still
+ link today (the hosted sdks still ship the stub), so this is the
+ forward-compatibility clean, not a regression repair.
+*wm_dpichanged dereferenced its lparam unconditionally: the system
+ supplies the suggested rect, but a synthetic message or a compatibility
+ layer may not, and a null lparam crashed inside the resize. the resize
+ is now optional - the dpi refresh and re-layout that ride the same
+ handler still run, only the suggested-rect SetWindowPos is guarded.
+*three regression guards pin the round (the official guid present with
+ the corrupted one absent, the null guard in the dpi handler, no
+ unicows in either project file), and the version moves to build 54.
+
 Pre-release: Version 1.1.12-rc.11 (the carpet repair round)
 *the user's gui remake (rc.8-rc.10) went through a seven-subagent
  adversarial carpet review; this round repairs what the review found.

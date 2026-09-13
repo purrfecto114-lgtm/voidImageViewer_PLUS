@@ -334,10 +334,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.53 rc.11 (the carpet repair round)",
-          (major, minor, rev, build) == ("1", "1", "12", "53") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.11 tag)",
-          vstr == "1.1.12-rc.11")
+    check("version.h = 1.1.12.54 rc.12 (the platform guardrails round)",
+          (major, minor, rev, build) == ("1", "1", "12", "54") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.12 tag)",
+          vstr == "1.1.12-rc.12")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1668,7 +1668,7 @@ def t_round7():
     check("manifest declares windows 7 / 8 / 8.1 too",
           all(g in mf for g in ("{35138b9a-5d96-4fbd-8e2d-a2440225f93a}",
                                 "{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}",
-                                "{1f676c76-3e4d-4f03-ac22-34155b000000}")))
+                                "{1f676c76-80e1-4239-95bb-83d0f6d0da78}")))
     check("manifest has a compatibility section",
           "<compatibility" in mf and mf.count("<supportedOS") == 4)
     check("dpiAwareness lives in the SMI/2016 namespace",
@@ -3096,8 +3096,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 53",
-          "#define VERSION_BUILD 53" in version)
+    check("the release candidate line moves to build 54",
+          "#define VERSION_BUILD 54" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3167,9 +3167,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 53",
-          "#define VERSION_BUILD 53" in version and
-          '#define VERSION_STRING "1.1.12-rc.11"' in version)
+    check("the release candidate moves the version to build 54",
+          "#define VERSION_BUILD 54" in version and
+          '#define VERSION_STRING "1.1.12-rc.12"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3441,9 +3441,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.11 build 53",
-          '#define VERSION_BUILD 53' in version and
-          '#define VERSION_STRING "1.1.12-rc.11"' in version)
+    check("the version is 1.1.12-rc.12 build 54",
+          '#define VERSION_BUILD 54' in version and
+          '#define VERSION_STRING "1.1.12-rc.12"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3506,9 +3506,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 53",
-          "#define VERSION_BUILD 53" in version and
-          '#define VERSION_STRING "1.1.12-rc.11"' in version)
+    check("the release candidate moves the version to build 54",
+          "#define VERSION_BUILD 54" in version and
+          '#define VERSION_STRING "1.1.12-rc.12"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3623,6 +3623,20 @@ def t_carpet_repair_round76():
     check("the strip background drag still moves the window",
           "_viv_start_move_window();" in toolbar)
 
+def t_platform_guardrails():
+    """Keep loader/build compatibility fixes from being regressed."""
+    manifest = read("res/voidImageViewer.Manifest")
+    wndproc = read("src/viv_wndproc.c")
+    vc2019 = read("vs2019/voidImageViewer.vcxproj")
+    vc2026 = read("vs2026/voidImageViewer.vcxproj")
+    check("manifest uses the official Windows 8.1 compatibility GUID",
+          b"{1f676c76-80e1-4239-95bb-83d0f6d0da78}" in manifest
+          and b"{1f676c76-3e4d-4f03-ac22-34155b000000}" not in manifest)
+    check("DPI change tolerates a missing suggested rectangle",
+          b"if (suggested_rect)" in wndproc)
+    check("Win32 projects do not depend on the absent UnicoWS library",
+          b"UnicoWS.lib" not in vc2019 and b"UnicoWS.lib" not in vc2026)
+
 
 if __name__ == "__main__":
     t_panscan_gone()
@@ -3672,6 +3686,7 @@ if __name__ == "__main__":
     t_theme_race_round72()
     t_structure_round76()
     t_carpet_repair_round76()
+    t_platform_guardrails()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
