@@ -38,7 +38,7 @@ void _viv_process_pending_clear(void);
 void _viv_clear_loading_preload(void);
 void _viv_clear_preload_frames(void);
 void _viv_clear_preload(void);
-BOOL _viv_open_from_filename(const wchar_t *filename);
+BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy);
 void _viv_open(WIN32_FIND_DATA *fd,int is_preload);
 void _viv_set_clipboard_image(void);
 static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high);
@@ -139,7 +139,7 @@ void _viv_clear_preload(void)
 	
 	_viv_preload_fd->cFileName[0] = 0;
 }
-BOOL _viv_open_from_filename(const wchar_t *filename)
+BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy)
 {
 	BOOL ret;
 	WIN32_FIND_DATA fd;
@@ -171,14 +171,17 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 		{
 			string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
 			
-			// every single-file open (dialog, drop, command line, mru itself)
-			// feeds the recent list - except a re-open of the file already on
-			// screen: that is a reload, not a recent open (the single-instance
-			// forward, a re-drop, a re-click of the current entry, a
-			// rotate-then-double-click recheck). such a reentry must not
-			// masquerade as a new open and silently reorder the recent list.
-			// the compare folds ascii case like the mru itself.
-			if (_viv_icompare_filename(full_path_and_filename,_viv_current_fd->cFileName) != 0)
+			// the recent-list policy is declared by the caller, never guessed
+			// here: a user command (the open dialog, the drag-drop, the recent
+			// click) feeds the list unconditionally - the standard mru
+			// contract, a re-open of the displayed file re-tops it. the
+			// forwarded open (the single-instance re-entry the rotate verb's
+			// refresh and the recheck double-click ride) feeds it only when
+			// the file is not the one already on screen: a same-file forward
+			// is a reload, not a recent open, and must not
+			// masquerade as a new open and silently reorder the recent list. the compare folds
+			// ascii case like the mru itself.
+			if ((recent_policy) || (_viv_icompare_filename(full_path_and_filename,_viv_current_fd->cFileName) != 0))
 			{
 				_viv_recent_file_push(full_path_and_filename);
 			}

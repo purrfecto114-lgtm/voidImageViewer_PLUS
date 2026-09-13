@@ -131,7 +131,7 @@ static void _viv_drop_files(HWND hwnd,HDROP hdrop)
 		{
 			DragQueryFile(hdrop,0,filename,STRING_SIZE);
 			
-			_viv_open_from_filename(filename);
+			_viv_open_from_filename(filename,VIV_OPEN_RECENT);
 		}
 		
 		SetForegroundWindow(hwnd);

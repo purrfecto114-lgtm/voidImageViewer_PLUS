@@ -18,7 +18,12 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.15 — the field report round (the current release candidate):**
+**1.1.12-rc.16 — the open intent round (the current release candidate):**
+
+- **The recent-list trade refunded** — the last round's guard asked "is this the file already on screen" for *every* open, which cost the standard MRU behavior: clicking the recent entry of the displayed file stopped re-topping it. The intent is now declared where it is knowable instead of guessed where it is not: the open dialog, the drag-drop and the recent click feed the recent list unconditionally (re-opening the displayed file re-tops it, like every other Windows MRU). Only the one path that cannot know its own intent — the single-instance forward of a second launch, the re-entry the rotate verb's refresh and the rotate-then-recheck double-click ride — keeps the same-file question: a same-file forward is a reload, not a recent open. A forwarded new file still enters the list.
+- Full narrative: `Changes.txt`.
+
+**1.1.12-rc.15 — the field report round (the previous release candidate):**
 
 - **Rotating an image landed it wrongly in the recent files list** — the rotate itself never touches the list; what reordered it was a silent re-open (any path handing the viewer the file already on screen fed the list as a brand-new open). The push site now asks one question: is this the file already on screen? A reload is not a recent open. Deleting and renaming also maintain their own entry now — the delete drops it, the rename swaps it in place.
 - **The text proportions at 4K 225%** — the settings window was the one surface riding its own font size (13 dip rows) while the menu bar, toolbar, message boxes and dialogs all sit on the system font — an invisible 1px gap at 96 dpi that becomes 2-3px on every glyph at 216 dpi. The settings rows move to 12 dip, the descriptions to 11, and the status bar now carries the menu font explicitly (re-pinned on DPI change).

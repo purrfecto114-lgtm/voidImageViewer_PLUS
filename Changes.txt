@@ -1,3 +1,27 @@
+Pre-release: Version 1.1.12-rc.16 (the open intent round)
+*the follow-up on the recent-list fix: the guard asked the right
+ question at the wrong place. "is this the file already on screen"
+ was answered for every open - including the opens where the user
+ had just said so: a click on a recent entry, a re-open through
+ the dialog, a re-drop of the same file. the honest trade of the
+ last round (clicking the recent entry of the displayed file no
+ longer re-shuffled it to the top) was that cost, and it is
+ refunded here.
+*the intent is now declared where it is knowable instead of
+ guessed where it is not: the open-by-name carries a recent-list
+ policy from its caller. the three user commands (the open dialog,
+ the drag-drop, the recent click) declare a user open and feed the
+ recent list unconditionally - the standard mru contract, a
+ re-open of the displayed file re-tops it. the one path that
+ cannot know its own intent - the single-instance forward of a
+ second launch, the re-entry the rotate verb's refresh and the
+ rotate-then-recheck double-click both ride - declares itself
+ forwarded and keeps the one honest question: a same-file forward
+ is a reload, not a recent open, and does not reorder the list.
+ a forwarded new file still enters the list as a brand-new open,
+ and the startup command line is vacuously fine (no file is on
+ screen yet, so the first open still enters the list).
+
 Pre-release: Version 1.1.12-rc.15 (the field report round)
 *the field report: the recent list, the text proportions, the
  shortcut capture hint, and one cross-process hardening.

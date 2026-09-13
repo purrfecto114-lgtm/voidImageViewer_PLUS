@@ -152,7 +152,7 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 					
 					_viv_playlist_clearall();
 					
-					if (!_viv_open_from_filename(config_recent_files[recent_index]))
+					if (!_viv_open_from_filename(config_recent_files[recent_index],VIV_OPEN_RECENT))
 					{
 						// the file is gone: drop the stale mru entry.
 						_viv_recent_file_remove(recent_index);
@@ -888,7 +888,7 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 					{
 						_viv_playlist_clearall();
 	
-						_viv_open_from_filename(ofn.lpstrFile);
+						_viv_open_from_filename(ofn.lpstrFile,VIV_OPEN_RECENT);
 					}
 					else
 					{

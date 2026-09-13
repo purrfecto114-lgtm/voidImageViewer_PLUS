@@ -32,7 +32,21 @@ void _viv_process_pending_clear(void);
 void _viv_clear_loading_preload(void);
 void _viv_clear_preload_frames(void);
 void _viv_clear_preload(void);
-BOOL _viv_open_from_filename(const wchar_t *filename);
+// the recent-list policy of an open-by-name, declared where the intent is
+// knowable - never guessed at the push site.
+// VIV_OPEN_RECENT: a user command (the open dialog, the drag-drop, the
+// recent click) feeds the recent list unconditionally -
+// the standard mru contract, a re-open of the displayed file re-tops it.
+// VIV_OPEN_FORWARDED: an externally forwarded open (the single-instance
+// forward of a second launch, the re-entry the rotate verb's refresh and
+// the rotate-then-recheck double-click ride) feeds the list only when the
+// file is not the one already on screen: a same-file forward is a reload,
+// not a recent open. the startup command line shares this site and is
+// vacuously fine - no file is on screen yet, so the first open still
+// enters the list.
+#define VIV_OPEN_RECENT     1
+#define VIV_OPEN_FORWARDED  0
+BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy);
 void _viv_open(WIN32_FIND_DATA *fd,int is_preload);
 void _viv_set_clipboard_image(void);
 void _viv_paste_clipboard_image(void);

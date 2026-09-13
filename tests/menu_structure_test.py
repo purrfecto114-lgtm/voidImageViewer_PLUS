@@ -333,10 +333,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.57 rc.15 (the field report round)",
-          (major, minor, rev, build) == ("1", "1", "12", "57") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.15 tag)",
-          vstr == "1.1.12-rc.15")
+    check("version.h = 1.1.12.58 rc.16 (the open intent round)",
+          (major, minor, rev, build) == ("1", "1", "12", "58") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.16 tag)",
+          vstr == "1.1.12-rc.16")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3082,8 +3082,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 57",
-          "#define VERSION_BUILD 57" in version)
+    check("the release candidate line moves to build 58",
+          "#define VERSION_BUILD 58" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3153,9 +3153,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 57",
-          "#define VERSION_BUILD 57" in version and
-          '#define VERSION_STRING "1.1.12-rc.15"' in version)
+    check("the release candidate moves the version to build 58",
+          "#define VERSION_BUILD 58" in version and
+          '#define VERSION_STRING "1.1.12-rc.16"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3427,9 +3427,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.15 build 57",
-          '#define VERSION_BUILD 57' in version and
-          '#define VERSION_STRING "1.1.12-rc.15"' in version)
+    check("the version is 1.1.12-rc.16 build 58",
+          '#define VERSION_BUILD 58' in version and
+          '#define VERSION_STRING "1.1.12-rc.16"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3492,9 +3492,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 57",
-          "#define VERSION_BUILD 57" in version and
-          '#define VERSION_STRING "1.1.12-rc.15"' in version)
+    check("the release candidate moves the version to build 58",
+          "#define VERSION_BUILD 58" in version and
+          '#define VERSION_STRING "1.1.12-rc.16"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3833,15 +3833,15 @@ def t_field_report_round80():
     check("the guard states the reload contract",
           "masquerade as a new open" in load_flat and
           "a reload, not a recent open" in load_flat)
-    check("the dialog open still feeds the mru",
-          "_viv_open_from_filename(ofn.lpstrFile);" in view)
+    check("the dialog open still feeds the mru (rc.16: declared a user open)",
+          "_viv_open_from_filename(ofn.lpstrFile,VIV_OPEN_RECENT);" in view)
     wnd = read("src/viv_wndproc.c").decode()
-    check("the single-file drop still feeds the mru",
-          "_viv_open_from_filename(filename);" in wnd)
-    check("the mru click still opens by name",
-          "_viv_open_from_filename(config_recent_files[recent_index])" in view)
-    check("the command line still opens the single file",
-          "_viv_open_from_filename(open_filename)" in viv)
+    check("the single-file drop still feeds the mru (rc.16: declared a user open)",
+          "_viv_open_from_filename(filename,VIV_OPEN_RECENT);" in wnd)
+    check("the mru click still opens by name (rc.16: as a user open)",
+          "_viv_open_from_filename(config_recent_files[recent_index],VIV_OPEN_RECENT)" in view)
+    check("the command line still opens the single file (rc.16: as forwarded)",
+          "_viv_open_from_filename(open_filename,VIV_OPEN_FORWARDED)" in viv)
     rotate = " ".join(view.split("static void _viv_edit_rotate(int counterclockwise)\r\n{")[1].split("static void _viv_file_edit(void)\r\n{")[0].split())
     check("rotate never touches the recent list",
           "_viv_recent" not in rotate and
@@ -3924,6 +3924,64 @@ def t_field_report_round80():
           "the owning process" in flat)
 
 
+def t_open_intent_round81():
+    load = read("src/viv_load.c").decode()
+    loadh = read("src/viv_load.h").decode()
+    view = read("src/viv_view.c").decode()
+    viv = read("src/viv.c").decode()
+    wnd = read("src/viv_wndproc.c").decode()
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+
+    # 1. the policy is a declared parameter, not a guess at the push site.
+    check("the open-by-name carries a recent-list policy",
+          "BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy);" in loadh and
+          load.count("BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy);") == 1)
+    check("the two policies are named constants",
+          "#define VIV_OPEN_RECENT     1" in loadh and
+          "#define VIV_OPEN_FORWARDED  0" in loadh)
+    check("the one-argument signature is gone from the tree",
+          all("_viv_open_from_filename(const wchar_t *filename)" not in src
+              for src in (load, loadh, view, viv, wnd)))
+    loadh_flat = " ".join(loadh.split())
+    check("the declaration states the standard mru contract",
+          "the standard mru contract" in loadh_flat and
+          "a re-open of the displayed file re-tops it" in loadh_flat)
+
+    # 2. the push condition: the declared policy first, the file identity second.
+    check("the push asks the policy first, the file identity second",
+          "if ((recent_policy) || (_viv_icompare_filename(full_path_and_filename,_viv_current_fd->cFileName) != 0))" in load)
+    load_flat = " ".join(load.split())
+    check("the guard states the declared-intent contract",
+          "declared by the caller" in load_flat and
+          "masquerade as a new open" in load_flat and
+          "a reload, not a recent open" in load_flat)
+
+    # 3. the three user commands declare a user open - the trade refunded.
+    check("the dialog open feeds the mru unconditionally",
+          "_viv_open_from_filename(ofn.lpstrFile,VIV_OPEN_RECENT);" in view)
+    check("the single-file drop feeds the mru unconditionally",
+          "_viv_open_from_filename(filename,VIV_OPEN_RECENT);" in wnd)
+    check("the mru click re-tops the displayed file again (the refund)",
+          "_viv_open_from_filename(config_recent_files[recent_index],VIV_OPEN_RECENT)" in view)
+
+    # 4. the one unknowable path declares itself forwarded.
+    check("the forwarded command line keeps the same-file question",
+          "_viv_open_from_filename(open_filename,VIV_OPEN_FORWARDED)" in viv)
+    check("the tree counts the open-by-name exactly (2 declarations + 4 sites)",
+          viv.count("_viv_open_from_filename(") == 6 and
+          view.count("_viv_open_from_filename(") == 2 and
+          wnd.count("_viv_open_from_filename(") == 1)
+
+    # 5. the changelog refunds the trade.
+    flat = " ".join(changes.split())
+    check("the changelog states the refund",
+          "refunded here" in flat and
+          "the honest trade of the" in flat)
+    check("the changelog states the declared intent",
+          "declared where it is knowable" in flat and
+          "a same-file forward is a reload, not a recent open" in flat)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -3976,6 +4034,7 @@ if __name__ == "__main__":
     t_field_repair_round78()
     t_zoom_pane_editor_round79()
     t_field_report_round80()
+    t_open_intent_round81()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

@@ -1173,7 +1173,7 @@ void _viv_process_command_line(wchar_t *cl)
 			
 			// open the first image found (if multiple images passed).
 			// if we only specified a single image, use the single image filename.
-			if ((open_filename) && (_viv_open_from_filename(open_filename)))
+			if ((open_filename) && (_viv_open_from_filename(open_filename,VIV_OPEN_FORWARDED)))
 			{
 				// all good.
 			}
