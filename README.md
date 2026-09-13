@@ -18,7 +18,13 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.13 — the non-win11 field round (the current release candidate):**
+**1.1.12-rc.14 — the zoom pane editor round (the current release candidate):**
+
+- **The corner zoom percent needed two clicks, and showed a "select box"** — the click never reached the pane: the pane doubled as the window-drag anchor (inherited from upstream), its subclass ate the button down and the move loop ate the up, so the open command only fired from an inactive window's orphan up. The pane is pure input now — the drag lives on the toolbar, the menu gaps and the title bar.
+- **The editor is in place, not in a 1998 box** — the pane itself becomes a borderless number field in the strip's own font and colors; enter commits, escape cancels, focus lost commits, typing replaces the selected digits. The centered dialog (sunken field, native buttons, select-all blue block) is retired along with its template and strings. The system selection color stays — the edit control offers no custom one, and it lives on four digits for the seconds the editor is open.
+- Full narrative: `Changes.txt`.
+
+**1.1.12-rc.13 — the non-win11 field round (the previous release candidate):**
 
 - **The play button showed “pause” on an idle photo** — the toolbar read the animation preference bit as the playing state (it defaults to on and every image switch resets it); the face now gates on the frame count, and every clock-changing path notifies the toolbar and recomputes the on-top window.
 - **“Zoom needs two clicks to work”** — the first zoom-in from a fresh best fit snapped the wrong way (31% → 30, invisible) and a zoom-out from best fit hit a dead gate written before the below-fit ladder. Stepping is direction-strict now, the floor gate reads the true ladder floor, and a sparse-zone fallback guarantees a move.

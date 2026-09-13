@@ -1015,6 +1015,14 @@ static LRESULT _viv_on_wm_lbuttondblclk(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 static LRESULT _viv_on_wm_lbuttondown(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 
+	// a canvas click takes the keyboard home: the zoom pane editor and
+	// the pill rows hold the focus while they are alive, and without this
+	// the arrow keys and the page keys stay routed into their fields (a
+	// dead navigation zone until enter, escape or a click elsewhere). the
+	// focus move is what commits an open zoom editor (its kill focus
+	// path).
+	SetFocus(hwnd);
+	
 	_viv_show_cursor();
 	_viv_update_show_cursor();
 	

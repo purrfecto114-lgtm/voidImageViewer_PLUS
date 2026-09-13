@@ -20,7 +20,8 @@
 // SOFTWARE.
 //
 // VoidImageViewer
-// viv_dialogs.c - modal dialogs: options, jump-to, about, rename, zoom, rate.
+// viv_dialogs.c - modal dialogs: options, jump-to, about, rename, rate.
+// the zoom editor lives in place on the status bar pane, not in a box.
 // Pure physical move from viv.c (R70 split): bodies are unchanged.
 #include "viv.h"
 #include "viv_state.h"
@@ -57,7 +58,8 @@ INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM l
 static INT_PTR _viv_about_colors(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 void _viv_set_zoom_dialog(void);
-static INT_PTR CALLBACK _viv_set_zoom_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+static void _viv_zoom_edit_end(HWND hwnd,int apply);
+static LRESULT CALLBACK _viv_zoom_edit_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 void _viv_command_line_options(void);
 static void _viv_update_color_button_bitmap(HWND hwnd);
 static void _viv_delete_color_button_bitmap(HWND hwnd);
@@ -1852,34 +1854,123 @@ INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	
 	return FALSE;
 }
-static int _viv_set_zoom_dialog_percent = 100;
+static HWND _viv_zoom_edit_hwnd = 0; // the open in place zoom editor, or 0.
 void _viv_set_zoom_dialog(void)
 {
-	// click target of the status bar zoom pane: type an exact percent.
-	RECT rect;
-	POINT pt;
+	// the status bar zoom pane click target: type an exact percent in place,
+	// right on the pane. (the old centered dialog box carried a sunken edit,
+	// native buttons and a select-all blue block that never met the remade
+	// chrome, and the click itself had to survive the pane's drag subclass
+	// first - a down eaten by the move loop, the box left to luck.)
+	RECT pane_rect;
+	wchar_t wbuf[STRING_SIZE];
+	HFONT hfont;
+	HWND hwnd;
+	int wide;
 	
 	if (!_viv_image_wide)
 	{
 		return;
 	}
 	
-	_viv_set_zoom_dialog_percent = _viv_zoom_percent();
-	
-	if (DialogBox(os_hinstance,MAKEINTRESOURCE(IDD_SET_ZOOM),_viv_hwnd,_viv_set_zoom_proc))
+	if (!_viv_status_hwnd)
 	{
-		int target;
+		return;
+	}
+	
+	// one editor at a time: a click while one is open commits it, then
+	// re-opens on the current percent.
+	if (_viv_zoom_edit_hwnd)
+	{
+		_viv_zoom_edit_end(_viv_zoom_edit_hwnd,1);
+	}
+	
+	// pane 0's rect, in status bar client coordinates.
+	if (!SendMessage(_viv_status_hwnd,SB_GETRECT,0,(LPARAM)&pane_rect))
+	{
+		return;
+	}
+	
+	// the field: the pane width minus breathing room, floor 32 (four digits).
+	wide = (pane_rect.right - pane_rect.left) - 8;
+	
+	if (wide < 32)
+	{
+		wide = 32;
+	}
+	
+	hwnd = os_CreateWindowEx(
+		0,
+		"EDIT",
+		"",
+		WS_CHILD|WS_VISIBLE|ES_NUMBER|ES_AUTOHSCROLL,
+		pane_rect.left + 4,pane_rect.top + 1,wide,(pane_rect.bottom - pane_rect.top) - 2,
+		_viv_status_hwnd,0,os_hinstance,NULL);
+	
+	if (!hwnd)
+	{
+		return;
+	}
+	
+	_viv_zoom_edit_hwnd = hwnd;
+	
+	// the subclass stores the old proc in the userdata (the edit key
+	// dialog's own editor idiom).
+	{
+		WNDPROC old_proc;
 		
-		target = _viv_set_zoom_dialog_percent;
+		old_proc = (WNDPROC)SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)_viv_zoom_edit_proc);
 		
-		// the ladder covers 1% .. 1600%: clamp anything above, ignore empty
-		// input (GetDlgItemInt returns 0 for it).
-		if (target > 1600)
+		SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)old_proc);
+	}
+	
+	// the pane's own font, so the digits match the strip text.
+	hfont = (HFONT)SendMessage(_viv_status_hwnd,WM_GETFONT,0,0);
+	
+	if (hfont)
+	{
+		SendMessage(hwnd,WM_SETFONT,(WPARAM)hfont,0);
+	}
+	
+	// the current percent as plain digits, selected: typing replaces.
+	string_printf(wbuf,"%d",_viv_zoom_percent());
+	SetWindowTextW(hwnd,wbuf);
+	
+	SendMessage(hwnd,EM_SETSEL,0,-1);
+	
+	SetFocus(hwnd);
+}
+static void _viv_zoom_edit_end(HWND hwnd,int apply)
+{
+	wchar_t wbuf[STRING_SIZE];
+	RECT rect;
+	POINT pt;
+	int percent;
+	
+	// the guard stops the re-entries: the kill focus that the destroy
+	// itself raises, and the status bar teardown cascading into a child
+	// editor.
+	if (hwnd != _viv_zoom_edit_hwnd)
+	{
+		return;
+	}
+	
+	_viv_zoom_edit_hwnd = 0;
+	
+	if (apply)
+	{
+		GetWindowTextW(hwnd,wbuf,STRING_SIZE);
+		
+		percent = string_to_int(wbuf);
+		
+		// the ladder covers 1% .. 1600%: clamp anything above, ignore
+		// empty or zero input (the old dialog's contract).
+		if (percent > 1600)
 		{
-			target = 1600;
+			percent = 1600;
 		}
 		
-		if (target >= 1)
+		if (percent >= 1)
 		{
 			GetClientRect(_viv_hwnd,&rect);
 			pt.x = (rect.right - rect.left) / 2;
@@ -1887,73 +1978,68 @@ void _viv_set_zoom_dialog(void)
 			
 			ClientToScreen(_viv_hwnd,&pt);
 			
-			_viv_zoom_set_percent(target,pt.x,pt.y,0);
-		}
-	}
-}
-static INT_PTR CALLBACK _viv_set_zoom_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
+			_viv_zoom_set_percent(percent,pt.x,pt.y,0);
 		}
 	}
 	
+	// the keyboard goes home to the main window only while the editor
+	// still owns it: a kill focus end means the focus already has a new
+	// home (inside or outside the app) - stealing it back would make the
+	// app a focus thief. (the kill focus this raises re-enters the guard
+	// above.)
+	if (GetFocus() == hwnd)
+	{
+		SetFocus(_viv_hwnd);
+	}
+	
+	DestroyWindow(hwnd);
+}
+static LRESULT CALLBACK _viv_zoom_edit_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	WNDPROC old_proc;
+	
+	old_proc = (WNDPROC)GetWindowLongPtr(hwnd,GWLP_USERDATA);
+	
 	switch(msg)
 	{
-		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
+		case WM_KEYDOWN:
+		
+			// enter commits, escape cancels: one short lived field, no
+			// dialog machinery above it.
+			if (wParam == VK_RETURN)
+			{
+				_viv_zoom_edit_end(hwnd,1);
+				
+				return 0;
+			}
 			
+			if (wParam == VK_ESCAPE)
 			{
-				int static_wide;
-				RECT rect;
-				int wide;
+				_viv_zoom_edit_end(hwnd,0);
 				
-				os_center_dialog(hwnd);
-				GetClientRect(hwnd,&rect);
-				wide = rect.right - rect.left - 12 - 12;
-
-				os_SetWindowText_localization_id(hwnd,LOCALIZATION_ID_SET_ZOOM_CAPTION);
-				
-				os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
-				os_SetDlgItemText_localization_id(hwnd,IDCANCEL,LOCALIZATION_ID_CANCEL_BUTTON);
-				
-				os_SetDlgItemText_localization_id(hwnd,IDC_SET_ZOOM_STATIC,LOCALIZATION_ID_SET_ZOOM_STATIC);
-				static_wide = os_get_static_wide(hwnd,IDC_SET_ZOOM_STATIC);
-				os_set_dialog_item_x_wide(hwnd,IDC_SET_ZOOM_STATIC,12,static_wide+6);
-				
-				os_set_dialog_item_x_wide(hwnd,IDC_SET_ZOOM_EDIT,12 + static_wide+6,wide-(static_wide+6));
-				
-				SetDlgItemInt(hwnd,IDC_SET_ZOOM_EDIT,_viv_set_zoom_dialog_percent,FALSE);
+				return 0;
 			}
-
-			return TRUE;
+			
+			break;
 		
-		case WM_COMMAND:
+		case WM_KILLFOCUS:
 		
-			switch(LOWORD(wParam))
-			{
-				case IDOK:
-					_viv_set_zoom_dialog_percent = GetDlgItemInt(hwnd,IDC_SET_ZOOM_EDIT,NULL,FALSE);
-					EndDialog(hwnd,1);
-					break;
-				
-				case IDCANCEL:
-					EndDialog(hwnd,0);
-					break;
-			}
+			// focus went elsewhere: commit (the field never keeps a half
+			// typed value).
+			_viv_zoom_edit_end(hwnd,1);
+			
+			return 0;
+		
+		case WM_DESTROY:
+		
+			_viv_zoom_edit_hwnd = 0;
 			
 			break;
 	}
 	
-	return FALSE;
+	return CallWindowProc(old_proc,hwnd,msg,wParam,lParam);
 }
+
 void _viv_command_line_options(void)
 {
 	wchar_t *text_wbuf;

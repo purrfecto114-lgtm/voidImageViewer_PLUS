@@ -112,7 +112,7 @@ static const int _zoomui_cell_glyph_ids[_ZOOMUI_CELL_COUNT] =
 #define _ZOOMUI_IDLE_MS 2000         // idle before the fade out starts.
 
 // percent / play state poll. zoom changes that do not pass through the
-// pill (mouse wheel, pinch, the set zoom dialog) leave no message trace
+// pill (mouse wheel, pinch, the zoom pane editor) leave no message trace
 // in this window, so the text cell refreshes itself from the ladder on
 // a short poll instead.
 #define _ZOOMUI_PCT_TIMER_ID 2
@@ -824,7 +824,7 @@ static void _zoomui_tooltip_update_text(int celli)
 }
 
 // the percent / play state refresh. zoom changes that never touch this
-// window (mouse wheel, pinch, set zoom dialog) leave no message trace
+// window (mouse wheel, pinch, zoom pane editor) leave no message trace
 // here, so a short poll keeps the text cell honest; the pill's own
 // buttons call this directly after firing their command.
 static void _zoomui_poll_state(void)

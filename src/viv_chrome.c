@@ -291,31 +291,19 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 		
 
-		case WM_LBUTTONDOWN:
+		case WM_CTLCOLOREDIT:
 
-		
-
-			if (config_toolbar_move_window)
-
-			{
-
-				if (os_statusbar_index_from_x(hwnd,GET_X_LPARAM(lParam)) == 0)
-
-				{
-
-					_viv_start_move_window();
-
-
-
-					return 0;
-
-				}
-
-			}
-
+			// the zoom pane's in place editor: the strip palette owns the
+			// colors so the field reads as part of the chrome, not a foreign
+			// control. (the selection highlight stays the system color - the
+			// edit control offers no custom one; it lives only while the
+			// editor is open.)
+			SetBkColor((HDC)wParam,_viv_is_dark() ? RGB(0x20,0x20,0x20) : (COLORREF)GetSysColor(COLOR_BTNFACE));
+			SetTextColor((HDC)wParam,_viv_is_dark() ? RGB(0xE8,0xE8,0xE8) : (COLORREF)GetSysColor(COLOR_BTNTEXT));
+			
+			return (LRESULT)(_viv_is_dark() ? _viv_dialog_dark_brush() : GetSysColorBrush(COLOR_BTNFACE));
 			
 
-			break;
 
 	}
 
@@ -1491,7 +1479,7 @@ void _viv_status_update(void)
 				}
 			}
 			
-			// pane 0: the zoom pane (the status bar drag anchor).
+			// pane 0: the zoom pane (the in place zoom editor's home).
 			part_array[parti] = zoom_wide;
 			parti++;
 			

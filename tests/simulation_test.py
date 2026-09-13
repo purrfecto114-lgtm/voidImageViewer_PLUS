@@ -719,10 +719,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.12.55",
-          (major, minor, rev, build) == (1, 1, 12, 55), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.12-rc.13",
-          vstr is not None and vstr.group(1) == "1.1.12-rc.13", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.12.56",
+          (major, minor, rev, build) == (1, 1, 12, 56), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.12-rc.14",
+          vstr is not None and vstr.group(1) == "1.1.12-rc.14", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -730,13 +730,13 @@ def t_sim_version_117():
     check("the nsis derives the display version at compile time",
           '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
     top = CHANGES.lstrip("\ufeff").split("\r\n")[0] if "\r\n" in CHANGES else CHANGES.lstrip("\ufeff").split("\n")[0]
-    check("the changelog top entry is the 1.1.12-rc.13 non-win11 field round",
-          top == "Pre-release: Version 1.1.12-rc.13 (the non-win11 field round)", top)
+    check("the changelog top entry is the 1.1.12-rc.14 zoom pane editor round",
+          top == "Pre-release: Version 1.1.12-rc.14 (the zoom pane editor round)", top)
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
     check("the readme current line says the 1.1.12 release candidate",
-          "**1.1.12-rc.13 —" in readme and "(the current release candidate):**" in readme)
+          "**1.1.12-rc.14 —" in readme and "(the current release candidate):**" in readme)
 
 
 # ---------------------------------------------------------------------------
@@ -896,7 +896,7 @@ def t_sim_field_round47():
     #    size, one charset - the two-charset drift that broke the page
     #    metrics is structurally impossible now).
     statements = re.findall(r'^FONT\s+([^\r\n]+)', RC, re.M)
-    check("eleven font statements exist", len(statements) == 11, str(len(statements)))
+    check("ten font statements exist (rc.79: the zoom dialog template retired)", len(statements) == 10, str(len(statements)))
     uniform = all(s == '9, "Segoe UI", 400, 0, 0' for s in statements)
     check("every statement is the identical Segoe UI 9pt declaration",
           uniform, "; ".join(sorted(set(statements))))
@@ -1281,7 +1281,7 @@ def t_sim_field_round49():
           OSC.count("*lf = ncm.lfMessageFont;") == 2)
     check("no hard coded face name joins the runtime path",
           "lfMessageFont" in OSC and
-          RCD.count('FONT 9, "Segoe UI"') == 11)   # the template keeps the skeleton job
+          RCD.count('FONT 9, "Segoe UI"') == 10)   # the template keeps the skeleton job (rc.79: the zoom dialog retired)
 
     # 2. the vertical budget, per template: the dlu grid keeps the segoe
     #    skeleton (the layout does not move), the rendering face may run
@@ -1380,9 +1380,9 @@ def t_sim_field_round49():
     draw_pos = proc_body.find("\t\tcase WM_DRAWITEM:")
     check("the font apply case leads the shared proc switch",
           apply_pos != -1 and draw_pos != -1 and apply_pos - proc_pos < draw_pos)
-    check("the shared proc fronts every dialog ahead of its own switch",
-          VIVD.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 11 and
-          VIVD.count("if (dark_dialog_reply != -1)\r\n\t\t{\r\n\t\t\treturn dark_dialog_reply;") == 11)
+    check("the shared proc fronts every dialog ahead of its own switch (rc.79: ten dialogs)",
+          VIVD.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 10 and
+          VIVD.count("if (dark_dialog_reply != -1)\r\n\t\t{\r\n\t\t\treturn dark_dialog_reply;") == 10)
     check("a dialog crossing monitors re-applies (wm_dpichanged)",
           VIVD.count("case WM_DPICHANGED:\r\n\t\t{\r\n\t\t\t// a dialog dragged across monitors") == 1)
     check("the settings broadcast touches no font (the faces live with their dialogs)",

@@ -18,7 +18,6 @@
 #define IDD_RENAME                      127
 #define IDD_JUMPTO                      128
 #define IDD_EVERYTHING                  129
-#define IDD_SET_ZOOM                   130
 #define IDC_TAB1                        1003
 #define IDC_BMP                         1006
 #define IDC_GIF                         1007
@@ -124,8 +123,6 @@
 #define IDC_LANGUAGE                            1068
 #define IDC_DARKMODE_STATIC                     1069
 #define IDC_DARKMODE                            1070
-#define IDC_SET_ZOOM_EDIT                1071
-#define IDC_SET_ZOOM_STATIC              1072
 
 // new ids for the about band chrome (the template round): two separator
 // lines and the button strip face, declared before the buttons in the

@@ -1,3 +1,35 @@
+Pre-release: Version 1.1.12-rc.14 (the zoom pane editor round)
+*the field report on the status bar zoom pane: one click, no box.
+*"the zoom percent in the corner needs two clicks to open, and the
+ click shows a select box": the pane is the click target, but the
+ click never reached it. the pane's own subclass ate every left
+ button down on it (the status bar drag anchor inherited from
+ upstream: hold and drag moves the window) and handed it to the
+ move loop, which swallowed the button up too - the open command
+ rides the up, so the box only opened by luck (a click on an
+ inactive window's orphan up). the anchor is retired: the pane is
+ pure input now, the drag lives on the toolbar, the menu gaps and
+ the title bar.
+*"the select box": the box itself was a 1998 dialog - a centered
+ modal frame with a sunken number field, native buttons and a
+ select-all blue block, never touched by the remade chrome. the
+ editor is in place now: the pane itself becomes a borderless
+ number field in the strip's own font and colors (the status bar
+ answers ctlcolor for it), enter commits, escape cancels, focus
+ lost commits, typing replaces the selected digits. the dialog
+ template, its two controls and its two localization strings are
+ gone; the entry function keeps its name so the click site is
+ untouched. the system selection color stays (the edit control
+ offers no custom one) - it lives on four digits for the seconds
+ the editor is open.
+*the empty or zero input keeps the old dialog's contract: ignored.
+*the audit round: a canvas click now takes the keyboard home - the
+ editor held the focus while it lived, so a click on the image left
+ the arrow and page keys routed into the number field (a dead
+ navigation zone until enter or escape); the click's focus move is
+ itself what commits an open editor.
+*the 1600% clamp and the view-center anchor carry over unchanged.
+
 Pre-release: Version 1.1.12-rc.13 (the non-win11 field round)
 *the field report on a windows 10 machine, three roots, fixed.
 *"the play button shows pause on an idle photo": the toolbar read the

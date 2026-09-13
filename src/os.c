@@ -2256,40 +2256,6 @@ WNDPROC os_set_window_proc(HWND hwnd,WNDPROC proc)
 	return (WNDPROC)(uintptr_t)SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)proc);
 }
 
-int os_statusbar_index_from_x(HWND statusbar_hwnd,int x)
-{
-	RECT rect;
-	
-	GetClientRect(statusbar_hwnd,&rect);
-	
-	if ((x >= 0) && (x < rect.right - rect.left))
-	{
-		int i;
-		int count;
-		
-		count = (int)SendMessage(statusbar_hwnd,SB_GETPARTS,0,(LPARAM)NULL);
-		
-		if (count > 0)
-		{
-			for(i=0;i<count;i++)
-			{
-				if (SendMessage(statusbar_hwnd,SB_GETRECT,i,(LPARAM)&rect))
-				{
-					if ((x >= rect.left) && (x < rect.right))
-					{
-						return i;
-					}
-				}
-			}
-		}
-		
-		// simple?
-		return 0;
-	}
-	
-	return -1;
-}
-
 int os_is_windows_7_or_later(void)
 {
 	if (os_major_version > 6)

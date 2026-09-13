@@ -242,7 +242,8 @@ def t_localization_alignment():
               arr[i + 1] == "LOCALIZATION_ID_LAYOUT")
     # the last ids must line up everywhere: the dark mode ids followed by
     # the six backdrop ids.
-    # r41: the modern ux round appends nine ids after the zoom dialog group
+    # r41: the modern ux round ids (the rc.79 editor round retired the zoom
+    # dialog's two ids from this tail)
     # (mru submenu, wallpaper confirmation, adaptive size units).
     tail = ("LOCALIZATION_ID_OPTIONS_DARK_MODE_STATIC",
             "LOCALIZATION_ID_DARK_MODE_AUTO",
@@ -254,8 +255,6 @@ def t_localization_alignment():
             "LOCALIZATION_ID_BACKDROP_WHITE",
             "LOCALIZATION_ID_BACKDROP_CUSTOM",
             "LOCALIZATION_ID_BACKDROP_CHECKERBOARD",
-            "LOCALIZATION_ID_SET_ZOOM_CAPTION",
-            "LOCALIZATION_ID_SET_ZOOM_STATIC",
             "LOCALIZATION_ID_RECENT_FILES",
             "LOCALIZATION_ID_RECENT_FILES_EMPTY",
             "LOCALIZATION_ID_RECENT_FILES_CLEAR",
@@ -295,9 +294,9 @@ def t_localization_alignment():
             "LOCALIZATION_ID_MSGBOX_YES",
             "LOCALIZATION_ID_MSGBOX_NO",
             "LOCALIZATION_ID_ACCENT_COLOR")
-    check("enum ends with the dark+backdrop+zoom+ux+remake ids", tuple(ids[-49:]) == tail)
-    check("en ends with the dark+backdrop+zoom+ux+remake ids", tuple(en[-49:]) == tail)
-    check("zh ends with the dark+backdrop+zoom+ux+remake ids", tuple(zh[-49:]) == tail)
+    check("enum ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired)", tuple(ids[-47:]) == tail)
+    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired)", tuple(en[-47:]) == tail)
+    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired)", tuple(zh[-47:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -334,10 +333,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.55 rc.13 (the non-win11 field round)",
-          (major, minor, rev, build) == ("1", "1", "12", "55") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.13 tag)",
-          vstr == "1.1.12-rc.13")
+    check("version.h = 1.1.12.56 rc.14 (the zoom pane editor round)",
+          (major, minor, rev, build) == ("1", "1", "12", "56") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.14 tag)",
+          vstr == "1.1.12-rc.14")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -620,17 +619,17 @@ def t_dark_dialogs_wiring():
           "_viv_dialog_dark_ctlcolor" in viv and
           "_viv_dialog_dark_erase" in viv and
           "_viv_dialog_dark_brush" in viv)
-    check("all 11 dialog procs route through the dispatcher",
-          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 11)
-    check("all 11 dialogs get the dark chrome at init (plus the refresh enum and the rc.4 self heal)",
-          viv.count("_viv_dark_dialog(hwnd);") == 13)
+    check("all 10 dialog procs route through the dispatcher (rc.79: the zoom dialog retired)",
+          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 10)
+    check("all 10 dialogs get the dark chrome at init (plus the refresh enum and the rc.4 self heal; rc.79: the zoom dialog retired)",
+          viv.count("_viv_dark_dialog(hwnd);") == 12)
     # rc.1 regression guard: the dispatcher must NOT sit inside switch(msg)
     # before the first case label - that placement is unreachable dead code
     # (the beta.10 bug: gcc warned "statement will never be executed").
     dead = viv.count("switch(msg)\r\n\t{\r\n\t\t{\r\n\t\t\tINT_PTR dark_dialog_reply;")
     check("no dispatcher dead placement inside switch(msg)", dead == 0, str(dead))
     live = viv.count("{\r\n\t\tINT_PTR dark_dialog_reply;")
-    check("dispatcher runs before the switch in every proc", live == 11, str(live))
+    check("dispatcher runs before the switch in every proc (rc.79: 10 procs)", live == 10, str(live))
     check("the dispatcher handles the color and erase messages",
           "case WM_CTLCOLORSTATIC:" in viv and
           "case WM_CTLCOLOREDIT:" in viv and
@@ -931,9 +930,9 @@ def t_zoom_percent_wiring():
           "_viv_zoom_pos_for_percent(next,1)" in body)
     check("a zoom out click at the true ladder floor is a no-op",
           "if (out && (!_viv_1to1) && (_viv_zoom_pos <= _viv_zoom_pos_floor()))" in viv)
-    check("buttons pass the direction, the dialog does not force",
+    check("buttons pass the direction, the editor does not force",
           "_viv_zoom_set_percent(target,pt.x,pt.y,out ? -1 : 1);" in viv and
-          "_viv_zoom_set_percent(target,pt.x,pt.y,0);" in viv)
+          "_viv_zoom_set_percent(percent,pt.x,pt.y,0);" in viv)
 
     # the status bar zoom pane (part 0, always visible, clickable)
     m = re.search(r"static void _viv_status_update\(void\)\s*\{(.*?)\n\t\tif \(_viv_status_hwnd\)",
@@ -954,37 +953,20 @@ def t_zoom_percent_wiring():
     check("the pane width is never below the minimum",
           "if (zoom_wide < minwide)" in viv)
 
-    # clicking the pane opens the set zoom dialog
-    check("status click case 0 opens the dialog",
+    # rc.79: the click opens the in place editor on the pane (the 1998
+    # centered dialog box is retired with its template, ids and strings)
+    check("status click case 0 opens the editor",
           "_viv_set_zoom_dialog();" in viv)
     check("the frame toggle pane is now located dynamically",
           "SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2" in viv)
     check("hand cursor over the zoom pane",
           "case WM_SETCURSOR:" in viv and "SB_GETRECT" in viv and "IDC_HAND" in viv)
-
-    # the set zoom dialog
-    check("dialog invoker clamps the target range",
-          "if (target > 1600)" in viv and "if (target >= 1)" in viv)
-    check("the dialog proc seeds the edit with the current percent",
-          "SetDlgItemInt(hwnd,IDC_SET_ZOOM_EDIT,_viv_set_zoom_dialog_percent,FALSE);" in viv)
-    check("the dialog gets the dark chrome",
-          re.search(r"static INT_PTR CALLBACK _viv_set_zoom_proc\(.*?\{.*?_viv_dialog_dark_proc\(hwnd,msg,wParam,lParam\);", viv, re.S) is not None and
-          "_viv_dark_dialog(hwnd);" in viv)
-    check("dialog ids defined",
-          "#define IDD_SET_ZOOM" in rh and
-          "#define IDC_SET_ZOOM_EDIT" in rh and
-          "#define IDC_SET_ZOOM_STATIC" in rh)
-    check("dialog template present",
-          "IDD_SET_ZOOM DIALOGEX" in rct and
-          "IDC_SET_ZOOM_EDIT,54,12,66,12,ES_AUTOHSCROLL | ES_NUMBER" in rct)
-    check("dialog strings localized in both tables",
-          '"Set Zoom", // LOCALIZATION_ID_SET_ZOOM_CAPTION,' in le and
-          '"&Zoom percent:", // LOCALIZATION_ID_SET_ZOOM_STATIC,' in le and
-          '"设置缩放", // LOCALIZATION_ID_SET_ZOOM_CAPTION' in lz and
-          '"缩放百分比(&Z)：", // LOCALIZATION_ID_SET_ZOOM_STATIC' in lz)
-    check("enum gains the two zoom ids",
-          "LOCALIZATION_ID_SET_ZOOM_CAPTION," in lh and
-          "LOCALIZATION_ID_SET_ZOOM_STATIC," in lh)
+    check("the editor commits the clamped range",
+          "if (percent > 1600)" in viv and "if (percent >= 1)" in viv)
+    check("the zoom dialog is fully retired",
+          "IDD_SET_ZOOM" not in rct and "IDC_SET_ZOOM" not in rh and
+          "LOCALIZATION_ID_SET_ZOOM" not in lh and
+          "SET_ZOOM" not in le and "SET_ZOOM" not in lz)
 
     # the temp zoom flash is replaced by the permanent pane
     m = re.search(r"(?:static\s+)?void _viv_status_update_temp_pos_zoom\(void\)\s*\{(.*?)\n\}",
@@ -2666,9 +2648,9 @@ def t_field_fixes_round47():
 
     # --- the dialog font: one family, one size, one charset everywhere ---
     font_statements = [s.rstrip("\r") for s in re.findall(r'^FONT[^\r\n]*', rc, re.M)]
-    check("every dialog declares the same font statement",
-          font_statements.count('FONT 9, "Segoe UI", 400, 0, 0') == 11 and
-          len(font_statements) == 11,
+    check("every dialog declares the same font statement (rc.79: 10 templates)",
+          font_statements.count('FONT 9, "Segoe UI", 400, 0, 0') == 10 and
+          len(font_statements) == 10,
           "%d font statements" % len(font_statements))
     check("the obsolete DS_FIXEDSYS flag is gone from every template",
           "DS_FIXEDSYS" not in rc)
@@ -2755,7 +2737,6 @@ def t_field_fixes_round47():
         "IDD_VIEW": "IDC_AUTO_ZOOM IDC_CACHE_LAST_IMAGE IDC_COMBO1 IDC_COMBO2 IDC_COMBO4 IDC_FULLSCREENBACKGROUNDCOLOR IDC_FULLSCREENBACKGROUNDCOLOR_STATIC IDC_MAGNIFY_BLIT_MODE_STATIC IDC_PRELOAD_NEXT_IMAGE IDC_SHRINK_BLIT_MODE_STATIC IDC_TITLE_BAR_FORMAT IDC_TITLE_BAR_FORMAT_STATIC IDC_WINDOWEDBACKGROUNDCOLOR IDC_WINDOWEDBACKGROUNDCOLOR_STATIC",
         "IDD_CONTROLS": "IDC_ADD_KEY IDC_COMMANDS_LIST IDC_COMMANDS_STATIC IDC_EDIT_KEY IDC_KEYS_LIST IDC_LEFTCLICKACTION IDC_LEFT_CLICK_ACTION_STATIC IDC_MOUSEWHEELACTION IDC_MOUSE_WHEEL_ACTION_STATIC IDC_REMOVE_KEY IDC_RIGHTCLICKACTION IDC_RIGHT_CLICK_ACTION_STATIC IDC_SETTINGS_FOR_SELECTED_COMMAND_STATIC",
         "IDD_CUSTOM_RATE": "IDCANCEL IDC_CUSTOM_RATE_EDIT IDC_CUSTOM_RATE_STATIC IDC_CUSTOM_RATE_TYPE_COMBO IDOK",
-        "IDD_SET_ZOOM": "IDCANCEL IDC_SET_ZOOM_EDIT IDC_SET_ZOOM_STATIC IDOK",
         "IDD_ABOUT": "IDCANCEL IDC_ABOUTBACK IDC_ABOUTCOPYRIGHT IDC_ABOUTEMAIL IDC_ABOUTTITLE IDC_ABOUTVERSION IDC_ABOUTVOIDIMAGEVIEWER IDC_ABOUTWEBSITE IDOK",
         "IDD_EDIT_KEY": "IDCANCEL IDC_EDIT_KEYBOARD_SHORTCUT_KEY_CURRENTLY_USED_BY_STATIC IDC_EDIT_KEYBOARD_SHORTCUT_KEY_STATIC IDC_EDIT_KEY_CURRENTLY_USED_BY_LIST IDC_EDIT_KEY_EDIT IDOK",
         "IDD_RENAME": "IDCANCEL IDC_RENAME_EDIT IDC_RENAME_OLD_EDIT IDOK",
@@ -2916,12 +2897,12 @@ def t_field_fixes_round49():
     check("a dialog dragged across monitors re-reads the font",
           "case WM_DPICHANGED:" in dark_proc and
           dark_proc.count("_viv_dialog_apply_font(hwnd);") == 2)
-    check("the shared dark proc fronts all eleven dialogs",
-          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 11)
+    check("the shared dark proc fronts all ten dialogs (rc.79: the zoom dialog retired)",
+          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 10)
 
     # --- the template keeps its job: the dlu skeleton ---
-    check("eleven segoe template statements stay (the dlu grid, not the face)",
-          rc.count('FONT 9, "Segoe UI"') == 11 and "MS Shell Dlg" not in rc)
+    check("ten segoe template statements stay (the dlu grid, not the face; rc.79: the zoom dialog retired)",
+          rc.count('FONT 9, "Segoe UI"') == 10 and "MS Shell Dlg" not in rc)
 
 def t_field_fixes_round50():
     """Guards for the font lifetime review fix (1.1.11, pre-release).
@@ -3101,8 +3082,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 55",
-          "#define VERSION_BUILD 55" in version)
+    check("the release candidate line moves to build 56",
+          "#define VERSION_BUILD 56" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3172,9 +3153,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 55",
-          "#define VERSION_BUILD 55" in version and
-          '#define VERSION_STRING "1.1.12-rc.13"' in version)
+    check("the release candidate moves the version to build 56",
+          "#define VERSION_BUILD 56" in version and
+          '#define VERSION_STRING "1.1.12-rc.14"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3446,9 +3427,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.13 build 55",
-          '#define VERSION_BUILD 55' in version and
-          '#define VERSION_STRING "1.1.12-rc.13"' in version)
+    check("the version is 1.1.12-rc.14 build 56",
+          '#define VERSION_BUILD 56' in version and
+          '#define VERSION_STRING "1.1.12-rc.14"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3511,9 +3492,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 55",
-          "#define VERSION_BUILD 55" in version and
-          '#define VERSION_STRING "1.1.12-rc.13"' in version)
+    check("the release candidate moves the version to build 56",
+          "#define VERSION_BUILD 56" in version and
+          '#define VERSION_STRING "1.1.12-rc.14"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3736,6 +3717,101 @@ def t_field_repair_round78():
           "the drop shadow style off win11" in flat and
           "the same painter, radio dots" in flat)
 
+# ---------------------------------------------------------------------------
+# 1.1.12-rc.79: the zoom pane editor round. the field report: "the zoom
+# percent in the corner needs two clicks to open, and the click shows a
+# select box". the pane's drag anchor (inherited from upstream) ate the
+# button down, the move loop ate the up, and the NM_CLICK that opens the
+# editor only fired from an inactive window's orphan up; the editor was
+# a 1998 centered dialog. the editor is in place now.
+# ---------------------------------------------------------------------------
+def t_zoom_pane_editor_round79():
+    viv = read("src/viv.c").decode()
+    chrome = read("src/viv_chrome.c").decode()
+    dialogs = read("src/viv_dialogs.c").decode()
+    dialogsh = read("src/viv_dialogs.h").decode()
+    osc = read("src/os.c").decode()
+    osh = read("src/os.h").decode()
+    rct = read("res/voidImageViewer.rc").decode()
+    rh = read("res/resource.h").decode()
+    lh = read("src/localization.h").decode()
+    le = read("src/localization_en_us.h").decode()
+    lz = read("src/localization_zh_cn.h").decode()
+
+    # the drag anchor retirement: the pane's down reaches the bar.
+    check("the pane drag helper is gone everywhere (the down reaches the pane)",
+          "os_statusbar_index_from_x" not in viv and
+          "os_statusbar_index_from_x" not in chrome and
+          "os_statusbar_index_from_x" not in osc and
+          "os_statusbar_index_from_x" not in osh)
+    check("the status subclass answers the editor colors",
+          "case WM_CTLCOLOREDIT:" in chrome and
+          "_viv_dialog_dark_brush() : GetSysColorBrush(COLOR_BTNFACE));" in chrome and
+          "RGB(0x20,0x20,0x20) : (COLORREF)GetSysColor(COLOR_BTNFACE)" in chrome)
+
+    # the field: created on the pane, themed by the strip.
+    check("the editor is a borderless number field on the pane",
+          re.search(r'os_CreateWindowEx\(\s*\r\n\s*0,\s*\r\n\s*"EDIT",', dialogs) is not None and
+          "WS_CHILD|WS_VISIBLE|ES_NUMBER|ES_AUTOHSCROLL" in dialogs)
+    check("the field is placed and sized from the pane rect",
+          "SB_GETRECT,0,(LPARAM)&pane_rect" in dialogs and
+          "wide < 32" in dialogs)
+    check("the old proc lives in the userdata (the edit key idiom, two steps)",
+          "old_proc = (WNDPROC)SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)_viv_zoom_edit_proc);" in dialogs and
+          "SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)old_proc);" in dialogs and
+          "old_proc = (WNDPROC)GetWindowLongPtr(hwnd,GWLP_USERDATA);" in dialogs)
+    check("the digits ride the strip font",
+          "WM_GETFONT,0,0" in dialogs and "WM_SETFONT,(WPARAM)hfont" in dialogs)
+    check("typing replaces the selected percent",
+          "EM_SETSEL,0,-1" in dialogs and
+          'string_printf(wbuf,"%d",_viv_zoom_percent());' in dialogs)
+
+    # the three exits and the re-entry guard.
+    check("enter commits, escape cancels",
+          "if (wParam == VK_RETURN)" in dialogs and
+          "if (wParam == VK_ESCAPE)" in dialogs)
+    check("focus lost commits",
+          "case WM_KILLFOCUS:" in dialogs)
+    check("the end guards against the re-entries",
+          "if (hwnd != _viv_zoom_edit_hwnd)" in dialogs)
+    check("the destroy clears the static (the teardown cascade)",
+          "_viv_zoom_edit_hwnd = 0;" in dialogs)
+    check("the keyboard goes home after the editor",
+          "SetFocus(_viv_hwnd);" in dialogs)
+    check("the commit contract survives the rewrite",
+          "percent = string_to_int(wbuf);" in dialogs and
+          "if (percent > 1600)" in dialogs and
+          "if (percent >= 1)" in dialogs and
+          "_viv_zoom_set_percent(percent,pt.x,pt.y,0);" in dialogs)
+    check("one editor at a time (the re-open commits the first)",
+          "_viv_zoom_edit_end(_viv_zoom_edit_hwnd,1);" in dialogs)
+    check("the entry function body carries no dialog machinery",
+          "DialogBox" not in dialogs.split("void _viv_set_zoom_dialog(void)\r\n{")[1].split("static void _viv_zoom_edit_end")[0])
+    check("the header keeps the call sites stable",
+          "keeps the old dialog's call sites stable" in dialogsh)
+
+    # the retirement: template, ids, strings.
+    check("the template is gone",
+          "IDD_SET_ZOOM" not in rct)
+    check("the control ids are gone",
+          "IDC_SET_ZOOM" not in rh and "IDD_SET_ZOOM" not in rh)
+    check("the localization ids and strings are gone",
+          "SET_ZOOM" not in lh and "SET_ZOOM" not in le and "SET_ZOOM" not in lz)
+
+    # the P1 audit fix: a canvas click takes the keyboard home (an open
+    # editor commits through its kill focus path, no dead navigation zone).
+    wndproc = read("src/viv_wndproc.c").decode()
+    lb = wndproc.split("static LRESULT _viv_on_wm_lbuttondown")[1].split("static LRESULT")[0]
+    check("a canvas click takes the keyboard home",
+          lb.index("SetFocus(hwnd);") < lb.index("_viv_do_left_click_action"))
+
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    check("the changelog states the zoom pane editor round",
+          "the zoom pane editor round" in changes and
+          "the anchor is retired" in changes and
+          "enter commits, escape cancels" in changes)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -3786,6 +3862,7 @@ if __name__ == "__main__":
     t_carpet_repair_round76()
     t_platform_guardrails()
     t_field_repair_round78()
+    t_zoom_pane_editor_round79()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
