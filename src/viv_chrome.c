@@ -844,6 +844,7 @@ void _viv_menu_font_drop(void)
 void _viv_apply_dark_mode(int repaint)
 {
 	int dark;
+	DWORD menu_pid;
 	
 	dark = _viv_is_dark();
 	
@@ -862,7 +863,9 @@ void _viv_apply_dark_mode(int repaint)
 		// now (every menu open re-installs it again anyway).
 		menu_hwnd = FindWindowW(L"#32768",0);
 
-		if (menu_hwnd)
+		// same-process only: the class name is shared by every menu
+		// on the desktop (see _viv_menu_popup_theme).
+		if ((menu_hwnd) && (GetWindowThreadProcessId(menu_hwnd,&menu_pid)) && (menu_pid == GetCurrentProcessId()))
 		{
 			SetClassLongPtrW(menu_hwnd,GCLP_HBRBACKGROUND,(LONG_PTR)viv_theme_brush(VIV_TK_FACE));
 		}
@@ -1026,6 +1029,14 @@ void _viv_status_show(int show)
 				_viv_hwnd,(HMENU)VIV_ID_STATUS,os_hinstance,NULL);
 				
 			_viv_old_status_proc = os_set_window_proc(_viv_status_hwnd,_viv_status_proc);
+			
+			// the strip rides the menu font (the toolbar and the menu bar
+			// ride it too): an unpinned bar runs on whatever the common
+			// control defaults to, which scales but does not match the
+			// strip basis. the pane paint, the pane width measurement and
+			// the in-place zoom editor all read the font back through
+			// wm_getfont, so one pin fixes them together.
+			SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));
 			
 			// a fresh bar starts with empty panes: flush the text store
 			// (handles can be recycled, so the identity check alone is not

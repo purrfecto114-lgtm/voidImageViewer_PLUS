@@ -172,8 +172,16 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 			string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
 			
 			// every single-file open (dialog, drop, command line, mru itself)
-			// feeds the recent list.
-			_viv_recent_file_push(full_path_and_filename);
+			// feeds the recent list - except a re-open of the file already on
+			// screen: that is a reload, not a recent open (the single-instance
+			// forward, a re-drop, a re-click of the current entry, a
+			// rotate-then-double-click recheck). such a reentry must not
+			// masquerade as a new open and silently reorder the recent list.
+			// the compare folds ascii case like the mru itself.
+			if (_viv_icompare_filename(full_path_and_filename,_viv_current_fd->cFileName) != 0)
+			{
+				_viv_recent_file_push(full_path_and_filename);
+			}
 			
 			_viv_open(&fd,0);
 		}

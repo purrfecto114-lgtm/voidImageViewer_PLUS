@@ -1721,6 +1721,16 @@ static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		
 		// the menu bar font follows the new dpi.
 		_viv_menu_font_drop();
+		
+		// the status strip carries the menu font explicitly, so the
+		// comctl default no longer follows the monitor for it: re-pin
+		// it here (the next _viv_menu_font call rebuilds at the new
+		// dpi; the pane measurement and the zoom editor ride the same
+		// handle through wm_getfont).
+		if (_viv_status_hwnd)
+		{
+			SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));
+		}
 	}
 	
 	// accept the suggested rectangle: it keeps the window at its

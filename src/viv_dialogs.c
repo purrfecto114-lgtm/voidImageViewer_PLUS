@@ -33,6 +33,7 @@
 #include "viv_load.h"
 #include "viv_menu.h"
 #include "viv_playlist.h"
+#include "viv_recent.h"
 #include "viv_render.h"
 #include "viv_view.h"
 
@@ -279,6 +280,10 @@ static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 										string_copy_with_bufsize(_viv_current_fd->cFileName,MAX_PATH,file_op_new_name);
 										
 										_viv_playlist_rename(old_filename,file_op_new_name);
+
+										// the recent entry follows the rename in place
+										// (the old name would become a dead row).
+										_viv_recent_file_rename(old_filename,file_op_new_name);
 
 										_viv_update_title();
 									}						

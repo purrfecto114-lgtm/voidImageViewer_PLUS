@@ -1794,6 +1794,10 @@ static void _viv_delete(int permanently)
 		{
 			if (!fo.fAnyOperationsAborted)
 			{
+				// the deleted file must not linger as a dead recent
+				// entry (the next click on it would just fail).
+				_viv_recent_file_remove_filename(fd.cFileName);
+
 				_viv_playlist_delete(&fd);
 			
 				if (!_viv_next(0,1,0,0))

@@ -31,6 +31,8 @@ void _viv_recent_save_defer(void);
 void _viv_recent_save_fold(void);
 void _viv_recent_file_push(const wchar_t *filename);
 void _viv_recent_file_remove(int index);
+void _viv_recent_file_remove_filename(const wchar_t *filename);
+void _viv_recent_file_rename(const wchar_t *old_filename,const wchar_t *new_filename);
 void _viv_recent_file_clear(void);
 HMENU _viv_create_recent_menu(void);
 

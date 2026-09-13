@@ -1279,10 +1279,15 @@ int _viv_menu_draw_item(DRAWITEMSTRUCT *draw_item)
 void _viv_menu_popup_theme(void)
 {
 	HWND menu_hwnd;
+	DWORD menu_pid;
 	
 	menu_hwnd = FindWindowW(L"#32768",0);
 	
-	if (menu_hwnd)
+	// the class name is shared by every menu in every process on the
+	// desktop: the find can return another process's open menu, and
+	// theming that one leaves our own popup plain (and writes into a
+	// stranger). own process only.
+	if ((menu_hwnd) && (GetWindowThreadProcessId(menu_hwnd,&menu_pid)) && (menu_pid == GetCurrentProcessId()))
 	{
 		SetClassLongPtrW(menu_hwnd,GCLP_HBRBACKGROUND,(LONG_PTR)viv_theme_brush(VIV_TK_FACE));
 		

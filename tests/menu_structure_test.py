@@ -333,10 +333,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.12.56 rc.14 (the zoom pane editor round)",
-          (major, minor, rev, build) == ("1", "1", "12", "56") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.14 tag)",
-          vstr == "1.1.12-rc.14")
+    check("version.h = 1.1.12.57 rc.15 (the field report round)",
+          (major, minor, rev, build) == ("1", "1", "12", "57") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.15 tag)",
+          vstr == "1.1.12-rc.15")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -2402,7 +2402,7 @@ def t_field_fixes_round43():
           "2000" in viv[viv.find("#define _VIV_RECENT_SAVE_DELAY"):viv.find("#define _VIV_RECENT_SAVE_DELAY") + 60])
     check("the mru mutations defer instead of writing",
           re.search(r"(?:static\s+)?void _viv_recent_save_defer\(void\)", viv) is not None and
-          viv.count("_viv_recent_save_defer();") == 4 and
+          viv.count("_viv_recent_save_defer();") == 5 and  # r80: the rename helper defers too
           "_viv_recent_save_defer();\r\n\t_viv_recent_menu_update();" in viv)
     i = viv.find("void _viv_recent_file_push(const wchar_t *filename)\r\n{")
     i = viv.find("void _viv_recent_file_push(const wchar_t *filename)\r\n{", i + 10)
@@ -3082,8 +3082,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 56",
-          "#define VERSION_BUILD 56" in version)
+    check("the release candidate line moves to build 57",
+          "#define VERSION_BUILD 57" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3153,9 +3153,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 56",
-          "#define VERSION_BUILD 56" in version and
-          '#define VERSION_STRING "1.1.12-rc.14"' in version)
+    check("the release candidate moves the version to build 57",
+          "#define VERSION_BUILD 57" in version and
+          '#define VERSION_STRING "1.1.12-rc.15"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3427,9 +3427,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.12-rc.14 build 56",
-          '#define VERSION_BUILD 56' in version and
-          '#define VERSION_STRING "1.1.12-rc.14"' in version)
+    check("the version is 1.1.12-rc.15 build 57",
+          '#define VERSION_BUILD 57' in version and
+          '#define VERSION_STRING "1.1.12-rc.15"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3492,9 +3492,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate moves the version to build 56",
-          "#define VERSION_BUILD 56" in version and
-          '#define VERSION_STRING "1.1.12-rc.14"' in version)
+    check("the release candidate moves the version to build 57",
+          "#define VERSION_BUILD 57" in version and
+          '#define VERSION_STRING "1.1.12-rc.15"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3812,6 +3812,118 @@ def t_zoom_pane_editor_round79():
           "enter commits, escape cancels" in changes)
 
 
+def t_field_report_round80():
+    load = read("src/viv_load.c").decode()
+    view = read("src/viv_view.c").decode()
+    viv = read("src/viv.c").decode()
+    recent = read("src/viv_recent.c").decode()
+    recenth = read("src/viv_recent.h").decode()
+    dialogs = read("src/viv_dialogs.c").decode()
+    settings = read("src/viv_settings.c").decode()
+    chrome = read("src/viv_chrome.c").decode()
+    menu = read("src/viv_menu.c").decode()
+    wndproc = read("src/viv_wndproc.c").decode()
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+
+    # 1. the mru re-entry guard: a reload of the on-screen file is not an open.
+    check("the mru push site is single and guarded",
+          load.count("_viv_recent_file_push(full_path_and_filename);") == 1 and
+          "_viv_icompare_filename(full_path_and_filename,_viv_current_fd->cFileName) != 0" in load)
+    load_flat = " ".join(load.split())
+    check("the guard states the reload contract",
+          "masquerade as a new open" in load_flat and
+          "a reload, not a recent open" in load_flat)
+    check("the dialog open still feeds the mru",
+          "_viv_open_from_filename(ofn.lpstrFile);" in view)
+    wnd = read("src/viv_wndproc.c").decode()
+    check("the single-file drop still feeds the mru",
+          "_viv_open_from_filename(filename);" in wnd)
+    check("the mru click still opens by name",
+          "_viv_open_from_filename(config_recent_files[recent_index])" in view)
+    check("the command line still opens the single file",
+          "_viv_open_from_filename(open_filename)" in viv)
+    rotate = " ".join(view.split("static void _viv_edit_rotate(int counterclockwise)\r\n{")[1].split("static void _viv_file_edit(void)\r\n{")[0].split())
+    check("rotate never touches the recent list",
+          "_viv_recent" not in rotate and
+          'counterclockwise ? "rotate270" : "rotate90"' in rotate)
+    check("the single-instance forward survives (the fix is at the push site)",
+          "cds.dwData = _VIV_COPYDATA_COMMAND_LINE;" in viv)
+
+    # 2. the mru hygiene: delete drops the entry, rename swaps it in place.
+    check("the remove-by-name helper exists and walks the live list",
+          "void _viv_recent_file_remove_filename(const wchar_t *filename)" in recent and
+          "_viv_recent_file_remove_filename(const wchar_t *filename);" in recenth)
+    check("the rename helper swaps the entry in place (no push)",
+          "void _viv_recent_file_rename(const wchar_t *old_filename,const wchar_t *new_filename)" in recent and
+          "config_recent_files[i] = entry;" in recent and
+          "_viv_recent_file_rename(const wchar_t *old_filename,const wchar_t *new_filename);" in recenth)
+    check("the delete maintains its recent entry",
+          "_viv_recent_file_remove_filename(fd.cFileName);" in view)
+    check("the rename maintains its recent entry",
+          "_viv_recent_file_rename(old_filename,file_op_new_name);" in dialogs and
+          '#include "viv_recent.h"' in dialogs)
+    check("the rename swap keeps its position (no reorder)",
+          "string_alloc(new_filename)" in recent and
+          "mem_free(config_recent_files[i]);" in recent)
+
+    # 3. the font harmony: the settings rows ride the system basis.
+    check("the settings row font is 12 dip (the system message basis)",
+          "lf.lfHeight = -_viv_settings_dip(12);" in settings)
+    check("the 13 dip row font is retired",
+          "lf.lfHeight = -_viv_settings_dip(13);" not in settings)
+    check("the description font keeps the one-dip hierarchy",
+          "lf.lfHeight = -_viv_settings_dip(11);" in settings)
+    check("the design note carries the new contract",
+          "12 dip rows, 11 dip descriptions" in settings)
+    check("the row bands did not shrink with the font",
+          "#define _VIV_SETTINGS_ROW_HIGH		34" in settings and
+          "#define _VIV_SETTINGS_DESC_HIGH		18" in settings)
+
+    # 4. the capture-hint mojibake: utf-8 strings ride the utf-8 copier.
+    check("the capture hint copies through the utf-8 bridge",
+          "string_copy_utf8_string(wbuf,localization_get_string(_viv_settings_capture_edit" in settings)
+    flat_settings = " ".join(settings.split())
+    import glob as _glob
+    bad = []
+    for path in _glob.glob("src/*.c"):
+        src = " ".join(read(path).decode().split())
+        for fn in ("string_copy", "string_cat"):
+            if re.search(fn + r"\(\s*\w+\s*,\s*localization_get_string\(", src):
+                bad.append(path)
+    check("no wide copier ever consumes a localization string (tree-wide)",
+          bad == [], str(bad))
+
+    # 5. the status strip font: pinned, and re-pinned on dpi change.
+    check("the status bar creation pins the menu font",
+          "SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));" in chrome)
+    dpi = wndproc.split("static LRESULT _viv_on_wm_dpichanged")[1].split("static LRESULT")[0]
+    check("a dpi change re-pins the strip font",
+          "SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));" in dpi and
+          dpi.index("_viv_menu_font_drop();") < dpi.index("WM_SETFONT"))
+
+    # 6. the menu window theming owns its process.
+    check("the popup theme validates the owning process",
+          "GetWindowThreadProcessId(menu_hwnd,&menu_pid)" in menu and
+          "(menu_pid == GetCurrentProcessId())" in menu)
+    check("the dark re-apply validates the owning process too",
+          "GetWindowThreadProcessId(menu_hwnd,&menu_pid)" in chrome and
+          "(menu_pid == GetCurrentProcessId())" in chrome)
+
+    # 7. the changelog and the release identity.
+    flat = " ".join(changes.split())
+    check("the changelog states the recent reentry guard",
+          "the push site now asks one question" in flat and
+          "a reload is not a recent open" in flat)
+    check("the changelog states the mru hygiene",
+          "the delete drops it, the rename" in flat)
+    check("the changelog states the font proportion round",
+          "the settings rows move to" in flat and "12 dip" in flat)
+    check("the changelog states the mojibake root",
+          "the localization returns utf-8" in flat)
+    check("the changelog states the menu window hardening",
+          "the owning process" in flat)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -3863,6 +3975,7 @@ if __name__ == "__main__":
     t_platform_guardrails()
     t_field_repair_round78()
     t_zoom_pane_editor_round79()
+    t_field_report_round80()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

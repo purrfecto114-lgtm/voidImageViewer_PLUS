@@ -18,7 +18,15 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.12-rc.14 — the zoom pane editor round (the current release candidate):**
+**1.1.12-rc.15 — the field report round (the current release candidate):**
+
+- **Rotating an image landed it wrongly in the recent files list** — the rotate itself never touches the list; what reordered it was a silent re-open (any path handing the viewer the file already on screen fed the list as a brand-new open). The push site now asks one question: is this the file already on screen? A reload is not a recent open. Deleting and renaming also maintain their own entry now — the delete drops it, the rename swaps it in place.
+- **The text proportions at 4K 225%** — the settings window was the one surface riding its own font size (13 dip rows) while the menu bar, toolbar, message boxes and dialogs all sit on the system font — an invisible 1px gap at 96 dpi that becomes 2-3px on every glyph at 216 dpi. The settings rows move to 12 dip, the descriptions to 11, and the status bar now carries the menu font explicitly (re-pinned on DPI change).
+- **The garbled line under the shortcuts buttons** — the capture hint ("edit keyboard shortcut: ...") copied the localization string through the wide-string copier while localization returns UTF-8, so every byte pair became a mojibake character. The copy goes through the UTF-8 bridge now, and a tree-wide guard keeps the pattern from coming back.
+- **Menu theming hardened** — the system menu window is found by a class name shared by every menu in every process; the find now checks the owning process before theming, so the viewer never paints a stranger's menu and leaves its own plain.
+- Full narrative: `Changes.txt`.
+
+**1.1.12-rc.14 — the zoom pane editor round (the previous release candidate):**
 
 - **The corner zoom percent needed two clicks, and showed a "select box"** — the click never reached the pane: the pane doubled as the window-drag anchor (inherited from upstream), its subclass ate the button down and the move loop ate the up, so the open command only fired from an inactive window's orphan up. The pane is pure input now — the drag lives on the toolbar, the menu gaps and the title bar.
 - **The editor is in place, not in a 1998 box** — the pane itself becomes a borderless number field in the strip's own font and colors; enter commits, escape cancels, focus lost commits, typing replaces the selected digits. The centered dialog (sunken field, native buttons, select-all blue block) is retired along with its template and strings. The system selection color stays — the edit control offers no custom one, and it lives on four digits for the seconds the editor is open.

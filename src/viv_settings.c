@@ -433,7 +433,11 @@ static void vivp_dpi_probe(const char *tag)
 #endif
 
 // fonts: the message font face at the window dpi, sized by the design
-// (13 dip rows, 12 dip descriptions, bold section titles).
+// (12 dip rows, 11 dip descriptions, bold section titles). the 12 dip
+// row font coincides with the system message font at every dpi, so the
+// settings text sits on the same basis as the menu bar, the toolbar
+// and the message boxes (the 13 dip rows were one notch above every
+// system-font surface - invisible at 96 dpi, visible at 225%).
 static void _viv_settings_fonts_create(void)
 {
 	LOGFONTW lf;
@@ -445,7 +449,7 @@ static void _viv_settings_fonts_create(void)
 		return;
 	}
 
-	lf.lfHeight = -_viv_settings_dip(13);
+	lf.lfHeight = -_viv_settings_dip(12);
 	lf.lfWeight = FW_NORMAL;
 
 	_viv_settings_font = CreateFontIndirectW(&lf);
@@ -455,7 +459,7 @@ static void _viv_settings_fonts_create(void)
 	_viv_settings_font_bold = CreateFontIndirectW(&lf);
 
 	lf.lfWeight = FW_NORMAL;
-	lf.lfHeight = -_viv_settings_dip(12);
+	lf.lfHeight = -_viv_settings_dip(11);
 
 	_viv_settings_font_small = CreateFontIndirectW(&lf);
 }
@@ -3279,7 +3283,7 @@ static void _viv_settings_paint(HWND hwnd)
 							_viv_get_key_text(key_wbuf,_viv_settings_capture_key);
 						}
 
-						string_copy(wbuf,localization_get_string(_viv_settings_capture_edit ? LOCALIZATION_ID_EDIT_KEYBOARD_SHORTCUT_CAPTION : LOCALIZATION_ID_ADD_KEYBOARD_SHORTCUT_CAPTION));
+						string_copy_utf8_string(wbuf,localization_get_string(_viv_settings_capture_edit ? LOCALIZATION_ID_EDIT_KEYBOARD_SHORTCUT_CAPTION : LOCALIZATION_ID_ADD_KEYBOARD_SHORTCUT_CAPTION));
 						string_cat(wbuf,L": ");
 						string_cat(wbuf,key_wbuf);
 					}

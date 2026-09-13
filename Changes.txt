@@ -1,3 +1,53 @@
+Pre-release: Version 1.1.12-rc.15 (the field report round)
+*the field report: the recent list, the text proportions, the
+ shortcut capture hint, and one cross-process hardening.
+*"rotating an image lands it wrongly in the recent files list":
+ the rotate itself never touches the recent list (the audit traced
+ every writer; the shell verb runs the system's lossless rotation,
+ the in-memory bitmaps follow). what reorders the list is a silent
+ re-open: any path that hands the viewer the file already on
+ screen (the single-instance forward, a re-drop, a re-click, a
+ re-open of the same file) fed the recent list as if it were a
+ brand new open - the file jumped to the top with no visible open
+ anywhere. the push site now asks one question: is this the file
+ already on screen? a reload is not a recent open. the honest
+ trade: clicking the recent entry of the file already displayed
+ no longer re-shuffles it to the top.
+*the recent list also kept dead entries: deleting a file left it
+ in the list until some later click failed, and renaming left the
+ old name forever (the new one never entered). both operations
+ maintain their own entry now: the delete drops it, the rename
+ swaps it in place (the position is kept, nothing jumps).
+*"the text proportions look wrong at 4k 225%": the settings window
+ was the one surface that did not ride the system font size - its
+ rows carried a 13 dip font while the menu bar, the toolbar, the
+ message boxes and the classic dialogs all sit on the system font
+ (12 at 96 dpi). the gap is a fixed ratio: invisible at 96 dpi
+ (one pixel) and visible at 216 dpi (two to three pixels on every
+ glyph, the field's own measurements). the settings rows move to
+ 12 dip and the descriptions to 11 - the sizes coincide with the
+ message font basis at every dpi, and the dropdowns stop changing
+ size between the closed value and the open list.
+*the status bar never got a font of its own: it ran on whatever
+ the common control defaulted to, which happens to scale but does
+ not match the strip's basis. the bar now carries the menu font
+ (the same one the toolbar and the menu bar ride) and re-pins it
+ when the dpi changes; the zoom pane editor inherits it through
+ the same wm_getfont it always used.
+*"weird garbled text in the options shortcuts": the capture hint
+ line under the add / edit / remove buttons ("edit keyboard
+ shortcut: <keys>") was built by copying the localization string
+ with the wide-string copier. the localization returns utf-8;
+ each byte pair became one character of mojibake. the copy is
+ utf-8 now, and a guard scans the whole tree for the pattern so
+ no other site can grow it.
+*the win7+ hardening: the menu theming finds the system menu
+ window by class name (#32768) - a name shared by every menu in
+ every process on the desktop. the find can return another
+ process's menu; the viewer would theme that one and leave its
+ own popup plain. both find sites now check the owning process
+ before touching the class.
+
 Pre-release: Version 1.1.12-rc.14 (the zoom pane editor round)
 *the field report on the status bar zoom pane: one click, no box.
 *"the zoom percent in the corner needs two clicks to open, and the

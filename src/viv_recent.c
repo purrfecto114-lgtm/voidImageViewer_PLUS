@@ -33,6 +33,8 @@ void _viv_recent_save_defer(void);
 void _viv_recent_save_fold(void);
 void _viv_recent_file_push(const wchar_t *filename);
 void _viv_recent_file_remove(int index);
+void _viv_recent_file_remove_filename(const wchar_t *filename);
+void _viv_recent_file_rename(const wchar_t *old_filename,const wchar_t *new_filename);
 void _viv_recent_file_clear(void);
 HMENU _viv_create_recent_menu(void);
 static void _viv_recent_menu_update(void);
@@ -119,6 +121,52 @@ void _viv_recent_file_remove(int index)
 		
 		_viv_recent_save_defer();
 		_viv_recent_menu_update();
+	}
+}
+// the file behind a recent entry is gone (a delete): drop the entry now
+// instead of leaving a dead row for the next click to fail on.
+void _viv_recent_file_remove_filename(const wchar_t *filename)
+{
+	int i;
+
+	for(i=0;i<config_recent_file_count;i++)
+	{
+		if (_viv_icompare_filename(config_recent_files[i],filename) == 0)
+		{
+			_viv_recent_file_remove(i);
+
+			return;
+		}
+	}
+}
+// the file behind a recent entry was renamed: swap the entry's string in
+// place - the position is the open history, the name is what changed.
+// a missing entry stays missing (the rename of a never-opened file must
+// not insert anything).
+void _viv_recent_file_rename(const wchar_t *old_filename,const wchar_t *new_filename)
+{
+	int i;
+
+	for(i=0;i<config_recent_file_count;i++)
+	{
+		if (_viv_icompare_filename(config_recent_files[i],old_filename) == 0)
+		{
+			wchar_t *entry;
+
+			entry = string_alloc(new_filename);
+
+			if (entry)
+			{
+				mem_free(config_recent_files[i]);
+
+				config_recent_files[i] = entry;
+
+				_viv_recent_save_defer();
+				_viv_recent_menu_update();
+			}
+
+			return;
+		}
 	}
 }
 void _viv_recent_file_clear(void)
