@@ -46,7 +46,6 @@ int _viv_zoom_percent(void);
 int _viv_zoom_pos_for_percent(int percent,int strict);
 HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int orientation);
 HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int render_wide,int render_high,int *pmip_wide,int *pmip_high,_viv_mipmap_t **out_mip);
-static int _viv_ceil(double x);
 void _viv_stretch_blt(HDC dst_hdc,int dst_x,int dst_y,int dst_wide,int dst_high,HDC src_hdc,int src_wide,int src_high,int clip_x,int clip_y,int clip_wide,int clip_high);
 BOOL _viv_StretchBltStitch(HDC hdcDest,int xDest,int yDest,int wDest,int hDest,HDC hdcSrc,int xSrc,int ySrc,int wSrc,int hSrc,DWORD rop,int clip_x,int clip_y,int clip_wide,int clip_high);
 static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt);
@@ -1152,12 +1151,6 @@ HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int render
 		pmip = &(*pmip)->mipmap;
 		depth++;
 	}
-}
-static int _viv_ceil(double x) 
-{
-    int xi = (int)x;
-    
-    return (x > (double)xi) ? xi + 1 : xi;
 }
 // stretch a src-HDC with a selected bitmap to a distination-HDC.
 // only stretch the specified clipping region (hopefully small from a scroll)

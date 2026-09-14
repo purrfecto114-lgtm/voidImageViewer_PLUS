@@ -333,10 +333,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.13.64 pre-release (the high dpi icons round)",
-          (major, minor, rev, build) == ("1", "1", "13", "64") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.4 tag)",
-          vstr == "1.1.13-rc.4")
+    check("version.h = 1.1.13.65 pre-release (the dead residue round)",
+          (major, minor, rev, build) == ("1", "1", "13", "65") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.5 tag)",
+          vstr == "1.1.13-rc.5")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3082,8 +3082,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 64",
-          "#define VERSION_BUILD 64" in version)
+    check("the release candidate line moves to build 65",
+          "#define VERSION_BUILD 65" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3153,9 +3153,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 64",
-          "#define VERSION_BUILD 64" in version and
-          '#define VERSION_STRING "1.1.13-rc.4"' in version)
+    check("the version moves to build 65",
+          "#define VERSION_BUILD 65" in version and
+          '#define VERSION_STRING "1.1.13-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3205,7 +3205,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 30300)  # rc.4 recalibration: the high dpi icons round rides the splice (measured 30208)
+          viv_lines >= 21130 and viv_lines <= 30300)  # rc.5 recalibration: the dead residue round trimmed the splice (measured 30159)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3266,7 +3266,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 30300, f"({total})")  # rc.4 recalibration (the high dpi icons round measured 30208)
+          21130 <= total <= 30300, f"({total})")  # rc.5 recalibration (the dead residue round measured 30159)
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3427,9 +3427,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.4 build 64",
-          '#define VERSION_BUILD 64' in version and
-          '#define VERSION_STRING "1.1.13-rc.4"' in version)
+    check("the version is 1.1.13-rc.5 build 65",
+          '#define VERSION_BUILD 65' in version and
+          '#define VERSION_STRING "1.1.13-rc.5"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3492,9 +3492,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 64",
-          "#define VERSION_BUILD 64" in version and
-          '#define VERSION_STRING "1.1.13-rc.4"' in version)
+    check("the version moves to build 65",
+          "#define VERSION_BUILD 65" in version and
+          '#define VERSION_STRING "1.1.13-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4056,9 +4056,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.4 build 64",
-          '#define VERSION_BUILD 64' in version and
-          '#define VERSION_STRING "1.1.13-rc.4"' in version)
+    check("the version is 1.1.13-rc.5 build 65",
+          '#define VERSION_BUILD 65' in version and
+          '#define VERSION_STRING "1.1.13-rc.5"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4226,9 +4226,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.13-rc.4 build 64",
-          '#define VERSION_BUILD 64' in version and
-          '#define VERSION_STRING "1.1.13-rc.4"' in version)
+    check("the version is 1.1.13-rc.5 build 65",
+          '#define VERSION_BUILD 65' in version and
+          '#define VERSION_STRING "1.1.13-rc.5"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4329,12 +4329,12 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.13-rc.4 build 64",
-          '#define VERSION_BUILD 64' in version and
-          '#define VERSION_STRING "1.1.13-rc.4"' in version)
-    check("the candidate line is the high dpi icons round",
-          "**1.1.13-rc.4 \u2014" in readme and
-          "(the current release candidate):**" in readme)
+    check("the version is 1.1.13-rc.5 build 65",
+          '#define VERSION_BUILD 65' in version and
+          '#define VERSION_STRING "1.1.13-rc.5"' in version)
+    check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
+          "**1.1.13-rc.4** \u2014" in readme and
+          "**1.1.13-rc.4 \u2014" not in readme)
     # 5. the changelog carries the round.
     flat = " ".join(changes.split())
     check("the changelog states the todo landing",
@@ -4343,6 +4343,83 @@ def t_high_dpi_icons_round90():
     check("the changelog states the ladder and the seticon pair",
           "256, 128, 64," in flat and
           "wm_seticon pins the big and small pair" in flat)
+
+
+def t_dead_residue_round91():
+    """Guards for the dead residue round (1.1.13-rc.5: the carpet sweep -
+    the zero-reference residue the static scan surfaced retires, and the
+    deliberately-frozen corners stay pinned as kept)."""
+    memc = read("src/mem.c").decode("latin-1")
+    memh = read("src/mem.h").decode("latin-1")
+    render = read("src/viv_render.c").decode("latin-1")
+    view = read("src/viv_view.c").decode("latin-1")
+    stateh = read("src/viv_state.h").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+    selfc = read("src/viv_selfshot.c").decode("latin-1")
+    settingsc = read("src/viv_settings.c").decode("latin-1")
+    instc = read("src/viv_install.c").decode("latin-1")
+    resh = read("res/resource.h").decode("latin-1")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    version = read("src/version.h").decode("latin-1")
+
+    # 1. the three zero-reference functions retire (their live
+    #    neighbors survive - the sweep did not overreach).
+    check("the dead mem getter is gone",
+          "get_mem_usage" not in memc and "get_mem_usage" not in memh)
+    check("the mem accounting global survives (the debug paths read it)",
+          "mem_usage" in memc)
+    check("the dead ceil helper is gone",
+          "_viv_ceil" not in render)
+    check("the stretch path it sat beside survives",
+          "_viv_stretch_blt" in render)
+    check("the dead key-state probe is gone",
+          "_viv_is_key_state" not in view)
+    check("the pause path it sat above survives",
+          "void _viv_pause(void)" in view)
+    # 2. the dead macro families.
+    check("the stale association bit macros are gone (the positional scheme is the carrier)",
+          "_VIV_ASSOCIATION_BMP" not in stateh and
+          "1 << exti" in instc and
+          "_VIV_ASSOCIATION_COUNT" in stateh)
+    check("the selfshot harness keeps only the timer id",
+          "_VIV_SELF_WM_STEP" not in selfc and "_VIV_SELF_TIMER_ID" in selfc)
+    check("the unused settings color sentinel is gone",
+          "_VIV_SETTINGS_COUNT" not in settingsc)
+    # 3. the resource.h residue (the toolbar-icon-drop precedent).
+    for dead in ("IDD_FORMVIEW", "IDD_FORMVIEW1", "IDD_DIALOG1", "IDD_FORMVIEW2",
+                 "IDB_BITMAP1", "IDC_COMBO3", "IDC_CHECK1", "IDC_BUTTON1",
+                 "IDC_BUTTON2", "IDC_BUTTON3", "IDC_LIST1", "IDC_LIST2",
+                 "IDC_OLD_EDIT", "IDC_EDIT1"):
+        check("resource.h drops %s" % dead,
+              ("#define " + dead + " ") not in resh)
+    check("the live dialog ids stay",
+          "#define IDD_OPTIONS " in resh and "#define IDD_EDIT_KEY " in resh)
+    check("the live association controls stay",
+          "#define IDC_BMP " in resh and "#define IDC_WEBP " in resh and
+          "#define IDC_EMF " in resh)
+    # 4. the deliberate keeps (recorded decisions, not residue).
+    check("the frozen options family stays (the recorded rollback anchor)",
+          "_viv_options_proc" in read("src/viv_dialogs.c").decode("latin-1"))
+    check("the unicows bootstrap stays (version_x86 builds link it)",
+          "LoadUnicowsProc" in read("src/viv.c").decode("latin-1"))
+    check("the crt assert override stays",
+          "_wassert" in read("src/webp.c").decode("latin-1"))
+    check("the full cbs/rbs state ladder stays (guard-pinned table)",
+          "#define OS_BS_CHECKEDDISABLED 8" in osh)
+    # 5. the version and the readme slot.
+    check("the version is 1.1.13-rc.5 build 65",
+          '#define VERSION_BUILD 65' in version and
+          '#define VERSION_STRING "1.1.13-rc.5"' in version)
+    check("the candidate line is the dead residue round",
+          "**1.1.13-rc.5 \u2014" in readme and
+          "(the current release candidate):**" in readme)
+    # 6. the changelog carries the round.
+    flat = " ".join(changes.split())
+    check("the changelog states the sweep",
+          "the dead residue round" in flat)
+    check("the changelog states the deliberate keeps",
+          "stays frozen" in flat and "unicows" in flat)
 
 
 if __name__ == "__main__":
@@ -4404,6 +4481,7 @@ if __name__ == "__main__":
     t_association_guard_round86()
     t_halftone_palette_round89()
     t_high_dpi_icons_round90()
+    t_dead_residue_round91()
     t_release_title_crlf_fix()
     print()
     if failures:

@@ -157,7 +157,6 @@
 #define _VIV_SETTINGS_C_ACCENT_DOWN	11
 #define _VIV_SETTINGS_C_ON_ACCENT	12
 #define _VIV_SETTINGS_C_NAV_HOVER	13
-#define _VIV_SETTINGS_COUNT			14
 
 // one row of the rect state machine.
 typedef struct _viv_settings_ctl_s

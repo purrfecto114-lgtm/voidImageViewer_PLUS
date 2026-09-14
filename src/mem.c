@@ -47,11 +47,6 @@ int mem_debug_initialized=0;
 int mem_debug_count=0;
 CRITICAL_SECTION mem_debug_cs;
 
-int get_mem_usage(void)
-{
-	return (int)mem_usage;
-}
-
 void mem_debug(void)
 {
 	mem_debug_t *start;

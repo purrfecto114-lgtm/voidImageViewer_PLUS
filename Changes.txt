@@ -1,3 +1,47 @@
+Pre-release: Version 1.1.13-rc.5 (the dead residue round)
+*the carpet sweep the cleanup round asked for: a whole-tree
+ static scan (every function definition, every textual
+ reference, the transitive closure from the cross-file roots)
+ surfaced the zero-reference residue, and every candidate was
+ cross-checked against the guards, the rc numerics, the
+ resource templates and the recorded freeze decisions before
+ anything moved.
+*three dead functions retire: get_mem_usage (the mem accounting
+ getter - the debug paths read the global directly and nothing
+ in the tree ever called the getter), _viv_ceil (a ceil helper
+ beside the stretch path, declaration and body - the percent
+ stepper owns the rounding now) and _viv_is_key_state (a
+ key-state probe above the pause path, declaration and body -
+ the accelerator table owns the modifiers, no caller
+ survives).
+*four dead macro families retire: the nine _VIV_ASSOCIATION_
+ bmp..webp bit flags (stale twice over - the installer builds
+ its flags positionally with 1 << exti against the extension
+ table, and the flags never grew the emf and wmf entries the
+ table carries), the selfshot harness's _VIV_SELF_WM_STEP (the
+ harness arms a timer and never posts the custom message), the
+ settings color sentinel _VIV_SETTINGS_COUNT (the color family
+ is a switch over the c_* indices, nothing sizes itself by the
+ sentinel) and fourteen vs-generated resource ids (idd_formview
+ with its two aliases, idd_dialog1, idb_bitmap1, and the
+ auto-named controls idc_combo3, idc_check1, idc_button1, 2 and
+ 3, idc_list1 and 2, idc_old_edit, idc_edit1 - zero references
+ in the rc, the sources and the guards; the same residue class
+ the earlier toolbar-icon-drop round removed).
+*the deliberate keeps, recorded so the next sweep does not
+ relitigate them: the ~1400-line frozen options family stays
+ frozen (the recorded rollback anchor until the settings window
+ regains list browsing), the unicows bootstrap stays (the x86
+ project files define version_x86 and link the loader pair),
+ the crt _wassert override stays (the linker consumes it - no
+ textual reference will ever show one), the full cbs/rbs state
+ ladder in os.h stays (the guard pins the complete table as the
+ uxtheme documentation) and the _aps block stays (the
+ next-control-value guard reads it).
+*the round-91 guard pins every removal (the symbols cannot
+ silently come back) and every keep (the freeze decisions
+ cannot silently erode). verified: the suites pass.
+
 Pre-release: Version 1.1.13-rc.4 (the high dpi icons round)
 *the third todo item lands: high dpi icons. the ico carried only
  the 16 and 32 pixel frames - a 150 percent desktop asks for 48

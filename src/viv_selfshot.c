@@ -21,7 +21,6 @@
 #ifdef VIVP_SELF_SHOT
 
 #define _VIV_SELF_TIMER_ID 0x5348
-#define _VIV_SELF_WM_STEP (WM_APP + 0x5348)
 
 static VOID CALLBACK _viv_self_timer(HWND hwnd,UINT msg,UINT_PTR id,DWORD time);
 

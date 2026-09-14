@@ -46,7 +46,6 @@ static void _viv_delete(int permanently);
 static void _viv_copy(int cut);
 static void _viv_copy_filename(void);
 static void _viv_copy_image(void);
-static int _viv_is_key_state(int control,int shift,int alt);
 void _viv_pause(void);
 static void _viv_increase_rate(int dec);
 static void _viv_file_preview(void);
@@ -1931,37 +1930,6 @@ static void _viv_copy_image(void)
 			CloseClipboard();
 		}
 	}
-}
-static int _viv_is_key_state(int control,int shift,int alt)
-{
-	if (GetKeyState(VK_CONTROL) < 0)
-	{
-		if (!control) return 0;
-	}
-	else
-	{
-		if (control) return 0;
-	}
-	
-	if (GetKeyState(VK_SHIFT) < 0)
-	{
-		if (!shift) return 0;
-	}
-	else
-	{
-		if (shift) return 0;
-	}
-	
-	if (GetKeyState(VK_MENU) < 0)
-	{
-		if (!alt) return 0;
-	}
-	else
-	{
-		if (alt) return 0;
-	}
-	
-	return 1;
 }
 void _viv_pause(void)
 {

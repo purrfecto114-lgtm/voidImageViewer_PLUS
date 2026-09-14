@@ -33,16 +33,6 @@
 #define _VIV_WM_REPLY							(WM_USER+1)
 #define _VIV_WM_RETRY_RANDOM_EVERYTHING_SEARCH	(WM_USER+2)
 
-#define _VIV_ASSOCIATION_BMP				0x00000001
-#define _VIV_ASSOCIATION_GIF				0x00000002
-#define _VIV_ASSOCIATION_ICO				0x00000004
-#define _VIV_ASSOCIATION_JPEG				0x00000008
-#define _VIV_ASSOCIATION_JPG				0x00000010
-#define _VIV_ASSOCIATION_PNG				0x00000020
-#define _VIV_ASSOCIATION_TIF				0x00000040
-#define _VIV_ASSOCIATION_TIFF				0x00000080
-#define _VIV_ASSOCIATION_WEBP				0x00000100
-
 #define _VIV_ZOOM_MAX 1024 // one ladder entry per 1% multiplicative zoom step. long enough that the 16x size cap is reachable even for photos much larger than the window.
 #define _VIV_ZOOM_STEPS_PER_NOTCH 10 // zoom steps per wheel notch / zoom button click (~10.5%)
 #define _VIV_ZOOM_SHRINK_STEPS 278 // the below-fit zoom-out range: 1.01^-278 is about one sixteenth of the best fit, mirroring the 16x native cap above it. the field report: pinch-out could never zoom below the best fit, so a fill-window upscale locked small images at a 200% minimum.

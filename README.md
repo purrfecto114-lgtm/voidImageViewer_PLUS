@@ -18,10 +18,10 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.13-rc.4 — the high dpi icons round (the current release candidate):**
+**1.1.13-rc.5 — the dead residue round (the current release candidate):**
 
-- **The ico grows the DPI ladder** — the third upstream TODO item lands: the icon carried only 16/32px frames, so a 150% desktop asking for 48/24 got a shell-stretched 32. The ladder now runs 16, 20, 24, 32, 48, 64, 128, 256 — new frames resampled Lanczos from the 32bpp masters (the little landscape's sky is a photographic gradient, a faithful resample beats a redraw), the original frames riding along byte-identical.
-- **The frame icons ride the window's DPI** — a new `os_GetSystemMetricsForDpi` ladder helper (Win10 1607+ exact via `GetSystemMetricsForDpi`; the pre-1607 ladder's raw metric already carries the system DPI), `WM_SETICON` pins the big/small pair at the window's own DPI, `WM_DPICHANGED` re-pins when the window crosses monitors, and the new pair always lands before the old one retires.
+- **The carpet sweep** — a whole-tree static scan surfaced the zero-reference residue, and every candidate was cross-checked against the guards, the rc numerics and the recorded freeze decisions before anything moved: three dead functions (`get_mem_usage`, `_viv_ceil`, `_viv_is_key_state`), four dead macro families (the stale `_VIV_ASSOCIATION_*` bit flags superseded by the installer's positional `1 << exti` scheme, the selfshot harness's never-posted message id, the settings color sentinel) and fourteen VS-generated resource ids retired.
+- **The deliberate keeps** — the ~1400-line frozen options family (the recorded rollback anchor), the unicows bootstrap (x86 builds link it), the CRT `_wassert` override, the full cbs/rbs state ladder and the `_APS` block all stay, each pinned by the round-91 guard so the next sweep cannot relitigate them.
 
 **1.1.12 — the remake arc: the full GUI remake, the platform guardrails, the field fixes and the review absorption (the current stable):**
 
@@ -31,6 +31,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.13-rc.4** — the high dpi icons round: the ico grows the DPI ladder (Lanczos-resampled frames down from 256px, all alpha-carrying) and the frame icons ride the window's own DPI (`WM_SETICON` pair, `WM_DPICHANGED` re-pin).
 - **1.1.13-rc.3** — the halftone palette round: 256-color mode gets `graphics::GetHalftonePalette` — the classic palette contract (foreground/background realization, the paint-DC selection, the display-change resync).
 - **1.1.13-rc.2** — the association guard round: `.bmp`/`.jpg` taken over only when the effective default is the Windows canonical class or already ours — a foreign viewer's association is left completely alone.
 - **1.1.13-rc.1** — the readme diet round: the news section demoted to the one-line list (full treatment only for the current stable and candidate; [Changes.txt](Changes.txt) stays the archive of record); the 1.1.13 TODO arc opens.
