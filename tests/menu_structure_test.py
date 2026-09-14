@@ -4309,10 +4309,12 @@ def t_high_dpi_icons_round90():
           "os_GetSystemMetricsForDpi(SM_CXICON,dpi)" in wnd and
           "os_GetSystemMetricsForDpi(SM_CXSMICON,dpi)" in wnd)
     check("wm_seticon pins the big and small pair",
-          "SendMessage(hwnd,WM_SETICON,ICON_BIG,(LPARAM)big)" in wnd and
-          "SendMessage(hwnd,WM_SETICON,ICON_SMALL,(LPARAM)small)" in wnd)
+          "SendMessage(hwnd,WM_SETICON,ICON_BIG,(LPARAM)big_icon)" in wnd and
+          "SendMessage(hwnd,WM_SETICON,ICON_SMALL,(LPARAM)small_icon)" in wnd)
+    check("the rpcndr small-macro trap stays documented",
+          "`small` is an rpcndr.h macro" in wnd)
     check("the new pair lands before the old one retires",
-          wnd.index("SendMessage(hwnd,WM_SETICON,ICON_BIG,(LPARAM)big)") <
+          wnd.index("SendMessage(hwnd,WM_SETICON,ICON_BIG,(LPARAM)big_icon)") <
           wnd.index("DestroyIcon(_viv_icon_big);"))
     check("wm_dpichanged re-pins the pair at the new dpi",
           "_viv_icons_apply(hwnd);" in wnd)

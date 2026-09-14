@@ -379,8 +379,11 @@ static HICON _viv_icon_small = 0;
 
 void _viv_icons_apply(HWND hwnd)
 {
-	HICON big;
-	HICON small;
+	// note: `small` is an rpcndr.h macro (char) via the windows.h
+	// include chain - the plain name is a c2628 trap, so the pair
+	// rides the _icon suffix.
+	HICON big_icon;
+	HICON small_icon;
 	UINT dpi;
 	int wide;
 	int high;
@@ -389,18 +392,18 @@ void _viv_icons_apply(HWND hwnd)
 
 	wide = os_GetSystemMetricsForDpi(SM_CXICON,dpi);
 	high = os_GetSystemMetricsForDpi(SM_CYICON,dpi);
-	big = (HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,wide,high,0);
+	big_icon = (HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,wide,high,0);
 
 	wide = os_GetSystemMetricsForDpi(SM_CXSMICON,dpi);
 	high = os_GetSystemMetricsForDpi(SM_CYSMICON,dpi);
-	small = (HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,wide,high,0);
+	small_icon = (HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,wide,high,0);
 
 	// set the new pair before retiring the old one: the window must
 	// never point at a destroyed icon. a failed load leaves the pair
 	// in place (the class icons still answer).
-	if (big)
+	if (big_icon)
 	{
-		SendMessage(hwnd,WM_SETICON,ICON_BIG,(LPARAM)big);
+		SendMessage(hwnd,WM_SETICON,ICON_BIG,(LPARAM)big_icon);
 
 		if (_viv_icon_big)
 		{
@@ -410,9 +413,9 @@ void _viv_icons_apply(HWND hwnd)
 		_viv_icon_big = big;
 	}
 
-	if (small)
+	if (small_icon)
 	{
-		SendMessage(hwnd,WM_SETICON,ICON_SMALL,(LPARAM)small);
+		SendMessage(hwnd,WM_SETICON,ICON_SMALL,(LPARAM)small_icon);
 
 		if (_viv_icon_small)
 		{
