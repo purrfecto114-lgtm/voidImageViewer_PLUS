@@ -410,7 +410,7 @@ void _viv_icons_apply(HWND hwnd)
 			DestroyIcon(_viv_icon_big);
 		}
 
-		_viv_icon_big = big;
+		_viv_icon_big = big_icon;
 	}
 
 	if (small_icon)
@@ -422,7 +422,7 @@ void _viv_icons_apply(HWND hwnd)
 			DestroyIcon(_viv_icon_small);
 		}
 
-		_viv_icon_small = small;
+		_viv_icon_small = small_icon;
 	}
 }
 
