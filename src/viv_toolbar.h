@@ -52,4 +52,12 @@ void _viv_toolbar_set_dark(int dark);
 // hidden).
 int _viv_toolbar_high(void);
 
+// the customize popup's command ids ride a private range the wndproc
+// interceptor routes back here (the todo closure round).
+#define _VIV_TOOLBAR_CONTEXT_ID_FIRST 0x6f00
+
+// answers a customize-popup selection (group toggle or show-all);
+// the strip re-measures and repaints itself.
+void _viv_toolbar_context_command(int command_id);
+
 #endif // VIV_TOOLBAR_H

@@ -96,5 +96,8 @@ src/viv_view.c
 src/viv_wndproc.c
 src/wchar.c
 src/webp.c
+src/hwd3d.c
+src/hwgl.c
+src/shellmenu.c
 src/wic.c
 src/zoomui.c

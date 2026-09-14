@@ -1492,6 +1492,26 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 		}
 	}
 
+	// the shell section: the explorer verbs for the open file ride
+	// below the app rows (the upstream TODO's cdeffoldermenu_create2
+	// item). a file that is not open, or a shell without the 5.0+
+	// export set, keeps the menu app-only.
+	if (*_viv_current_fd->cFileName)
+	{
+		wchar_t cwd_wbuf[STRING_SIZE];
+
+		GetCurrentDirectory(STRING_SIZE,cwd_wbuf);
+
+		if (*cwd_wbuf)
+		{
+			wchar_t full_wbuf[STRING_SIZE];
+
+			string_path_combine(full_wbuf,cwd_wbuf,_viv_current_fd->cFileName);
+
+			_viv_shell_context_menu_append(hmenu,hwnd,full_wbuf);
+		}
+	}
+
 	_viv_check_menus(hmenu);
 	
 	_viv_show_cursor();
@@ -1503,6 +1523,10 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 	// start the hide cursor timer again.
 	_viv_in_popup_menu = 0;
 	_viv_update_show_cursor();
+	
+	// release the shell section (InvokeCommand already released it when
+	// a verb ran; this is the nobody-clicked path).
+	_viv_shell_context_menu_finish(hwnd);
 	
 	_viv_recent_menu_flush();
 	
@@ -1999,6 +2023,14 @@ static LRESULT _viv_on_wm_measureitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 {
 	if ((lParam) && (((MEASUREITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
 	{
+		// the shell section's owner-drawn rows (if any) resolve through
+		// the shell's own handler; the app painter would read their
+		// item data as one of its rows.
+		if ((((MEASUREITEMSTRUCT *)lParam)->itemID >= _VIV_SHELL_MENU_ID_FIRST) && (_viv_shell_context_menu_handle_menu_msg(hwnd,msg,wParam,lParam)))
+		{
+			return TRUE;
+		}
+		
 		if (_viv_menu_measure_item((MEASUREITEMSTRUCT *)lParam))
 		{
 			return TRUE;
@@ -2066,6 +2098,17 @@ static LRESULT _viv_on_wm_drawitem(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 		return TRUE;
 	}
 	
+	// the shell section's owner-drawn rows (if any) resolve through
+	// the shell's own handler first; the app painter would read
+	// their item data as one of its rows.
+	if ((lParam) && (((DRAWITEMSTRUCT *)lParam)->CtlType == ODT_MENU) && (((DRAWITEMSTRUCT *)lParam)->itemID >= _VIV_SHELL_MENU_ID_FIRST))
+	{
+		if (_viv_shell_context_menu_handle_menu_msg(hwnd,msg,wParam,lParam))
+		{
+			return TRUE;
+		}
+	}
+	
 	// the popup menus are owner drawn: every row paints on the theme
 	// tokens (the system painter never touches them). menu draws carry
 	// no control id, so the pane check above never takes them.
@@ -2126,6 +2169,11 @@ static LRESULT _viv_on_wm_syskeyup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 
 static LRESULT _viv_on_wm_initmenupopup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
+	// the shell section's submenus initialize through the shell's own
+	// handler while the popup tracks (the module gates itself on its
+	// active section; the app rows still run below).
+	_viv_shell_context_menu_handle_menu_msg(hwnd,msg,wParam,lParam);
+	
 	// trackpopupmenuex sends this before showing a popup: the state
 	// refresh the frame menu used to get from wm_initmenu runs here.
 	_viv_check_menus(_viv_hmenu);
@@ -2326,7 +2374,27 @@ static LRESULT _viv_on_wm_notify(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 
 static LRESULT _viv_on_wm_command(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	_viv_command(LOWORD(wParam));
+	int command_id;
+
+	command_id = LOWORD(wParam);
+
+	// the shell context menu section routes its private id range
+	// straight back into InvokeCommand; the toolbar's customize
+	// popup rides its own range just below it. neither ever reaches
+	// the command table.
+	if (_viv_shell_context_menu_invoke(hwnd,command_id))
+	{
+		return 0;
+	}
+
+	if ((command_id >= _VIV_TOOLBAR_CONTEXT_ID_FIRST) && (command_id < _VIV_TOOLBAR_CONTEXT_ID_FIRST + 8))
+	{
+		_viv_toolbar_context_command(command_id);
+
+		return 0;
+	}
+
+	_viv_command(command_id);
 
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
@@ -2385,12 +2453,31 @@ static LRESULT _viv_on_wm_enter_idle(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	return 0;
 }
 
+// the hardware dispatch: one call for both back ends, the frame and
+// the clear color the only inputs beyond the view rectangle (the
+// frame answers from the live position exactly like the gdi blit).
+static int _viv_hw_render_frame(HWND hwnd,HDC hdc,int dst_x,int dst_y,int dst_wide,int dst_high,COLORREF clear_color)
+{
+	if (config_renderer == CONFIG_RENDERER_OPENGL)
+	{
+		return _viv_hwgl_render(hwnd,hdc,_viv_frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
+	}
+
+	if (config_renderer == CONFIG_RENDERER_DIRECT3D)
+	{
+		return _viv_hwd3d_render(hwnd,hdc,_viv_frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
+	}
+
+	return 0;
+}
+
 static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	RECT rect;
 	int wide;
 	int high;
 	int view_top;
+	COLORREF brush_color;
 	PAINTSTRUCT ps;
 
 	// paint the image.
@@ -2414,6 +2501,11 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 	
 	view_top = _viv_get_view_top();
+
+	// the canvas color: the gdi background fill and the hardware
+	// clear share one source (hoisted so both paths read it at
+	// their own point).
+	brush_color = _viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : _viv_windowed_background();
 
 	if (BeginPaint(hwnd,&ps))
 	{
@@ -2477,6 +2569,30 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			int ry;
 			int rw;
 			int rh;
+
+			// the hardware renderers take the whole frame: the same view
+			// math the gdi path computes below, one textured quad, one
+			// present. any refusal (no dll, no context, an oversized
+			// canvas) leaves the gdi path painting this frame - the sticky
+			// flags keep the answer stable for the session.
+			if (_viv_frame_count)
+			{
+				_viv_get_render_size(&rw,&rh);
+				
+				rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
+				ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
+				
+				if ((config_renderer != CONFIG_RENDERER_GDI) && (_viv_hw_render_frame(hwnd,ps.hdc,rx,ry + view_top,rw,rh,brush_color)))
+				{
+					_viv_is_animation_paint = 0;
+					
+					DeleteObject(update_hrgn);
+					
+					EndPaint(hwnd,&ps);
+					
+					return 0;
+				}
+			}
 
 			// begin the backbuffer only when there is a viewport to render into.
 			if (!((os_GetLayout) && (os_GetLayout(ps.hdc) & LAYOUT_RTL)))
@@ -2749,10 +2865,6 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 			}
 
 			{
-				COLORREF brush_color;
-				
-				brush_color = _viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : _viv_windowed_background();
-				
 				// reuse the background brush across paints: its color only changes
 				// with the config or the theme, so a paint no longer allocates and
 				// frees a GDI brush each frame.

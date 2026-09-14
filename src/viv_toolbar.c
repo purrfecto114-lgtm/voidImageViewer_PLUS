@@ -41,6 +41,7 @@
 #include "viv_render.h"
 #include "viv_menubar.h"
 #include "viv_toolbar.h"
+#include "viv_menu.h"
 
 // not defined in older sdks.
 #ifndef BN_CLICKED
@@ -130,6 +131,7 @@ static BYTE _viv_toolbar_tracking = 0; // the mouse leave tracking is armed.
 // selection blue the first cut painted.
 static void _viv_toolbar_measure(void);
 static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_y);
 void _viv_start_move_window(void); // viv_view.c: the strip background drag
 
 // dip macros: the 96 dpi design units at the window's current dpi.
@@ -261,9 +263,20 @@ static void _viv_toolbar_measure(void)
 			_viv_toolbar_item_wide[itemi] = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size + _viv_toolbar_icon_text_gap + size.cx;
 		}
 		
-		_viv_toolbar_item_glyph[itemi] = _viv_toolbar_item_glyph_id(itemi);
-		_viv_toolbar_item_x[itemi] = x;
-		_viv_toolbar_item_visible[itemi] = 1;
+				_viv_toolbar_item_glyph[itemi] = _viv_toolbar_item_glyph_id(itemi);
+				_viv_toolbar_item_x[itemi] = x;
+				_viv_toolbar_item_visible[itemi] = 1;
+				
+		// the customization mask: a group the user hid never lays out
+		// (the separator hides with its group, the overflow contract
+		// intact). the width never joins the total, so the overflow
+		// logic below sees exactly the masked strip.
+		if (!(config_toolbar_groups & (1 << _viv_toolbar_items[itemi].group)))
+		{
+			_viv_toolbar_item_visible[itemi] = 0;
+			
+			continue;
+		}
 		
 		x += _viv_toolbar_item_wide[itemi];
 	}
@@ -643,6 +656,16 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			return 0;
 		}
 		
+		case WM_CONTEXTMENU:
+		{
+			// the customize popup: right-clicking the strip toggles the
+			// button groups (the upstream TODO's control toolbar
+			// customization item, closed).
+			_viv_toolbar_context_menu(hwnd,(int)(short)LOWORD(lParam),(int)(short)HIWORD(lParam));
+			
+			return 0;
+		}
+		
 		case WM_CAPTURECHANGED:
 		{
 			int pressed;
@@ -664,6 +687,147 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 	}
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+// the customize popup: the six group toggles and the show-all row ride
+// the context pool's owner-drawn pipeline (the dark rows the context
+// menu already paints); the ids answer through the wndproc interceptor
+// and the labels live in the localization tail.
+static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_y)
+{
+	HMENU hmenu;
+
+	hmenu = CreatePopupMenu();
+
+	if (hmenu)
+	{
+		static const int group_ids[_VIV_TOOLBAR_GROUP_MAX + 1] =
+		{
+			LOCALIZATION_ID_TOOLBAR_GROUP_OPEN,
+			LOCALIZATION_ID_TOOLBAR_GROUP_NAV,
+			LOCALIZATION_ID_TOOLBAR_GROUP_FIT,
+			LOCALIZATION_ID_TOOLBAR_GROUP_ZOOM,
+			LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE,
+			LOCALIZATION_ID_TOOLBAR_GROUP_INFO,
+		};
+		int i;
+
+		_viv_menu_row_pool_reset(_VIV_MENU_POOL_CONTEXT);
+
+		// the title row: a grayed label so the popup names itself.
+		{
+			wchar_t text_wbuf[STRING_SIZE];
+			void *row;
+
+			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_TOOLBAR_CUSTOMIZE));
+
+			row = _viv_menu_row_alloc(_VIV_MENU_POOL_CONTEXT,_VIV_MENU_DRAW_LOCALIZED,0,LOCALIZATION_ID_TOOLBAR_CUSTOMIZE,0);
+
+			if (row)
+			{
+				AppendMenuW(hmenu,MF_STRING | MF_OWNERDRAW | MF_GRAYED,_VIV_TOOLBAR_CONTEXT_ID_FIRST,(LPCWSTR)row);
+			}
+			else
+			{
+				AppendMenuW(hmenu,MF_STRING | MF_GRAYED,_VIV_TOOLBAR_CONTEXT_ID_FIRST,text_wbuf);
+			}
+		}
+
+		for(i=0;i<=_VIV_TOOLBAR_GROUP_MAX;i++)
+		{
+			wchar_t text_wbuf[STRING_SIZE];
+			UINT command_id;
+			void *row;
+
+			command_id = (UINT)(_VIV_TOOLBAR_CONTEXT_ID_FIRST + 1 + i);
+
+			string_copy_utf8_string(text_wbuf,localization_get_string((localization_id_t)group_ids[i]));
+
+			row = _viv_menu_row_alloc(_VIV_MENU_POOL_CONTEXT,_VIV_MENU_DRAW_LOCALIZED,0,group_ids[i],0);
+
+			if (row)
+			{
+				AppendMenuW(hmenu,MF_STRING | MF_OWNERDRAW,command_id,(LPCWSTR)row);
+			}
+			else
+			{
+				AppendMenuW(hmenu,MF_STRING,command_id,text_wbuf);
+			}
+
+			CheckMenuItem(hmenu,command_id,(config_toolbar_groups & (1 << i)) ? MF_CHECKED : MF_UNCHECKED);
+		}
+
+		// the separator and the show-all row.
+		{
+			wchar_t text_wbuf[STRING_SIZE];
+			void *row;
+
+			row = _viv_menu_row_alloc(_VIV_MENU_POOL_CONTEXT,_VIV_MENU_DRAW_SEPARATOR,0,0,0);
+
+			if (row)
+			{
+				AppendMenuW(hmenu,MF_SEPARATOR | MF_OWNERDRAW,0,(LPCWSTR)row);
+			}
+			else
+			{
+				AppendMenuW(hmenu,MF_SEPARATOR,0,0);
+			}
+
+			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_TOOLBAR_SHOW_ALL));
+
+			row = _viv_menu_row_alloc(_VIV_MENU_POOL_CONTEXT,_VIV_MENU_DRAW_LOCALIZED,0,LOCALIZATION_ID_TOOLBAR_SHOW_ALL,0);
+
+			if (row)
+			{
+				AppendMenuW(hmenu,MF_STRING | MF_OWNERDRAW,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7,(LPCWSTR)row);
+			}
+			else
+			{
+				AppendMenuW(hmenu,MF_STRING,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7,text_wbuf);
+			}
+		}
+
+		_viv_show_cursor();
+
+		TrackPopupMenu(hmenu,TPM_RIGHTBUTTON,screen_x,screen_y,0,_viv_hwnd,0);
+
+		_viv_update_show_cursor();
+
+		DestroyMenu(hmenu);
+	}
+}
+
+void _viv_toolbar_context_command(int command_id)
+{
+	int index;
+
+	index = command_id - _VIV_TOOLBAR_CONTEXT_ID_FIRST;
+
+	if (index == 0)
+	{
+		// the title row is grayed; it never arrives, the gate is belt.
+		return;
+	}
+
+	if (index == 7)
+	{
+		// show all: the mask returns to its default.
+		config_toolbar_groups = 0x3f;
+	}
+	else
+	if ((index >= 1) && (index <= _VIV_TOOLBAR_GROUP_MAX + 1))
+	{
+		config_toolbar_groups ^= (1 << (index - 1));
+	}
+
+	// relayout and repaint: the strip re-measures with the new mask
+	// (the ini write rides the exit path like every menu toggle).
+	_viv_toolbar_measure();
+
+	if (_viv_toolbar_hwnd)
+	{
+		InvalidateRect(_viv_toolbar_hwnd,0,FALSE);
+	}
 }
 
 void _viv_toolbar_create(HWND parent)

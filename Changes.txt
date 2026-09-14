@@ -1,3 +1,72 @@
+Pre-release: Version 1.1.14-rc.1 (the todo closure round)
+*the upstream TODO list closes: the four items it carried since the
+ fork opened - the opengl renderer, the direct3d renderer, the
+ toolbar customization and the shell context menu - all land in one
+ round (six more of its lines were already closed: the halftone
+ palette, the high dpi icons, the association guard, the rename and
+ rotate options and the string table, each at the round that landed
+ it).
+*the shell context menu: right-clicking the canvas appends the
+ explorer verbs for the open file below the app's own rows - the
+ CDefFolderMenu_Create2 route the TODO named, its nine-parameter
+ windows 2000 signature verified online against the msdn page, the
+ whole shell32 5.0+ export set resolved dynamically (the win9x shell
+ never grew these entry points, the section quietly stays off
+ there), the pidl walk (ILCreateFromPathW, ILClone, ILRemoveLastID,
+ ILFindLastID) building the parent-child pair the default menu
+ constructs itself from, the selection routed back through
+ InvokeCommand with the int-resource verb offset the documented
+ contract spells, and the owner-draw menu messages (initmenupopup,
+ measureitem, drawitem) forwarded to the shell's own handler when a
+ section is on screen so its rows never reach the app painter. long
+ paths the shell layer cannot parse keep the section off - the
+ viewer's own io never depends on it.
+*the toolbar customization: right-clicking the strip opens the
+ customize popup - the six button groups (open, navigation, actual
+ size / best fit, zoom, rotate, image info) toggle through their
+ owner-drawn dark rows, a show-all row resets the mask, and the
+ visibility rides the layout's own overflow contract (a separator
+ hides with its group, so no dangling line survives the mask). the
+ mask persists in the ini (toolbar_groups) beside every other menu
+ toggle.
+*the opengl renderer: view -> renderer adds the opt-in back end -
+ one textured quad at the exact view rectangle the gdi path
+ computes, drawn through a dynamically loaded opengl32 export table
+ (the os.c gdi+ precedent - the exe never grows a static import),
+ the pixel format answering once per window with the gdi flag kept
+ alive so the default path still paints whenever the option is off,
+ the texture padded to the power-of-two sides the GL 1.1 contract
+ demands (the sampling rectangle rides the sub-rectangle texcoords -
+ the mipmap builder route would rescale non-square images, and the
+ distortion is not acceptable for a viewer), GL_EXT_bgra probed
+ before the direct bgr upload (the archived kb154877 fact: the
+ microsoft software implementation carries it - verified online;
+ the fallback repacks to rgba), the linear filter both ways without
+ mipmaps, the max texture size and the fork's pixel budget gating
+ the canvas, and any refusal falling back to the gdi path for the
+ session (the sticky flag keeps the answer stable).
+*the direct3d renderer: the same opt-in shape on d3d9.dll -
+ dynamically loaded (win9x never had it, xp needs the runtime,
+ windows 7+ carries it in the box), the caps answering the npot
+ question the d3d9 contract owns (pow2-only devices pad, conditional
+ devices take the raw dims under clamp addressing with no mipmaps,
+ full npot devices take them outright), the texture in the managed
+ pool (it survives resets by contract), the quad through
+ pretransformed XYZRHW vertices (no matrices, no lighting), the
+ FPU_PRESERVE flag on the device (the single-precision default
+ corrupts gdi+ and the crt float math), and the lost-device
+ discipline the docs spell (present returns DEVICELOST,
+ TestCooperativeLevel answers NOTRESET, reset runs, the managed
+ texture rides through).
+*the renderer trio rides radio checks in the view menu (the on-top
+ pattern), the dispatcher resets both modules on a switch, and the
+ kill path releases their contexts and devices. the version pins
+ move tree-wide to build 69; the round-96 guard pins the four
+ features, the id ranges (0x7000 shell verbs, 0x6f00 toolbar
+ toggles), the dynamic tables, the caps branches and the closure
+ itself - the viv.c TODO header now says the list is closed.
+ verified: the three suites pass and the zig line links.
+
 Stable: Version 1.1.13 (the format horizons round)
 *the promotion carries code for the first time in the fork's stable
  line: the format horizons ride the round itself.

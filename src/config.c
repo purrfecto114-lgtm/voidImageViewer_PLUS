@@ -48,6 +48,8 @@ BYTE config_maximized = 0;
 int config_slideshow_rate = 5000;
 BYTE config_allow_shrinking = 1; // prevent resizing an image below 100%
 BYTE config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_HALFTONE; // shrink filter
+int config_renderer = CONFIG_RENDERER_GDI; // render back end: gdi default, the hardware paths are opt-in
+int config_toolbar_groups = 0x3f; // toolbar group visibility mask: every group on
 BYTE config_mag_filter = CONFIG_MAG_FILTER_COLORONCOLOR; // magnify filter
 // default to sorting by filename in natural order, ascending.
 // this matches the windows explorer default, so next/previous navigation
@@ -126,6 +128,8 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_slideshow_rate = ini_get_int(ini,(const utf8_t *)"slideshow_rate",config_slideshow_rate);
 		config_allow_shrinking = ini_get_int(ini,(const utf8_t *)"allow_shrinking",config_allow_shrinking);
 		config_shrink_blit_mode = ini_get_int(ini,(const utf8_t *)"shrink_blit_mode",config_shrink_blit_mode);
+		config_renderer = ini_get_int(ini,(const utf8_t *)"renderer",config_renderer);
+		config_toolbar_groups = ini_get_int(ini,(const utf8_t *)"toolbar_groups",config_toolbar_groups);
 		config_mag_filter = ini_get_int(ini,(const utf8_t *)"mag_filter",config_mag_filter);
 		config_keep_aspect_ratio = ini_get_int(ini,(const utf8_t *)"keep_aspect_ratio",config_keep_aspect_ratio);
 		config_fill_window = ini_get_int(ini,(const utf8_t *)"fill_window",config_fill_window);
@@ -476,6 +480,8 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"slideshow_rate",config_slideshow_rate);
 			_config_write_int(h,"allow_shrinking",config_allow_shrinking);
 			_config_write_int(h,"shrink_blit_mode",config_shrink_blit_mode);
+			_config_write_int(h,"renderer",config_renderer);
+			_config_write_int(h,"toolbar_groups",config_toolbar_groups);
 			_config_write_int(h,"mag_filter",config_mag_filter);
 			_config_write_int(h,"keep_aspect_ratio",config_keep_aspect_ratio);
 			_config_write_int(h,"fill_window",config_fill_window);

@@ -184,8 +184,8 @@ def t_view_menu_shape():
                  "LOCALIZATION_ID_PRESET"):
         check(f"{want} lives in Layout",
               any(r[0] == want for r in layout_rows))
-    check("View top level is decluttered (<= 12 rows)",
-          len(view_rows) <= 12, f"{len(view_rows)} rows")
+    check("View top level is decluttered (<= 13 rows; r96: the renderer submenu joins)",
+          len(view_rows) <= 13, f"{len(view_rows)} rows")
     for want in ("LOCALIZATION_ID_FULLSCREEN", "LOCALIZATION_ID_SLIDESHOW"):
         check(f"{want} stays in View", any(r[0] == want for r in view_rows))
     check("Options left the View menu for the File menu (rc.7)",
@@ -290,10 +290,22 @@ def t_localization_alignment():
             "LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT",
             "LOCALIZATION_ID_MSGBOX_YES",
             "LOCALIZATION_ID_MSGBOX_NO",
-            "LOCALIZATION_ID_ACCENT_COLOR")
-    check("enum ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(ids[-44:]) == tail)
-    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(en[-44:]) == tail)
-    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(zh[-44:]) == tail)
+            "LOCALIZATION_ID_ACCENT_COLOR",
+            "LOCALIZATION_ID_RENDERER",
+            "LOCALIZATION_ID_RENDERER_GDI",
+            "LOCALIZATION_ID_RENDERER_OPENGL",
+            "LOCALIZATION_ID_RENDERER_DIRECT3D",
+            "LOCALIZATION_ID_TOOLBAR_CUSTOMIZE",
+            "LOCALIZATION_ID_TOOLBAR_GROUP_OPEN",
+            "LOCALIZATION_ID_TOOLBAR_GROUP_NAV",
+            "LOCALIZATION_ID_TOOLBAR_GROUP_FIT",
+            "LOCALIZATION_ID_TOOLBAR_GROUP_ZOOM",
+            "LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE",
+            "LOCALIZATION_ID_TOOLBAR_GROUP_INFO",
+            "LOCALIZATION_ID_TOOLBAR_SHOW_ALL")
+    check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail)", tuple(ids[-56:]) == tail)
+    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(en[-56:]) == tail)
+    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(zh[-56:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -330,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.13.68 stable (the format horizons round)",
-          (major, minor, rev, build) == ("1", "1", "13", "68") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.13 stable tag)",
-          vstr == "1.1.13")
+    check("version.h = 1.1.14-rc.1.69 pre-release (the todo closure round)",
+          (major, minor, rev, build) == ("1", "1", "14", "69") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.14-rc.1 tag)",
+          vstr == "1.1.14-rc.1")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1345,7 +1357,7 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 100)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders
+          len(re.findall(r"<ClCompile ", fp)) == 103)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders + the R96 gl, d3d and shell menu modules
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
     check("shared props has the resource script and the app icon only",
@@ -1453,9 +1465,9 @@ def t_modernization_round6():
     check("glyphs.c/h exist and are in the shared props",
           os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
           and "glyphs.c" in fp and "glyphs.h" in fp)
-    check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair and the remake pair",
-          len(re.findall(r"<ClCompile ", fp)) == 100
-          and len(re.findall(r"<ClInclude ", fp)) == 69)
+    check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair, the remake pair and the R96 renderers",
+          len(re.findall(r"<ClCompile ", fp)) == 103
+          and len(re.findall(r"<ClInclude ", fp)) == 72)
     check("glyphs.c loads its own gdi+ flat api table",
           '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
           and '"GdipCreateBitmapFromScan0"' in gc
@@ -3079,8 +3091,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 66 (the 1.1.13 stable pins ride it)",
-          "#define VERSION_BUILD 68" in version)
+    check("the release candidate line moves to build 66 (the 1.1.14-rc.1 pins ride it)",
+          "#define VERSION_BUILD 69" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3150,9 +3162,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.13 stable pins ride it)",
-          "#define VERSION_BUILD 68" in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version moves to build 66 (the 1.1.14-rc.1 pins ride it)",
+          "#define VERSION_BUILD 69" in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3424,9 +3436,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13 build 68",
-          '#define VERSION_BUILD 68' in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version is 1.1.14-rc.1 build 69",
+          '#define VERSION_BUILD 69' in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3489,9 +3501,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.13 stable pins ride it)",
-          "#define VERSION_BUILD 68" in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version moves to build 66 (the 1.1.14-rc.1 pins ride it)",
+          "#define VERSION_BUILD 69" in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4053,9 +4065,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13 build 68",
-          '#define VERSION_BUILD 68' in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version is 1.1.14-rc.1 build 69",
+          '#define VERSION_BUILD 69' in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4223,9 +4235,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.13 build 68",
-          '#define VERSION_BUILD 68' in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version is 1.1.14-rc.1 build 69",
+          '#define VERSION_BUILD 69' in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4326,9 +4338,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.13 build 68",
-          '#define VERSION_BUILD 68' in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version is 1.1.14-rc.1 build 69",
+          '#define VERSION_BUILD 69' in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4405,9 +4417,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.13 build 68",
-          '#define VERSION_BUILD 68' in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version is 1.1.14-rc.1 build 69",
+          '#define VERSION_BUILD 69' in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4504,9 +4516,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.13 build 68",
-          '#define VERSION_BUILD 68' in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version is 1.1.14-rc.1 build 69",
+          '#define VERSION_BUILD 69' in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4621,9 +4633,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.13 build 68",
-          '#define VERSION_BUILD 68' in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version is 1.1.14-rc.1 build 69",
+          '#define VERSION_BUILD 69' in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4631,6 +4643,210 @@ def t_format_horizons_round94():
     check("the dead prototypes retire (the r94 scan)",
           "__os_get_proc_address" not in read("src/os.c").decode("latin-1") and
           "_viv_queue_clear" not in read("src/viv.c").decode("latin-1"))
+
+def t_todo_closure_round96():
+    """Guards for the todo closure round (1.1.14-rc.1: the upstream TODO list
+    retires - the opengl and direct3d renderers, the toolbar customization
+    and the shell context menu land as the last four open items)."""
+    vivc = read("src/viv.c").decode("latin-1")
+    vivh = read("src/viv.h").decode("latin-1")
+    stateh = read("src/viv_state.h").decode("latin-1")
+    wnd = read("src/viv_wndproc.c").decode("latin-1")
+    view = read("src/viv_view.c").decode("latin-1")
+    menu = read("src/viv_menu.c").decode("latin-1")
+    toolbar = read("src/viv_toolbar.c").decode("latin-1")
+    toolbarh = read("src/viv_toolbar.h").decode("latin-1")
+    configc = read("src/config.c").decode("latin-1")
+    configh = read("src/config.h").decode("latin-1")
+    shellh = read("src/shellmenu.h").decode("latin-1")
+    shellc = read("src/shellmenu.c").decode("latin-1")
+    glh = read("src/hwgl.h").decode("latin-1")
+    glc = read("src/hwgl.c").decode("latin-1")
+    d3dh = read("src/hwd3d.h").decode("latin-1")
+    d3dc = read("src/hwd3d.c").decode("latin-1")
+    files_txt = read("build-zig/files.txt").decode("latin-1")
+    props = read("voidImageViewer.files.props").decode("latin-1")
+    version = read("src/version.h").decode("latin-1")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+
+    # 1. the todo pile is closed.
+    check("viv.c carries the closure marker",
+          "the upstream list is closed" in vivc)
+    check("the four open todo lines are gone",
+          vivc.count("// - OpenGL renderer.") == 0 and
+          vivc.count("// - Direct3D renderer.") == 0 and
+          vivc.count("// - control toolbar customization.") == 0 and
+          vivc.count("// - shell context menu") == 0)
+
+    # 2. the shell context menu module.
+    check("shellmenu.h pins the private id range",
+          "#define _VIV_SHELL_MENU_ID_FIRST 0x7000" in shellh and
+          "#define _VIV_SHELL_MENU_ID_LAST 0x7fff" in shellh)
+    check("shellmenu.c resolves the shell32 5.0+ export set dynamically",
+          'LoadLibraryA("shell32.dll")' in shellc and
+          shellc.count("GetProcAddress") >= 5 and
+          '"CDefFolderMenu_Create2"' in shellc and
+          '"ILCreateFromPathW"' in shellc and
+          '"ILClone"' in shellc and
+          '"ILFindLastID"' in shellc and
+          '"ILRemoveLastID"' in shellc)
+    check("shellmenu.c self-spells the icontextmenu iids (the os.c precedent)",
+          "_viv_shell_iid_icontextmenu" in shellc and
+          "0x000214e4" in shellc and
+          "0x000214f4" in shellc and
+          "0xbcfce0a0" in shellc)
+    check("shellmenu.c runs the documented invoke sequence",
+          "QueryContextMenu" in shellc and
+          "CMF_NORMAL" in shellc and
+          "InvokeCommand" in shellc and
+          "HandleMenuMsg2" in shellc)
+    check("the shellmenu file rides the crlf discipline",
+          "\r\n" in shellc)
+    check("the context menu appends the shell section after the app items",
+          wnd.index("_viv_shell_context_menu_append") >
+          wnd.index("_viv_context_menu_items[i]") and
+          wnd.index("_viv_shell_context_menu_append") <
+          wnd.index("_viv_check_menus(hmenu)"))
+    check("the shell menu finishes after the popup tracks",
+          wnd.index("_viv_shell_context_menu_finish") >
+          wnd.index("TrackPopupMenu(hmenu,tpm_flags") and
+          wnd.index("_viv_shell_context_menu_finish") <
+          wnd.index("DestroyMenu(hmenu)"))
+    check("wm_command routes the shell range before the command table",
+          wnd.index("_viv_shell_context_menu_invoke(hwnd,command_id)") <
+          wnd.index("_viv_command(command_id)"))
+    check("the shell owner-draw rows forward before the app painter",
+          wnd.index("_viv_shell_context_menu_handle_menu_msg(hwnd,msg,wParam,lParam)") <
+          wnd.index("_viv_menu_measure_item") and
+          wnd.count("_viv_shell_context_menu_handle_menu_msg(hwnd,msg,wParam,lParam)") == 3)
+
+    # 3. the opengl renderer module.
+    check("hwgl.c loads opengl32 dynamically (the gdi+ table precedent)",
+          'LoadLibraryA("opengl32.dll")' in glc and
+          "wglCreateContext" in glc and
+          "ChoosePixelFormat" in glc)
+    check("hwgl.c probes GL_EXT_bgra before the bgr direct upload",
+          "GL_EXT_bgra" in glc and "GL_BGR_EXT" in glc)
+    check("hwgl.c pads to power-of-two textures (the GL 1.1 contract)",
+          "power of two" in glc and glc.count("<<= 1") == 2)
+    check("hwgl.c rides the linear filter without the glu dependency",
+          "GL_LINEAR" in glc and "glu" not in glc)
+    check("hwgl.c swaps buffers and shuts down its context",
+          "SwapBuffers" in glc and
+          "wglDeleteContext" in glc and
+          "wglMakeCurrent(NULL,NULL)" in glc)
+    check("hwgl.c caps the texture by the max size query",
+          "GL_MAX_TEXTURE_SIZE" in glc)
+    check("the hwgl file rides the crlf discipline",
+          "\r\n" in glc)
+
+    # 4. the direct3d renderer module.
+    check("hwd3d.c loads d3d9.dll dynamically",
+          'LoadLibraryA("d3d9.dll")' in d3dc and
+          "Direct3DCreate9" in d3dc)
+    check("hwd3d.c preserves the fpu (the gdi+ contract)",
+          "D3DCREATE_FPU_PRESERVE" in d3dc)
+    check("hwd3d.c draws pretransformed quads",
+          "D3DFVF_XYZRHW" in d3dc and
+          "D3DPT_TRIANGLESTRIP" in d3dc and
+          "DrawPrimitiveUP" in d3dc)
+    check("hwd3d.c rides managed textures and clamp addressing",
+          "D3DPOOL_MANAGED" in d3dc and
+          "D3DTADDRESS_CLAMP" in d3dc)
+    check("hwd3d.c answers the caps before the npot decision",
+          "D3DPTEXTURECAPS_POW2" in d3dc and
+          "D3DPTEXTURECAPS_NONPOW2CONDITIONAL" in d3dc)
+    check("hwd3d.c rides the device-lost discipline",
+          "D3DERR_DEVICELOST" in d3dc and
+          "TestCooperativeLevel" in d3dc and
+          "D3DERR_DEVICENOTRESET" in d3dc)
+    check("the hwd3d file rides the crlf discipline",
+          "\r\n" in d3dc)
+
+    # 5. the renderer radio trio.
+    check("the renderer submenu joins the view menu",
+          "_VIV_MENU_VIEW_RENDERER" in stateh and
+          "LOCALIZATION_ID_RENDERER,MF_POPUP" in vivc)
+    check("the renderer items ride radio checks in the command table",
+          vivc.count("|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_") == 3)
+    check("the radios check against the config in _viv_check_menus",
+          menu.count("VIV_ID_VIEW_RENDERER_") >= 3 and
+          "config_renderer == CONFIG_RENDERER_GDI" in menu)
+    check("the command dispatch lands the trio and resets both modules",
+          "VIV_ID_VIEW_RENDERER_GDI:" in view and
+          "_viv_hwgl_shutdown();" in view and
+          "_viv_hwd3d_shutdown();" in view)
+    check("the kill path and the dispatch release both renderers (the r70 splice counts viv.c plus every viv_*.c)",
+          vivc.count("_viv_hwgl_shutdown();") == 2 and
+          vivc.count("_viv_hwd3d_shutdown();") == 2)
+
+    # 6. the config wiring.
+    check("config.h defines the renderer ladder and the toolbar mask",
+          "#define CONFIG_RENDERER_GDI " in configh and
+          "#define CONFIG_RENDERER_OPENGL " in configh and
+          "#define CONFIG_RENDERER_DIRECT3D " in configh and
+          "extern int config_renderer;" in configh and
+          "extern int config_toolbar_groups;" in configh)
+    check("config.c defaults gdi and the full toolbar",
+          "config_renderer = CONFIG_RENDERER_GDI;" in configc and
+          "config_toolbar_groups = 0x3f;" in configc)
+    check("the ini carries both new keys read and write",
+          configc.count('"renderer"') == 2 and
+          configc.count('"toolbar_groups"') == 2)
+
+    # 7. the toolbar customization.
+    check("the toolbar measure honors the group mask before the overflow",
+          toolbar.index("config_toolbar_groups & (1 <<") <
+          toolbar.index("the overflow: whole groups hide from the right"))
+    check("the toolbar owns a context menu",
+          "case WM_CONTEXTMENU:" in toolbar and
+          "_viv_toolbar_context_menu" in toolbar)
+    check("the toolbar popup ids ride their own range",
+          "#define _VIV_TOOLBAR_CONTEXT_ID_FIRST 0x6f00" in toolbarh)
+    check("the toolbar context command exports to the wndproc interceptor",
+          "void _viv_toolbar_context_command(int command_id);" in toolbarh and
+          "_viv_toolbar_context_command(command_id)" in wnd)
+    check("the mask starts at every group visible",
+          "0x3f" in toolbar)
+
+    # 8. the paint path takes the hardware branch before the backbuffer.
+    check("wm_paint tries the hardware renderers before the gdi backbuffer",
+          wnd.index("_viv_hw_render_frame(hwnd,ps.hdc") <
+          wnd.index("_viv_paint_begin(ps.hdc"))
+    check("the hardware branch reads the view math the gdi path uses",
+          "_viv_get_render_size(&rw,&rh);" in wnd and
+          "config_renderer != CONFIG_RENDERER_GDI" in wnd)
+    check("the brush color hoists above both paths",
+          wnd.count("COLORREF brush_color;") == 1)
+
+    # 9. the build wiring.
+    check("the zig file list carries the three new units",
+          "src/hwgl.c" in files_txt and
+          "src/hwd3d.c" in files_txt and
+          "src/shellmenu.c" in files_txt and
+          files_txt.count("\n") == 103)
+    check("the shared props list carries all six new files",
+          props.count('Include="..\\src\\hwgl.c"') == 1 and
+          props.count('Include="..\\src\\hwd3d.c"') == 1 and
+          props.count('Include="..\\src\\shellmenu.c"') == 1 and
+          props.count('Include="..\\src\\hwgl.h"') == 1 and
+          props.count('Include="..\\src\\hwd3d.h"') == 1 and
+          props.count('Include="..\\src\\shellmenu.h"') == 1)
+    check("viv.h carries the three new module headers",
+          '#include "hwgl.h"' in vivh and
+          '#include "hwd3d.h"' in vivh and
+          '#include "shellmenu.h"' in vivh)
+
+    # 10. the changelog, the readme and the version.
+    check("the changelog top entry is the todo closure pre-release",
+          "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
+    check("the readme candidate slot holds the closure round",
+          "**1.1.14-rc.1 \u2014" in readme and
+          "(the current release candidate):**" in readme)
+    check("the version is 1.1.14-rc.1 build 69",
+          '#define VERSION_BUILD 69' in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4717,11 +4933,11 @@ def t_field_sweep_round93():
               gone not in read("src/viv_chrome.c").decode("latin-1") and
               gone not in read("src/viv_wndproc.c").decode("latin-1") and
               gone not in read("src/viv_state.h").decode("latin-1"))
-    check("the upstream todo pile is trimmed to the four open items",
-          vivc.count("// - OpenGL renderer.") == 1 and
-          vivc.count("// - Direct3D renderer.") == 1 and
-          "CDefFolderMenu_Create2" in vivc and
-          "right click rename" not in vivc)
+    check("the upstream todo pile is closed (the todo closure round retired the last four items)",
+          "the upstream list is closed" in vivc and
+          vivc.count("// - OpenGL renderer.") == 0 and
+          vivc.count("// - Direct3D renderer.") == 0 and
+          "CDefFolderMenu_Create2" in vivc)
     check("the dead zoom-clamp copies are gone",
           view.count("_viv_zoom_pos == 1") == 0 and
           read("src/viv_wndproc.c").decode("latin-1").count("_viv_zoom_pos == 1") == 0)
@@ -4768,9 +4984,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.13 build 68",
-          '#define VERSION_BUILD 68' in version and
-          '#define VERSION_STRING "1.1.13"' in version)
+    check("the version is 1.1.14-rc.1 build 69",
+          '#define VERSION_BUILD 69' in version and
+          '#define VERSION_STRING "1.1.14-rc.1"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4851,6 +5067,7 @@ if __name__ == "__main__":
     t_peripheral_residue_round92()
     t_field_sweep_round93()
     t_format_horizons_round94()
+    t_todo_closure_round96()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

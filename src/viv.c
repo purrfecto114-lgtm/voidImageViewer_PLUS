@@ -21,13 +21,13 @@
 //
 // VoidImageViewer
 
-// TODO (the upstream list, trimmed to the four still-open items -
-// every completed line now lives in Changes.txt at the round that
+// TODO (the upstream list is closed - the todo closure round
+// retired the last four items: the opengl and direct3d renderers
+// ride view -> renderer, the toolbar customization rides the
+// toolbar's right click, and the shell context menu
+// (CDefFolderMenu_Create2) rides the canvas right click.
+// every completed line lives in Changes.txt at the round that
 // landed it):
-// - OpenGL renderer.
-// - Direct3D renderer.
-// - control toolbar customization.
-// - shell context menu: CDefFolderMenu_Create2.
 
 // _VIV_STRETCH_BLT_STITCH_SIZE * 3.1 (pan+zoom) * 16 (zoom) MUST BE < 32768
 
@@ -298,6 +298,11 @@ _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_BACKDROP_WHITE,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_WHITE},
 	{LOCALIZATION_ID_BACKDROP_CUSTOM,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_CUSTOM},
 	{LOCALIZATION_ID_BACKDROP_CHECKERBOARD,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_BACKDROP,VIV_ID_VIEW_BACKDROP_CHECKERBOARD},
+	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
+	{LOCALIZATION_ID_RENDERER,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_RENDERER},
+	{LOCALIZATION_ID_RENDERER_GDI,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_GDI},
+	{LOCALIZATION_ID_RENDERER_OPENGL,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_OPENGL},
+	{LOCALIZATION_ID_RENDERER_DIRECT3D,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_DIRECT3D},
 
 	{LOCALIZATION_ID_SLIDESHOW_MENU,MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_SLIDESHOW},
 	{LOCALIZATION_ID_PLAY_PAUSE,MF_STRING,_VIV_MENU_SLIDESHOW,VIV_ID_SLIDESHOW_PAUSE},
@@ -1532,6 +1537,10 @@ for(i=0;i<4;i++)
 	// menubar drops its cached hover and press brushes.
 	_viv_settings_kill();
 	_viv_menubar_kill();
+
+	// the hardware renderers release their contexts and devices.
+	_viv_hwgl_shutdown();
+	_viv_hwd3d_shutdown();
 
 	zoomui_kill();
 

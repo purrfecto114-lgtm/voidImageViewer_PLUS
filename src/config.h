@@ -65,11 +65,21 @@ extern BYTE config_ui_accent; // ui accent color index: 0..4 (azure, teal, viole
 
 // what shows under the transparent pixels of an image with alpha (not
 // the canvas around the image: that color is the windowed background).
+// the render back end: gdi stays the default, opengl and direct3d are
+// opt-in session toggles (view -> renderer) that fall back to gdi on
+// any refusal.
+#define CONFIG_RENDERER_GDI                    0
+#define CONFIG_RENDERER_OPENGL                 1
+#define CONFIG_RENDERER_DIRECT3D               2
+
 #define CONFIG_BACKDROP_MODE_FOLLOW                     0
 #define CONFIG_BACKDROP_MODE_BLACK                      1
 #define CONFIG_BACKDROP_MODE_WHITE                      2
 #define CONFIG_BACKDROP_MODE_CUSTOM                     3
 #define CONFIG_BACKDROP_MODE_CHECKERBOARD       4
+extern int config_renderer; // render back end: CONFIG_RENDERER_* (gdi default).
+extern int config_toolbar_groups; // toolbar visibility mask: bit per group (0x3f = every group).
+
 extern BYTE config_backdrop_mode;
 extern BYTE config_backdrop_color_r;
 extern BYTE config_backdrop_color_g;

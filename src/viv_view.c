@@ -96,6 +96,20 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			_viv_status_update_temp_pos_zoom();
 			break;
+			
+		case VIV_ID_VIEW_RENDERER_GDI:
+		case VIV_ID_VIEW_RENDERER_OPENGL:
+		case VIV_ID_VIEW_RENDERER_DIRECT3D:
+			// the renderer is a session toggle: the modules release
+			// their contexts and the next paint answers the new back
+			// end (or falls back to gdi when the new one refuses).
+			_viv_hwgl_shutdown();
+			_viv_hwd3d_shutdown();
+			
+			config_renderer = (command_id == VIV_ID_VIEW_RENDERER_GDI) ? CONFIG_RENDERER_GDI : ((command_id == VIV_ID_VIEW_RENDERER_OPENGL) ? CONFIG_RENDERER_OPENGL : CONFIG_RENDERER_DIRECT3D);
+			
+			InvalidateRect(_viv_hwnd,0,FALSE);
+			break;
 	
 		case VIV_ID_HELP_HELP:
 			ShellExecuteA(_viv_hwnd,NULL,localization_get_string(LOCALIZATION_ID_HELP_SUPPORT_URL),NULL,NULL,SW_SHOWNORMAL);

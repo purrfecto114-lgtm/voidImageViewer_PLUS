@@ -18,6 +18,11 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
+**1.1.14-rc.1 — the todo closure round (the current release candidate):**
+
+- **The TODO list closes** — the four items the fork's header carried since the beginning all land: **OpenGL and Direct3D renderers** (View → Renderer, opt-in, dynamically loaded, falling back to GDI on any refusal), **toolbar customization** (right-click the strip to toggle the six button groups, persisted in the ini), and the **shell context menu** (right-click the canvas → the Explorer verbs for the open file — Open with, Cut, Copy, Properties — through `CDefFolderMenu_Create2`, dynamically resolved and quietly absent where the shell is too old).
+- Full narrative: `Changes.txt`.
+
 **1.1.13 — the format horizons round (the current stable):**
 
 - **The format horizons** — the WIC layer defers to the system codecs when GDI+ and libwebp both decline a file (JPEG-XR, DDS, HEIF/AVIF wherever the OS carries them — zero static cost, nothing rides the exe), and a hand-rolled QOI decoder (the reference port, bounds-checked, works on every Windows the viewer runs on) opens `.qoi` with no codec dependency at all. The open filter and the Everything search prefixes gain the eight new extensions; shell associations deliberately stay at the classic eleven until a dedicated round asks for them.

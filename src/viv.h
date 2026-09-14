@@ -282,6 +282,12 @@ enum
 	// view menu windowed background color picker
 	// (appended so existing ids are not shifted)
 	VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR,
+
+	// view menu renderer radio trio (the todo closure round,
+	// appended so existing ids are not shifted)
+	VIV_ID_VIEW_RENDERER_GDI,
+	VIV_ID_VIEW_RENDERER_OPENGL,
+	VIV_ID_VIEW_RENDERER_DIRECT3D,
 };
 
 #include "version.h"
@@ -303,6 +309,9 @@ enum
 #include "webp.h"
 #include "qoi.h"
 #include "wic.h"
+#include "hwgl.h"
+#include "hwd3d.h"
+#include "shellmenu.h"
 #include "small_pool.h"
 #include "safe_size.h"
 #include "everything_ipc.h"
