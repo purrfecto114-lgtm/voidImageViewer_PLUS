@@ -33,12 +33,6 @@ void small_pool_init(small_pool_t *buf)
 	buf->cur_alloc_size = SMALL_POOL_STACK_SIZE;
 }
 
-void small_pool_empty(small_pool_t *buf)
-{
-	small_pool_kill(buf);
-	small_pool_init(buf);
-}
-	
 void small_pool_kill(small_pool_t *buf)
 {
 	small_pool_chunk_t *chunk;

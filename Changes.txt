@@ -1,3 +1,57 @@
+Pre-release: Version 1.1.13-rc.6 (the peripheral residue round)
+*the closing sweep the arc called for: the round-91 scan was
+ rebuilt with its one blind spot fixed - return-foo(...) call
+ lines had been misread as function prototypes, and the
+ misread had been masking the real residue behind a cascade
+ of false liveness (the whole wm dispatch family looked
+ alive through each other's calls). with the scan reading
+ true, every candidate was cross-checked against the guards,
+ the rc numerics and the recorded freeze decisions before
+ anything moved.
+*the never-built wine dpi probe retires: build-zig/dpiprobe.c
+ rode in with the gui remake import's verbatim keep, but it
+ is in no build list (files.txt, neither project file, no
+ build script), and the tree, the guards and the changelog
+ never mention it.
+*four zero-reference api functions retire, declarations and
+ bodies both: os_adjust_window_rect (the manual frame
+ calculator - dead on arrival, no caller in the fork's
+ entire recorded history), safe_size_mul_2 (an x2 that
+ duplicates safe_size_add(a,a) - same story),
+ small_pool_empty (a kill+init reset no pool owner ever
+ calls) and utf8_length_double_null (the double-null walker
+ whose last callers the old localization cleanup rounds
+ retired).
+*the year-stringize pair retires: VIV_YEAR_STRING and
+ VIV_YEAR_STRING2 in viv_state.h - the about copyright rides
+ its localized format string now, nothing expands the pair.
+*three never-requested localization strings retire:
+ LOCALIZATION_ID_REMOVE (the hotkey dialogs request
+ REMOVE_KEY_BUTTON), LOCALIZATION_ID_SEARCH_EVERYTHING (the
+ menu requests OPEN_EVERYTHING_SEARCH) and
+ LOCALIZATION_ID_STATUS_BAR_DIMENSIONS_FORMAT (arrived with
+ the gui remake import and never gained a caller - the
+ status bar formats position and rgb through the live ids).
+ the enum drops three entries and both string tables drop
+ their rows, so the positional alignment the guard pins
+ stays exact, and the tail tuple the alignment guard reads
+ moves with it (the rc.79 zoom retirement precedent).
+*the deliberate keeps, recorded so the next sweep does not
+ relitigate them: the libcmt _imp__IsDebuggerPresent
+ override stays (the win95 gs_report hack - the linker
+ consumes it, no textual reference will ever show one),
+ os_dark_controls_supported stays (the guard has pinned the
+ api since the rc.13 dead-gate retirement), the vendored
+ everything_ipc.h constants stay (the upstream sdk surface
+ travels intact) and the theme transcription pair stays
+ (scripts/extract-theme.mjs + sim/theme-tokens.ts - the
+ rc.8 recorded decision that the mockup cannot drift from
+ the binary).
+*the round-92 guard pins every removal and every keep; the
+ version pins move tree-wide to build 66; the readme
+ candidate slot hands over to rc.6 with rc.5 demoted to the
+ one-line list. verified: the four suites pass.
+
 Pre-release: Version 1.1.13-rc.5 (the dead residue round)
 *the carpet sweep the cleanup round asked for: a whole-tree
  static scan (every function definition, every textual

@@ -88,14 +88,6 @@ SIZE_T safe_size_mul_sizeof_wchar(SIZE_T a)
 	return safe_size_add(a,a); // x2
 }
 
-// safely multiply a by 2
-// returns a * 2
-// returns SIZE_MAX if an overflow occurs.
-SIZE_T safe_size_mul_2(SIZE_T a)
-{
-	return safe_size_add(a,a); // x2
-}
-
 // safely multiply a by b
 // returns a * b
 // returns SIZE_MAX if an overflow occurs.

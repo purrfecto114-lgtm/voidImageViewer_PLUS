@@ -18,10 +18,10 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.13-rc.5 — the dead residue round (the current release candidate):**
+**1.1.13-rc.6 — the peripheral residue round (the current release candidate):**
 
-- **The carpet sweep** — a whole-tree static scan surfaced the zero-reference residue, and every candidate was cross-checked against the guards, the rc numerics and the recorded freeze decisions before anything moved: three dead functions (`get_mem_usage`, `_viv_ceil`, `_viv_is_key_state`), four dead macro families (the stale `_VIV_ASSOCIATION_*` bit flags superseded by the installer's positional `1 << exti` scheme, the selfshot harness's never-posted message id, the settings color sentinel) and fourteen VS-generated resource ids retired.
-- **The deliberate keeps** — the ~1400-line frozen options family (the recorded rollback anchor), the unicows bootstrap (x86 builds link it), the CRT `_wassert` override, the full cbs/rbs state ladder and the `_APS` block all stay, each pinned by the round-91 guard so the next sweep cannot relitigate them.
+- **The closing sweep** — the round-91 static scan rebuilt with its one blind spot fixed (`return foo(...)` call lines had been misread as prototypes, masking the real residue behind false liveness), every candidate cross-checked against the guards and the recorded freeze decisions: the never-built Wine DPI probe (`build-zig/dpiprobe.c`), four zero-reference API functions (`os_adjust_window_rect`, `safe_size_mul_2`, `small_pool_empty`, `utf8_length_double_null`), the `VIV_YEAR_STRING` stringize pair and three never-requested localization strings retire.
+- **The deliberate keeps** — the libcmt `_imp__IsDebuggerPresent` override (the Win95 `gs_report` hack — the linker consumes it), `os_dark_controls_supported` (pinned since the dead-gate retirement), the vendored `everything_ipc.h` API surface and the theme-transcription pair (`scripts/extract-theme.mjs` → `sim/theme-tokens.ts`, the rc.8 mockup-sync decision) all stay, pinned by the round-92 guard.
 
 **1.1.12 — the remake arc: the full GUI remake, the platform guardrails, the field fixes and the review absorption (the current stable):**
 
@@ -31,6 +31,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.13-rc.5** — the dead residue round: the carpet sweep retires three dead functions, four dead macro families and fourteen VS-generated resource ids; the frozen corners stay pinned by the round-91 guard.
 - **1.1.13-rc.4** — the high dpi icons round: the ico grows the DPI ladder (Lanczos-resampled frames down from 256px, all alpha-carrying) and the frame icons ride the window's own DPI (`WM_SETICON` pair, `WM_DPICHANGED` re-pin).
 - **1.1.13-rc.3** — the halftone palette round: 256-color mode gets `graphics::GetHalftonePalette` — the classic palette contract (foreground/background realization, the paint-DC selection, the display-change resync).
 - **1.1.13-rc.2** — the association guard round: `.bmp`/`.jpg` taken over only when the effective default is the Windows canonical class or already ours — a foreign viewer's association is left completely alone.

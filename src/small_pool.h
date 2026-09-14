@@ -60,7 +60,6 @@ typedef struct small_pool_s
 }small_pool_t;
 
 void small_pool_init(small_pool_t *buf);
-void small_pool_empty(small_pool_t *buf);
 void small_pool_kill(small_pool_t *buf);
 void *small_pool_alloc(small_pool_t *buf,uintptr_t size);
 

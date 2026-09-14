@@ -289,14 +289,13 @@ def t_localization_alignment():
             "LOCALIZATION_ID_TOOLBAR_ROTATE",
             "LOCALIZATION_ID_TOOLBAR_IMAGE_INFO",
             "LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT",
-            "LOCALIZATION_ID_STATUS_BAR_DIMENSIONS_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT",
             "LOCALIZATION_ID_MSGBOX_YES",
             "LOCALIZATION_ID_MSGBOX_NO",
             "LOCALIZATION_ID_ACCENT_COLOR")
-    check("enum ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired)", tuple(ids[-47:]) == tail)
-    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired)", tuple(en[-47:]) == tail)
-    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired)", tuple(zh[-47:]) == tail)
+    check("enum ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired)", tuple(ids[-46:]) == tail)
+    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired)", tuple(en[-46:]) == tail)
+    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired)", tuple(zh[-46:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -333,10 +332,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.13.65 pre-release (the dead residue round)",
-          (major, minor, rev, build) == ("1", "1", "13", "65") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.5 tag)",
-          vstr == "1.1.13-rc.5")
+    check("version.h = 1.1.13.66 pre-release (the peripheral residue round)",
+          (major, minor, rev, build) == ("1", "1", "13", "66") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.6 tag)",
+          vstr == "1.1.13-rc.6")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3082,8 +3081,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 65",
-          "#define VERSION_BUILD 65" in version)
+    check("the release candidate line moves to build 66",
+          "#define VERSION_BUILD 66" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3153,9 +3152,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 65",
-          "#define VERSION_BUILD 65" in version and
-          '#define VERSION_STRING "1.1.13-rc.5"' in version)
+    check("the version moves to build 66",
+          "#define VERSION_BUILD 66" in version and
+          '#define VERSION_STRING "1.1.13-rc.6"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3427,9 +3426,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.5 build 65",
-          '#define VERSION_BUILD 65' in version and
-          '#define VERSION_STRING "1.1.13-rc.5"' in version)
+    check("the version is 1.1.13-rc.6 build 66",
+          '#define VERSION_BUILD 66' in version and
+          '#define VERSION_STRING "1.1.13-rc.6"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3492,9 +3491,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 65",
-          "#define VERSION_BUILD 65" in version and
-          '#define VERSION_STRING "1.1.13-rc.5"' in version)
+    check("the version moves to build 66",
+          "#define VERSION_BUILD 66" in version and
+          '#define VERSION_STRING "1.1.13-rc.6"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4056,9 +4055,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.5 build 65",
-          '#define VERSION_BUILD 65' in version and
-          '#define VERSION_STRING "1.1.13-rc.5"' in version)
+    check("the version is 1.1.13-rc.6 build 66",
+          '#define VERSION_BUILD 66' in version and
+          '#define VERSION_STRING "1.1.13-rc.6"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4226,9 +4225,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.13-rc.5 build 65",
-          '#define VERSION_BUILD 65' in version and
-          '#define VERSION_STRING "1.1.13-rc.5"' in version)
+    check("the version is 1.1.13-rc.6 build 66",
+          '#define VERSION_BUILD 66' in version and
+          '#define VERSION_STRING "1.1.13-rc.6"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4329,9 +4328,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.13-rc.5 build 65",
-          '#define VERSION_BUILD 65' in version and
-          '#define VERSION_STRING "1.1.13-rc.5"' in version)
+    check("the version is 1.1.13-rc.6 build 66",
+          '#define VERSION_BUILD 66' in version and
+          '#define VERSION_STRING "1.1.13-rc.6"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4408,11 +4407,11 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.13-rc.5 build 65",
-          '#define VERSION_BUILD 65' in version and
-          '#define VERSION_STRING "1.1.13-rc.5"' in version)
-    check("the candidate line is the dead residue round",
-          "**1.1.13-rc.5 \u2014" in readme and
+    check("the version is 1.1.13-rc.6 build 66",
+          '#define VERSION_BUILD 66' in version and
+          '#define VERSION_STRING "1.1.13-rc.6"' in version)
+    check("the candidate line is the peripheral residue round",
+          "**1.1.13-rc.6 \u2014" in readme and
           "(the current release candidate):**" in readme)
     # 6. the changelog carries the round.
     flat = " ".join(changes.split())
@@ -4420,6 +4419,105 @@ def t_dead_residue_round91():
           "the dead residue round" in flat)
     check("the changelog states the deliberate keeps",
           "stays frozen" in flat and "unicows" in flat)
+
+
+def t_peripheral_residue_round92():
+    """Guards for the peripheral residue round (1.1.13-rc.6: the closing
+    sweep - the never-built wine probe, four zero-reference api functions,
+    the year stringize pair and three never-requested localization strings
+    retire; the recorded keeps stay pinned)."""
+    osc = read("src/os.c").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+    safec = read("src/safe_size.c").decode("latin-1")
+    safeh = read("src/safe_size.h").decode("latin-1")
+    poolc = read("src/small_pool.c").decode("latin-1")
+    poolh = read("src/small_pool.h").decode("latin-1")
+    u8c = read("src/utf8.c").decode("latin-1")
+    u8h = read("src/utf8.h").decode("latin-1")
+    stateh = read("src/viv_state.h").decode("latin-1")
+    loch = read("src/localization.h").decode("latin-1")
+    locen = read("src/localization_en_us.h").decode("utf-8", errors="replace")
+    loczh = read("src/localization_zh_cn.h").decode("utf-8", errors="replace")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    version = read("src/version.h").decode("latin-1")
+
+    # 1. the never-built wine dpi probe retires (it was never in any build).
+    check("the wine dpi probe is gone",
+          not os.path.exists("build-zig/dpiprobe.c"))
+    check("the zig build list never knew it",
+          "dpiprobe" not in read("build-zig/files.txt").decode("latin-1"))
+    # 2. the four zero-reference api functions retire (their live
+    #    neighbors survive - the sweep did not overreach).
+    check("the manual frame calculator is gone",
+          "os_adjust_window_rect" not in osc and
+          "os_adjust_window_rect" not in osh)
+    check("the window style getters it sat between survive",
+          "os_get_window_style" in osh and "os_get_window_ex_style" in osh)
+    check("the duplicate x2 helper is gone",
+          "safe_size_mul_2" not in safec and "safe_size_mul_2" not in safeh)
+    check("the rest of the safe size family survives",
+          "safe_size_mul(" in safec and "safe_size_mul_sizeof_wchar" in safeh)
+    check("the never-called pool reset is gone",
+          "small_pool_empty" not in poolc and "small_pool_empty" not in poolh)
+    check("the live pool api survives",
+          "small_pool_init(" in poolc and "small_pool_kill(" in poolc and
+          "small_pool_alloc" in poolh)
+    check("the double-null walker is gone",
+          "utf8_length_double_null" not in u8c and
+          "utf8_length_double_null" not in u8h)
+    check("the live utf8 api survives",
+          "utf8_length(" in u8c and "utf8_to_int" in u8h)
+    # 3. the year stringize pair retires.
+    check("the year stringize pair is gone",
+          "VIV_YEAR_STRING" not in stateh)
+    check("the state layer neighbors survive",
+          "_VIV_STRETCH_BLT_STITCH_SIZE" in stateh and
+          "_VIV_DEFAULT_SHUFFLE_ALLOCATED" in stateh)
+    # 4. the never-requested localization ids retire (word-boundary
+    #    checks: REMOVE is a prefix of REMOVE_KEY_BUTTON, which stays).
+    for dead in ("LOCALIZATION_ID_REMOVE", "LOCALIZATION_ID_SEARCH_EVERYTHING",
+                 "LOCALIZATION_ID_STATUS_BAR_DIMENSIONS_FORMAT"):
+        pat = re.compile(dead + r"(?![A-Z0-9_])")
+        check("localization drops %s" % dead,
+              pat.search(loch) is None and pat.search(locen) is None and
+              pat.search(loczh) is None)
+    check("the remove key button id the dialogs request stays",
+          "LOCALIZATION_ID_REMOVE_KEY_BUTTON" in loch and
+          "LOCALIZATION_ID_REMOVE_KEY_BUTTON" in locen and
+          "LOCALIZATION_ID_REMOVE_KEY_BUTTON" in loczh)
+    check("the open everything search id the menu requests stays",
+          "LOCALIZATION_ID_OPEN_EVERYTHING_SEARCH" in loch and
+          "LOCALIZATION_ID_OPEN_EVERYTHING_SEARCH" in locen)
+    check("the live status format ids stay",
+          "LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT" in loch and
+          "LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT" in loch and
+          "LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT" in locen)
+    # 5. the deliberate keeps (recorded decisions, not residue).
+    check("the libcmt debugger-present override stays (the linker consumes it)",
+          "_imp__IsDebuggerPresent" in osc)
+    check("the dark controls capability api stays (pinned since the dead gate)",
+          "int os_dark_controls_supported(void)" in osc and
+          "int os_dark_controls_supported(void);" in osh)
+    check("the vendored everything sdk header stays intact",
+          "EVERYTHING_IPC_QUERY2_REQUEST_PATH" in
+          read("src/everything_ipc.h").decode("latin-1"))
+    check("the theme transcription pair stays (the rc.8 mockup sync decision)",
+          os.path.exists("scripts/extract-theme.mjs") and
+          os.path.exists("sim/theme-tokens.ts"))
+    # 6. the version and the readme slot.
+    check("the version is 1.1.13-rc.6 build 66",
+          '#define VERSION_BUILD 66' in version and
+          '#define VERSION_STRING "1.1.13-rc.6"' in version)
+    check("the candidate line is the peripheral residue round",
+          "**1.1.13-rc.6 \u2014" in readme and
+          "(the current release candidate):**" in readme)
+    # 7. the changelog carries the round.
+    flat = " ".join(changes.split())
+    check("the changelog states the closing sweep",
+          "the peripheral residue round" in flat)
+    check("the changelog states the deliberate keeps",
+          "gs_report" in flat and "mockup cannot drift" in flat)
 
 
 if __name__ == "__main__":
@@ -4483,6 +4581,7 @@ if __name__ == "__main__":
     t_high_dpi_icons_round90()
     t_dead_residue_round91()
     t_release_title_crlf_fix()
+    t_peripheral_residue_round92()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

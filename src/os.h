@@ -85,7 +85,6 @@ void os_fill_clipped_rect(HDC hdc,int x,int y,int wide,int high,int clip_x,int c
 void os_fill_rect(HDC hdc,int x,int y,int wide,int high,HBRUSH hbrush);
 void os_set_rect(RECT *rect,int x,int y,int wide,int high);
 int os_get_orientation(const wchar_t *filename);
-void os_adjust_window_rect(HWND hwnd,RECT *window_rect,int window_x,int window_y,int client_wide,int client_high);
 DWORD os_get_window_style(HWND hwnd);
 DWORD os_get_window_ex_style(HWND hwnd);
 int os_get_static_wide(HWND hwnd,int id);

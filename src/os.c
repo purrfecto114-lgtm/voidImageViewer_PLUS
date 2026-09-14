@@ -2570,44 +2570,6 @@ __declspec(noinline) DWORD os_get_window_ex_style(HWND hwnd)
 	return GetWindowLong(hwnd,GWL_EXSTYLE); 
 }
 
-void os_adjust_window_rect(HWND hwnd,RECT *window_rect,int window_x,int window_y,int client_wide,int client_high)
-{
-	BOOL is_menu;
-	DWORD style;
-	
-	window_rect->left = 0;
-	window_rect->top = 0;
-	window_rect->right = client_wide;
-	window_rect->bottom = client_high;
-	
-	is_menu = FALSE;
-	style = os_get_window_style(hwnd);
-	
-	if (!(style & WS_CHILD))
-	{
-		if (GetMenu(hwnd))
-		{
-			is_menu = TRUE;
-		}
-	}
-
-//	debug_printf("GetWindowLong(hwnd,GWL_EXSTYLE) %08x\n",GetWindowLong(hwnd,GWL_EXSTYLE));
-	AdjustWindowRectEx(window_rect,style,is_menu,os_get_window_ex_style(hwnd));
-	
-//DEBUG:
-//debug_printf((const utf8_t *)"%d %d %d %d\n",window_rect->left,window_rect->top,window_rect->right,window_rect->bottom);
-	
-	window_rect->right -= window_rect->left;
-	window_rect->bottom -= window_rect->top;
-	window_rect->left = window_x;
-	window_rect->top = window_y;
-	window_rect->right += window_x;
-	window_rect->bottom += window_y;
-
-//DEBUG:
-//debug_printf((const utf8_t *)"%d %d %d %d\n",window_rect->left,window_rect->top,window_rect->right,window_rect->bottom);
-}
-
 int os_get_text_wideW(HDC hdc,const wchar_t *s,uintptr_t slen_in_wchars)
 {
 	int ret;

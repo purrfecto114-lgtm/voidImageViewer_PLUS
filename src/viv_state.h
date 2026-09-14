@@ -59,9 +59,6 @@
 
 #define _VIV_DEFAULT_SHUFFLE_ALLOCATED		(65536 / sizeof(_viv_playlist_t *))
 
-#define VIV_YEAR_STRING2(x)	#x
-#define VIV_YEAR_STRING(x)	VIV_YEAR_STRING2(x)	
-
 #define _VIV_STRETCH_BLT_STITCH_SIZE		512
 
 #ifndef WM_THEMECHANGED

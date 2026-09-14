@@ -719,10 +719,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.13.65",
-          (major, minor, rev, build) == (1, 1, 13, 65), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.13-rc.5",
-          vstr is not None and vstr.group(1) == "1.1.13-rc.5", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.13.66",
+          (major, minor, rev, build) == (1, 1, 13, 66), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.13-rc.6",
+          vstr is not None and vstr.group(1) == "1.1.13-rc.6", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -730,15 +730,15 @@ def t_sim_version_117():
     check("the nsis derives the display version at compile time",
           '!define DISPLAYVERSION "${VIV_VER_STRING}"' in nsh)
     top = CHANGES.lstrip("\ufeff").split("\r\n")[0] if "\r\n" in CHANGES else CHANGES.lstrip("\ufeff").split("\n")[0]
-    check("the changelog top entry is the 1.1.13-rc.5 dead residue round",
-          top == "Pre-release: Version 1.1.13-rc.5 (the dead residue round)", top)
+    check("the changelog top entry is the 1.1.13-rc.6 peripheral residue round",
+          top == "Pre-release: Version 1.1.13-rc.6 (the peripheral residue round)", top)
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
     check("the readme current-stable line says 1.1.12",
           "**1.1.12 —" in readme and "(the current stable):**" in readme)
-    check("the readme candidate line says 1.1.13-rc.5",
-          "**1.1.13-rc.5 —" in readme and "(the current release candidate):**" in readme)
+    check("the readme candidate line says 1.1.13-rc.6",
+          "**1.1.13-rc.6 —" in readme and "(the current release candidate):**" in readme)
     check("the readme news is on the diet (the retired rounds ride one line each)",
           "**1.1.13-rc.1** —" in readme and "**1.1.12-rc.16 —" not in readme)
 
