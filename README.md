@@ -18,10 +18,10 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.13-rc.1 — the readme diet round (the current release candidate):**
+**1.1.13-rc.2 — the association guard round (the current release candidate):**
 
-- **The readme is a front page again** — it had grown into a 159-line wall, three quarters of the growth the news section: every round back to rc.7 kept its full four-to-six bullet treatment long after its round closed. The diet is a rule now: full treatment goes to the current stable and the current release candidate only; every earlier round rides the one-line list. The full narrative never leaves the tree — [Changes.txt](Changes.txt) is the archive of record, one section per round back to the fork.
-- **The 1.1.13 arc opens on the upstream TODO** — the roadmap: the association guard (never take over a `.bmp`/`.jpg` a foreign viewer owns), the 256-color halftone palette, the high-dpi icons, the control toolbar customization, the shell context menu, and the renderers (OpenGL, then Direct3D). Three of the ten TODO items are already superseded by the fork's own work: the rename dialog, the lossless rotate, and the localization tables.
+- **Never replace a foreign viewer's association** — the first upstream TODO item lands: `.bmp` and `.jpg` (with `jpeg`) are taken over only when the extension's effective default is the Windows canonical class (`bmpfile`, `jpgfile`) or already voidImageViewer's own. A foreign class on the merged view (HKEY_CLASSES_ROOT — exactly as the shell resolves it) means the user chose another viewer; the extension is left completely alone.
+- **The gate heals upgrades too** — it sits after the install path's uninstall-restore, so an upgrade over an older no-gate install first heals to the pre-fork owner and then reads it honestly. An empty default, the canonical class, or our own class installs as before; every other extension keeps the historical backup-then-takeover behavior.
 
 **1.1.12 — the remake arc: the full GUI remake, the platform guardrails, the field fixes and the review absorption (the current stable):**
 
@@ -31,6 +31,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.13-rc.1** — the readme diet round: the news section demoted to the one-line list (full treatment only for the current stable and candidate; [Changes.txt](Changes.txt) stays the archive of record); the 1.1.13 TODO arc opens.
 - **1.1.12-rc.17** — the review absorption round: the external carpet review absorbed (the itemID carrier, the token strip, the settings DPI correction, the resize escape hatch, the startup DPI sync).
 - **1.1.12-rc.16** — the open intent round: the recent-list trade refunded (the open intent declared where it is knowable — a reload is not a recent open).
 - **1.1.12-rc.15** — the field report round: the rotate-into-recent reordering, the 4K 225% text proportions, the capture-hint mojibake, the menu process check.

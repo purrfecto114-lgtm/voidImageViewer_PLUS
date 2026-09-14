@@ -1,3 +1,32 @@
+Pre-release: Version 1.1.13-rc.2 (the association guard round)
+*the first todo item lands: install bmp and jpg only when the
+ extension's effective default is the windows canonical class
+ (bmpfile, jpgfile) or voidImageViewer's own - never replace a
+ non-default owner. a foreign class on the merged view
+ (HKEY_CLASSES_ROOT: the per-user software\classes over the
+ machine ones, exactly as the shell resolves it) means the user
+ chose another viewer, and the extension is left completely
+ alone: the class keys, the icons, the backup and the takeover
+ are all skipped.
+*the gate rides the install path after the uninstall-restore, so
+ an upgrade over an older no-gate install heals to the pre-fork
+ owner first and the foreign owner reads as foreign even then. an
+ empty default (no owner yet), the canonical class, or our own
+ class installs exactly as before; the uninstall path is untouched
+ - it only ever restores what the backup holds, and a skipped
+ installation leaves no backup.
+*the canonical table covers the todo's two names across the
+ association table's spellings: bmp -> bmpfile, and the jpg family
+ (jpg, jpeg) -> jpgfile. every other extension (gif, ico, png,
+ tif, tiff, webp, emf, wmf) keeps the historical
+ backup-then-takeover behavior - the todo named no gate for them.
+*verified: the three suites pass (the round-86 guard section pins
+ the helper, the canonical table, the merged-view read, the
+ tri-state pass rule, the gate position after the uninstall-restore
+ and before the backup write, and the foreign-owner skip), every
+ version guard moves to build 62, and the readme candidate slot
+ hands over to rc.2 with rc.1 demoted to the one-line list.
+
 Pre-release: Version 1.1.13-rc.1 (the readme diet round)
 *the readme had grown into a 159 line wall, and three quarters of the
  growth was the news section: every round back to rc.7 kept its full

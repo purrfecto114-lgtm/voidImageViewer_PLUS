@@ -333,10 +333,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.13.61 pre-release (the readme diet round)",
-          (major, minor, rev, build) == ("1", "1", "13", "61") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.1 tag)",
-          vstr == "1.1.13-rc.1")
+    check("version.h = 1.1.13.62 pre-release (the association guard round)",
+          (major, minor, rev, build) == ("1", "1", "13", "62") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.2 tag)",
+          vstr == "1.1.13-rc.2")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3082,8 +3082,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 61",
-          "#define VERSION_BUILD 61" in version)
+    check("the release candidate line moves to build 62",
+          "#define VERSION_BUILD 62" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3153,9 +3153,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 61",
-          "#define VERSION_BUILD 61" in version and
-          '#define VERSION_STRING "1.1.13-rc.1"' in version)
+    check("the version moves to build 62",
+          "#define VERSION_BUILD 62" in version and
+          '#define VERSION_STRING "1.1.13-rc.2"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3427,9 +3427,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.1 build 61",
-          '#define VERSION_BUILD 61' in version and
-          '#define VERSION_STRING "1.1.13-rc.1"' in version)
+    check("the version is 1.1.13-rc.2 build 62",
+          '#define VERSION_BUILD 62' in version and
+          '#define VERSION_STRING "1.1.13-rc.2"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3492,9 +3492,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 61",
-          "#define VERSION_BUILD 61" in version and
-          '#define VERSION_STRING "1.1.13-rc.1"' in version)
+    check("the version moves to build 62",
+          "#define VERSION_BUILD 62" in version and
+          '#define VERSION_STRING "1.1.13-rc.2"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4056,9 +4056,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.1 build 61",
-          '#define VERSION_BUILD 61' in version and
-          '#define VERSION_STRING "1.1.13-rc.1"' in version)
+    check("the version is 1.1.13-rc.2 build 62",
+          '#define VERSION_BUILD 62' in version and
+          '#define VERSION_STRING "1.1.13-rc.2"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4103,9 +4103,9 @@ def t_readme_diet_round85():
     readme = read("README.md").decode("utf-8", errors="replace")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
 
-    check("the candidate line is the readme diet round",
-          "**1.1.13-rc.1 \u2014" in readme and
-          "(the current release candidate):**" in readme)
+    check("the rc.1 entry rides the one-line list (the rc.2 candidate took the slot)",
+          "**1.1.13-rc.1** \u2014" in readme and
+          "**1.1.13-rc.1 \u2014" not in readme)
     check("the stable line keeps its house form",
           "**1.1.12 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4132,6 +4132,59 @@ def t_readme_diet_round85():
           "the upstream todo the fork now adopts" in flat and
           "the association guard" in flat and
           "the renderers" in flat)
+
+
+def t_association_guard_round86():
+    """Guards for the association guard round (1.1.13-rc.2: the first
+    upstream todo item - install bmp/jpg only when the extension's
+    effective default is the windows canonical class or our own)."""
+    install = read("src/viv_install.c").decode("latin-1")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+
+    at = install.index("static int _viv_is_foreign_association(const char *association,const wchar_t *class_name)\r\n{")
+    body = install[at:install.index("void _viv_install_association_by_extension(", at)]
+    assoc_at = install.index("void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location)\r\n{")
+    assoc = install[assoc_at:install.index("void _viv_uninstall_association_by_extension(", assoc_at)]
+
+    # 1. the canonical table: the todo's two names across the
+    #    association table's spellings.
+    check("the canonical table covers bmp and the jpg family",
+          '"bmp","jpg","jpeg"' in body and
+          '"bmpfile","jpgfile","jpgfile"' in body)
+    # 2. the effective owner is read from the merged view the shell
+    #    resolves (the per-user classes over the machine ones).
+    check("the effective owner is read from the merged view",
+          "RegOpenKeyExW(HKEY_CLASSES_ROOT,key,0,KEY_QUERY_VALUE,&hkey)" in body)
+    # 3. the tri-state: an empty default, the canonical class, or
+    #    our own class passes; anything else is foreign.
+    check("the gate reads the extension's default value",
+          "_viv_get_registry_string(hkey,0,wbuf,STRING_SIZE)" in body and
+          "(*wbuf)" in body)
+    check("only the canonical class or our own class passes",
+          "string_icompare_lowercase_ascii(wbuf,canonical_class) != 0" in body and
+          "string_compare(wbuf,class_name) != 0" in body)
+    # 4. the gate position: after the uninstall-restore (an upgrade
+    #    heals to the pre-fork owner first), before the backup write.
+    check("the gate sits after the uninstall-restore (upgrade heal)",
+          assoc.index("_viv_is_foreign_association(association,class_name)") >
+          assoc.index("_viv_uninstall_association_by_extension(association);"))
+    check("the gate sits before the backup write",
+          assoc.index("_viv_is_foreign_association(association,class_name)") <
+          assoc.index("voidImageViewer.Backup"))
+    check("a foreign owner returns before any write of ours",
+          'debug_printf("association .%s left alone (a foreign viewer owns it)' in assoc)
+    # 5. the readme candidate slot hands over.
+    check("the candidate line is the association guard round",
+          "**1.1.13-rc.2 \u2014" in readme and
+          "(the current release candidate):**" in readme)
+    # 6. the changelog carries the round.
+    flat = " ".join(changes.split())
+    check("the changelog states the todo landing",
+          "the first todo item lands" in flat and
+          "foreign viewer" in flat)
+    check("the changelog states the gate position",
+          "after the uninstall-restore" in flat)
 
 
 if __name__ == "__main__":
@@ -4190,6 +4243,7 @@ if __name__ == "__main__":
     t_review_absorption_round82()
     t_stable_promotion_round83()
     t_readme_diet_round85()
+    t_association_guard_round86()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

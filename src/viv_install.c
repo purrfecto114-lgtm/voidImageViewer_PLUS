@@ -31,6 +31,7 @@ int _viv_process_install_command_line_options(wchar_t *cl);
 void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location);
 void _viv_uninstall_association_by_extension(const char *association);
 int _viv_is_association(const char *association);
+static int _viv_is_foreign_association(const char *association,const wchar_t *class_name);
 static int _viv_get_registry_string(HKEY hkey,const utf8_t *value,wchar_t *wbuf,int size_in_wchars);
 static int _viv_set_registry_string(HKEY hkey,const utf8_t *value,const wchar_t *wbuf);
 static void _viv_install_association(DWORD flags);
@@ -388,6 +389,75 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 	return 0;
 }
 // use the default class description, ie: TXT File
+static int _viv_is_foreign_association(const char *association,const wchar_t *class_name)
+{
+	static const char *canonical_extensions[] = {"bmp","jpg","jpeg"};
+	static const char *canonical_classes[] = {"bmpfile","jpgfile","jpgfile"};
+	wchar_t association_wbuf[STRING_SIZE];
+	const char *canonical_class;
+	wchar_t key[STRING_SIZE];
+	HKEY hkey;
+	int i;
+	
+	string_copy_utf8_string(association_wbuf,(const utf8_t *)association);
+	
+	// the upstream todo's guard names bmp and jpg; the association
+	// table spells the jpg family as jpg and jpeg. the canonical
+	// classes are the defaults windows ships for those extensions -
+	// the owners a fresh system carries before any viewer claims
+	// them. every other extension is not gated and keeps the
+	// historical backup-then-takeover behavior.
+	canonical_class = 0;
+	
+	for(i=0;i<3;i++)
+	{
+		if (string_icompare_lowercase_ascii(association_wbuf,canonical_extensions[i]) == 0)
+		{
+			canonical_class = canonical_classes[i];
+			
+			break;
+		}
+	}
+	
+	if (!canonical_class)
+	{
+		return 0;
+	}
+	
+	// the effective owner is read from the merged view the shell
+	// resolves: HKEY_CLASSES_ROOT is the per-user software\classes
+	// over the machine ones, so a per-user owner (ours or a foreign
+	// one) shadows the machine default exactly as the shell sees it.
+	string_copy_utf8_string(key,(const utf8_t *)".");
+	string_cat_utf8(key,association);
+	
+	if (RegOpenKeyExW(HKEY_CLASSES_ROOT,key,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
+	{
+		wchar_t wbuf[STRING_SIZE];
+		int ret;
+		
+		ret = 0;
+		
+		if ((_viv_get_registry_string(hkey,0,wbuf,STRING_SIZE)) && (*wbuf))
+		{
+			// an empty default (no owner yet), the canonical class
+			// (the windows default) or our own class installs as
+			// before; anything else is a foreign viewer the user
+			// chose, and the extension is left alone.
+			if ((string_icompare_lowercase_ascii(wbuf,canonical_class) != 0) && (string_compare(wbuf,class_name) != 0))
+			{
+				ret = 1;
+			}
+		}
+		
+		RegCloseKey(hkey);
+		
+		return ret;
+	}
+	
+	return 0;
+}
+
 void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location)
 {
 	HKEY hkey;
@@ -405,6 +475,20 @@ void _viv_install_association_by_extension(const char *association,const char *d
 
 	string_copy_utf8_string(class_name,"voidImageViewer");
 	string_cat(class_name,dot_association);
+	
+	// the upstream todo's association guard: never take over an
+	// extension a foreign viewer owns. the gate sits after the
+	// uninstall-restore (an upgrade over an older no-gate install
+	// heals to the pre-fork owner first, so a foreign owner reads
+	// as foreign even then) and before any write of ours - the
+	// class keys, the icons, the backup and the takeover are all
+	// skipped for a foreign-owned extension.
+	if (_viv_is_foreign_association(association,class_name))
+	{
+		debug_printf("association .%s left alone (a foreign viewer owns it)\n",association);
+		
+		return;
+	}
 
 	string_copy_utf8_string(default_icon,"SOFTWARE\\Classes\\voidImageViewer");
 	string_cat(default_icon,dot_association);
