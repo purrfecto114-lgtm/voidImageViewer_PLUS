@@ -31,7 +31,7 @@ typedef HRESULT (__stdcall *_viv_shell_cdeffoldermenu_create2_t)(PCIDLIST_ABSOLU
 typedef PIDLIST_ABSOLUTE (__stdcall *_viv_shell_ilcreatefrompathw_t)(PCWSTR pszPath);
 typedef PIDLIST_RELATIVE (__stdcall *_viv_shell_ilclone_t)(PCUIDLIST_RELATIVE pidl);
 typedef PUITEMID_CHILD (__stdcall *_viv_shell_ilfindlastid_t)(PCUIDLIST_RELATIVE pidl);
-typedef WINBOOL (__stdcall *_viv_shell_ilremovelastid_t)(PUIDLIST_RELATIVE pidl);
+typedef BOOL (__stdcall *_viv_shell_ilremovelastid_t)(PUIDLIST_RELATIVE pidl);
 
 static HMODULE _viv_shell_module;
 static _viv_shell_cdeffoldermenu_create2_t _viv_shell_cdeffoldermenu_create2;
