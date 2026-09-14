@@ -330,13 +330,9 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 	else
 	{
 		DWORD thread_id;
-//		int rw;
-//		int rh;
 		RECT rect;
 
 		GetClientRect(_viv_hwnd,&rect);
-
-//		_viv_get_render_size(&rw,&rh);
 
 		_viv_load_image_allow_draw = 1;
 		_viv_load_image_terminate = 0;
@@ -878,11 +874,6 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 					{
 						DWORD readsize;
 
-//						if (_viv_load_image_terminate)
-//						{
-//							totreadsize = 0;
-//							break;
-//						}
 
 						readsize = 1 * 1024 * 1024;
 						
@@ -945,18 +936,6 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	}
 
 
-/*
-	// webp uses hglobals
-	{
-		IStream *my_stream;
-		
-		if (SUCCEEDED(SHCreateStreamOnFileEx(_viv_load_image_filename,STGM_READ,FILE_ATTRIBUTE_NORMAL,FALSE,NULL,&my_stream)))
-		{
-			// stream owns my_stream now.
-			stream = my_stream;
-		}
-	}
-*/
 
 	if (stream)
 	{

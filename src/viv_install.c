@@ -778,9 +778,6 @@ static void _viv_uninstall_association(DWORD flags)
 // waited forever: a hung instance would block install, uninstall and
 // exit forever. (this resolves the upstream FIXME: bounded waits, with
 // a last resort terminate.)
-// FIXME: we should check for the process name voidImageViewer.exe rather than the
-// window class name. -be careful when uninstalling as the non-admin process will be
-// waiting for the admin process to exit.
 // QueryFullProcessImageNameW (Vista+) is resolved lazily right here:
 // the install/uninstall path runs before os_init so the central
 // runtime table is not populated yet, and the headers gate the

@@ -1554,7 +1554,6 @@ static LRESULT _viv_on_wm_mouseleave(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	}
 	
 	_viv_show_cursor();
-//			_viv_tooltip_hide();
 	_viv_update_src_pixel(0,1);
 
 	return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -2495,18 +2494,6 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			rh = 0;
 
 			// controls.
-			/*
-			if (_viv_get_controls_high())
-			{
-				rect.left = 0;
-				rect.top = high;
-				rect.right = wide;
-				rect.bottom = rect.top + _viv_get_controls_high();
-				
-				FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW+1));
-				ExcludeClipRect(ps.hdc,rect.left,rect.top,rect.right,rect.bottom);
-			}
-		*/
 			if (_viv_frame_count)
 			{
 				HDC mem_hdc;
@@ -2514,16 +2501,6 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				_viv_get_render_size(&rw,&rh);
 
 				
-	#if 0
-				if (_viv_zoom_pos == 1)
-				{
-					if ((rw < _viv_image_wide) || (rw < _viv_image_wide))
-					{
-						rw = _viv_image_wide;
-						rh = _viv_image_high;
-					}
-				}
-	#endif
 				
 				rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
 				ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;

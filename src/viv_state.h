@@ -161,19 +161,6 @@ enum
 	_VIV_MENU_COUNT,
 };
 
-/*
-typedef struct _viv_fd_s
-{
-	unsigned __int64 id; // unique playlist id.
-	unsigned __int64 date_modified; 
-	unsigned __int64 size;
-	unsigned __int64 date_created;
-	
-	// filename follows.
-	// utf8_t filename[...];
-	
-}_viv_fd_t;
-*/
 // a reply from the image load thread
 typedef struct _viv_reply_s
 {
@@ -187,8 +174,6 @@ typedef struct _viv_reply_s
 // a mipmap level
 typedef struct _viv_mip_s
 {
-//	int wide;
-//	int high;
 	HBITMAP hbitmap;
 	struct _viv_mip_s *mipmap;
 	

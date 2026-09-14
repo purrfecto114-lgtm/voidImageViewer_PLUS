@@ -330,11 +330,9 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Language", // LOCALIZATION_ID_SETTINGS_LANGUAGE
 	"Follow system", // LOCALIZATION_ID_SETTINGS_LANGUAGE_FOLLOW_SYSTEM
 	"Theme", // LOCALIZATION_ID_SETTINGS_THEME
-	"Startup & window", // LOCALIZATION_ID_SETTINGS_SECTION_STARTUP
+	"System integration", // LOCALIZATION_ID_SETTINGS_SECTION_STARTUP
 	"Allow multiple instances", // LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE
 	"Open several viewer windows at the same time", // LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE_DESC
-	"Create a startup shortcut", // LOCALIZATION_ID_SETTINGS_STARTUP_SHORTCUT
-	"Add void Image Viewer PLUS to the system startup", // LOCALIZATION_ID_SETTINGS_STARTUP_SHORTCUT_DESC
 	"File associations", // LOCALIZATION_ID_SETTINGS_SECTION_ASSOCIATIONS
 	"Choose the image formats to associate", // LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_DESC
 	"Select all", // LOCALIZATION_ID_SETTINGS_SELECT_ALL

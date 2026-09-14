@@ -278,8 +278,6 @@ def t_localization_alignment():
             "LOCALIZATION_ID_SETTINGS_SECTION_STARTUP",
             "LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE",
             "LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE_DESC",
-            "LOCALIZATION_ID_SETTINGS_STARTUP_SHORTCUT",
-            "LOCALIZATION_ID_SETTINGS_STARTUP_SHORTCUT_DESC",
             "LOCALIZATION_ID_SETTINGS_SECTION_ASSOCIATIONS",
             "LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_DESC",
             "LOCALIZATION_ID_SETTINGS_SELECT_ALL",
@@ -293,9 +291,9 @@ def t_localization_alignment():
             "LOCALIZATION_ID_MSGBOX_YES",
             "LOCALIZATION_ID_MSGBOX_NO",
             "LOCALIZATION_ID_ACCENT_COLOR")
-    check("enum ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired)", tuple(ids[-46:]) == tail)
-    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired)", tuple(en[-46:]) == tail)
-    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired)", tuple(zh[-46:]) == tail)
+    check("enum ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(ids[-44:]) == tail)
+    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(en[-44:]) == tail)
+    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(zh[-44:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -332,10 +330,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.13.66 pre-release (the peripheral residue round)",
-          (major, minor, rev, build) == ("1", "1", "13", "66") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.6 tag)",
-          vstr == "1.1.13-rc.6")
+    check("version.h = 1.1.13.67 pre-release (the field sweep round)",
+          (major, minor, rev, build) == ("1", "1", "13", "67") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.7 tag)",
+          vstr == "1.1.13-rc.7")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3081,8 +3079,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 66",
-          "#define VERSION_BUILD 66" in version)
+    check("the release candidate line moves to build 66 (the rc.7 pins ride it)",
+          "#define VERSION_BUILD 67" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3152,9 +3150,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66",
-          "#define VERSION_BUILD 66" in version and
-          '#define VERSION_STRING "1.1.13-rc.6"' in version)
+    check("the version moves to build 66 (the rc.7 pins ride it)",
+          "#define VERSION_BUILD 67" in version and
+          '#define VERSION_STRING "1.1.13-rc.7"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3426,9 +3424,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.6 build 66",
-          '#define VERSION_BUILD 66' in version and
-          '#define VERSION_STRING "1.1.13-rc.6"' in version)
+    check("the version is 1.1.13-rc.7 build 67",
+          '#define VERSION_BUILD 67' in version and
+          '#define VERSION_STRING "1.1.13-rc.7"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3491,9 +3489,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66",
-          "#define VERSION_BUILD 66" in version and
-          '#define VERSION_STRING "1.1.13-rc.6"' in version)
+    check("the version moves to build 66 (the rc.7 pins ride it)",
+          "#define VERSION_BUILD 67" in version and
+          '#define VERSION_STRING "1.1.13-rc.7"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4055,9 +4053,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.6 build 66",
-          '#define VERSION_BUILD 66' in version and
-          '#define VERSION_STRING "1.1.13-rc.6"' in version)
+    check("the version is 1.1.13-rc.7 build 67",
+          '#define VERSION_BUILD 67' in version and
+          '#define VERSION_STRING "1.1.13-rc.7"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4225,9 +4223,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.13-rc.6 build 66",
-          '#define VERSION_BUILD 66' in version and
-          '#define VERSION_STRING "1.1.13-rc.6"' in version)
+    check("the version is 1.1.13-rc.7 build 67",
+          '#define VERSION_BUILD 67' in version and
+          '#define VERSION_STRING "1.1.13-rc.7"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4328,9 +4326,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.13-rc.6 build 66",
-          '#define VERSION_BUILD 66' in version and
-          '#define VERSION_STRING "1.1.13-rc.6"' in version)
+    check("the version is 1.1.13-rc.7 build 67",
+          '#define VERSION_BUILD 67' in version and
+          '#define VERSION_STRING "1.1.13-rc.7"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4407,11 +4405,11 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.13-rc.6 build 66",
-          '#define VERSION_BUILD 66' in version and
-          '#define VERSION_STRING "1.1.13-rc.6"' in version)
-    check("the candidate line is the peripheral residue round",
-          "**1.1.13-rc.6 \u2014" in readme and
+    check("the version is 1.1.13-rc.7 build 67",
+          '#define VERSION_BUILD 67' in version and
+          '#define VERSION_STRING "1.1.13-rc.7"' in version)
+    check("the candidate line is the field sweep round",
+          "**1.1.13-rc.7 \u2014" in readme and
           "(the current release candidate):**" in readme)
     # 6. the changelog carries the round.
     flat = " ".join(changes.split())
@@ -4506,11 +4504,11 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.13-rc.6 build 66",
-          '#define VERSION_BUILD 66' in version and
-          '#define VERSION_STRING "1.1.13-rc.6"' in version)
-    check("the candidate line is the peripheral residue round",
-          "**1.1.13-rc.6 \u2014" in readme and
+    check("the version is 1.1.13-rc.7 build 67",
+          '#define VERSION_BUILD 67' in version and
+          '#define VERSION_STRING "1.1.13-rc.7"' in version)
+    check("the candidate line is the field sweep round",
+          "**1.1.13-rc.7 \u2014" in readme and
           "(the current release candidate):**" in readme)
     # 7. the changelog carries the round.
     flat = " ".join(changes.split())
@@ -4518,6 +4516,161 @@ def t_peripheral_residue_round92():
           "the peripheral residue round" in flat)
     check("the changelog states the deliberate keeps",
           "gs_report" in flat and "mockup cannot drift" in flat)
+
+
+def t_field_sweep_round93():
+    """Guards for the field sweep round (1.1.13-rc.7: the cold-start
+    slideshow dispatch fix, the startup shortcut retirement, the widened
+    no-image menu gate, the single keyboard-only focus ring and the legacy
+    pile sweep)."""
+    settings = read("src/viv_settings.c").decode("latin-1")
+    toolbar = read("src/viv_toolbar.c").decode("latin-1")
+    menu = read("src/viv_menu.c").decode("latin-1")
+    loch = read("src/localization.h").decode("latin-1")
+    locen = read("src/localization_en_us.h").decode("utf-8", errors="replace")
+    loczh = read("src/localization_zh_cn.h").decode("utf-8", errors="replace")
+    vivc = read("src/viv.c").decode("latin-1")
+    view = read("src/viv_view.c").decode("latin-1")
+    osc = read("src/os.c").decode("latin-1")
+    dialogs = read("src/viv_dialogs.c").decode("latin-1")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    version = read("src/version.h").decode("latin-1")
+
+    # 1. the startup shortcut retires everywhere it lived.
+    for dead in ("LOCALIZATION_ID_SETTINGS_STARTUP_SHORTCUT",):
+        pat = re.compile(dead + r"(?![A-Z0-9_])")
+        check("localization drops %s" % dead,
+              pat.search(loch) is None and pat.search(locen) is None and
+              pat.search(loczh) is None)
+    check("the settings row id is gone", "_VIV_SETTINGS_ID_RUNKEY" not in settings)
+    check("the run key writer and reader are gone",
+          "_viv_settings_run_key_set" not in settings and
+          "_viv_settings_run_key_present" not in settings)
+    check("the retire helper replaces them",
+          settings.count("static void _viv_settings_run_key_retire(void)") == 2)
+    check("the open pass calls the retire once",
+          settings.count("_viv_settings_run_key_retire();") == 1)
+    check("the run key constants stay (the retire reads them)",
+          "_VIV_SETTINGS_RUN_KEY_PATH" in settings and
+          "_VIV_SETTINGS_RUN_KEY_VALUE" in settings)
+    check("the section survives with its new name",
+          "LOCALIZATION_ID_SETTINGS_SECTION_STARTUP" in loch and
+          '"System integration"' in locen and
+          "\u7cfb\u7edf\u96c6\u6210" in loczh)
+    check("the allow multiple row survives the surgery",
+          "_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_MULTIPLE" in settings)
+
+    # 2. the cold-start fix: the play slot gates its animation branch on
+    #    frames (the rc.13 face rule reaches the dispatch).
+    check("the toolbar play dispatch carries the frame gate",
+          toolbar.count("else if ((_viv_frame_count > 1) && (_viv_animation_play))") == 1)
+
+    # 3. the widened no-image gate.
+    check("the animation gate variable exists",
+          "UINT is_animation_enabled" in menu)
+    check("the pause item rides the live gate",
+          menu.count("\tEnableMenuItem(hmenu,VIV_ID_SLIDESHOW_PAUSE,is_image_enabled);") == 1)
+    check("the navigation pair gates on the image",
+          "EnableMenuItem(hmenu,VIV_ID_NAV_PREV,is_image_enabled);" in menu and
+          "EnableMenuItem(hmenu,VIV_ID_NAV_NEXT,is_image_enabled);" in menu)
+    check("the window sizing and zoom family gate on the image",
+          "EnableMenuItem(hmenu,VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT,is_image_enabled);" in menu and
+          "EnableMenuItem(hmenu,VIV_ID_VIEW_ZOOM_IN,is_image_enabled);" in menu and
+          "EnableMenuItem(hmenu,VIV_ID_VIEW_BESTFIT,is_image_enabled);" in menu)
+    check("the animation family gates on frames",
+          "EnableMenuItem(hmenu,VIV_ID_ANIMATION_PLAY_PAUSE,is_animation_enabled);" in menu and
+          "EnableMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_STEP,is_animation_enabled);" in menu)
+    check("the duplicate 1to1 check retires",
+          menu.count("CheckMenuItem(hmenu,VIV_ID_VIEW_1TO1,") == 1)
+
+    # 4. the focus ring: one ring, keyboard only.
+    check("the keyboard flag exists and the paint gates on it",
+          "static BYTE _viv_settings_focus_keyboard = 0;" in settings and
+          "focus = ((_viv_settings_focus == i) && (_viv_settings_focus_keyboard)) ? 1 : 0;" in settings)
+    check("the row ring is gone (the paint loop no longer rings ctl->rect)",
+          "the keyboard focus ring (2 dip accent stroke)" not in settings and
+          "_viv_settings_draw_focus_ring(mem,&ctl->rect)" not in settings)
+    check("the control ring survives (the switch still rings its capsule)",
+          "_viv_settings_draw_focus_ring(hdc,&ctl->value);" in settings)
+
+    # 5. the legacy sweep.
+    for gone in ("_viv_is_alt", "_viv_tooltip", "_viv_low_priority_paint",
+                 "_viv_fd_t"):
+        check("%s is gone from the tree" % gone,
+              gone not in vivc and gone not in view and
+              gone not in read("src/viv_render.c").decode("latin-1") and
+              gone not in read("src/viv_chrome.c").decode("latin-1") and
+              gone not in read("src/viv_wndproc.c").decode("latin-1") and
+              gone not in read("src/viv_state.h").decode("latin-1"))
+    check("the upstream todo pile is trimmed to the four open items",
+          vivc.count("// - OpenGL renderer.") == 1 and
+          vivc.count("// - Direct3D renderer.") == 1 and
+          "CDefFolderMenu_Create2" in vivc and
+          "right click rename" not in vivc)
+    check("the dead zoom-clamp copies are gone",
+          view.count("_viv_zoom_pos == 1") == 0 and
+          read("src/viv_wndproc.c").decode("latin-1").count("_viv_zoom_pos == 1") == 0)
+    check("the webp rgba corpse is gone",
+          "convert RGBA to BGRA" not in read("src/webp.c").decode("latin-1"))
+    check("the dead process-name fixme retires",
+          "we should check for the process name" not in
+          read("src/viv_install.c").decode("latin-1"))
+    check("the dead wait fixme retires",
+          "FIXME: we need to wait for image to load." not in view)
+
+    # 6. the deliberate keeps.
+    check("the real shortcut-resolver todo stays",
+          "TODO: resolve shortcuts" in osc)
+    check("the real preload review todo stays",
+          "//TODO: review -when enabled, viv fills unresponsive/sluggish." in view)
+    check("the frozen options family stays",
+          "_viv_options_proc" in dialogs)
+    check("the brace flattening stays deferred (the bare braces keep their lines)",
+          read("src/viv_load.c").decode("latin-1").count(
+              "if (!_viv_load_image_terminate)") == 2)
+
+    # 6.5 the icon payload diet (the size complaint's top lever): the four
+    #     large frames ride png payloads (vista+), the six small frames
+    #     stay raw and byte-identical (the pre-vista fallback ladder).
+    import struct
+    ico = read("res/voidImageViewer.ico")
+    n_ico = struct.unpack("<H", ico[4:6])[0]
+    png_frames = 0
+    raw_frames = 0
+    for i_ico in range(n_ico):
+        d_ico = ico[6 + i_ico * 16:6 + (i_ico + 1) * 16]
+        w_ico = d_ico[0] or 256
+        sz_ico = struct.unpack("<I", d_ico[8:12])[0]
+        off_ico = struct.unpack("<I", d_ico[12:16])[0]
+        pl_ico = ico[off_ico:off_ico + sz_ico]
+        if w_ico >= 48:
+            if pl_ico[:8] == b"\x89PNG\r\n\x1a\n":
+                png_frames += 1
+        elif pl_ico[:4] == b"\x28\x00\x00\x00":
+            raw_frames += 1
+    check("the four large frames ride png payloads",
+          n_ico == 10 and png_frames == 4 and raw_frames == 6 and
+          len(ico) < 90000)
+
+    # 7. the version and the readme slot.
+    check("the version is 1.1.13-rc.7 build 67",
+          '#define VERSION_BUILD 67' in version and
+          '#define VERSION_STRING "1.1.13-rc.7"' in version)
+    check("the candidate line is the field sweep round",
+          "**1.1.13-rc.7 \u2014" in readme and
+          "(the current release candidate):**" in readme)
+    check("the rc.6 entry rides the one-line list",
+          "**1.1.13-rc.6** \u2014" in readme and
+          "**1.1.13-rc.6 \u2014" not in readme)
+
+    # 8. the changelog carries the round.
+    flat = " ".join(changes.split())
+    check("the changelog states the field sweep round",
+          "the field sweep round" in flat)
+    check("the changelog states the retirement and the reason",
+          "the startup shortcut retires" in flat and
+          "no business in the boot path" in flat)
 
 
 if __name__ == "__main__":
@@ -4582,6 +4735,7 @@ if __name__ == "__main__":
     t_dead_residue_round91()
     t_release_title_crlf_fix()
     t_peripheral_residue_round92()
+    t_field_sweep_round93()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

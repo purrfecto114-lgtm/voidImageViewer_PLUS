@@ -350,14 +350,16 @@ static void _viv_toolbar_fire(int itemi)
 	// the play slot resolves from the live state (the pill rule): a
 	// running slideshow pauses in place, an animated image toggles the
 	// animation clock, idle starts the windowed slideshow - the slot
-	// never forces the fullscreen jump the old command did.
+	// never forces the fullscreen jump the old command did. (rc.7: the
+	// animation branch carries the frame-count gate the rc.13 face rule
+	// already pinned - a static image no longer eats the first click.)
 	if (itemi == _VIV_TOOLBAR_ITEM_PLAY)
 	{
 		if (_viv_is_slideshow)
 		{
 			command_id = VIV_ID_SLIDESHOW_PAUSE_ONLY;
 		}
-		else if (_viv_animation_play)
+		else if ((_viv_frame_count > 1) && (_viv_animation_play))
 		{
 			command_id = VIV_ID_ANIMATION_PLAY_PAUSE;
 		}

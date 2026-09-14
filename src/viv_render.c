@@ -617,7 +617,6 @@ void _viv_backdrop_apply(void)
 }
 void _viv_update_src_pixel(int force,int update_statusbar)
 {
-//	if ((config_pixel_info) || ((_viv_is_alt) && (_viv_is_tracking_mouse)))
 	if (config_pixel_info)
 	{
 		POINT src_pixel_pt;
@@ -663,15 +662,6 @@ void _viv_update_src_pixel(int force,int update_statusbar)
 				_viv_status_update();
 			}
 			
-/*
-			if ((src_pixel_pt.x != -1) && (src_pixel_pt.y != -1))
-			{
-				_viv_tooltip_update();
-			}
-			else
-			{
-				_viv_tooltip_hide();
-			}*/
 		}
 	}
 	else
@@ -680,16 +670,6 @@ void _viv_update_src_pixel(int force,int update_statusbar)
 		_viv_src_pixel_y = -1;
 	}
 
-/*	
-	if ((_viv_is_alt) && (_viv_is_tracking_mouse))
-	{
-		_viv_tooltip_update_track_position();
-	}
-	else
-	{
-		_viv_tooltip_hide();
-	}
-	*/
 }
 int _viv_zoom_percent(void)
 {

@@ -169,6 +169,7 @@ void _viv_check_menus(HMENU hmenu)
 	int rh;
 	int slideshow_rate_id;
 	UINT is_image_enabled;
+	UINT is_animation_enabled;	// rc.7: the animation family needs frames, not just an image.
 	
 	is_slideshow = 0;
 
@@ -212,7 +213,45 @@ void _viv_check_menus(HMENU hmenu)
 
 	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_270,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_90,is_image_enabled);
-//	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_PAUSE,is_image_enabled);
+	// rc.7: the no-image gate widens - navigation, zoom, window sizing,
+	// refresh, the slideshow family and the animation family all act on
+	// an image (the toolbar and the pill already carried this per button).
+	EnableMenuItem(hmenu,VIV_ID_NAV_PREV,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_NAV_NEXT,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_NAV_HOME,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_NAV_END,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_SLIDESHOW,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_PAUSE,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_STOP,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_DEC,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_INC,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_ZOOM_IN,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_ZOOM_OUT,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_ZOOM_RESET,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_1TO1,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_BESTFIT,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_WINDOW_SIZE_50,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_WINDOW_SIZE_100,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_WINDOW_SIZE_200,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_REFRESH,is_image_enabled);
+
+	// the animation family needs an animated image, not just any image.
+	is_animation_enabled = ((_viv_frame_count > 1) && (is_image_enabled == MF_ENABLED)) ? MF_ENABLED : MF_DISABLED;
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_PLAY_PAUSE,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_JUMP_FORWARD_SHORT,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_JUMP_BACKWARD_SHORT,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_JUMP_FORWARD_LONG,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_JUMP_BACKWARD_LONG,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_HOME,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_END,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_STEP,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_PREV,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_RATE_DEC,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_RATE_INC,is_animation_enabled);
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_RATE_RESET,is_animation_enabled);
 
 	CheckMenuItem(hmenu,VIV_ID_VIEW_CAPTION,config_show_caption ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_THICKFRAME,config_show_thickframe ? MF_CHECKED : MF_UNCHECKED);
@@ -294,8 +333,6 @@ void _viv_check_menus(HMENU hmenu)
 
 	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_ASCENDING,config_nav_sort_ascending ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_NAV_SORT_DESCENDING,(!config_nav_sort_ascending) ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	
-	CheckMenuItem(hmenu,VIV_ID_VIEW_1TO1,((rw == _viv_image_wide) && (rh == _viv_image_high)) ? MF_CHECKED : MF_UNCHECKED);
 }
 void _viv_get_command_name(wchar_t *wbuf,int command_index)
 {

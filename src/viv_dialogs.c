@@ -2647,44 +2647,8 @@ void _viv_show_jumpto(void)
 								case VK_NEXT:
 								case VK_PRIOR:
 									
-									/*
-									
-									{
-										int count;
-										int index;
-
-										// msg->hwnd = GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST);
-										
-										index = -1;
-										count = ListBox_GetCount(GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST));
-										
-										if (count)
-										{
-											switch (msg.wParam)
-											{
-												case VK_DOWN:
-												case VK_NEXT:
-													index = 0;
-													break;
-													
-												default:
-													index = count - 1;
-													break;
-											}
-										}
-
-										if (index != -1)
-										{
-											ListBox_SetCurSel(GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST),index);
-										}
-
-										SetFocus(GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST));					
-									}
-									*/
-									
 									SendMessage(GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST),msg.message,msg.wParam,msg.lParam);
 
-									//SetFocus(GetDlgItem(dialog_hwnd,IDC_JUMPTO_LIST));					
 									
 									continue;
 							}

@@ -328,7 +328,6 @@ void _viv_update_show_cursor(void);
 void _viv_start_hide_cursor_timer(void);
 
 
-//static HWND _viv_tooltip_hwnd = 0;
 static RECT _viv_fullscreen_rect;
 static int _viv_fullscreen_zoom_offset = 0;
 static BYTE _viv_prevent_on_size = 0; // don't process WM_SIZE changes.
@@ -447,7 +446,6 @@ void _viv_on_size(void)
 			new_view_y = (int)(((_viv_view_iy * rh) / _viv_image_high) + 0.5) + (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (high / 2) - (rh / 2);
 	
 	debug_printf("RESTORE VIEW x %d y %d ix %d iy %d rw %d rh %d wide %d high %d\n",(int)(new_view_x),(int)(new_view_y),(int)_viv_view_ix,(int)_viv_view_iy,rw,rh,wide,high)		;
-	//		_viv_view_set((int)(_viv_view_ix * (double)rw),(int)(_viv_view_iy * (double)rh),1);
 			_viv_view_set((int)new_view_x,(int)new_view_y,1);
 		}
 
@@ -1811,20 +1809,6 @@ static LRESULT CALLBACK _viv_fullscreen_proc(HWND hwnd,UINT msg,WPARAM wParam,LP
 			
 			GetClientRect(hwnd,&rect);
 			BeginPaint(hwnd,&ps);
-			/*
-			{
-				HBRUSH hbrush;
-				
-				hbrush = CreateSolidBrush(RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b));
-				
-				if (hbrush)
-				{
-					FillRect(ps.hdc,&rect,hbrush);
-				
-					DeleteObject(hbrush);
-				}
-			}
-			*/
 			EndPaint(hwnd,&ps);
 			break;
 		}
@@ -1954,7 +1938,6 @@ int _viv_should_show_cursor(void)
 					{
 						if ((_viv_is_fullscreen) || (config_windowed_hide_cursor))
 						{
-							// if (!((_viv_is_alt) && (_viv_is_tracking_mouse)))
 							{
 								return 0;
 							}

@@ -620,31 +620,6 @@ void _viv_start_first_frame(void)
 	// show cursor.
 	_viv_update_show_cursor();
 
-//debug_printf("---\n",_viv_load_image_next_fd);
-//debug_printf("_viv_load_image_next_fd %p\n",_viv_load_image_next_fd);
-//debug_printf("---\n",_viv_load_image_next_fd);
-/*
-	if (_viv_load_image_next_fd)
-	{
-		// load priority paint..
-		// we will paint on the 'next next' image we load..
-		_viv_low_priority_paint = 1;
-		return;
-	}
-	
-	_viv_low_priority_paint = 0;
-	InvalidateRect(_viv_hwnd,NULL,FALSE);
-
-	// building mipmaps as needed hangs the UI.
-	// this makes rendering lag while holding down right.
-	// avoid painting when user is holding down right..
-	//
-	// because we build the mipmap for the first image in the load thread this is now instant..
-	// ok it's still awful, let the next load refresh..
-//	if (_viv_load_image_next_fd)
-	{
-//		UpdateWindow(_viv_hwnd);
-	}*/
 	
 	if (!_viv_is_fullscreen)
 	{

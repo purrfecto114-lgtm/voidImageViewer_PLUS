@@ -1096,7 +1096,6 @@ debug_printf("_viv_next %d %d\n",prev,is_preload);
 
 //TODO: review -when enabled, viv fills unresponsive/sluggish.
 // when disabled, viv can load multiple images when the 'up' key is released.
-//wait_for_current_load = 0;
 
 // NEVER use the preload, always go to disk to find the next real image.
 // users expects the next image. Not the one we preloaded ages ago.
@@ -1104,7 +1103,6 @@ debug_printf("_viv_next %d %d\n",prev,is_preload);
 
 	if ((!is_preload) && (_viv_load_image_thread) && ((_viv_load_frame_count <= 1) || (_viv_load_image_terminate)) && (wait_for_current_load))
 	{
-		//_viv_open_preload();
 		
 		// still loading.
 		// wait for current load to finish.
@@ -1397,7 +1395,6 @@ debug_printf("FIND next\n");
 			{
 				// dont blank because we may not have a best or start because we only have one image 
 				// (compare_ret != 0)
-//				_viv_blank();
 				ret = 0;
 			}
 		}
@@ -1576,16 +1573,6 @@ void _viv_view_set(int view_x,int view_y,int invalidate)
 	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
 
 	_viv_get_render_size(&rw,&rh);
-/*		
-		if (_viv_zoom_pos == 1)
-		{
-			if ((rw < _viv_image_wide) || (rw < _viv_image_wide))
-			{
-				rw = _viv_image_wide;
-				rh = _viv_image_high;
-			}
-		}
-*/
 
 	{
 		int rx;
@@ -1669,7 +1656,6 @@ void _viv_view_set(int view_x,int view_y,int invalidate)
 	else
 	{
 		// don't set to 0, just use last value.
-//		_viv_view_ix = 0.0;
 	}
 
 	if (rh)
@@ -1684,7 +1670,6 @@ void _viv_view_set(int view_x,int view_y,int invalidate)
 	else
 	{
 		// don't set to 0, just use last value.
-//		_viv_view_iy = 0;
 	}
 
 	if ((_viv_view_x != view_x) || (_viv_view_y != view_y))
@@ -1933,13 +1918,6 @@ static void _viv_copy_image(void)
 }
 void _viv_pause(void)
 {
-/*
-	if (_viv_file_not_found)
-	{
-		MessageBeep(MB_OK);
-		return;
-	}
-*/	
 	if (_viv_is_slideshow)
 	{
 		KillTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER);
@@ -2036,11 +2014,8 @@ static void _viv_edit_rotate(int counterclockwise)
 {
 	if (*_viv_current_fd->cFileName)
 	{
-		// FIXME: we need to wait for image to load.
 		if (_viv_frame_loaded_count == _viv_frame_count)
 		{
-			// this tends to fail if called too quickly after a previous call
-			// can't seem to catch the error ..
 			if (os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,1,counterclockwise ? "rotate270" : "rotate90",0))
 			{
 				int i;
@@ -2567,16 +2542,6 @@ void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 	
 		_viv_get_render_size(&rw,&rh);
 		
-/*
-		if (_viv_zoom_pos == 1)
-		{
-			if ((rw < _viv_image_wide) || (rw < _viv_image_wide))
-			{
-				rw = _viv_image_wide;
-				rh = _viv_image_high;
-			}
-		}
-		*/
 		rx = (wide / 2) - (rw / 2) - _viv_view_x;
 		ry = (high / 2) - (rh / 2) - _viv_view_y;
 		
@@ -2584,27 +2549,6 @@ void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 		old_cursor_py = (cursor_y - ry);
 		old_rw = rw;
 		old_rh = rh;
-/*
-		if (old_cursor_px < 0)
-		{
-			old_cursor_px = 0;
-		}
-
-		if (old_cursor_px > 20 * rw)
-		{
-			old_cursor_px = 20 * rw;
-		}
-		
-		if (old_cursor_py < 0)
-		{
-			old_cursor_py = 0;
-		}
-
-		if (old_cursor_py > 20 * rh)
-		{
-			old_cursor_py = 20 * rh;
-		}
-		*/
 		if (_viv_1to1)
 		{
 			_viv_1to1 = 0;
@@ -2718,26 +2662,6 @@ void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 		if (_viv_zoom_pos != old_zoom_pos)
 		{
 			_viv_get_render_size(&rw,&rh);
-	/*
-			if (_viv_zoom_pos == 1)
-			{
-				if ((rw < _viv_image_wide) || (rw < _viv_image_wide))
-				{
-					rw = _viv_image_wide;
-					rh = _viv_image_high;
-				}
-			}
-	*/
-			// 
-			// new_cursor_x = 
-	//			rx = (wide / 2) - (rw / 2)
-
-	//debug_printf("%d %d\n",(wide / 2) - (rw / 2),(high / 2) - (rh / 2));
-	//debug_printf("%d %d\n",old_cursor_px,(old_cursor_px * 100) / old_rw);
-						
-	//debug_printf("old %d %d new %d %d\n",old_cursor_px,old_cursor_py,(wide / 2) - (rw / 2) - cursor_x + ((old_cursor_px * rw) / old_rw),(high / 2) - (rh / 2) - cursor_y + ((old_cursor_py * rh) / old_rh))		;
-	//debug_printf("wide / 2 = %d, rw/2=%d, old_cursor_px * rw=%d\n",wide/2,rw/2,old_cursor_px * rw)		;
-
 			if (old_rw)
 			{
 				new_cursor_x = ((__int64)old_cursor_px * (__int64)rw) / (__int64)old_rw;

@@ -312,12 +312,10 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 		if (*fp == '%')
 		{
 			int leading_zero;
-			//int dp;
 			
 			fp++;
 			
 			leading_zero = 0;
-			//dp = 6;
 			
 			if (*fp == '0')
 			{
@@ -330,7 +328,6 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 				fp++;
 				if ((*fp >= '0') && (*fp <= '9'))
 				{
-			//		dp = *fp - '0';
 					fp++;
 				}
 			}

@@ -162,31 +162,6 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 											// `timestamp` is in milliseconds
 											// Process the frame (copy/store/display)
 											
-											// convert RGBA to BGRA
-											/*
-											{
-												BYTE *p;
-												DWORD run;
-												
-												run = anim_info.canvas_width * anim_info.canvas_height;
-												p = frame;
-												
-												while(run)
-												{
-													int r;
-													int b;
-													
-													b = p[0];
-													r = p[2];
-													
-													p[0] = r;
-													p[2] = b;
-													
-													p += 4;
-													run--;
-												}
-											}*/
-											
 											// deliver each frame with its own duration from the container scan:
 											// the old timestamp-gap arithmetic handed every frame its
 											// predecessors duration and the last frames duration never existed

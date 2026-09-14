@@ -126,8 +126,6 @@ void mem_debug(void)
 		debug_printf("heap overhead: %d\n",(int)(mem_usage - size));
 		
 		
-//DEBUG:	
-// catch leaks.	
 		if (count) 
 		{
 			DebugBreak();

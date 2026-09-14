@@ -86,8 +86,9 @@
 #define _VIV_SETTINGS_ACCENT_GAP        10
 #define _VIV_SETTINGS_ACCENT_STRIP      140
 
-// run key (startup shortcut). written directly here: os.c has no
-// registry helper for a plain hkcu value.
+// run key (the retired startup switch): see the retire helper below.
+// written directly here: os.c has no registry helper for a plain
+// hkcu value.
 #define _VIV_SETTINGS_RUN_KEY_PATH	L"Software\\Microsoft\\Windows\\CurrentVersion\\Run"
 #define _VIV_SETTINGS_RUN_KEY_VALUE	L"voidImageViewerPLUS"
 
@@ -115,7 +116,6 @@
 #define _VIV_SETTINGS_ID_LANGUAGE	10
 #define _VIV_SETTINGS_ID_THEME		11
 #define _VIV_SETTINGS_ID_MULTIPLE	12
-#define _VIV_SETTINGS_ID_RUNKEY		13
 #define _VIV_SETTINGS_ID_SELECT_ALL	14
 #define _VIV_SETTINGS_ID_ASSOC		15			// + extension index (param)
 #define _VIV_SETTINGS_ID_ACCENT         16
@@ -183,6 +183,7 @@ static int _viv_settings_ctl_count = 0;
 static int _viv_settings_hot = -1;		// ctl under the cursor
 static int _viv_settings_pressed = -1;	// ctl pressed with capture
 static int _viv_settings_focus = -1;	// ctl with keyboard focus
+static BYTE _viv_settings_focus_keyboard = 0;	// rc.7: 1 = the focus arrived by keyboard (the ring draws only then)
 static BYTE _viv_settings_tracking = 0;	// the mouse leave tracking is armed
 
 static HFONT _viv_settings_font = 0;
@@ -205,7 +206,6 @@ static int _viv_settings_snap_language;
 static int _viv_settings_snap_dark_mode;
 static int _viv_settings_snap_accent;
 static int _viv_settings_snap_multiple_instances;
-static int _viv_settings_snap_run_key;
 static int _viv_settings_snap_shrink_blit;
 static int _viv_settings_snap_mag;
 static int _viv_settings_snap_title;
@@ -229,9 +229,6 @@ static BYTE _viv_settings_snap_fullscreen_b;
 // each toggle so painting does not hit the registry).
 static int _viv_settings_assoc[_VIV_ASSOCIATION_COUNT];
 
-// the run key switch state, cached the same way: the paint pass reads
-// this, the registry is touched at open, on page enter and on writes.
-static int _viv_settings_run_key_state;
 
 // keyboard shortcut editor: a private copy of the key list. the real
 // list is replaced only on ok (the options dialog behavior).
@@ -268,8 +265,7 @@ static void _viv_settings_set_language(int language);
 static void _viv_settings_language_refresh(void);
 static void _viv_settings_dark_apply(void);
 static void _viv_settings_accent_set(int accent);
-static void _viv_settings_run_key_set(int on);
-static int _viv_settings_run_key_present(void);
+static void _viv_settings_run_key_retire(void);
 static int _viv_settings_command_at(int item_index);
 static int _viv_settings_key_count(void);
 static DWORD _viv_settings_key_at(int index);
@@ -348,47 +344,18 @@ static HBRUSH _viv_settings_brush(int which)
 	return viv_theme_brush(_viv_settings_token(which));
 }
 
-// run key: hkcu\...\run value "voidImageViewerPLUS" = quoted exe path.
-static int _viv_settings_run_key_present(void)
-{
-	HKEY hkey;
-	int ret;
-
-	ret = 0;
-
-	if (RegOpenKeyExW(HKEY_CURRENT_USER,_VIV_SETTINGS_RUN_KEY_PATH,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
-	{
-		ret = (RegQueryValueExW(hkey,_VIV_SETTINGS_RUN_KEY_VALUE,0,NULL,NULL,NULL) == ERROR_SUCCESS) ? 1 : 0;
-
-		RegCloseKey(hkey);
-	}
-
-	return ret;
-}
-
-static void _viv_settings_run_key_set(int on)
+// run key retirement: the startup switch left the settings window
+// (the run key writes hkcu\...\run, not a shortcut, and an image
+// viewer has no business in the boot path). the settings open pass
+// deletes a value an older install may have written - nothing else
+// touches it again.
+static void _viv_settings_run_key_retire(void)
 {
 	HKEY hkey;
 
-	if (RegCreateKeyExW(HKEY_CURRENT_USER,_VIV_SETTINGS_RUN_KEY_PATH,0,NULL,REG_OPTION_NON_VOLATILE,KEY_SET_VALUE,NULL,&hkey,NULL) == ERROR_SUCCESS)
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,_VIV_SETTINGS_RUN_KEY_PATH,0,KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
 	{
-		if (on)
-		{
-			wchar_t exe_filename[STRING_SIZE];
-			wchar_t value_wbuf[STRING_SIZE];
-
-			_viv_get_exe_filename(exe_filename);
-
-			string_copy(value_wbuf,L"\"");
-			string_cat(value_wbuf,exe_filename);
-			string_cat(value_wbuf,L"\"");
-
-			RegSetValueExW(hkey,_VIV_SETTINGS_RUN_KEY_VALUE,0,REG_SZ,(const BYTE *)value_wbuf,(string_get_length(value_wbuf)+1)*sizeof(wchar_t));
-		}
-		else
-		{
-			RegDeleteValueW(hkey,_VIV_SETTINGS_RUN_KEY_VALUE);
-		}
+		RegDeleteValueW(hkey,_VIV_SETTINGS_RUN_KEY_VALUE);
 
 		RegCloseKey(hkey);
 	}
@@ -654,11 +621,6 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
 
-			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_RUNKEY,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC));
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
 
 			// start menu shortcuts and the appdata storage: the two rows the
@@ -879,12 +841,6 @@ static void _viv_settings_layout(void)
 	_viv_settings_ctl_add(_VIV_SETTINGS_CT_BUTTON,_VIV_SETTINGS_ID_CANCEL,0,client.right - _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE) * 2 - _viv_settings_dip(12),footer_y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
 	_viv_settings_ctl_add(_VIV_SETTINGS_CT_BUTTON,_VIV_SETTINGS_ID_OK,0,client.right - _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),footer_y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
 
-	// the relayout runs on every page enter: the general page refreshes
-	// the run key cache here (its switch paints from the cache).
-	if (_viv_settings_page == _VIV_SETTINGS_PAGE_GENERAL)
-	{
-		_viv_settings_run_key_state = _viv_settings_run_key_present();
-	}
 
 	_viv_settings_key_index_clamp();
 }
@@ -1011,6 +967,7 @@ static void _viv_settings_focus_cycle(int dir)
 	// by tab (the wrap from ok) is not a selection - only a click or an
 	// arrow walk switches the page.
 
+	_viv_settings_focus_keyboard = 1;
 	_viv_settings_focus_set(index,1);
 
 	_viv_settings_invalidate();
@@ -1392,10 +1349,10 @@ static void _viv_settings_snapshot(void)
 	// (the ok path compares against the live state again).
 	_viv_settings_appdata = config_appdata ? 1 : 0;
 	_viv_settings_startmenu = _viv_is_start_menu_shortcuts() ? 1 : 0;
-	_viv_settings_snap_run_key = _viv_settings_run_key_present();
 
-	// the cache starts at the live registry state.
-	_viv_settings_run_key_state = _viv_settings_snap_run_key;
+	// rc.7: the startup switch is gone; a value an older install
+	// wrote retires here (once per settings open).
+	_viv_settings_run_key_retire();
 	_viv_settings_snap_shrink_blit = config_shrink_blit_mode;
 	_viv_settings_snap_mag = config_mag_filter;
 	_viv_settings_snap_title = config_title_bar_format;
@@ -1477,15 +1434,6 @@ static void _viv_settings_restore(void)
 	{
 		config_multiple_instances = _viv_settings_snap_multiple_instances ? 1 : 0;
 	}
-
-	// startup run key.
-	if ((_viv_settings_run_key_present() ? 1 : 0) != _viv_settings_snap_run_key)
-	{
-		_viv_settings_run_key_set(_viv_settings_snap_run_key);
-	}
-
-	// the cache follows the rewind.
-	_viv_settings_run_key_state = _viv_settings_snap_run_key;
 
 	// file associations.
 	for(i=0;i<_VIV_ASSOCIATION_COUNT;i++)
@@ -2084,16 +2032,6 @@ static void _viv_settings_activate(int index,int x,int y)
 				case _VIV_SETTINGS_ID_MULTIPLE:
 					config_multiple_instances = config_multiple_instances ? 0 : 1;
 					break;
-
-				case _VIV_SETTINGS_ID_RUNKEY:
-
-					// the registry is the source of truth: write, then
-					// read the answer back into the cache.
-					_viv_settings_run_key_set(_viv_settings_run_key_state ? 0 : 1);
-
-					_viv_settings_run_key_state = _viv_settings_run_key_present();
-					break;
-
 				case _VIV_SETTINGS_ID_STARTMENU:
 					_viv_settings_startmenu = _viv_settings_startmenu ? 0 : 1;
 					break;
@@ -3238,7 +3176,7 @@ static void _viv_settings_paint(HWND hwnd)
 		ctl = &_viv_settings_ctls[i];
 
 		hot = (_viv_settings_hot == i) ? 1 : 0;
-		focus = (_viv_settings_focus == i) ? 1 : 0;
+		focus = ((_viv_settings_focus == i) && (_viv_settings_focus_keyboard)) ? 1 : 0;
 
 		switch(ctl->type)
 		{
@@ -3377,11 +3315,6 @@ static void _viv_settings_paint(HWND hwnd)
 						desc_id = LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE_DESC;
 						break;
 
-					case _VIV_SETTINGS_ID_RUNKEY:
-						label_id = LOCALIZATION_ID_SETTINGS_STARTUP_SHORTCUT;
-						desc_id = LOCALIZATION_ID_SETTINGS_STARTUP_SHORTCUT_DESC;
-						break;
-
 					case _VIV_SETTINGS_ID_STARTMENU:
 						label_id = LOCALIZATION_ID_STARTMENU_SHORTCUTS;
 						break;
@@ -3432,10 +3365,6 @@ static void _viv_settings_paint(HWND hwnd)
 				{
 					case _VIV_SETTINGS_ID_MULTIPLE:
 						_viv_settings_draw_switch(mem,ctl,config_multiple_instances ? 1 : 0,hot,focus);
-						break;
-
-					case _VIV_SETTINGS_ID_RUNKEY:
-						_viv_settings_draw_switch(mem,ctl,_viv_settings_run_key_state,hot,focus);
 						break;
 
 					case _VIV_SETTINGS_ID_STARTMENU:
@@ -3518,11 +3447,6 @@ static void _viv_settings_paint(HWND hwnd)
 				break;
 		}
 
-		// the keyboard focus ring (2 dip accent stroke).
-		if ((focus) && (_viv_settings_ctl_enabled(ctl)) && (ctl->type != _VIV_SETTINGS_CT_NAV))
-		{
-			_viv_settings_draw_focus_ring(mem,&ctl->rect);
-		}
 	}
 
 	BitBlt(hdc,0,0,client.right,client.bottom,mem,0,0,SRCCOPY);
@@ -3842,6 +3766,7 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 				_viv_settings_pressed = hit;
 				_viv_settings_hot = hit;
 
+				_viv_settings_focus_keyboard = 0;
 				_viv_settings_focus_set(hit,0);
 
 				_viv_settings_invalidate();
@@ -3918,6 +3843,7 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			// tab in: focus the navigation unless something is focused.
 			if ((_viv_settings_focus < 0) && (_viv_settings_ctl_count))
 			{
+				_viv_settings_focus_keyboard = 1;
 				_viv_settings_focus_set(0,0);
 			}
 
@@ -4016,6 +3942,7 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 						_viv_settings_layout();
 					}
 
+					_viv_settings_focus_keyboard = 1;
 					_viv_settings_focus_set(index,1);
 
 					return 0;
@@ -4036,6 +3963,7 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 						if ((index >= 0) && (index < _viv_settings_ctl_count) && (_viv_settings_ctls[index].type == _VIV_SETTINGS_CT_CHECK))
 						{
+							_viv_settings_focus_keyboard = 1;
 							_viv_settings_focus_set(index,1);
 						}
 
@@ -4112,6 +4040,7 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			_viv_settings_ctl_count = 0;
 			_viv_settings_hot = -1;
 			_viv_settings_pressed = -1;
+			_viv_settings_focus_keyboard = 0;
 			_viv_settings_focus = -1;
 			_viv_settings_tracking = 0;
 			_viv_settings_title_hot = 0;
@@ -4292,6 +4221,7 @@ void _viv_settings_show(void)
 	_viv_settings_layout();
 
 	// the keyboard focus starts on the restored page's navigation item.
+	_viv_settings_focus_keyboard = 0;
 	_viv_settings_focus_set(_viv_settings_page,0);
 
 	os_SetWindowText_localization_id(_viv_settings_hwnd,LOCALIZATION_ID_SETTINGS);
