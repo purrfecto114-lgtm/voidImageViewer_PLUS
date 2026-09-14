@@ -384,8 +384,18 @@ jobs:
               banner = "> **Pre-release**: this is an experimental fork of voidtools/voidImageViewer adding touch optimizations, on-screen zoom controls and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker."
           else:
               banner = "> A stable fork of voidtools/voidImageViewer: touch optimizations, on-screen zoom controls, a dark UI, and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker."
+          # the h1 rides the round's own name from the changelog
+          # heading (the same source the release title derives from):
+          # the fixed marketing line retired with the description
+          # refresh - "Pre-release: Version 1.1.13-rc.2 (the
+          # association guard round)" becomes "voidImageViewer
+          # 1.1.13-rc.2 - the association guard round".
+          h1_title = 'voidImageViewer %s' % tag
+          if '(' in head:
+              round_name = head.split('(', 1)[1].rstrip(')')
+              h1_title = 'voidImageViewer %s - %s' % (tag, round_name)
           notes = textwrap.dedent("""\
-              # voidImageViewer {v} - Touch, Zoom & Languages{p}
+              # {h1t}{p}
 
               {banner}
 
@@ -407,7 +417,7 @@ jobs:
               Requires Windows 7 or later. Gestures require touch hardware.
 
               See `Changes.txt` in the repository for the full history. Based on upstream voidtools/voidImageViewer 1.0.0.15 (MIT license).
-              """).format(v=tag, p=phase, banner=banner, body=body)
+              """).format(v=tag, p=phase, banner=banner, body=body, h1t=h1_title)
           with open('release-notes.md', 'w', encoding='utf-8') as f:
               f.write(notes)
           print(notes)
@@ -424,7 +434,18 @@ jobs:
       - name: Create release
         run: |
           cd dist
-          title="voidImageViewer $VERSION - Touch, Zoom & Languages$PHASE"
+          # the title rides the changelog's first line - the round's
+          # own name travels with the release instead of a fixed
+          # marketing line: "Pre-release: Version 1.1.13-rc.2 (the
+          # association guard round)" gives "voidImageViewer
+          # 1.1.13-rc.2 - the association guard round"; the phase
+          # suffix joins after. a heading without a parenthetical
+          # falls back to the bare version title.
+          round="$(head -n 1 "$GITHUB_WORKSPACE/Changes.txt" | sed -e 's/^[^:]*: *Version *[^ ]* *//' -e 's/^(//' -e 's/)$//')"
+          title="voidImageViewer $VERSION$PHASE"
+          if [ -n "$round" ]; then
+            title="voidImageViewer $VERSION - $round$PHASE"
+          fi
           args=(--target "$COMMIT" --title "$title" --notes-file "$GITHUB_WORKSPACE/release-notes.md")
           case "$VERSION" in
             *-rc.*|*-beta.*) args+=(--prerelease) ;;
