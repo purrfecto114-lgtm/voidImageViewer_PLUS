@@ -393,7 +393,7 @@ jobs:
           h1_title = 'voidImageViewer %s' % tag
           if '(' in head:
               round_name = head.split('(', 1)[1].rstrip(')')
-              h1_title = 'voidImageViewer %s - %s' % (tag, round_name)
+              h1_title = 'voidImageViewer %s — %s' % (tag, round_name)
           notes = textwrap.dedent("""\
               # {h1t}{p}
 
@@ -444,7 +444,7 @@ jobs:
           round="$(head -n 1 "$GITHUB_WORKSPACE/Changes.txt" | sed -e 's/^[^:]*: *Version *[^ ]* *//' -e 's/^(//' -e 's/)$//')"
           title="voidImageViewer $VERSION$PHASE"
           if [ -n "$round" ]; then
-            title="voidImageViewer $VERSION - $round$PHASE"
+            title="voidImageViewer $VERSION — $round$PHASE"
           fi
           args=(--target "$COMMIT" --title "$title" --notes-file "$GITHUB_WORKSPACE/release-notes.md")
           case "$VERSION" in
