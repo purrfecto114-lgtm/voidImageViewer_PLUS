@@ -301,6 +301,8 @@ enum
 #include "viv_settings.h"
 #include "glyphs.h"
 #include "webp.h"
+#include "qoi.h"
+#include "wic.h"
 #include "small_pool.h"
 #include "safe_size.h"
 #include "everything_ipc.h"

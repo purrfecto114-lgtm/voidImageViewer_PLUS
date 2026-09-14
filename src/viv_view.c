@@ -860,7 +860,7 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 
 				string_copy(tobuf,_viv_last_open_file ? _viv_last_open_file : L"");
 				
-				string_printf(filter_wbuf,"%s (*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp;*.emf;*.wmf)%c*.bmp;*.gif;*.ico;*.jpeg;*.jpg;*.png;*.tif;*.tiff;*.webp;*.emf;*.wmf%c%s (*.*)%c*.*%c",localization_get_string(LOCALIZATION_ID_OPEN_ALL_IMAGE_FILES),0,0,localization_get_string(LOCALIZATION_ID_OPEN_ALL_FILES),0,0);
+				string_printf(filter_wbuf,"%s (*.avif;*.bmp;*.dds;*.gif;*.hdp;*.heic;*.heif;*.ico;*.jpeg;*.jpg;*.jxr;*.png;*.qoi;*.tif;*.tiff;*.wdp;*.webp;*.emf;*.wmf)%c*.avif;*.bmp;*.dds;*.gif;*.hdp;*.heic;*.heif;*.ico;*.jpeg;*.jpg;*.jxr;*.png;*.qoi;*.tif;*.tiff;*.wdp;*.webp;*.emf;*.wmf%c%s (*.*)%c*.*%c",localization_get_string(LOCALIZATION_ID_OPEN_ALL_IMAGE_FILES),0,0,localization_get_string(LOCALIZATION_ID_OPEN_ALL_FILES),0,0);
 
 				string_copy_utf8_string(title_wbuf,localization_get_string(LOCALIZATION_ID_OPEN_IMAGE_CAPTION));
 				

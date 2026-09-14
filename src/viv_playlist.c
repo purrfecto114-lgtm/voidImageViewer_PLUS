@@ -844,7 +844,7 @@ int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wchar_t *s
 			DWORD size;
 			wchar_t new_search[STRING_SIZE];
 			
-			string_copy_utf8_string(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp;emf;wmf <");
+			string_copy_utf8_string(new_search,"ext:avif;bmp;dds;gif;hdp;heic;heif;ico;jpeg;jpg;jxr;png;qoi;tif;tiff;wdp;webp;emf;wmf <");
 			string_cat(new_search,search);
 			string_cat_utf8(new_search,">");
 
@@ -1023,7 +1023,7 @@ void _viv_send_random_everything_search(void)
 		DWORD size;
 		wchar_t new_search[STRING_SIZE];
 		
-		string_copy_utf8_string(new_search,"ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp;emf;wmf <");
+		string_copy_utf8_string(new_search,"ext:avif;bmp;dds;gif;hdp;heic;heif;ico;jpeg;jpg;jxr;png;qoi;tif;tiff;wdp;webp;emf;wmf <");
 		string_cat(new_search,_viv_random);
 		string_cat_utf8(new_search,">");
 

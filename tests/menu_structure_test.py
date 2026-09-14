@@ -330,10 +330,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.13.67 pre-release (the field sweep round)",
-          (major, minor, rev, build) == ("1", "1", "13", "67") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.7 tag)",
-          vstr == "1.1.13-rc.7")
+    check("version.h = 1.1.13.68 stable (the format horizons round)",
+          (major, minor, rev, build) == ("1", "1", "13", "68") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.13 stable tag)",
+          vstr == "1.1.13")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1345,7 +1345,7 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 98)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox
+          len(re.findall(r"<ClCompile ", fp)) == 100)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
     check("shared props has the resource script and the app icon only",
@@ -1454,8 +1454,8 @@ def t_modernization_round6():
           os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
           and "glyphs.c" in fp and "glyphs.h" in fp)
     check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair and the remake pair",
-          len(re.findall(r"<ClCompile ", fp)) == 98
-          and len(re.findall(r"<ClInclude ", fp)) == 67)
+          len(re.findall(r"<ClCompile ", fp)) == 100
+          and len(re.findall(r"<ClInclude ", fp)) == 69)
     check("glyphs.c loads its own gdi+ flat api table",
           '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
           and '"GdipCreateBitmapFromScan0"' in gc
@@ -2120,7 +2120,7 @@ def t_ux_round41():
     check("open dialog filter includes the metafiles",
           "*.webp;*.emf;*.wmf" in viv)
     check("everything default search includes the metafiles",
-          viv.count("ext:bmp;gif;ico;jpeg;jpg;png;tif;tiff;webp;emf;wmf <") == 2)
+          viv.count("ext:avif;bmp;dds;gif;hdp;heic;heif;ico;jpeg;jpg;jxr;png;qoi;tif;tiff;wdp;webp;emf;wmf <") == 2)
 
     # rc.3: the setup association page grows the metafile pair. the exe-side
     # table already carried emf/wmf since 1.1.12, but the page offered ten
@@ -3079,8 +3079,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 66 (the rc.7 pins ride it)",
-          "#define VERSION_BUILD 67" in version)
+    check("the release candidate line moves to build 66 (the 1.1.13 stable pins ride it)",
+          "#define VERSION_BUILD 68" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3150,9 +3150,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the rc.7 pins ride it)",
-          "#define VERSION_BUILD 67" in version and
-          '#define VERSION_STRING "1.1.13-rc.7"' in version)
+    check("the version moves to build 66 (the 1.1.13 stable pins ride it)",
+          "#define VERSION_BUILD 68" in version and
+          '#define VERSION_STRING "1.1.13"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3424,9 +3424,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.7 build 67",
-          '#define VERSION_BUILD 67' in version and
-          '#define VERSION_STRING "1.1.13-rc.7"' in version)
+    check("the version is 1.1.13 build 68",
+          '#define VERSION_BUILD 68' in version and
+          '#define VERSION_STRING "1.1.13"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3489,9 +3489,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the rc.7 pins ride it)",
-          "#define VERSION_BUILD 67" in version and
-          '#define VERSION_STRING "1.1.13-rc.7"' in version)
+    check("the version moves to build 66 (the 1.1.13 stable pins ride it)",
+          "#define VERSION_BUILD 68" in version and
+          '#define VERSION_STRING "1.1.13"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4053,9 +4053,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.7 build 67",
-          '#define VERSION_BUILD 67' in version and
-          '#define VERSION_STRING "1.1.13-rc.7"' in version)
+    check("the version is 1.1.13 build 68",
+          '#define VERSION_BUILD 68' in version and
+          '#define VERSION_STRING "1.1.13"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4085,8 +4085,8 @@ def t_stable_promotion_round83():
     check("the changelog states the no-code promotion",
           "carries no code" in flat and
           "the verdict on the whole rc arc" in flat)
-    check("the readme current line is the stable",
-          "**1.1.12 \u2014" in readme and "(the current stable):**" in readme)
+    check("the readme current line is the stable (the 1.1.13 promotion moved it)",
+          "**1.1.13 \u2014" in readme and "(the current stable):**" in readme)
     check("the rc.17 entry rides the one-line list (the 1.1.13 candidate took the slot)",
           "**1.1.12-rc.17** \u2014" in readme and
           "(the previous release candidate):**" not in readme)
@@ -4103,8 +4103,8 @@ def t_readme_diet_round85():
     check("the rc.1 entry rides the one-line list (the rc.2 candidate took the slot)",
           "**1.1.13-rc.1** \u2014" in readme and
           "**1.1.13-rc.1 \u2014" not in readme)
-    check("the stable line keeps its house form",
-          "**1.1.12 \u2014" in readme and
+    check("the stable line keeps its house form (the 1.1.13 stable now)",
+          "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
     # the diet itself: the retired rounds carry no full sections. the
     # full form is "**<tag> \u2014 ...**" (bold spans the dash); the
@@ -4223,9 +4223,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.13-rc.7 build 67",
-          '#define VERSION_BUILD 67' in version and
-          '#define VERSION_STRING "1.1.13-rc.7"' in version)
+    check("the version is 1.1.13 build 68",
+          '#define VERSION_BUILD 68' in version and
+          '#define VERSION_STRING "1.1.13"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4326,9 +4326,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.13-rc.7 build 67",
-          '#define VERSION_BUILD 67' in version and
-          '#define VERSION_STRING "1.1.13-rc.7"' in version)
+    check("the version is 1.1.13 build 68",
+          '#define VERSION_BUILD 68' in version and
+          '#define VERSION_STRING "1.1.13"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4405,12 +4405,12 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.13-rc.7 build 67",
-          '#define VERSION_BUILD 67' in version and
-          '#define VERSION_STRING "1.1.13-rc.7"' in version)
-    check("the candidate line is the field sweep round",
-          "**1.1.13-rc.7 \u2014" in readme and
-          "(the current release candidate):**" in readme)
+    check("the version is 1.1.13 build 68",
+          '#define VERSION_BUILD 68' in version and
+          '#define VERSION_STRING "1.1.13"' in version)
+    check("the current line is the format horizons stable",
+          "**1.1.13 \u2014" in readme and
+          "(the current stable):**" in readme)
     # 6. the changelog carries the round.
     flat = " ".join(changes.split())
     check("the changelog states the sweep",
@@ -4504,12 +4504,12 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.13-rc.7 build 67",
-          '#define VERSION_BUILD 67' in version and
-          '#define VERSION_STRING "1.1.13-rc.7"' in version)
-    check("the candidate line is the field sweep round",
-          "**1.1.13-rc.7 \u2014" in readme and
-          "(the current release candidate):**" in readme)
+    check("the version is 1.1.13 build 68",
+          '#define VERSION_BUILD 68' in version and
+          '#define VERSION_STRING "1.1.13"' in version)
+    check("the current line is the format horizons stable",
+          "**1.1.13 \u2014" in readme and
+          "(the current stable):**" in readme)
     # 7. the changelog carries the round.
     flat = " ".join(changes.split())
     check("the changelog states the closing sweep",
@@ -4517,6 +4517,120 @@ def t_peripheral_residue_round92():
     check("the changelog states the deliberate keeps",
           "gs_report" in flat and "mockup cannot drift" in flat)
 
+
+
+
+def t_format_horizons_round94():
+    """Guards for the format horizons round (1.1.13 stable: the wic fallback
+    layer, the qoi decoder, the widened format gates and the stable promotion
+    - the fork's first stable to carry code)."""
+    vivh = read("src/viv.h").decode("latin-1")
+    load = read("src/viv_load.c").decode("latin-1")
+    view = read("src/viv_view.c").decode("latin-1")
+    playlist = read("src/viv_playlist.c").decode("latin-1")
+    wic = read("src/wic.c").decode("latin-1")
+    qoi = read("src/qoi.c").decode("latin-1")
+    wih = read("src/wic.h").decode("latin-1")
+    qoh = read("src/qoi.h").decode("latin-1")
+    files_txt = read("build-zig/files.txt").decode("latin-1")
+    props = read("voidImageViewer.files.props").decode("latin-1")
+    stateh = read("src/viv_state.h").decode("latin-1")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    version = read("src/version.h").decode("latin-1")
+
+    # 1. the wic layer.
+    check("wic.c self-defines the imaging factory clsid (the os.c precedent)",
+          "0xcacaf262,0x9370,0x4615" in wic and "_wic_clsid_imaging_factory" in wic)
+    check("wic.c converts through the one universal pixel format",
+          "_wic_pixel_format_32bpp_bgra" in wic and "0x6fddc324,0x4e03,0x4bfe" in wic)
+    check("the wic canvas passes the pixel budget before the copy buffer",
+          "VIV_MAX_IMAGE_PIXELS" in wic)
+    check("the wic read head resets before the decoder sniffs (the gdi+ failure path)",
+          "STREAM_SEEK_SET" in wic)
+    check("wic.h answers the generic frame contract",
+          "int wic_load(IStream *stream,void *user_data" in wih)
+    check("the wic layer serves a single frame (the stills contract)",
+          "user_data,1,wide,high,has_alpha" in wic)
+    check("the wic file rides the crlf discipline",
+          "\r\n" in wic)
+
+    # 2. the qoi decoder.
+    check("qoi.c checks the qoi magic",
+          "0x66696f71" in qoi)
+    check("qoi.c verifies the reference end marker",
+          "{0,0,0,0,0,0,0,1}" in qoi)
+    check("qoi.c ports the full reference opcode set",
+          "0xfe" in qoi and "0xff" in qoi and "(b1 & 0xc0)" in qoi)
+    check("qoi.c pins its port source (the mit reference decoder)",
+          "reference decoder" in qoi)
+    check("the qoi canvas passes the pixel budget",
+          "VIV_MAX_IMAGE_PIXELS" in qoi)
+    check("qoi.h answers the generic frame contract",
+          "int qoi_load(IStream *stream,void *user_data" in qoh)
+    check("the qoi file rides the crlf discipline",
+          "\r\n" in qoi)
+
+    # 3. the load dispatch chain: webp, then qoi, then wic.
+    check("the fallback chain runs webp, then qoi, then wic",
+          load.index("if (webp_load(stream,&viv_webp,") <
+          load.index("if (qoi_load(stream,&viv_webp,") <
+          load.index("else if (wic_load(stream,&viv_webp,"))
+    check("the new layers ride the generic webp frame delivery",
+          load.count("(int (*)(void *,DWORD,DWORD,DWORD,int))_viv_webp_info_proc") == 3 and
+          load.count("(int (*)(void *,BYTE *,int))_viv_webp_frame_proc") == 3)
+    check("viv.h carries the new decoder headers",
+          '#include "qoi.h"' in vivh and '#include "wic.h"' in vivh)
+
+    # 4. the format gates.
+    check("the open filter carries the eight new extensions (both halves)",
+          view.count("*.avif;*.bmp;*.dds;*.gif;*.hdp;*.heic;*.heif;*.ico;*.jpeg;*.jpg;*.jxr;*.png;*.qoi;*.tif;*.tiff;*.wdp;*.webp;*.emf;*.wmf") == 2)
+    check("the everything search prefixes widen (both sites)",
+          playlist.count("ext:avif;bmp;dds;gif;hdp;heic;heif;ico;jpeg;jpg;jxr;png;qoi;tif;tiff;wdp;webp;emf;wmf <") == 2)
+
+    # 5. the association deferral stays pinned.
+    check("the association table deliberately stays eleven",
+          "#define _VIV_ASSOCIATION_COUNT\t11" in stateh)
+    flat = " ".join(changes.split())
+    check("the changelog states the association deferral",
+          "association table deliberately stays" in flat)
+
+    # 6. the build wiring.
+    check("the zig file list carries both new units",
+          "src/qoi.c" in files_txt and "src/wic.c" in files_txt)
+    check("the shared props list carries all four new files",
+          props.count('Include="..\\src\\qoi.c"') == 1 and
+          props.count('Include="..\\src\\wic.c"') == 1 and
+          props.count('Include="..\\src\\qoi.h"') == 1 and
+          props.count('Include="..\\src\\wic.h"') == 1)
+
+    # 7. the readme slot handover.
+    check("the stable slot is the format horizons round",
+          "**1.1.13 \u2014" in readme and "(the current stable):**" in readme)
+    check("the rc.7 entry rides the one-line list",
+          "**1.1.13-rc.7** \u2014" in readme and
+          "**1.1.13-rc.7 \u2014" not in readme)
+    check("the 1.1.12 full block demotes to the one-line list",
+          "**1.1.12** \u2014" in readme and
+          "**1.1.12 \u2014" not in readme)
+    check("the rc.6 orphaned bullets retire (the r93 handover leftovers)",
+          "- **The closing sweep** \u2014 the round-91 static scan rebuilt" not in readme)
+    check("the readme headline carries the new formats",
+          "JPEG-XR" in readme and "QOI" in readme)
+
+    # 8. the changelog and the version.
+    check("the changelog top entry is the stable promotion",
+          "Stable: Version 1.1.13 (the format horizons round)" in changes)
+    check("the version is 1.1.13 build 68",
+          '#define VERSION_BUILD 68' in version and
+          '#define VERSION_STRING "1.1.13"' in version)
+
+    # 9. the closing scan's slam-dunks: two dead prototypes retire
+    #    (the dispatch-wired families stay - macro token pasting is
+    #    beyond a text-level scan's sight, the round-91 lesson).
+    check("the dead prototypes retire (the r94 scan)",
+          "__os_get_proc_address" not in read("src/os.c").decode("latin-1") and
+          "_viv_queue_clear" not in read("src/viv.c").decode("latin-1"))
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4654,12 +4768,12 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.13-rc.7 build 67",
-          '#define VERSION_BUILD 67' in version and
-          '#define VERSION_STRING "1.1.13-rc.7"' in version)
-    check("the candidate line is the field sweep round",
-          "**1.1.13-rc.7 \u2014" in readme and
-          "(the current release candidate):**" in readme)
+    check("the version is 1.1.13 build 68",
+          '#define VERSION_BUILD 68' in version and
+          '#define VERSION_STRING "1.1.13"' in version)
+    check("the current line is the format horizons stable",
+          "**1.1.13 \u2014" in readme and
+          "(the current stable):**" in readme)
     check("the rc.6 entry rides the one-line list",
           "**1.1.13-rc.6** \u2014" in readme and
           "**1.1.13-rc.6 \u2014" not in readme)
@@ -4736,6 +4850,7 @@ if __name__ == "__main__":
     t_release_title_crlf_fix()
     t_peripheral_residue_round92()
     t_field_sweep_round93()
+    t_format_horizons_round94()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

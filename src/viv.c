@@ -90,7 +90,6 @@ void _viv_exit(void);
 static int _viv_is_msg(MSG *msg);
 CLIPFORMAT _viv_get_CF_PREFERREDDROPEFFECT(void);
 
-static void _viv_queue_clear(void);
 static int _viv_main(int nCmdShow);
 
 HMODULE _viv_stobject_hmodule = 0;

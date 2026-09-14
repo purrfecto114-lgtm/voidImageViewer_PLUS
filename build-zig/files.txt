@@ -71,6 +71,7 @@ src/ini.c
 src/mem.c
 src/localization.c
 src/os.c
+src/qoi.c
 src/safe_size.c
 src/small_pool.c
 src/string.c
@@ -95,4 +96,5 @@ src/viv_view.c
 src/viv_wndproc.c
 src/wchar.c
 src/webp.c
+src/wic.c
 src/zoomui.c

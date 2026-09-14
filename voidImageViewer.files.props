@@ -80,6 +80,7 @@
     <ClCompile Include="..\src\mem.c" />
     <ClCompile Include="..\src\localization.c" />
     <ClCompile Include="..\src\os.c" />
+    <ClCompile Include="..\src\qoi.c" />
     <ClCompile Include="..\src\safe_size.c" />
     <ClCompile Include="..\src\small_pool.c" />
     <ClCompile Include="..\src\string.c" />
@@ -104,6 +105,7 @@
     <ClCompile Include="..\src\viv_wndproc.c" />
     <ClCompile Include="..\src\wchar.c" />
     <ClCompile Include="..\src\webp.c" />
+    <ClCompile Include="..\src\wic.c" />
     <ClCompile Include="..\src\zoomui.c" />
   </ItemGroup>
   <ItemGroup>
@@ -148,6 +150,7 @@
     <ClInclude Include="..\src\localization_en_us.h" />
     <ClInclude Include="..\src\localization_zh_cn.h" />
     <ClInclude Include="..\src\os.h" />
+    <ClInclude Include="..\src\qoi.h" />
     <ClInclude Include="..\src\safe_size.h" />
     <ClInclude Include="..\src\small_pool.h" />
     <ClInclude Include="..\src\string.h" />
@@ -174,6 +177,7 @@
     <ClInclude Include="..\src\viv_wndproc.h" />
     <ClInclude Include="..\src\wchar.h" />
     <ClInclude Include="..\src\webp.h" />
+    <ClInclude Include="..\src\wic.h" />
     <ClInclude Include="..\src\zoomui.h" />
   </ItemGroup>
   <ItemGroup>

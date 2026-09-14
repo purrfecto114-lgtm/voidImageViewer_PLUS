@@ -6,7 +6,7 @@
 
 > A stable fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with **touch optimizations**, **on-screen zoom controls**, a **complete dark UI**, and a **bilingual installer + UI language switcher**. Issues welcome in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/issues).
 
-A lightweight Windows image viewer (BMP, GIF, ICO, PNG, JPG, TIF, WEBP, EMF, WMF — animated GIF/WEBP included) that opens and displays images as fast as possible.
+A lightweight Windows image viewer (BMP, GIF, ICO, PNG, JPG, TIF, WEBP, JPEG-XR, HEIF, AVIF, DDS, QOI, EMF, WMF — animated GIF/WEBP included; JPEG-XR/DDS/HEIF/AVIF ride the system's WIC codecs, QOI is built in) that opens and displays images as fast as possible.
 
 [Download](#download) · [What's new](#whats-new) · [Touch & zoom](#touch--zoom-controls) · [Canvas & backdrop](#canvas-backdrop--dark-mode) · [Recent files](#recent-files) · [Languages](#languages) · [Build](#build-from-source)
 
@@ -18,29 +18,22 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.13-rc.7 — the field sweep round (the current release candidate):**
+**1.1.13 — the format horizons round (the current stable):**
 
-- **The field reports** — the slideshow cold-start double click fixed at the dispatch (the frame-count gate the rc.13 face rule already carried), the startup shortcut retired with its run-key helper (the settings section renames to system integration), the no-image gate widens to navigation/zoom/window-size/slideshow/animation, and the settings focus ring draws once and only for keyboard focus (the field screenshot's nested double box). The size complaint's top lever lands too: the four large icon frames ride PNG payloads (the ico drops 80%, straight off the shipped exe).
-- **The legacy sweep** — the upstream TODO pile collapses to its four open items, the tooltip corpse and the dead zoom-clamp copies retire with the rest of the round-93 scan's safe list (the frozen corners stay pinned).
-
-
-- **The closing sweep** — the round-91 static scan rebuilt with its one blind spot fixed (`return foo(...)` call lines had been misread as prototypes, masking the real residue behind false liveness), every candidate cross-checked against the guards and the recorded freeze decisions: the never-built Wine DPI probe (`build-zig/dpiprobe.c`), four zero-reference API functions (`os_adjust_window_rect`, `safe_size_mul_2`, `small_pool_empty`, `utf8_length_double_null`), the `VIV_YEAR_STRING` stringize pair and three never-requested localization strings retire.
-- **The deliberate keeps** — the libcmt `_imp__IsDebuggerPresent` override (the Win95 `gs_report` hack — the linker consumes it), `os_dark_controls_supported` (pinned since the dead-gate retirement), the vendored `everything_ipc.h` API surface and the theme-transcription pair (`scripts/extract-theme.mjs` → `sim/theme-tokens.ts`, the rc.8 mockup-sync decision) all stay, pinned by the round-92 guard.
-
-**1.1.12 — the remake arc: the full GUI remake, the platform guardrails, the field fixes and the review absorption (the current stable):**
-
-- **The stable promotion carries no code** — every fix already shipped as 1.1.12-rc.17 and passed the full gate on real Windows. The stable mark is the verdict on the whole rc arc, not a new behavior.
-- **The arc in one breath** — the GUI remake (the theme token system, the owner-drawn menus, the remade settings window and message boxes, the self-drawn zoom row), the structure split (the 2,208-line window procedure became 42 per-message handlers), the crash the remake planted and the smoke sweep caught, the platform guardrails, the field arcs, and the review absorption. Seventeen release candidates, each landed changelog-first and green on the CI legs before its tag.
+- **The format horizons** — the WIC layer defers to the system codecs when GDI+ and libwebp both decline a file (JPEG-XR, DDS, HEIF/AVIF wherever the OS carries them — zero static cost, nothing rides the exe), and a hand-rolled QOI decoder (the reference port, bounds-checked, works on every Windows the viewer runs on) opens `.qoi` with no codec dependency at all. The open filter and the Everything search prefixes gain the eight new extensions; shell associations deliberately stay at the classic eleven until a dedicated round asks for them.
+- **The stable mark** — the verdict on the 1.1.13 rc arc (the readme diet, the association guard, the halftone palette, the high-dpi icons, the dead residue, the peripheral residue, the field sweep — seven candidates, each landed changelog-first and green on the CI legs), with the format horizons riding the promotion itself: the fork's first stable to carry code.
 - Full narrative: `Changes.txt`.
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.13-rc.7** — the field sweep round: the cold-start slideshow fix, the startup shortcut retirement, the no-image menu gate, the single keyboard focus ring and the icon payload diet (the ico drops 80%).
 - **1.1.13-rc.6** — the peripheral residue round: the closing sweep retires the never-built Wine DPI probe, four zero-reference api functions, the year-stringize pair and three never-requested localization strings.
 - **1.1.13-rc.5** — the dead residue round: the carpet sweep retires three dead functions, four dead macro families and fourteen VS-generated resource ids; the frozen corners stay pinned by the round-91 guard.
 - **1.1.13-rc.4** — the high dpi icons round: the ico grows the DPI ladder (Lanczos-resampled frames down from 256px, all alpha-carrying) and the frame icons ride the window's own DPI (`WM_SETICON` pair, `WM_DPICHANGED` re-pin).
 - **1.1.13-rc.3** — the halftone palette round: 256-color mode gets `graphics::GetHalftonePalette` — the classic palette contract (foreground/background realization, the paint-DC selection, the display-change resync).
 - **1.1.13-rc.2** — the association guard round: `.bmp`/`.jpg` taken over only when the effective default is the Windows canonical class or already ours — a foreign viewer's association is left completely alone.
 - **1.1.13-rc.1** — the readme diet round: the news section demoted to the one-line list (full treatment only for the current stable and candidate; [Changes.txt](Changes.txt) stays the archive of record); the 1.1.13 TODO arc opens.
+- **1.1.12** — the remake arc: the full GUI remake, the structure split, the platform guardrails and the field fixes — seventeen candidates, the stable promotion carried no code.
 - **1.1.12-rc.17** — the review absorption round: the external carpet review absorbed (the itemID carrier, the token strip, the settings DPI correction, the resize escape hatch, the startup DPI sync).
 - **1.1.12-rc.16** — the open intent round: the recent-list trade refunded (the open intent declared where it is knowable — a reload is not a recent open).
 - **1.1.12-rc.15** — the field report round: the rotate-into-recent reordering, the 4K 225% text proportions, the capture-hint mojibake, the menu process check.

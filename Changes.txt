@@ -1,3 +1,45 @@
+Stable: Version 1.1.13 (the format horizons round)
+*the promotion carries code for the first time in the fork's stable
+ line: the format horizons ride the round itself.
+*the wic layer: when gdi+ and libwebp both decline a file, the load
+ defers to the windows imaging component - the system codec set
+ answers jpeg-xr (wdp, hdp, jxr - the win7+ wmp codec), dds (bc1-3,
+ win8.1+) and heif/avif wherever the os carries the store codec
+ extensions. zero static cost rides the exe (the factory comes from
+ cocreateinstance, the guids are spelled out in the source the os.c
+ file-dialog precedent - no uuid library on either build line), the
+ pixel budget gates the canvas before any copy buffer allocates, the
+ read head resets to the stream start before the decoder sniffs (gdi+
+ may leave it anywhere on its failure path), the frame converts
+ through wic's one universal pixel format (32bpp bgra, the channel
+ swap and the alpha scan share a single in-place pass), and the
+ delivery rides the same generic rgba frame contract the webp layer
+ built. a single frame serves the layer: the formats wic uniquely
+ adds are stills, and the multi-frame containers already answer
+ through gdi+; color management stays the gdi+ icm switch's domain.
+*the qoi decoder: the "quite ok image" format has no system codec
+ anywhere, so it rides a hand-rolled port of the reference decoder
+ (phoboslab's mit qoi.h, the opcode semantics ported verbatim - the
+ luma channels are symmetric, rgb chunks preserve the running alpha,
+ run lengths carry the bias of -1, the index hash is the reference's
+ own) with the fork's hostile-input discipline on top: every read
+ bounds-checks against the chunk end, the end marker is verified, and
+ the pixel budget gates the canvas. works on every windows the
+ viewer runs on, 95 up.
+*the format gates widen with the decoders: the open filter and the
+ two everything search prefixes gain avif, dds, hdp, heic, heif, jxr,
+ qoi and wdp (sorted into their places). folder navigation never
+ filtered by extension, so arrows and drag-drop simply work for the
+ new formats.
+*the association table deliberately stays at its eleven classic
+ extensions: shell associations for the new formats mean installer
+ registry writes, settings grid rows and localization strings - a
+ dedicated round asks for them.
+*the readme slot handover: the rc.6 candidate block's orphaned
+ bullets (left behind when rc.7 took the slot) retire, rc.7 rides the
+ one-line list, 1.1.12's full block demotes with the promotion, and
+ 1.1.13 takes the stable slot.
+*the version pins move tree-wide to build 68.
 Pre-release: Version 1.1.13-rc.7 (the field sweep round)
 *the field reports land: the slideshow cold-start double click -
  the toolbar play slot dispatched through the bare animation

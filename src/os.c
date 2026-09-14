@@ -102,7 +102,6 @@ typedef struct _os_IPropertyStore_s
 }_os_IPropertyStore_t;
 
 static void _os_qsort_indexes_shortsort(void **lo,void **hi,int (*comp)(const void *,const void *));
-static FARPROC __os_get_proc_address(HMODULE hmodule,const char *name);
 static int CALLBACK _os_BrowseCallbackProc(HWND hwnd,UINT uMsg,LPARAM lParam,LPARAM lpData);
 static IShellItem *_os_shellitem_from_filename(const wchar_t *filename);
 static IShellItem *_os_get_shellitem(const ITEMIDLIST *pidl);

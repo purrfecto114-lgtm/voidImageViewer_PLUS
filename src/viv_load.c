@@ -1414,6 +1414,31 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 					{
 						ret = 1;
 					}
+					else
+					{
+						// the format horizons: qoi is hand-rolled (no system codec knows
+						// it, works everywhere the viewer runs), wic defers to the system
+						// codecs for everything else (jpeg-xr, dds, heif, avif where the
+						// os carries them). the webp state is untouched at this point (the
+						// info callback never ran), so both ride the same generic frame
+						// delivery.
+						if (qoi_load(stream,&viv_webp,
+							(int (*)(void *,DWORD,DWORD,DWORD,int))_viv_webp_info_proc,
+							(int (*)(void *,BYTE *,int))_viv_webp_frame_proc))
+						{
+							ret = 1;
+						}
+						else if (wic_load(stream,&viv_webp,
+							(int (*)(void *,DWORD,DWORD,DWORD,int))_viv_webp_info_proc,
+							(int (*)(void *,BYTE *,int))_viv_webp_frame_proc))
+						{
+							ret = 1;
+						}
+						else
+						{
+							debug_printf("qoi and wic failed to load image %S\n",_viv_load_image_filename);
+						}
+					}
 				}
 
 				if (viv_webp.mem_hdc)
