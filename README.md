@@ -18,6 +18,11 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
+**1.1.13-rc.1 — the readme diet round (the current release candidate):**
+
+- **The readme is a front page again** — it had grown into a 159-line wall, three quarters of the growth the news section: every round back to rc.7 kept its full four-to-six bullet treatment long after its round closed. The diet is a rule now: full treatment goes to the current stable and the current release candidate only; every earlier round rides the one-line list. The full narrative never leaves the tree — [Changes.txt](Changes.txt) is the archive of record, one section per round back to the fork.
+- **The 1.1.13 arc opens on the upstream TODO** — the roadmap: the association guard (never take over a `.bmp`/`.jpg` a foreign viewer owns), the 256-color halftone palette, the high-dpi icons, the control toolbar customization, the shell context menu, and the renderers (OpenGL, then Direct3D). Three of the ten TODO items are already superseded by the fork's own work: the rename dialog, the lossless rotate, and the localization tables.
+
 **1.1.12 — the remake arc: the full GUI remake, the platform guardrails, the field fixes and the review absorption (the current stable):**
 
 - **The stable promotion carries no code** — every fix already shipped as 1.1.12-rc.17 and passed the full gate on real Windows (the three suites, both compile legs, the anomaly-sweep smoke test, the release build itself). The stable mark is the verdict on the whole rc arc, not a new behavior.
@@ -25,83 +30,25 @@ What's new
 - **The discipline that earned the mark** — seventeen release candidates, each landed changelog-first, each pinned by its own guard section, each version-guarded, each green on the CI legs before its tag; the anomaly sweep opens real images on a real Windows runner for every tag.
 - Full narrative: `Changes.txt`.
 
-**1.1.12-rc.17 — the review absorption round (the previous release candidate):**
-
-- **The external carpet review (v2) absorbed** — its confirmed findings fixed, its refutations recorded. The gesture "leak" it asked to self-check is not there (every unhandled WM_GESTURE path forwards to DefWindowProc, which owns the info handle), and the strip-height audit found every view geometry in the tree riding the one `_viv_get_view_top()` helper.
-- **The status pane index rides the official carrier** — the draw read `itemData` (the lParam our own SB_SETTEXTW happens to store there); it now reads `itemID` (the field comctl officially fills with the pane index), itemData stays the fallback — and an unresolvable pane paints the strip face instead of returning silently unhandled, closing the rc.11 bottom-white-bar failure mode for good.
-- **The status strip joins the token system** — the erase, the pane fill and text, the size grip fill and dots, and the zoom editor field all rode hardcoded RGB values while the menubar and toolbar ride the chrome token. Every site routes through the theme tokens now, so a theme or accent flip re-skins the strip too, and the three strips read as one chrome.
-- **The settings window DPI correction + the escape hatch** — the outer frame is re-measured at the window's own DPI after the create (the same correction WM_DPICHANGED applies after a move; the probe recorded the mismatch but never fixed it), and the window can now be enlarged from the left/right/bottom edges (minimum track size = the design size) so a page whose content outgrows the fixed panel can never trap its footer out of reach.
-- **The startup DPI sync** — GetDC(0) reads the primary monitor; one explicit `os_window_update_dpi` after the main window exists, before the first strip is built from the globals, so a launch restored onto another monitor builds every strip at the right scale.
-- **Deferred on purpose (the review's own advice)** — the retired options dialog stays frozen until the settings window regains list browsing; the per-window DPI refactor and the resource.h ID splits stay on the debt list.
-- Full narrative: `Changes.txt`.
-
-**1.1.12-rc.16 — the open intent round (the previous release candidate):**
-
-- **The recent-list trade refunded** — the last round's guard asked "is this the file already on screen" for *every* open, which cost the standard MRU behavior: clicking the recent entry of the displayed file stopped re-topping it. The intent is now declared where it is knowable instead of guessed where it is not: the open dialog, the drag-drop and the recent click feed the recent list unconditionally (re-opening the displayed file re-tops it, like every other Windows MRU). Only the one path that cannot know its own intent — the single-instance forward of a second launch, the re-entry the rotate verb's refresh and the rotate-then-recheck double-click ride — keeps the same-file question: a same-file forward is a reload, not a recent open. A forwarded new file still enters the list.
-- Full narrative: `Changes.txt`.
-
-**1.1.12-rc.15 — the field report round (the previous release candidate):**
-
-- **Rotating an image landed it wrongly in the recent files list** — the rotate itself never touches the list; what reordered it was a silent re-open (any path handing the viewer the file already on screen fed the list as a brand-new open). The push site now asks one question: is this the file already on screen? A reload is not a recent open. Deleting and renaming also maintain their own entry now — the delete drops it, the rename swaps it in place.
-- **The text proportions at 4K 225%** — the settings window was the one surface riding its own font size (13 dip rows) while the menu bar, toolbar, message boxes and dialogs all sit on the system font — an invisible 1px gap at 96 dpi that becomes 2-3px on every glyph at 216 dpi. The settings rows move to 12 dip, the descriptions to 11, and the status bar now carries the menu font explicitly (re-pinned on DPI change).
-- **The garbled line under the shortcuts buttons** — the capture hint ("edit keyboard shortcut: ...") copied the localization string through the wide-string copier while localization returns UTF-8, so every byte pair became a mojibake character. The copy goes through the UTF-8 bridge now, and a tree-wide guard keeps the pattern from coming back.
-- **Menu theming hardened** — the system menu window is found by a class name shared by every menu in every process; the find now checks the owning process before theming, so the viewer never paints a stranger's menu and leaves its own plain.
-- Full narrative: `Changes.txt`.
-
-**1.1.12-rc.14 — the zoom pane editor round (the previous release candidate):**
-
-- **The corner zoom percent needed two clicks, and showed a "select box"** — the click never reached the pane: the pane doubled as the window-drag anchor (inherited from upstream), its subclass ate the button down and the move loop ate the up, so the open command only fired from an inactive window's orphan up. The pane is pure input now — the drag lives on the toolbar, the menu gaps and the title bar.
-- **The editor is in place, not in a 1998 box** — the pane itself becomes a borderless number field in the strip's own font and colors; enter commits, escape cancels, focus lost commits, typing replaces the selected digits. The centered dialog (sunken field, native buttons, select-all blue block) is retired along with its template and strings. The system selection color stays — the edit control offers no custom one, and it lives on four digits for the seconds the editor is open.
-- Full narrative: `Changes.txt`.
-
-**1.1.12-rc.13 — the non-win11 field round (the previous release candidate):**
-
-- **The play button showed “pause” on an idle photo** — the toolbar read the animation preference bit as the playing state (it defaults to on and every image switch resets it); the face now gates on the frame count, and every clock-changing path notifies the toolbar and recomputes the on-top window.
-- **“Zoom needs two clicks to work”** — the first zoom-in from a fresh best fit snapped the wrong way (31% → 30, invisible) and a zoom-out from best fit hit a dead gate written before the below-fit ladder. Stepping is direction-strict now, the floor gate reads the true ladder floor, and a sparse-zone fallback guarantees a move.
-- **The non-Win11 look** — the settings window gets a real drop shadow on Windows 10/7, its dropdowns ride the same owner-drawn rows as the menus (no more system-blue lists next to the accent pills), the light hover/nav/strip tokens recalibrate for real contrast and layering, and the message box buttons take the pill radius. The DWM chrome calls double as the platform probe, so every fallback is one honest check.
-- Full narrative: `Changes.txt`.
-
-**1.1.12-rc.12 — the platform guardrails round (the previous release candidate):**
-
-- **The Windows 8.1 manifest GUID was corrupted** — the supportedOS id for 8.1 was a hand-mangled value, so Windows 8.1 hosts never matched their own entry; the manifest now carries the official GUID (verified against the Microsoft application-manifests documentation).
-- **The dead UnicoWS dependency is gone** — the Win32 link lines carried `UnicoWS.lib` (the Windows 9x unicode layer) straight from the original upstream import; nothing in the code imports an MSLU symbol and the x64 builds never carried it. Modern SDKs are phasing the stub out, so its removal is the forward-compatibility clean — the CI legs still link today.
-- **`WM_DPICHANGED` no longer dereferences a null rect** — the system always supplies the suggested rectangle, but synthetic messages and compatibility layers may not; the resize is now optional while the DPI refresh still runs.
-- Full narrative: `Changes.txt`.
-
-**1.1.12-rc.11 — the carpet repair round (the previous release candidate):**
-
-- **The remake's two headline breaks are fixed** — the menu bar roots measured empty since the rc.9 owner-draw flip (the labels now re-derive from the live rows, Alt mnemonics with them), and the status date pane rendered a lone "0" (a wide format through the narrow parser; the stamp now uses the localized system formatters).
-- **The image viewport caught up with the top strips** — the toolbar moved under the menu bar in rc.8 but the image math still reserved its band above the status bar: a 40dip dead strip and the image top hidden behind the chrome. One view-top origin now rides every size, blit, mouse anchor and the zoom pill.
-- **The theme flip flushes the token cache** — the half-skinned UI after a system theme change is gone; the toolbar rides the same tokens as the menus (light hover is the quiet 3D-light, no more selection blue); the message boxes are owned, leak-free and close-correct; the shortcut editor keeps a no-op confirm a no-op; **Win 7 closes the DPI ladder** (legacy `dpiAware` + runtime `SetProcessDPIAware` — it was DPI-*unaware*, not system-aware); the pill percent matches the status bar; the play button stops forcing fullscreen.
-- Full narrative: `Changes.txt`.
-
-**1.1.12-rc.10 — the dpi correctness round (the previous release candidate):**
-
-- **The high-dpi font bug is fixed at the root** — the per-monitor-v2 declaration never reached the binary the way it was read: the zig builds shipped no manifest at all, and the `os_init` runtime safety net sat *before* its own `GetProcAddress` block, so the pointers were still null when it ran and it silently never fired. A dpi-unaware process gets bitmap-stretched by the system at high dpi — every font blurry and oversized. The claim now runs after the api probes and stacks three independent, all-guarded layers: a process-wide claim (Win10 1703+ `SetProcessDpiAwarenessContext`), a per-thread claim (1607+), and the Win 8.1 `shcore` fallback (Win 7 keeps the classic system-aware behavior); the zig build also drops a `viv.exe.manifest` next to the exe for loader-level coverage.
-- **The message box scales from its parent's monitor** (not the stale global logical dpi) — correct on mixed-dpi monitor pairs.
-- **17 splice-accident double-brace wrappers with dead `DefWindowProc` tails unwound** in the wndproc domain.
-- Verified under wine: the pre-fix binary renders the settings window bitmap-stretched to ~2x at 150% scaling; the fixed binary renders 1:1 physical and self-scales to exactly 1.5x (660×628 → 990×942) with the fonts riding the same per-window dip pipeline.
-
-**1.1.12-rc.9 — the gui remake round 2: one palette for everything:**
-
-- **One theme system for the whole ui** — the new `viv_theme` domain holds 17 semantic tokens × dark/light × five accents (azure, teal, violet, amber, rose). The chrome strips, the menus, the dialogs, the settings window, the zoom pill and the tooltips all resolve their colors through it, so a theme or accent flip re-skins the app with zero per surface edits. The accent ships with an ini key (`accent_color`) and a live swatch row in the settings window.
-- **The popup menus are app drawn** — every visible row carries a draw record and the painters re-derive the label at draw time (command table + localization + live key bindings), so a language or shortcut change never shows a stale row. Accent check marks, right aligned shortcuts, hairline separators; the popup layer gets the win11 rounded corners and a themed border through the dwm; `WM_MENUCHAR` keeps alt+letter working. No undocumented uxtheme ordinal in the menu path anymore.
-- **Themed message boxes** — `viv_msgbox` draws the vector icon, the wrapped text and the accent primary button with a real modal pump (tab/enter/esc); the five `MessageBox` call sites moved over (the fatal paths in debug/mem keep the native box on purpose).
-- **The classic dialogs join the theme** — the dark dialog skin reads the same tokens (the old hardcoded palette is gone) and every dialog frame gets the win11 rounded corners plus the caption color from the dwm. The old tabbed options route opens the remade settings window.
-- **A build the mockup cannot drift from** — `scripts/extract-theme.mjs` transcribes `src/viv_theme.c` into the page simulator, and zig cc builds the whole tree (`build-zig/build.sh`, 98 translation units, about 465 KB x64 with `-Os`).
-
-**1.1.12-rc.7 — the zoom pill rework:**
-
-- **The zoom pill is one self-drawn window** — no nested owner-drawn buttons fighting the layered tray: `zoomui.c` paints the tray and every capsule in a single `WM_PAINT` pass (true stadium caps at every DPI), hit tests the button rects itself, tracks presses with capture (no command when the drag leaves the button), and passes clicks through everything outside the capsules so a fading pill never blocks the image.
-
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.12-rc.17** — the review absorption round: the external carpet review absorbed (the itemID carrier, the token strip, the settings DPI correction, the resize escape hatch, the startup DPI sync).
+- **1.1.12-rc.16** — the open intent round: the recent-list trade refunded (the open intent declared where it is knowable — a reload is not a recent open).
+- **1.1.12-rc.15** — the field report round: the rotate-into-recent reordering, the 4K 225% text proportions, the capture-hint mojibake, the menu process check.
+- **1.1.12-rc.14** — the zoom pane editor round: the corner percent becomes an in-place editor (the drag moved off the pane, the 1998 dialog retired).
+- **1.1.12-rc.13** — the non-win11 field round: the play/pause face, the first-zoom snap and the dead gate, the non-Win11 look (drop shadow, owner-drawn dropdowns, token recalibration).
+- **1.1.12-rc.12** — the platform guardrails round: the Windows 8.1 manifest GUID, the UnicoWS clean, the WM_DPICHANGED lParam guard.
+- **1.1.12-rc.11** — the carpet repair round: the menu bar roots and the status date pane, the view-top origin, the theme-flip flush, the Win7 DPI ladder.
+- **1.1.12-rc.10** — the dpi correctness round: the per-monitor-v2 claim fixed at the root (three guarded layers plus the zig-side manifest).
+- **1.1.12-rc.9** — the gui remake round 2: one palette for everything (the 17 theme tokens, the owner-drawn menus, the themed message boxes and dialogs).
+- **1.1.12-rc.7** — the zoom pill rework: one self-drawn window, stadium caps at every DPI, click-through outside the capsules.
 - **1.1.12-rc.6** — the top bar remake: the menu bar is a fully self-drawn child window (`viv_menubar`), the status bar owns its dark face, the toolbar button spacing is pinned uniform in both themes.
 - **1.1.12-rc.5** — the structure round: the gesture cluster home in the view domain, the 2,208-line window procedure split into 42 per-message handlers in the new `viv_wndproc.c`, the splice guard's file manifest pinned.
 - **1.1.12-rc.4** — the white band after opening Options or switching the theme fixed at the root (the dark re-apply lost its flip gate; the sweep is now unconditional and idempotent); the Options navigation tree reads in the dark UI.
 - **1.1.12-rc.3** — the monolith is gone: `viv.c` (21,129 lines) is now a 4,718-line core plus eleven domain modules and a `viv_state.h` shared-context layer — a pure physical move (function bodies byte-identical; `/GL` whole-program optimization keeps cross-module inlining, performance unchanged); the setup offers the EMF/WMF associations; the vendored libwebp pruned of non-Windows build systems, fuzzers and docs (62 files — `COPYING`/`PATENTS`/`AUTHORS` kept).
 - **1.1.12-rc.2** — the About dialog's band and title move into the resource template (correct at every DPI and in both themes); the post-theme-flip white band fixed (the frame repaint joined the sweep, the toolbar strip relayouts with the system metrics).
 - **1.1.11** — one type system for the whole UI (the system message font per dialog at its own window DPI — CJK-safe, no more fallback-font mismatch); EMF/WMF in every association surface (metafiles rasterize via GDI+ — display-level support); recent files, transparency backdrop, complete dark dialogs.
+- **1.1.02–1.1.10** — the fork's early arc: the touch gestures and pinch zoom, the floating zoom controls, the dark UI reaching every strip, the bilingual localization with the live language switcher, and the field-fix rounds (the full per-version narrative lives in `Changes.txt` at each tag).
 
 Touch & zoom controls
 --------

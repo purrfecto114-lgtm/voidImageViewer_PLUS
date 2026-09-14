@@ -1,3 +1,35 @@
+Pre-release: Version 1.1.13-rc.1 (the readme diet round)
+*the readme had grown into a 159 line wall, and three quarters of the
+ growth was the news section: every round back to rc.7 kept its full
+ four-to-six bullet treatment long after its round closed, every word
+ already carried verbatim in this changelog and pinned by its own
+ guard section in the three suites.
+*the diet is a rule, not a one-time cut: full treatment goes to the
+ current stable and the current release candidate only. 1.1.12 keeps
+ its section as the current stable, 1.1.13-rc.1 takes the candidate
+ slot, and every earlier round - rc.17 back through the one-line
+ entries to the grouped early arc - rides the one-line list at the
+ bottom of the section. the full narrative never leaves the tree:
+ this changelog is the archive of record, one section per round back
+ to the fork.
+*the 1.1.13 arc opens on the upstream todo the fork now adopts: the
+ association guard (never take over a .bmp or .jpg a foreign viewer
+ owns), the 256 color halftone palette, the high dpi icons, the
+ control toolbar customization, the shell context menu
+ (cdeffoldermenu_create2), and the renderers (opengl, then direct3d).
+ three of the ten todo items are already superseded by the fork's own
+ work: the rename dialog, the lossless rotate, and the localization
+ tables (the string table the todo asked for ships as two language
+ headers and a live switcher).
+*no code rides the round - the doc-only precedent is the 1.1.12
+ stable promotion. the version identity moves to 1.1.13-rc.1 build
+ 61 and the rc train opens.
+*verified: the three suites pass (the round-85 guard section pins
+ the diet: the candidate and stable lines keep their house forms, no
+ retired round keeps a full section, the one-line list reaches back
+ to the early arc, the archive pointer stays, and the arc opening
+ names the todo roadmap).
+
 Stable: Version 1.1.12 (the remake stable)
 *the promotion round carries no code: every fix it rides already
  shipped as 1.1.12-rc.17 and passed the full gate on real windows
