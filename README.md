@@ -25,9 +25,8 @@ What's new
 
 **1.1.12 — the remake arc: the full GUI remake, the platform guardrails, the field fixes and the review absorption (the current stable):**
 
-- **The stable promotion carries no code** — every fix already shipped as 1.1.12-rc.17 and passed the full gate on real Windows (the three suites, both compile legs, the anomaly-sweep smoke test, the release build itself). The stable mark is the verdict on the whole rc arc, not a new behavior.
-- **The arc in one breath** — the GUI remake (the theme token system, the owner-drawn menus, the remade settings window and message boxes, the client-side top bar, the self-drawn zoom row), the structure split (the 2,208-line window procedure became 42 per-message handlers across the domain modules), the crash the remake planted and the smoke sweep caught (the status panes route by the control id first), the platform guardrails (the official manifest GUID, the UnicoWS clean, the WM_DPICHANGED lParam guard), the field arcs (the non-Win11 fallbacks, the zoom pane editor, the recent-list intent policy, the text proportions at 4K 225%, the capture-hint bridge, the menu process check), and the external review absorption (the itemID carrier, the token strip, the settings DPI correction, the resize escape hatch, the startup DPI sync).
-- **The discipline that earned the mark** — seventeen release candidates, each landed changelog-first, each pinned by its own guard section, each version-guarded, each green on the CI legs before its tag; the anomaly sweep opens real images on a real Windows runner for every tag.
+- **The stable promotion carries no code** — every fix already shipped as 1.1.12-rc.17 and passed the full gate on real Windows. The stable mark is the verdict on the whole rc arc, not a new behavior.
+- **The arc in one breath** — the GUI remake (the theme token system, the owner-drawn menus, the remade settings window and message boxes, the self-drawn zoom row), the structure split (the 2,208-line window procedure became 42 per-message handlers), the crash the remake planted and the smoke sweep caught, the platform guardrails, the field arcs, and the review absorption. Seventeen release candidates, each landed changelog-first and green on the CI legs before its tag.
 - Full narrative: `Changes.txt`.
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
