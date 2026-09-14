@@ -1491,6 +1491,10 @@ static int _viv_init(int nCmdShow)
 	// undocumented): one explicit sync after the window exists, before
 	// the first strip is built from the globals.
 	os_window_update_dpi(_viv_hwnd);
+
+	// the frame icons ride the window dpi from the first show (the
+	// class icons stay as the fallback).
+	_viv_icons_apply(_viv_hwnd);
 	
 	// the top bar is a client side child now: show it before the first
 	// layout sweep (the frame menu is gone for good).

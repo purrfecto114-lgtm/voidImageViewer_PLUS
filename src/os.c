@@ -222,6 +222,7 @@ static BOOL (WINAPI *_os_SetProcessDPIAware)(void) = 0;
 
 // windows 10 1607+: dpi aware system parameters, used by os_menu_font().
 static BOOL (WINAPI *_os_SystemParametersInfoForDpi)(UINT action,UINT param,void *pvparam,UINT winini,UINT dpi) = 0;
+static int (WINAPI *_os_GetSystemMetricsForDpi)(int index,UINT dpi) = 0;
 
 int os_logical_wide = 96;
 int os_logical_high = 96;
@@ -950,6 +951,7 @@ void os_init(void)
 		_os_MonitorFromPoint = (void *)GetProcAddress(_os_user32_hmodule,"MonitorFromPoint");
 		_os_GetDpiForWindow = (void *)GetProcAddress(_os_user32_hmodule,"GetDpiForWindow");
 		_os_SystemParametersInfoForDpi = (void *)GetProcAddress(_os_user32_hmodule,"SystemParametersInfoForDpi");
+		_os_GetSystemMetricsForDpi = (void *)GetProcAddress(_os_user32_hmodule,"GetSystemMetricsForDpi");
 		_os_SetThreadDpiAwarenessContext = (void *)GetProcAddress(_os_user32_hmodule,"SetThreadDpiAwarenessContext");
 		_os_SetProcessDpiAwarenessContext = (void *)GetProcAddress(_os_user32_hmodule,"SetProcessDpiAwarenessContext");
 		_os_SetProcessDPIAware = (void *)GetProcAddress(_os_user32_hmodule,"SetProcessDPIAware");
@@ -1696,6 +1698,25 @@ int os_window_dpi(HWND hwnd)
 	}
 	
 	return (int)_os_GetDpiForWindow(hwnd);
+}
+
+int os_GetSystemMetricsForDpi(int index,UINT dpi)
+{
+	int value;
+
+	if (_os_GetSystemMetricsForDpi)
+	{
+		value = _os_GetSystemMetricsForDpi(index,dpi);
+
+		if (value > 0)
+		{
+			return value;
+		}
+	}
+
+	// the pre-1607 ladder: the process is system dpi aware, the window
+	// dpi is the system one, and the raw metric already rides it.
+	return GetSystemMetrics(index);
 }
 
 // fill lf with the message font (the dialog base font) at the window

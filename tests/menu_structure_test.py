@@ -333,10 +333,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.13.63 pre-release (the halftone palette round)",
-          (major, minor, rev, build) == ("1", "1", "13", "63") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.3 tag)",
-          vstr == "1.1.13-rc.3")
+    check("version.h = 1.1.13.64 pre-release (the high dpi icons round)",
+          (major, minor, rev, build) == ("1", "1", "13", "64") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.4 tag)",
+          vstr == "1.1.13-rc.4")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3082,8 +3082,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 63",
-          "#define VERSION_BUILD 63" in version)
+    check("the release candidate line moves to build 64",
+          "#define VERSION_BUILD 64" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3153,9 +3153,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 63",
-          "#define VERSION_BUILD 63" in version and
-          '#define VERSION_STRING "1.1.13-rc.3"' in version)
+    check("the version moves to build 64",
+          "#define VERSION_BUILD 64" in version and
+          '#define VERSION_STRING "1.1.13-rc.4"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3205,7 +3205,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 30200)  # rc.17 recalibration: the review absorption round rides the splice (measured 29907)
+          viv_lines >= 21130 and viv_lines <= 30300)  # rc.4 recalibration: the high dpi icons round rides the splice (measured 30208)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3239,7 +3239,7 @@ def t_split_architecture_round70():
         check(f"the {d} domain module exists", ok)
         if ok:
             n = open(p, "rb").read().decode("utf-8", errors="replace").count("\n") + 1
-            cap = 3300 if d == "view" else 3000  # rc.5: view takes the gesture cluster home (+243)
+            cap = 3300 if d == "view" else (3100 if d == "wndproc" else 3000)  # rc.5: view takes the gesture cluster home (+243); rc.4: wndproc takes the halftone palette and the dpi icons home (+232)
             check(f"viv_{d}.c is under the {cap}-line cap", n < cap, f"({n})")
 
     # 3. the state layer exists and carries the transition externs
@@ -3266,7 +3266,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 30200, f"({total})")  # rc.17 recalibration (the review absorption round measured 29907)
+          21130 <= total <= 30300, f"({total})")  # rc.4 recalibration (the high dpi icons round measured 30208)
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3358,8 +3358,8 @@ def t_structure_round76():
     # 2. the wndproc domain: exists, sized, registered exactly once.
     wnd = open("src/viv_wndproc.c", "rb").read().decode("utf-8", errors="replace")
     check("the wndproc domain exists", "static LRESULT _viv_on_wm_nchittest(" in wnd)
-    check("the wndproc domain is under the 3,000 line cap",
-          wnd.count("\n") + 1 < 3000, f"({wnd.count(chr(10)) + 1})")
+    check("the wndproc domain is under the 3,100 line cap",
+          wnd.count("\n") + 1 < 3100, f"({wnd.count(chr(10)) + 1})")  # rc.4: the halftone palette and the dpi icons join the domain
     props = read("voidImageViewer.files.props").decode("utf-8-sig")
     check("viv_wndproc.c is registered in the props",
           props.count('src\\viv_wndproc.c" />') == 1)
@@ -3427,9 +3427,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.3 build 63",
-          '#define VERSION_BUILD 63' in version and
-          '#define VERSION_STRING "1.1.13-rc.3"' in version)
+    check("the version is 1.1.13-rc.4 build 64",
+          '#define VERSION_BUILD 64' in version and
+          '#define VERSION_STRING "1.1.13-rc.4"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3492,9 +3492,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 63",
-          "#define VERSION_BUILD 63" in version and
-          '#define VERSION_STRING "1.1.13-rc.3"' in version)
+    check("the version moves to build 64",
+          "#define VERSION_BUILD 64" in version and
+          '#define VERSION_STRING "1.1.13-rc.4"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4056,9 +4056,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.3 build 63",
-          '#define VERSION_BUILD 63' in version and
-          '#define VERSION_STRING "1.1.13-rc.3"' in version)
+    check("the version is 1.1.13-rc.4 build 64",
+          '#define VERSION_BUILD 64' in version and
+          '#define VERSION_STRING "1.1.13-rc.4"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4226,12 +4226,12 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.13-rc.3 build 63",
-          '#define VERSION_BUILD 63' in version and
-          '#define VERSION_STRING "1.1.13-rc.3"' in version)
-    check("the candidate line is the halftone palette round",
-          "**1.1.13-rc.3 \u2014" in readme and
-          "(the current release candidate):**" in readme)
+    check("the version is 1.1.13-rc.4 build 64",
+          '#define VERSION_BUILD 64' in version and
+          '#define VERSION_STRING "1.1.13-rc.4"' in version)
+    check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
+          "**1.1.13-rc.3** \u2014" in readme and
+          "**1.1.13-rc.3 \u2014" not in readme)
     # 5. the changelog carries the round.
     flat = " ".join(changes.split())
     check("the changelog states the todo landing",
@@ -4273,6 +4273,74 @@ def t_release_title_crlf_fix():
         expected = hm.group(1) if hm else ""
         check("the derived round name equals the changelog parenthetical",
               out == expected, f"(derived {out!r} vs parsed {expected!r})")
+
+
+def t_high_dpi_icons_round90():
+    """Guards for the high dpi icons round (1.1.13-rc.4: the third
+    upstream todo item - the ico grows the dpi ladder and the frame
+    icons ride the window's dpi)."""
+    import struct
+    wnd = read("src/viv_wndproc.c").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+    osc = read("src/os.c").decode("latin-1")
+    ico = read("res/voidImageViewer.ico")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    version = read("src/version.h").decode("latin-1")
+
+    # 1. the resource ladder: ten frames, the dpi sizes, the legacy
+    #    8bpp pair still riding along.
+    n = struct.unpack("<H", ico[4:6])[0]
+    sizes = sorted((struct.unpack("<B", ico[6 + i * 16:6 + i * 16 + 1])[0] or 256) for i in range(n))
+    bpps = [struct.unpack("<H", ico[6 + i * 16 + 6:6 + i * 16 + 8])[0] for i in range(n)]
+    check("the ico carries the high dpi ladder",
+          n == 10 and sizes == [16, 16, 20, 24, 32, 32, 48, 64, 128, 256])
+    check("the legacy 8bpp frames still ride along",
+          bpps.count(8) == 2 and bpps.count(32) == 8)
+    # 2. the os ladder: the metric at an explicit dpi.
+    check("os.h exports the dpi-aware metric helper",
+          "int os_GetSystemMetricsForDpi(int index,UINT dpi);" in osh)
+    check("os.c lazy-loads GetSystemMetricsForDpi beside the other dpi entries",
+          'GetProcAddress(_os_user32_hmodule,"GetSystemMetricsForDpi")' in osc)
+    check("the fallback rides the raw metric (the pre-1607 ladder)",
+          "return GetSystemMetrics(index);" in osc)
+    # 3. the per-window icons.
+    check("the icons load at the window's dpi",
+          "os_GetSystemMetricsForDpi(SM_CXICON,dpi)" in wnd and
+          "os_GetSystemMetricsForDpi(SM_CXSMICON,dpi)" in wnd)
+    check("wm_seticon pins the big and small pair",
+          "SendMessage(hwnd,WM_SETICON,ICON_BIG,(LPARAM)big)" in wnd and
+          "SendMessage(hwnd,WM_SETICON,ICON_SMALL,(LPARAM)small)" in wnd)
+    check("the new pair lands before the old one retires",
+          wnd.index("SendMessage(hwnd,WM_SETICON,ICON_BIG,(LPARAM)big)") <
+          wnd.index("DestroyIcon(_viv_icon_big);"))
+    check("wm_dpichanged re-pins the pair at the new dpi",
+          "_viv_icons_apply(hwnd);" in wnd)
+    at = wnd.index("static LRESULT _viv_on_wm_destroy(")
+    end = wnd.index("static LRESULT _viv_on_wm_queryendsession(", at)
+    destroy = wnd[at:end]
+    check("the destroy path retires both icons",
+          "DestroyIcon(_viv_icon_big)" in destroy and
+          "DestroyIcon(_viv_icon_small)" in destroy)
+    # 4. the init call and the version.
+    vivc = read("src/viv.c").decode("latin-1")
+    check("the init path pins the icons after the dpi sync",
+          vivc.index("_viv_icons_apply(_viv_hwnd);") >
+          vivc.index("os_window_update_dpi(_viv_hwnd);"))
+    check("the version is 1.1.13-rc.4 build 64",
+          '#define VERSION_BUILD 64' in version and
+          '#define VERSION_STRING "1.1.13-rc.4"' in version)
+    check("the candidate line is the high dpi icons round",
+          "**1.1.13-rc.4 \u2014" in readme and
+          "(the current release candidate):**" in readme)
+    # 5. the changelog carries the round.
+    flat = " ".join(changes.split())
+    check("the changelog states the todo landing",
+          "the third todo item lands" in flat and
+          "high dpi" in flat)
+    check("the changelog states the ladder and the seticon pair",
+          "256, 128, 64," in flat and
+          "wm_seticon pins the big and small pair" in flat)
 
 
 if __name__ == "__main__":
@@ -4333,6 +4401,7 @@ if __name__ == "__main__":
     t_readme_diet_round85()
     t_association_guard_round86()
     t_halftone_palette_round89()
+    t_high_dpi_icons_round90()
     t_release_title_crlf_fix()
     print()
     if failures:

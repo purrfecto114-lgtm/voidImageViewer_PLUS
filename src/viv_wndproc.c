@@ -367,6 +367,62 @@ static LRESULT _viv_on_wm_nclbuttondown(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+// the high dpi icons (an upstream todo): the frame icons follow the
+// window's dpi. the class icons registered at the raw system metrics
+// are the fallback; wm_seticon pins the per-window pair at the dpi
+// the window actually sits at, and wm_dpichanged re-pins them when
+// the window crosses monitors. the ico carries the ladder (16, 20,
+// 24, 32, 48, 64, 128, 256) so an exact-size load never falls back
+// to a shell-side stretch.
+static HICON _viv_icon_big = 0;
+static HICON _viv_icon_small = 0;
+
+void _viv_icons_apply(HWND hwnd)
+{
+	HICON big;
+	HICON small;
+	UINT dpi;
+	int wide;
+	int high;
+
+	dpi = (UINT)os_window_dpi(hwnd);
+
+	wide = os_GetSystemMetricsForDpi(SM_CXICON,dpi);
+	high = os_GetSystemMetricsForDpi(SM_CYICON,dpi);
+	big = (HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,wide,high,0);
+
+	wide = os_GetSystemMetricsForDpi(SM_CXSMICON,dpi);
+	high = os_GetSystemMetricsForDpi(SM_CYSMICON,dpi);
+	small = (HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,wide,high,0);
+
+	// set the new pair before retiring the old one: the window must
+	// never point at a destroyed icon. a failed load leaves the pair
+	// in place (the class icons still answer).
+	if (big)
+	{
+		SendMessage(hwnd,WM_SETICON,ICON_BIG,(LPARAM)big);
+
+		if (_viv_icon_big)
+		{
+			DestroyIcon(_viv_icon_big);
+		}
+
+		_viv_icon_big = big;
+	}
+
+	if (small)
+	{
+		SendMessage(hwnd,WM_SETICON,ICON_SMALL,(LPARAM)small);
+
+		if (_viv_icon_small)
+		{
+			DestroyIcon(_viv_icon_small);
+		}
+
+		_viv_icon_small = small;
+	}
+}
+
 // the halftone palette - graphics::GetHalftonePalette for 256 color mode
 // (an upstream todo). on a palettized desktop - the 8bpp remote session,
 // the safe mode desktop, the legacy vm - gdi maps every blit through the
@@ -510,6 +566,19 @@ static LRESULT _viv_on_wm_destroy(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 	{
 		DeleteObject(_viv_halftone_palette);
 		_viv_halftone_palette = 0;
+	}
+
+	// the per-window dpi icons belong to the window too.
+	if (_viv_icon_big)
+	{
+		DestroyIcon(_viv_icon_big);
+		_viv_icon_big = 0;
+	}
+
+	if (_viv_icon_small)
+	{
+		DestroyIcon(_viv_icon_small);
+		_viv_icon_small = 0;
 	}
 
 	return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -1859,6 +1928,9 @@ static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	if (dpi_changed)
 	{
 		glyphs_flush_cache();
+		
+		// the frame icons re-load at the new dpi.
+		_viv_icons_apply(hwnd);
 		
 		// the menu bar font follows the new dpi.
 		_viv_menu_font_drop();

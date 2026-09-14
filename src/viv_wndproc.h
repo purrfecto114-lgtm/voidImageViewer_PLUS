@@ -29,5 +29,6 @@
 #include "viv.h"
 
 LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+void _viv_icons_apply(HWND hwnd);
 
 #endif

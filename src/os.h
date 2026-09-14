@@ -213,6 +213,10 @@ int os_menu_font(LOGFONTW *lf);
 // the dpi of a window: getdpiforwindow when the os provides it, the
 // tracked window dpi otherwise.
 int os_window_dpi(HWND hwnd);
+// a system metric at an explicit dpi: win10 1607+ answers through
+// GetSystemMetricsForDpi; the earlier ladder is system dpi aware and
+// the raw metric already rides that dpi (the window dpi equals it).
+int os_GetSystemMetricsForDpi(int index,UINT dpi);
 // fill lf with the message font (the dialog base font) at the window
 // own dpi: segoe ui on an english system, the locale native ui face
 // (microsoft yahei ui on a chinese one) - no glyph fallback for the

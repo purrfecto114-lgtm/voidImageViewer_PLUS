@@ -18,10 +18,10 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.13-rc.3 — the halftone palette round (the current release candidate):**
+**1.1.13-rc.4 — the high dpi icons round (the current release candidate):**
 
-- **256 color mode gets its halftone palette** — the second upstream TODO item lands: `graphics::GetHalftonePalette` via the GDI+ flat API (`GdipCreateHalftonePalette`), loaded beside the other entries and optional like the thumbnail export. On a palettized desktop — the 8bpp remote session, the safe-mode desktop, the legacy VM — GDI maps every blit through the hardware palette, and a viewer that realizes no palette of its own dithers through the 20 static VGA colors.
-- **The classic palette contract rides the main window** — the need is read from the window's own DC (bits × planes = 8) and the palette is created or released lazily; `WM_QUERYNEWPALETTE` realizes it in the foreground on activation, `WM_PALETTECHANGED` realizes it in the background when another window claims the hardware first (never answering its own change — that loops), `WM_DISPLAYCHANGE` re-reads the need when the mode flips, and the paint path keeps it selected in the paint DC so both the direct and the backbuffer present path map through it.
+- **The ico grows the DPI ladder** — the third upstream TODO item lands: the icon carried only 16/32px frames, so a 150% desktop asking for 48/24 got a shell-stretched 32. The ladder now runs 16, 20, 24, 32, 48, 64, 128, 256 — new frames resampled Lanczos from the 32bpp masters (the little landscape's sky is a photographic gradient, a faithful resample beats a redraw), the original frames riding along byte-identical.
+- **The frame icons ride the window's DPI** — a new `os_GetSystemMetricsForDpi` ladder helper (Win10 1607+ exact via `GetSystemMetricsForDpi`; the pre-1607 ladder's raw metric already carries the system DPI), `WM_SETICON` pins the big/small pair at the window's own DPI, `WM_DPICHANGED` re-pins when the window crosses monitors, and the new pair always lands before the old one retires.
 
 **1.1.12 — the remake arc: the full GUI remake, the platform guardrails, the field fixes and the review absorption (the current stable):**
 
@@ -31,6 +31,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.13-rc.3** — the halftone palette round: 256-color mode gets `graphics::GetHalftonePalette` — the classic palette contract (foreground/background realization, the paint-DC selection, the display-change resync).
 - **1.1.13-rc.2** — the association guard round: `.bmp`/`.jpg` taken over only when the effective default is the Windows canonical class or already ours — a foreign viewer's association is left completely alone.
 - **1.1.13-rc.1** — the readme diet round: the news section demoted to the one-line list (full treatment only for the current stable and candidate; [Changes.txt](Changes.txt) stays the archive of record); the 1.1.13 TODO arc opens.
 - **1.1.12-rc.17** — the review absorption round: the external carpet review absorbed (the itemID carrier, the token strip, the settings DPI correction, the resize escape hatch, the startup DPI sync).

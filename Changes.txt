@@ -1,3 +1,33 @@
+Pre-release: Version 1.1.13-rc.4 (the high dpi icons round)
+*the third todo item lands: high dpi icons. the ico carried only
+ the 16 and 32 pixel frames - a 150 percent desktop asks for 48
+ and 24 and gets a shell-stretched 32 - and the code loaded the
+ class icons at the raw system metrics, so a per-monitor window
+ never re-pinned its frame icons at the scale it actually sits
+ at.
+*the resource half: the ico grows the dpi ladder (256, 128, 64,
+ 48, 24 and 20 join the original 16 and 32 pair, resampled
+ lanczos from the 32bpp masters - the sky in the little landscape
+ is a photographic gradient, so a faithful resample beats a
+ redraw), the original four frames ride along byte-identical, and
+ every new frame is 32bpp with alpha.
+*the code half: the icon sizes come from os_GetSystemMetricsForDpi
+ (a new os ladder helper: win10 1607+ answers through
+ GetSystemMetricsForDpi, the earlier ladder is system dpi aware
+ and the raw metric already rides it), wm_seticon pins the big and
+ small pair at the window's own dpi, wm_dpichanged re-pins the
+ pair when the window crosses monitors, the new pair lands before
+ the old one retires (the window never points at a destroyed
+ icon), and the destroy path frees both.
+*verified: the three suites pass (the round-90 guard section pins
+ the ico ladder, the legacy frames, the os helper and its
+ fallback, the dpi-scaled loads, the wm_seticon pair, the
+ dpichanged re-pin, the retire order and the destroy cleanup),
+ every version guard moves to build 64, the growth window
+ recalibrates to 30300 (the round measured 30208), and the
+ readme candidate slot hands over to rc.4 with rc.3 demoted to
+ the one-line list.
+
 Pre-release: Version 1.1.13-rc.3 (the halftone palette round)
 *the second todo item lands: graphics::GetHalftonePalette for 256
  color mode. on a palettized desktop - the 8bpp remote session,
