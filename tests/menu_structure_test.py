@@ -4243,6 +4243,38 @@ def t_halftone_palette_round89():
           "wm_displaychange" in flat)
 
 
+def t_release_title_crlf_fix():
+    """Guard for the pipeline title derivation fix (caught live on the
+    rc.3 release): the changelog is crlf, head -n 1 carries the \r, and
+    the sed chain's trailing-paren strip never fired - the derived title
+    shipped a stray ")". the notes h1 derivation was immune (python
+    splitlines + rstrip never see the \r). this guard runs the
+    workflow's own pipeline against the live changelog head so the two
+    derivations must agree; a regression cannot ship green."""
+    import os
+    import subprocess
+    ry = read(".github/workflows/release.yml").decode()
+
+    # 1. the fix rides the sed chain: the \r strip comes first.
+    check("the title derivation strips the crlf tail first",
+          "sed -e 's/\\r$//' -e 's/^[^:]*: *Version *[^ ]* *//' -e 's/^(//' -e 's/)$//'" in ry)
+
+    # 2. the live proof: run the workflow's own pipeline (bash with
+    #    GITHUB_WORKSPACE pointed at the tree) on the real head line.
+    m = re.search(r'round="\$\((.*?)\)"', ry, re.S)
+    check("the workflow still derives the title from the changelog head",
+          m is not None)
+    if m:
+        env = dict(os.environ, GITHUB_WORKSPACE=".")
+        out = subprocess.run(["bash", "-c", m.group(1)], capture_output=True,
+                             env=env, cwd=".").stdout.decode("utf-8", errors="replace").strip()
+        head = read("Changes.txt").decode("utf-8", errors="replace").split("\n")[0]
+        hm = re.match(r"^[^:]*: *Version *[^ ]* \((.*)\)\r?$", head)
+        expected = hm.group(1) if hm else ""
+        check("the derived round name equals the changelog parenthetical",
+              out == expected, f"(derived {out!r} vs parsed {expected!r})")
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -4301,6 +4333,7 @@ if __name__ == "__main__":
     t_readme_diet_round85()
     t_association_guard_round86()
     t_halftone_palette_round89()
+    t_release_title_crlf_fix()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

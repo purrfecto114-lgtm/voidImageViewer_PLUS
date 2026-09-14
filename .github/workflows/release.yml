@@ -440,8 +440,12 @@ jobs:
           # association guard round)" gives "voidImageViewer
           # 1.1.13-rc.2 - the association guard round"; the phase
           # suffix joins after. a heading without a parenthetical
-          # falls back to the bare version title.
-          round="$(head -n 1 "$GITHUB_WORKSPACE/Changes.txt" | sed -e 's/^[^:]*: *Version *[^ ]* *//' -e 's/^(//' -e 's/)$//')"
+          # falls back to the bare version title. the changelog is
+          # crlf: head -n 1 hands sed a line ending in \r, so the
+          # trailing-paren strip must first drop the carriage return
+          # or the derived round name ships with a stray ")" (the
+          # rc.3 title caught it live and was curated by hand).
+          round="$(head -n 1 "$GITHUB_WORKSPACE/Changes.txt" | sed -e 's/\r$//' -e 's/^[^:]*: *Version *[^ ]* *//' -e 's/^(//' -e 's/)$//')"
           title="voidImageViewer $VERSION$PHASE"
           if [ -n "$round" ]; then
             title="voidImageViewer $VERSION — $round$PHASE"
