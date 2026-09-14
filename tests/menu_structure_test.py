@@ -333,10 +333,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.13.62 pre-release (the association guard round)",
-          (major, minor, rev, build) == ("1", "1", "13", "62") and vtype == "")
-    check("VERSION_STRING is the release identity (the rc.2 tag)",
-          vstr == "1.1.13-rc.2")
+    check("version.h = 1.1.13.63 pre-release (the halftone palette round)",
+          (major, minor, rev, build) == ("1", "1", "13", "63") and vtype == "")
+    check("VERSION_STRING is the release identity (the rc.3 tag)",
+          vstr == "1.1.13-rc.3")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3082,8 +3082,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 62",
-          "#define VERSION_BUILD 62" in version)
+    check("the release candidate line moves to build 63",
+          "#define VERSION_BUILD 63" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3153,9 +3153,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 62",
-          "#define VERSION_BUILD 62" in version and
-          '#define VERSION_STRING "1.1.13-rc.2"' in version)
+    check("the version moves to build 63",
+          "#define VERSION_BUILD 63" in version and
+          '#define VERSION_STRING "1.1.13-rc.3"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3379,14 +3379,14 @@ def t_structure_round76():
     # rc.6: wm_syschar, wm_syskeydown, wm_syskeyup and wm_initmenupopup
     # joined the dispatch, wm_measureitem and wm_ncpaint left with the
     # owner draw menu machinery they existed for.
-    check("the 49 per-message handlers exist", handlers == 49, f"({handlers})")  # carpet repair: wm_deleteitem and wm_syscolorchange join the dispatch
+    check("the 52 per-message handlers exist", handlers == 52, f"({handlers})")  # halftone round: wm_querynewpalette, wm_palettechanged and wm_displaychange join the dispatch
     check("every dispatch case returns its handler",
-          disp.count("\n\t\t\treturn _viv_on_") == 49)
+          disp.count("\n\t\t\treturn _viv_on_") == 52)
 
     # 4. the pure-move discipline held: the moved case bodies kept their
     #    bytes, only the case-exit breaks became DefWindowProc returns.
     check("the case exits are explicit DefWindowProc returns",
-          wnd.count("return DefWindowProc(hwnd,msg,wParam,lParam);") == 43)  # dpi round: the 17 splice-accident dead tails are gone
+          wnd.count("return DefWindowProc(hwnd,msg,wParam,lParam);") == 44)  # halftone round: the no-palette querynewpalette exit joins
 
     # 5. the gesture cluster is home in the view domain (chrome no longer
     #    owns it): the three touch entry points + the engine state.
@@ -3427,9 +3427,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.2 build 62",
-          '#define VERSION_BUILD 62' in version and
-          '#define VERSION_STRING "1.1.13-rc.2"' in version)
+    check("the version is 1.1.13-rc.3 build 63",
+          '#define VERSION_BUILD 63' in version and
+          '#define VERSION_STRING "1.1.13-rc.3"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3492,9 +3492,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 62",
-          "#define VERSION_BUILD 62" in version and
-          '#define VERSION_STRING "1.1.13-rc.2"' in version)
+    check("the version moves to build 63",
+          "#define VERSION_BUILD 63" in version and
+          '#define VERSION_STRING "1.1.13-rc.3"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4056,9 +4056,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.13-rc.2 build 62",
-          '#define VERSION_BUILD 62' in version and
-          '#define VERSION_STRING "1.1.13-rc.2"' in version)
+    check("the version is 1.1.13-rc.3 build 63",
+          '#define VERSION_BUILD 63' in version and
+          '#define VERSION_STRING "1.1.13-rc.3"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4175,9 +4175,9 @@ def t_association_guard_round86():
     check("a foreign owner returns before any write of ours",
           'debug_printf("association .%s left alone (a foreign viewer owns it)' in assoc)
     # 5. the readme candidate slot hands over.
-    check("the candidate line is the association guard round",
-          "**1.1.13-rc.2 \u2014" in readme and
-          "(the current release candidate):**" in readme)
+    check("the rc.2 entry rides the one-line list (the rc.3 candidate took the slot)",
+          "**1.1.13-rc.2** \u2014" in readme and
+          "**1.1.13-rc.2 \u2014" not in readme)
     # 6. the changelog carries the round.
     flat = " ".join(changes.split())
     check("the changelog states the todo landing",
@@ -4185,6 +4185,62 @@ def t_association_guard_round86():
           "foreign viewer" in flat)
     check("the changelog states the gate position",
           "after the uninstall-restore" in flat)
+
+
+def t_halftone_palette_round89():
+    """Guards for the halftone palette round (1.1.13-rc.3: the second
+    upstream todo item - graphics::GetHalftonePalette for 256 color
+    mode)."""
+    wndproc = read("src/viv_wndproc.c").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+    osc = read("src/os.c").decode("latin-1")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    version = read("src/version.h").decode("latin-1")
+
+    # 1. the os layer: the gdiplus flat api behind the todo's call.
+    check("os.h declares the halftone palette flat api",
+          "extern HPALETTE (__stdcall *os_GdipCreateHalftonePalette)(void);" in osh)
+    check("os.c loads the flat api beside the other gdi+ entries",
+          '_os_get_proc_address(_os_gdiplus_hmodule,"GdipCreateHalftonePalette")' in osc)
+    # 2. the need gate: the palette exists only on a palettized display.
+    check("the sync reads the color depth from the window's own dc",
+          "GetDeviceCaps(hdc,BITSPIXEL) * GetDeviceCaps(hdc,PLANES)" in wndproc)
+    check("the palette is created only for the 256 color mode",
+          "bpp == 8" in wndproc)
+    # 3. the classic contract: foreground on activation, background on
+    #    another window's change, never answering our own.
+    check("wm_querynewpalette realizes the foreground palette",
+          "case WM_QUERYNEWPALETTE:" in wndproc and
+          "_viv_halftone_palette_realize(hwnd,1)" in wndproc)
+    check("wm_palettechanged never answers its own change (the loop guard)",
+          "if ((HWND)wParam == hwnd)" in wndproc and
+          "_viv_halftone_palette_realize(hwnd,0)" in wndproc)
+    check("the paint dc carries the palette selection",
+          "SelectPalette(ps.hdc,_viv_halftone_palette" in wndproc)
+    check("wm_displaychange re-reads the need",
+          "case WM_DISPLAYCHANGE:" in wndproc)
+    at = wndproc.index("static LRESULT _viv_on_wm_destroy(")
+    end = wndproc.index("static LRESULT _viv_on_wm_queryendsession(", at)
+    destroy = wndproc[at:end]
+    check("the destroy path releases the palette",
+          "DeleteObject(_viv_halftone_palette)" in destroy)
+    # 4. the version and the readme candidate slot.
+    check("the version is 1.1.13-rc.3 build 63",
+          '#define VERSION_BUILD 63' in version and
+          '#define VERSION_STRING "1.1.13-rc.3"' in version)
+    check("the candidate line is the halftone palette round",
+          "**1.1.13-rc.3 \u2014" in readme and
+          "(the current release candidate):**" in readme)
+    # 5. the changelog carries the round.
+    flat = " ".join(changes.split())
+    check("the changelog states the todo landing",
+          "the second todo item lands" in flat and
+          "256 color" in flat)
+    check("the changelog states the realization contract",
+          "foreground" in flat and
+          "background" in flat and
+          "wm_displaychange" in flat)
 
 
 if __name__ == "__main__":
@@ -4244,6 +4300,7 @@ if __name__ == "__main__":
     t_stable_promotion_round83()
     t_readme_diet_round85()
     t_association_guard_round86()
+    t_halftone_palette_round89()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

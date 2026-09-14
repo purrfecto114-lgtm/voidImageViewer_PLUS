@@ -1,3 +1,30 @@
+Pre-release: Version 1.1.13-rc.3 (the halftone palette round)
+*the second todo item lands: graphics::GetHalftonePalette for 256
+ color mode. on a palettized desktop - the 8bpp remote session,
+ the safe mode desktop, the legacy vm - gdi maps every blit through
+ the hardware palette, and a viewer that realizes no palette of its
+ own dithers through the 20 static vga colors. the gdiplus flat api
+ behind the todo's call (GdipCreateHalftonePalette) hands back a 256
+ entry halftone palette as a plain gdi hpalette, loaded beside the
+ other gdi+ entries and optional exactly like the thumbnail export:
+ a gdiplus without it keeps the old behavior.
+*the palette rides the classic 256 color contract on the main window.
+ the need is read from the window's own dc (bitspixel x planes == 8)
+ and the palette is created or released lazily on the sync path;
+ wm_querynewpalette realizes it in the foreground when the window
+ activates, wm_palettechanged realizes it in the background when
+ another window claims the hardware first (never answering its own
+ change - that would ping-pong forever), wm_displaychange re-reads
+ the need when the mode flips, and the paint path keeps it selected
+ in the paint dc so both the direct and the backbuffer present path
+ map through it. the palette is released with the window.
+*verified: the three suites pass (the round-89 guard section pins
+ the flat api load, the 8bpp gate, the foreground and background
+ realization, the self-change loop guard, the paint dc selection,
+ the displaychange resync and the destroy release), every version
+ guard moves to build 63, and the readme candidate slot hands over
+ to rc.3 with rc.2 demoted to the one-line list.
+
 Pre-release: Version 1.1.13-rc.2 (the association guard round)
 *the first todo item lands: install bmp and jpg only when the
  extension's effective default is the windows canonical class

@@ -128,6 +128,9 @@ extern int (__stdcall *os_GdipCreateBitmapFromHBITMAP)(HBITMAP hbitmap,HPALETTE 
 extern int (__stdcall *os_GdipSaveImageToFile)(void *image,const wchar_t *filename,const GUID *clsidEncoder,const void *encoderParams);
 extern int (__stdcall *os_GdipGetImageEncodersSize)(unsigned int *numCodecs,unsigned int *size);
 extern int (__stdcall *os_GdipGetImageEncoders)(unsigned int numCodecs,unsigned int size,void *encoders);
+// graphics::GetHalftonePalette for 256 color mode (an upstream todo): the
+// gdiplus flat api hands back the halftone palette as a plain gdi hpalette.
+extern HPALETTE (__stdcall *os_GdipCreateHalftonePalette)(void);
 int os_save_hbitmap(HBITMAP hbitmap,const wchar_t *filename,int format);
 extern BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags);
 extern BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent);

@@ -18,10 +18,10 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.13-rc.2 — the association guard round (the current release candidate):**
+**1.1.13-rc.3 — the halftone palette round (the current release candidate):**
 
-- **Never replace a foreign viewer's association** — the first upstream TODO item lands: `.bmp` and `.jpg` (with `jpeg`) are taken over only when the extension's effective default is the Windows canonical class (`bmpfile`, `jpgfile`) or already voidImageViewer's own. A foreign class on the merged view (HKEY_CLASSES_ROOT — exactly as the shell resolves it) means the user chose another viewer; the extension is left completely alone.
-- **The gate heals upgrades too** — it sits after the install path's uninstall-restore, so an upgrade over an older no-gate install first heals to the pre-fork owner and then reads it honestly. An empty default, the canonical class, or our own class installs as before; every other extension keeps the historical backup-then-takeover behavior.
+- **256 color mode gets its halftone palette** — the second upstream TODO item lands: `graphics::GetHalftonePalette` via the GDI+ flat API (`GdipCreateHalftonePalette`), loaded beside the other entries and optional like the thumbnail export. On a palettized desktop — the 8bpp remote session, the safe-mode desktop, the legacy VM — GDI maps every blit through the hardware palette, and a viewer that realizes no palette of its own dithers through the 20 static VGA colors.
+- **The classic palette contract rides the main window** — the need is read from the window's own DC (bits × planes = 8) and the palette is created or released lazily; `WM_QUERYNEWPALETTE` realizes it in the foreground on activation, `WM_PALETTECHANGED` realizes it in the background when another window claims the hardware first (never answering its own change — that loops), `WM_DISPLAYCHANGE` re-reads the need when the mode flips, and the paint path keeps it selected in the paint DC so both the direct and the backbuffer present path map through it.
 
 **1.1.12 — the remake arc: the full GUI remake, the platform guardrails, the field fixes and the review absorption (the current stable):**
 
@@ -31,6 +31,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.13-rc.2** — the association guard round: `.bmp`/`.jpg` taken over only when the effective default is the Windows canonical class or already ours — a foreign viewer's association is left completely alone.
 - **1.1.13-rc.1** — the readme diet round: the news section demoted to the one-line list (full treatment only for the current stable and candidate; [Changes.txt](Changes.txt) stays the archive of record); the 1.1.13 TODO arc opens.
 - **1.1.12-rc.17** — the review absorption round: the external carpet review absorbed (the itemID carrier, the token strip, the settings DPI correction, the resize escape hatch, the startup DPI sync).
 - **1.1.12-rc.16** — the open intent round: the recent-list trade refunded (the open intent declared where it is knowable — a reload is not a recent open).

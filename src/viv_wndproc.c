@@ -367,10 +367,151 @@ static LRESULT _viv_on_wm_nclbuttondown(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+// the halftone palette - graphics::GetHalftonePalette for 256 color mode
+// (an upstream todo). on a palettized desktop - the 8bpp remote session,
+// the safe mode desktop, the legacy vm - gdi maps every blit through the
+// hardware palette, and a viewer that realizes no palette of its own
+// dithers through the 20 static vga colors. the gdiplus flat api behind
+// the todo's call hands back a 256 entry halftone palette as a plain gdi
+// hpalette, and this unit rides the classic palette contract on the main
+// window.
+
+static HPALETTE _viv_halftone_palette = 0; // created only while the display is 8bpp.
+
+// read the need from the window's own dc: bitspixel x planes is 8 exactly
+// on a palettized display. the palette is created lazily (the flat api is
+// optional like the thumbnail export - a gdiplus without it keeps the old
+// behavior) and released when the mode leaves 8bpp.
+static void _viv_halftone_palette_sync(HWND hwnd)
+{
+	HDC hdc;
+	int bpp;
+
+	hdc = GetDC(hwnd);
+
+	if (!hdc)
+	{
+		return;
+	}
+
+	bpp = GetDeviceCaps(hdc,BITSPIXEL) * GetDeviceCaps(hdc,PLANES);
+
+	ReleaseDC(hwnd,hdc);
+
+	if (bpp == 8)
+	{
+		if ((!_viv_halftone_palette) && (os_GdipCreateHalftonePalette))
+		{
+			_viv_halftone_palette = os_GdipCreateHalftonePalette();
+		}
+	}
+	else if (_viv_halftone_palette)
+	{
+		DeleteObject(_viv_halftone_palette);
+		_viv_halftone_palette = 0;
+	}
+}
+
+// realize the palette through a short-lived window dc: the mapping sticks
+// to the window until the next palette change, the dc is only the handle
+// gdi realizes through. returns the remapped entry count.
+static UINT _viv_halftone_palette_realize(HWND hwnd,int foreground)
+{
+	HDC hdc;
+	UINT remapped;
+
+	if (!_viv_halftone_palette)
+	{
+		return 0;
+	}
+
+	hdc = GetDC(hwnd);
+
+	if (!hdc)
+	{
+		return 0;
+	}
+
+	// foreground: this window may claim the hardware palette. background:
+	// another window already did, map to the closest entries instead.
+	SelectPalette(hdc,_viv_halftone_palette,foreground ? FALSE : TRUE);
+	remapped = RealizePalette(hdc);
+
+	ReleaseDC(hwnd,hdc);
+
+	return remapped;
+}
+
+static LRESULT _viv_on_wm_querynewpalette(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	// the window is about to become the foreground one: it may claim the
+	// hardware palette. realize in the foreground and ask for a full
+	// repaint so the image remaps through the halftone entries (the
+	// classic 256 color mode contract).
+	_viv_halftone_palette_sync(hwnd);
+
+	if (_viv_halftone_palette)
+	{
+		_viv_halftone_palette_realize(hwnd,1);
+
+		InvalidateRect(hwnd,0,TRUE);
+
+		return TRUE;
+	}
+
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+static LRESULT _viv_on_wm_palettechanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	// another window realized its palette first. never answer our own
+	// change: wParam is the window that changed it, and realizing in
+	// answer to ourselves would ping-pong forever. otherwise realize as a
+	// background palette and repaint only when entries actually remapped.
+	if ((HWND)wParam == hwnd)
+	{
+		return 0;
+	}
+
+	_viv_halftone_palette_sync(hwnd);
+
+	if ((_viv_halftone_palette) && (_viv_halftone_palette_realize(hwnd,0)))
+	{
+		InvalidateRect(hwnd,0,TRUE);
+	}
+
+	return 0;
+}
+
+static LRESULT _viv_on_wm_displaychange(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	// the display mode changed (the depth included): re-read the need - an
+	// 8bpp desktop creates the halftone palette, leaving one releases it -
+	// and repaint through whatever is current.
+	_viv_halftone_palette_sync(hwnd);
+
+	if (_viv_halftone_palette)
+	{
+		_viv_halftone_palette_realize(hwnd,1);
+	}
+
+	InvalidateRect(hwnd,0,TRUE);
+
+	return 0;
+}
+
 static LRESULT _viv_on_wm_destroy(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	// don't free the menu again.
 	_viv_hmenu = 0;
+
+	// the halftone palette belongs to the window (256 color mode).
+	if (_viv_halftone_palette)
+	{
+		DeleteObject(_viv_halftone_palette);
+		_viv_halftone_palette = 0;
+	}
+
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
@@ -2206,6 +2347,19 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		HDC paint_hdc;
 		int paint_use_backbuffer;
 
+		// 256 color mode: keep the halftone palette selected into the paint
+		// dc - every blit below (the direct path and the backbuffer present
+		// alike) lands on this dc and maps through its realized palette.
+		// foreground realization while the window is the active one: the
+		// window painting itself owns the hardware palette.
+		_viv_halftone_palette_sync(hwnd);
+
+		if (_viv_halftone_palette)
+		{
+			SelectPalette(ps.hdc,_viv_halftone_palette,GetActiveWindow() != hwnd ? TRUE : FALSE);
+			RealizePalette(ps.hdc);
+		}
+
 		update_hrgn = os_CreateRectRgn(0,0,0,0);
 
 		// get visible region
@@ -2722,6 +2876,12 @@ LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			return _viv_on_wm_size(hwnd,msg,wParam,lParam);
 		case WM_DPICHANGED:
 			return _viv_on_wm_dpichanged(hwnd,msg,wParam,lParam);
+		case WM_QUERYNEWPALETTE:
+			return _viv_on_wm_querynewpalette(hwnd,msg,wParam,lParam);
+		case WM_PALETTECHANGED:
+			return _viv_on_wm_palettechanged(hwnd,msg,wParam,lParam);
+		case WM_DISPLAYCHANGE:
+			return _viv_on_wm_displaychange(hwnd,msg,wParam,lParam);
 		case WM_MOVE:
 			return _viv_on_wm_move(hwnd,msg,wParam,lParam);
 		case WM_DRAWITEM:

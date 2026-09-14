@@ -151,6 +151,7 @@ int (__stdcall *os_GdipCreateBitmapFromHBITMAP)(HBITMAP hbitmap,HPALETTE hpalett
 int (__stdcall *os_GdipSaveImageToFile)(void *image,const wchar_t *filename,const GUID *clsidEncoder,const void *encoderParams) = 0;
 int (__stdcall *os_GdipGetImageEncodersSize)(unsigned int *numCodecs,unsigned int *size) = 0;
 int (__stdcall *os_GdipGetImageEncoders)(unsigned int numCodecs,unsigned int size,void *encoders) = 0;
+HPALETTE (__stdcall *os_GdipCreateHalftonePalette)(void) = 0;
 BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void) = 0;
 HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
 static unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
@@ -1103,6 +1104,11 @@ void os_init(void)
 		os_GdipSaveImageToFile = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipSaveImageToFile");
 		os_GdipGetImageEncodersSize = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageEncodersSize");
 		os_GdipGetImageEncoders = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipGetImageEncoders");
+		// graphics::GetHalftonePalette for 256 color mode (an upstream todo):
+		// the flat api returns the halftone palette as a plain gdi hpalette.
+		// optional like the thumbnail export - a gdiplus without it simply
+		// keeps the old 256 color behavior.
+		os_GdipCreateHalftonePalette = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipCreateHalftonePalette");
 	}
 }
 
