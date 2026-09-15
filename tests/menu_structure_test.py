@@ -5371,6 +5371,15 @@ def t_audit_response_round101():
     check("the buffer security check rides every configuration",
           "<BufferSecurityCheck>false</BufferSecurityCheck>" not in vcx)
 
+    # 4b. the sdl elevation catch: the older v143 analyzer flags two
+    #     potentially-uninitialized pointer reads the newer v145 one
+    #     accepts - both retire with null initializers (zero behavior
+    #     change: the uses are guarded or debug-only).
+    load_src = read("src/viv_load.c").decode("latin-1")
+    check("the sdl elevation catches retire with null initializers",
+          "void *bits = NULL;" in load_src and
+          "void *image = NULL;" in load_src)
+
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the corner and audit response round pre-release",

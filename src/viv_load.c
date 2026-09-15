@@ -488,7 +488,10 @@ void _viv_paste_clipboard_image(void)
 				screen_hdc = GetDC(0);
 				if (screen_hdc)
 				{
-					void *bits;
+					// the null initializer answers the sdl elevation on the older
+					// analyzer: the create-dib-section call is the only writer and
+					// the copy below rides the hbitmap guard it pairs with.
+					void *bits = NULL;
 					HBITMAP hbitmap;
 					int budget_height;
 					
@@ -956,7 +959,9 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 
 //		if (!_viv_load_image_terminate)
 		{
-			void *image;
+			// the null initializer answers the sdl elevation: the proc-table
+			// miss path reads image at the debug print before any assignment.
+			void *image = NULL;
 			int load_ret;
 			
 			// not implemented.
