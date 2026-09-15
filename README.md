@@ -18,9 +18,10 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.14-rc.1 — the todo closure round (the current release candidate):**
+**1.1.14-rc.2 — the fixture round (the current release candidate):**
 
-- **The TODO list closes** — the four items the fork's header carried since the beginning all land: **OpenGL and Direct3D renderers** (View → Renderer, opt-in, dynamically loaded, falling back to GDI on any refusal), **toolbar customization** (right-click the strip to toggle the six button groups, persisted in the ini), and the **shell context menu** (right-click the canvas → the Explorer verbs for the open file — Open with, Cut, Copy, Properties — through `CDefFolderMenu_Create2`, dynamically resolved and quietly absent where the shell is too old).
+- **The test sample set commits** — `tests/samples/` now rides the tree: the 38 anomaly samples (the smoke sweep's hostile inputs, regenerating byte-identical as the oracle) plus eight real imagery fixtures — two hand-encoded animated GIFs (real variable-width LZW; a palette bounce and a transparent fade on disposal-2 sub-frames), an RGBA PNG, a 24-bit BMP, the QOI pair (RGB + RGBA, the fork's own decoder), a photographic JPEG and an animated WEBP. Every push and every release still opens the whole set through the freshly built exe; the coverage only grows.
+- **The QOI magic fix** — the host verification feeding the committed fixtures through a byte-identical copy of the real `src/qoi.c` caught a shipped defect: the magic constant was spelled in little-endian byte order, so the big-endian header reader refused every valid `.qoi` file at the first gate (and the round's guard had pinned the wrong bytes). One constant now reads the reference's word; the harness proves the pixels come back exact and the hostile refusals still refuse.
 - Full narrative: `Changes.txt`.
 
 **1.1.13 — the format horizons round (the current stable):**
@@ -31,6 +32,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.14-rc.1** — the todo closure round: the upstream TODO list closes — the OpenGL and Direct3D renderers, the toolbar customization and the shell context menu all land.
 - **1.1.13-rc.7** — the field sweep round: the cold-start slideshow fix, the startup shortcut retirement, the no-image menu gate, the single keyboard focus ring and the icon payload diet (the ico drops 80%).
 - **1.1.13-rc.6** — the peripheral residue round: the closing sweep retires the never-built Wine DPI probe, four zero-reference api functions, the year-stringize pair and three never-requested localization strings.
 - **1.1.13-rc.5** — the dead residue round: the carpet sweep retires three dead functions, four dead macro families and fourteen VS-generated resource ids; the frozen corners stay pinned by the round-91 guard.

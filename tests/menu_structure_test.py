@@ -342,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.14-rc.1.69 pre-release (the todo closure round)",
-          (major, minor, rev, build) == ("1", "1", "14", "69") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.14-rc.1 tag)",
-          vstr == "1.1.14-rc.1")
+    check("version.h = 1.1.14-rc.2.70 pre-release (the fixture round)",
+          (major, minor, rev, build) == ("1", "1", "14", "70") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.14-rc.2 tag)",
+          vstr == "1.1.14-rc.2")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3091,8 +3091,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 66 (the 1.1.14-rc.1 pins ride it)",
-          "#define VERSION_BUILD 69" in version)
+    check("the release candidate line moves to build 66 (the 1.1.14-rc.2 pins ride it)",
+          "#define VERSION_BUILD 70" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3162,9 +3162,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.14-rc.1 pins ride it)",
-          "#define VERSION_BUILD 69" in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version moves to build 66 (the 1.1.14-rc.2 pins ride it)",
+          "#define VERSION_BUILD 70" in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3436,9 +3436,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.1 build 69",
-          '#define VERSION_BUILD 69' in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version is 1.1.14-rc.2 build 70",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3501,9 +3501,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.14-rc.1 pins ride it)",
-          "#define VERSION_BUILD 69" in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version moves to build 66 (the 1.1.14-rc.2 pins ride it)",
+          "#define VERSION_BUILD 70" in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4065,9 +4065,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.1 build 69",
-          '#define VERSION_BUILD 69' in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version is 1.1.14-rc.2 build 70",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4235,9 +4235,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.14-rc.1 build 69",
-          '#define VERSION_BUILD 69' in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version is 1.1.14-rc.2 build 70",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4338,9 +4338,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.14-rc.1 build 69",
-          '#define VERSION_BUILD 69' in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version is 1.1.14-rc.2 build 70",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4417,9 +4417,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.14-rc.1 build 69",
-          '#define VERSION_BUILD 69' in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version is 1.1.14-rc.2 build 70",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4516,9 +4516,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.14-rc.1 build 69",
-          '#define VERSION_BUILD 69' in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version is 1.1.14-rc.2 build 70",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4569,7 +4569,7 @@ def t_format_horizons_round94():
 
     # 2. the qoi decoder.
     check("qoi.c checks the qoi magic",
-          "0x66696f71" in qoi)
+          "0x716f6966" in qoi and "0x66696f71" not in qoi)
     check("qoi.c verifies the reference end marker",
           "{0,0,0,0,0,0,0,1}" in qoi)
     check("qoi.c ports the full reference opcode set",
@@ -4633,9 +4633,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.14-rc.1 build 69",
-          '#define VERSION_BUILD 69' in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version is 1.1.14-rc.2 build 70",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4838,15 +4838,16 @@ def t_todo_closure_round96():
           '#include "hwd3d.h"' in vivh and
           '#include "shellmenu.h"' in vivh)
 
-    # 10. the changelog, the readme and the version.
-    check("the changelog top entry is the todo closure pre-release",
+    # 10. the changelog, the readme and the version (the fixture round
+    #     took the candidate slot and the top changelog entry; the
+    #     closure round rides one line in the readme list below).
+    check("the changelog carries the todo closure pre-release (below the fixture round)",
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
-    check("the readme candidate slot holds the closure round",
-          "**1.1.14-rc.1 \u2014" in readme and
-          "(the current release candidate):**" in readme)
-    check("the version is 1.1.14-rc.1 build 69",
-          '#define VERSION_BUILD 69' in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
+          "**1.1.14-rc.1** \u2014" in readme)
+    check("the version is 1.1.14-rc.2 build 70 (the fixture round pins ride it)",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4984,9 +4985,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.14-rc.1 build 69",
-          '#define VERSION_BUILD 69' in version and
-          '#define VERSION_STRING "1.1.14-rc.1"' in version)
+    check("the version is 1.1.14-rc.2 build 70",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5001,6 +5002,197 @@ def t_field_sweep_round93():
     check("the changelog states the retirement and the reason",
           "the startup shortcut retires" in flat and
           "no business in the boot path" in flat)
+
+
+def t_fixture_round98():
+    """Guards for the fixture round (1.1.14-rc.2: the test sample set
+    commits - the anomaly fixtures and the real imagery fixtures ride
+    the tree so the smoke sweep's coverage only grows, the generation
+    path the ci owned all along becomes the regen oracle)."""
+    import shutil
+    import struct
+    import subprocess
+    import tempfile
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    samples = os.path.join(root, "tests", "samples")
+
+    version = read("src/version.h").decode("latin-1")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    gitignore = read(".gitignore").decode("latin-1")
+    files_txt = read("build-zig/files.txt").decode("latin-1")
+    props = read("voidImageViewer.files.props").decode("latin-1")
+    tests_yml = read(".github/workflows/tests.yml").decode("latin-1")
+    release_yml = read(".github/workflows/release.yml").decode("latin-1")
+    smoke = read("tests/smoke_test.ps1").decode("latin-1")
+    fixture_gen = read("tests/make_fixture_samples.py").decode("latin-1")
+    media_gen = read("tools/gen_media_samples.py").decode("latin-1")
+    qoi_src = read("src/qoi.c").decode("latin-1")
+
+    # 1. the sample set commits: 46 files (38 anomalies + 8 fixtures).
+    fx_names = [
+        "fx_anim_bounce.gif", "fx_anim_fade.gif", "fx_still_rgba.png",
+        "fx_still_24bpp.bmp", "fx_still_qoi_rgb.qoi",
+        "fx_still_qoi_rgba.qoi", "fx_still_photo.jpg",
+        "fx_anim_pulse.webp",
+    ]
+    present = sorted(n for n in os.listdir(samples)
+                     if os.path.isfile(os.path.join(samples, n))) \
+        if os.path.isdir(samples) else []
+    check("the sample directory carries exactly 46 files (38 anomalies + 8 fixtures)",
+          len(present) == 46, "%d files" % len(present))
+    check("the eight fixtures are all present by name",
+          all(n in present for n in fx_names),
+          ", ".join(n for n in fx_names if n not in present))
+    check("the over budget canvas still rides the sweep (the stage 3 leg)",
+          "35_png_over_budget_110mp.png" in present)
+    total = sum(os.path.getsize(os.path.join(samples, n)) for n in present)
+    check("the sample set stays under 2 mb (the 110mp budget canvas is the one heavyweight)",
+          total < 2000000, "%d bytes" % total)
+
+    # 2. the gitignore flip: the samples used to be ci-time generated,
+    #    the ignore line kept them out of the tree - it retires now.
+    check("the gitignore no longer ignores tests/samples",
+          "tests/samples/" not in gitignore)
+    check("the gitignore keeps the one-shot patch pattern (the media generator must not match it)",
+          "tools/r*_*.py" in gitignore and
+          not re.match(r"r\d", "gen_media_samples.py"))
+
+    # 3. the anomaly set regenerates byte-identical (the stdlib
+    #    determinism the ci generation path owned all along).
+    tmp = tempfile.mkdtemp(prefix="viv_anom_")
+    try:
+        r = subprocess.run(
+            [sys.executable,
+             os.path.join(root, "tests", "make_anomaly_samples.py"), tmp],
+            capture_output=True, text=True)
+        check("the anomaly generator self check passes on regeneration",
+              r.returncode == 0,
+              (r.stdout.strip().splitlines() or ["no output"])[-1])
+        mismatch = []
+        for n in sorted(os.listdir(tmp)):
+            want = open(os.path.join(tmp, n), "rb").read()
+            have_path = os.path.join(samples, n)
+            have = open(have_path, "rb").read() \
+                if os.path.isfile(have_path) else None
+            if have != want:
+                mismatch.append(n)
+        check("all 38 anomaly samples regenerate byte-identical",
+              not mismatch, ", ".join(mismatch))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # 4. the fixture generator: stdlib discipline (the ci path may run
+    #    it), self checking, and its six regenerate byte-identical.
+    check("the fixture generator keeps the stdlib discipline (no pillow on the ci path)",
+          "from PIL" not in fixture_gen and
+          "import zlib" in fixture_gen and
+          "import struct" in fixture_gen)
+    check("the fixture generator carries its own oracle (lzw mirror + qoi port)",
+          "def lzw_decode(" in fixture_gen and
+          "def qoi_decode(" in fixture_gen and
+          "def self_check(" in fixture_gen)
+    tmp2 = tempfile.mkdtemp(prefix="viv_fx_")
+    try:
+        r = subprocess.run(
+            [sys.executable,
+             os.path.join(root, "tests", "make_fixture_samples.py"), tmp2],
+            capture_output=True, text=True)
+        check("the fixture generator self check passes on regeneration",
+              r.returncode == 0,
+              (r.stdout.strip().splitlines() or ["no output"])[-1])
+        mismatch = [n for n in fx_names[:6]
+                    if open(os.path.join(samples, n), "rb").read() !=
+                    open(os.path.join(tmp2, n), "rb").read()]
+        check("all six hand-encoded fixtures regenerate byte-identical",
+              not mismatch, ", ".join(mismatch))
+    finally:
+        shutil.rmtree(tmp2, ignore_errors=True)
+
+    # 5. the media fixtures pin by structure (the pil generator is an
+    #    authoring tool; the ci path never runs it).
+    check("the media generator declares itself the pillow authoring tool",
+          "from PIL import Image" in media_gen and
+          "authoring" in media_gen)
+    jpg = open(os.path.join(samples, "fx_still_photo.jpg"), "rb").read()
+    check("the jpeg fixture carries the jfif contract",
+          jpg[:2] == b"\xff\xd8" and b"JFIF" in jpg[:32] and
+          jpg[-2:] == b"\xff\xd9")
+
+    def jpeg_dims(j):
+        p = 2
+        while p < len(j) - 9:
+            if j[p] != 0xFF:
+                p += 1
+                continue
+            m = j[p + 1]
+            if m in (0xC0, 0xC1, 0xC2):
+                h = struct.unpack(">H", j[p + 5:p + 7])[0]
+                w = struct.unpack(">H", j[p + 7:p + 9])[0]
+                return w, h
+            if m == 0xD9 or 0xD0 <= m <= 0xD7 or m == 0x01:
+                p += 2
+                continue
+            p += 2 + struct.unpack(">H", j[p + 2:p + 4])[0]
+        return None
+
+    check("the jpeg fixture parses to 96x64 through its own marker walk",
+          jpeg_dims(jpg) == (96, 64), repr(jpeg_dims(jpg)))
+    webp = open(os.path.join(samples, "fx_anim_pulse.webp"), "rb").read()
+    riff_size = struct.unpack("<I", webp[4:8])[0]
+    check("the webp fixture is the riff container with the extended format",
+          webp[:4] == b"RIFF" and webp[8:12] == b"WEBP" and
+          b"VP8X" in webp and b"ANIM" in webp and
+          riff_size == len(webp) - 8)
+    check("the webp fixture carries six animation frames",
+          webp.count(b"ANMF") == 6)
+
+    # 5b. the qoi magic fix - the round's real catch: the format
+    #     horizons round shipped the constant in little-endian spelling,
+    #     so the big-endian reader refused every valid qoi file at the
+    #     gate; the guard of that round pinned the wrong bytes and the
+    #     suites stayed green over a decoder that never accepted a real
+    #     file. the fixture round's real-byte host harness (the
+    #     committed fixtures fed through a byte-identical copy of
+    #     src/qoi.c compiled on the host) caught it; the fix rides this
+    #     round and the harness now proves the pixels come back exact.
+    check("the qoi magic reads big endian (the reference's word)",
+          "0x716f6966" in qoi_src and
+          "0x66696f71" not in qoi_src)
+    check("the qoi source records the catch (the host harness story)",
+          "real-byte host harness caught it" in qoi_src)
+    check("the changelog records the catch",
+          "the qoi magic constant" in changes)
+
+    # 6. the sample files ride no build list (they are not translation
+    #    units - the sweep opens them as data, the compilers never see
+    #    them).
+    check("the sample files ride no build list",
+          "tests/samples" not in files_txt and
+          "samples" not in props)
+
+    # 7. the smoke sweep rides the committed set on both pipelines (the
+    #    generation fallback goes dormant, the coverage only grows).
+    check("the tests pipeline sweeps the committed samples",
+          "smoke_test.ps1" in tests_yml and "tests\\samples" in tests_yml)
+    check("the release pipeline sweeps the committed samples",
+          "smoke_test.ps1" in release_yml and "tests\\samples" in release_yml)
+    check("the smoke script keeps its samples dir parameter and its over_budget leg",
+          "-SamplesDir" in smoke and "over_budget" in smoke)
+
+    # 8. the changelog, the readme and the version.
+    top = changes.lstrip("\ufeff").split("\r\n")[0]
+    check("the changelog top entry is the fixture round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.2 (the fixture round)", top)
+    check("the readme candidate slot holds the fixture round",
+          "**1.1.14-rc.2 \u2014" in readme and
+          "(the current release candidate):**" in readme)
+    check("the readme one-liner carries the todo closure round (demoted)",
+          "**1.1.14-rc.1** \u2014" in readme)
+    check("the version is 1.1.14-rc.2 build 70",
+          '#define VERSION_BUILD 70' in version and
+          '#define VERSION_STRING "1.1.14-rc.2"' in version)
 
 
 if __name__ == "__main__":
@@ -5068,6 +5260,7 @@ if __name__ == "__main__":
     t_field_sweep_round93()
     t_format_horizons_round94()
     t_todo_closure_round96()
+    t_fixture_round98()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

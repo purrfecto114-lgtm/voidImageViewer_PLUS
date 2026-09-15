@@ -1,3 +1,50 @@
+Pre-release: Version 1.1.14-rc.2 (the fixture round)
+
+	the test sample set commits - the smoke sweep's anomaly fixtures and
+	real imagery fixtures ride the tree. the ci generation path the
+	smoke script owned since the audit round stays byte-identical as the
+	regen oracle (the round-98 guard regenerates both sets anywhere
+	python runs and compares byte-for-byte), the gitignore line that
+	kept the directory out retires, and the sweep coverage only grows:
+	both pipelines (the tests leg and the release leg) still open every
+	file in tests/samples through the freshly built exe, the over
+	budget canvas still answers stage 3, and the set now counts 46
+	files - the 38 anomaly samples (truncations, lying headers, zero
+	delay animations, extreme frame counts, broken chunk order,
+	trailing garbage, empty shells, boundary confusions) plus eight
+	real imagery fixtures: two animated gifs hand-encoded with a real
+	variable-width lzw compressor (a palette-bounce on full-canvas
+	frames and a transparent fade on sub-rectangle frames with
+	disposal 2 - the compositing contract), a truecolor+alpha png, an
+	uncompressed 24-bit bmp, the qoi rgb and rgba pair, a photographic
+	jpeg and an animated webp authored through pillow locally (the ci
+	path pins them by structure - magic, markers, dimensions, frame
+	counts - never by regeneration, the stdlib discipline holds).
+	the fixture generator rides tests/make_fixture_samples.py
+	(standard library only, mirroring the anomaly generator's
+	discipline, an lzw mirror decoder and a verbatim port of the qoi
+	opcode walk built in as its own oracle) and the media pair ride
+	tools/gen_media_samples.py (an authoring tool that never runs on
+	ci).
+
+	the round's real catch: the qoi magic constant. the format horizons
+	round shipped _QOI_MAGIC spelled in little-endian byte order, so
+	the big-endian header reader refused every valid qoi file at the
+	first gate - the shipped decoder never once accepted a real qoi
+	image, and the guard of that round pinned the wrong bytes so the
+	suites stayed green over a dead gate. the fixture round's host
+	verification caught it: a byte-identical copy of src/qoi.c compiled
+	on the host against a small windows-surface shim, fed the committed
+	qoi fixtures - the decoder refused them at the magic gate. the fix
+	is one constant (the reference's 'q'<<24|'o'<<16|'i'<<8|'f',
+	0x716f6966) and the harness now proves the whole contract: both
+	fixtures decode with pixel-exact rgb and rgba, the truncated
+	header refuses, the corrupted end marker refuses, the over-budget
+	lying header refuses. the round-94 guard's magic pin flips to the
+	correct word and the wrong spelling's absence rides the round-98
+	guard - a guard that pins a wrong fact is worse than no guard, and
+	real bytes are the only oracle a decoder ever answers to.
+
 Pre-release: Version 1.1.14-rc.1 (the todo closure round)
 *the upstream TODO list closes: the four items it carried since the
  fork opened - the opengl renderer, the direct3d renderer, the

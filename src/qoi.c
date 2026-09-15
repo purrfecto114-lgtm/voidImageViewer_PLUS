@@ -33,8 +33,13 @@
 #include "viv.h"
 #include <string.h>
 
-// the qoi magic: "qoif", big endian on the wire.
-#define _QOI_MAGIC 0x66696f71
+// the qoi magic: "qoif", big endian on the wire. the constant reads
+// the four bytes as one big-endian word (the reference's
+// 'q'<<24|'o'<<16|'i'<<8|'f'). the constant the format horizons
+// round shipped spelled the bytes in little-endian order, so the
+// big-endian reader never matched and every valid qoi file died at
+// the gate - the fixture round's real-byte host harness caught it.
+#define _QOI_MAGIC 0x716f6966
 
 // the reference end marker: seven zero bytes then 0x01.
 static const BYTE _qoi_end_marker[8] = {0,0,0,0,0,0,0,1};
