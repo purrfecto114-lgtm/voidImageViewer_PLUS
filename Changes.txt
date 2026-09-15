@@ -1,3 +1,36 @@
+﻿Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)
+
+	the field report: next/previous stopped answering for the formats
+	the format horizons round opened. the folder scan, the playlist
+	build and the drop enumeration all filtered their candidates
+	through the eleven-extension association table while the open
+	filter and the everything search prefixes had been widened to
+	nineteen - a qoi, an avif, a heif opened fine and then sat in a
+	blind spot the arrows could not reach (and a folder holding only
+	the new formats answered every keypress with nothing at all: the
+	candidate scan refused every file, so the navigation had nowhere
+	to go). the round's own sample set exposed it on the first real
+	machine - the qoi pair the fixture round committed rode exactly
+	the blind path. the fix separates the two contracts the one table
+	was accidentally serving: the association set stays eleven (it is
+	the installer's registry contract, deliberately classic), and a new
+	supported-extension table carries the viewer's own open universe -
+	all nineteen, exactly the open filter's list - with the navigation
+	filter answering it (one function, six consumers: the folder scans
+	in next/previous and home/end, the playlist build, the drop
+	enumeration). the host verification compiles the filter from the
+	tree's own bytes against a windows-surface shim and proves the
+	whole contract: all nineteen extensions accepted, case-insensitive,
+	the last dot wins, directories, extensionless files and everything
+	outside the open universe refused. the round-99 guard is the
+	cross-list oracle the format horizons round lacked: the navigation
+	visibility set must equal the open filter set must equal the search
+	prefix set - three format lists that must widen as one, and the
+	guard goes red the moment any future round widens one without the
+	others. the round-80 guard's tab discipline survives the round
+	intact (a host-side edit briefly flattened its pinned tabs to
+	spaces and the suite caught it before anything shipped).
+
 Pre-release: Version 1.1.14-rc.2 (the fixture round)
 
 	the test sample set commits - the smoke sweep's anomaly fixtures and

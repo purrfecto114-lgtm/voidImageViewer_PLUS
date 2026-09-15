@@ -342,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.14-rc.2.70 pre-release (the fixture round)",
-          (major, minor, rev, build) == ("1", "1", "14", "70") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.14-rc.2 tag)",
-          vstr == "1.1.14-rc.2")
+    check("version.h = 1.1.14-rc.3.71 pre-release (the navigation visibility round)",
+          (major, minor, rev, build) == ("1", "1", "14", "71") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.14-rc.3 tag)",
+          vstr == "1.1.14-rc.3")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3091,8 +3091,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 66 (the 1.1.14-rc.2 pins ride it)",
-          "#define VERSION_BUILD 70" in version)
+    check("the release candidate line moves to build 66 (the 1.1.14-rc.3 pins ride it)",
+          "#define VERSION_BUILD 71" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3162,9 +3162,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.14-rc.2 pins ride it)",
-          "#define VERSION_BUILD 70" in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version moves to build 66 (the 1.1.14-rc.3 pins ride it)",
+          "#define VERSION_BUILD 71" in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3436,9 +3436,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.2 build 70",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3501,9 +3501,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.14-rc.2 pins ride it)",
-          "#define VERSION_BUILD 70" in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version moves to build 66 (the 1.1.14-rc.3 pins ride it)",
+          "#define VERSION_BUILD 71" in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4065,9 +4065,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.2 build 70",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4235,9 +4235,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.14-rc.2 build 70",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4338,9 +4338,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.14-rc.2 build 70",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4417,9 +4417,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.14-rc.2 build 70",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4516,9 +4516,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.14-rc.2 build 70",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4633,9 +4633,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.14-rc.2 build 70",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4845,9 +4845,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.2 build 70 (the fixture round pins ride it)",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4985,9 +4985,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.14-rc.2 build 70",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5181,18 +5181,89 @@ def t_fixture_round98():
     check("the smoke script keeps its samples dir parameter and its over_budget leg",
           "-SamplesDir" in smoke and "over_budget" in smoke)
 
-    # 8. the changelog, the readme and the version.
-    top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the fixture round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.2 (the fixture round)", top)
-    check("the readme candidate slot holds the fixture round",
-          "**1.1.14-rc.2 \u2014" in readme and
-          "(the current release candidate):**" in readme)
+    # 8. the changelog, the readme and the version (the navigation
+    #     visibility round took the candidate slot and the top changelog
+    #     entry; the fixture round rides one line in the readme list below).
+    check("the changelog carries the fixture round pre-release (below the navigation visibility round)",
+          "Pre-release: Version 1.1.14-rc.2 (the fixture round)" in changes)
+    check("the readme carries the fixture round as a one-liner (demoted from the candidate slot)",
+          "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.2 build 70",
-          '#define VERSION_BUILD 70' in version and
-          '#define VERSION_STRING "1.1.14-rc.2"' in version)
+    check("the version is 1.1.14-rc.3 build 71 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+
+
+def t_navigation_visibility_round99():
+    """Guards for the navigation visibility round (1.1.14-rc.3: the field
+    report - next/previous stopped answering for the formats the format
+    horizons round opened. the folder scan, the playlist build and the
+    drop enumeration all filtered candidates against the eleven-extension
+    association table while the open filter and the everything prefixes
+    had been widened to nineteen - the three format lists must widen as
+    one set, and this guard is the cross-list oracle that keeps them so:
+    the navigation visibility set must equal the open filter set must
+    equal the search prefix set, forever)."""
+    viv = read("src/viv.c").decode("latin-1")
+    stateh = read("src/viv_state.h").decode("latin-1")
+    view = read("src/viv_view.c").decode("latin-1")
+    playlist = read("src/viv_playlist.c").decode("latin-1")
+    version = read("src/version.h").decode("latin-1")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+
+    # 1. the supported-extension table exists beside the association table
+    #    (the association set stays eleven - it is the installer contract;
+    #    the navigation set is the viewer's own open universe).
+    m = re.search(r"const char \*_viv_supported_extensions\[\]\s*=\s*\{(.*?)\};",
+                  viv, re.S)
+    supported = re.findall(r'"([a-z0-9]+)"', m.group(1)) if m else []
+    check("the supported-extension table exists with all nineteen entries",
+          len(supported) == 19, "%d entries: %s" % (len(supported), supported))
+    check("the supported table carries the count assert",
+          "_viv_supported_extensions_count_assert" in viv and
+          "_VIV_SUPPORTED_EXTENSION_COUNT\t19" in stateh)
+    check("the state layer exports the navigation set",
+          "extern const char *_viv_supported_extensions[];" in stateh)
+
+    # 2. the navigation filter answers the supported table, not the
+    #    association table (the single-point fix: every consumer - the
+    #    folder scan in _viv_next/_viv_home, the playlist build, the drop
+    #    enumeration - heals through this one function).
+    seg_at = playlist.rindex("int _viv_is_valid_filename")
+    seg = playlist[seg_at:seg_at + 1600]
+    check("_viv_is_valid_filename scans the supported-extension table",
+          "_viv_supported_extensions" in seg and
+          "_viv_association_extensions" not in seg)
+    check("the navigation filter keeps the directory exclusion",
+          "FILE_ATTRIBUTE_DIRECTORY" in seg)
+
+    # 3. the cross-list oracle: the three format lists are one set. the
+    #    open filter string and both everything prefixes are parsed and
+    #    compared as sets against the supported table - a future round
+    #    that widens one list and forgets another goes red right here.
+    filt = re.search(r"\(\*\.(.*?)\)%c", view)
+    open_set = set(x[2:] if x.startswith("*.") else x
+                   for x in filt.group(1).split(";")) if filt else set()
+    pre = re.findall(r"ext:([a-z0-9;]+?) <", playlist)
+    prefix_set = set(pre[0].split(";")) if pre else set()
+    check("the open filter and the everything prefix agree as sets",
+          open_set == prefix_set and len(open_set) == 19,
+          "open=%d prefix=%d" % (len(open_set), len(prefix_set)))
+    check("the navigation visibility set equals the open filter set",
+          set(supported) == open_set,
+          "nav-only=%s open-only=%s" %
+          (sorted(set(supported) - open_set), sorted(open_set - set(supported))))
+    check("the eight format-horizons extensions are navigation-visible",
+          {"avif", "dds", "hdp", "heic", "heif", "jxr", "qoi", "wdp"} <= set(supported))
+
+    # 4. the version and the changelog.
+    top = changes.lstrip("\ufeff").split("\r\n")[0]
+    check("the changelog top entry is the navigation visibility round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)", top)
+    check("the version is 1.1.14-rc.3 build 71",
+          '#define VERSION_BUILD 71' in version and
+          '#define VERSION_STRING "1.1.14-rc.3"' in version)
 
 
 if __name__ == "__main__":
@@ -5261,6 +5332,7 @@ if __name__ == "__main__":
     t_format_horizons_round94()
     t_todo_closure_round96()
     t_fixture_round98()
+    t_navigation_visibility_round99()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

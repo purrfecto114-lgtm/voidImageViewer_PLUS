@@ -467,6 +467,38 @@ const char *_viv_association_extensions[] =
 };
 typedef char _viv_association_extensions_count_assert[(sizeof(_viv_association_extensions) / sizeof(_viv_association_extensions[0]) == _VIV_ASSOCIATION_COUNT) ? 1 : -1]; // the count literal pins the table
 
+// the navigation visibility set: the extensions the viewer itself opens
+// (the open filter's own list, the everything search prefix's own list).
+// the association table above is the installer contract and stays at its
+// eleven classic extensions; the folder scan, the playlist build and the
+// drop enumeration answer this table instead, so every extension the open
+// dialog accepts is as navigable as it is openable (the round-99 cross-list
+// guard pins the three lists as one set - one widened without the others is
+// how the format horizons round left next/previous blind to its eight).
+const char *_viv_supported_extensions[] = 
+{
+	"avif",
+	"bmp",
+	"dds",
+	"gif",
+	"hdp",
+	"heic",
+	"heif",
+	"ico",
+	"jpeg",
+	"jpg",
+	"jxr",
+	"png",
+	"qoi",
+	"tif",
+	"tiff",
+	"wdp",
+	"webp",
+	"emf",
+	"wmf",
+};
+typedef char _viv_supported_extensions_count_assert[(sizeof(_viv_supported_extensions) / sizeof(_viv_supported_extensions[0]) == _VIV_SUPPORTED_EXTENSION_COUNT) ? 1 : -1]; // the count literal pins the table
+
 // registry description.
 const localization_id_t _viv_association_description_localization_id_array[] = 
 {

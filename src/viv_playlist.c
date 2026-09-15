@@ -317,9 +317,9 @@ int _viv_is_valid_filename(WIN32_FIND_DATA *fd)
 		{
 			int exti;
 			
-			for(exti=0;exti<_VIV_ASSOCIATION_COUNT;exti++)
+			for(exti=0;exti<_VIV_SUPPORTED_EXTENSION_COUNT;exti++)
 			{
-				if (string_icompare_lowercase_ascii(e,_viv_association_extensions[exti]) == 0) 
+				if (string_icompare_lowercase_ascii(e,_viv_supported_extensions[exti]) == 0) 
 				{
 					return 1;
 				}

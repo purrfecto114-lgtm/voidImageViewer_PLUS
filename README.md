@@ -18,10 +18,10 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 What's new
 --------
-**1.1.14-rc.2 — the fixture round (the current release candidate):**
+**1.1.14-rc.3 — the navigation visibility round (the current release candidate):**
 
-- **The test sample set commits** — `tests/samples/` now rides the tree: the 38 anomaly samples (the smoke sweep's hostile inputs, regenerating byte-identical as the oracle) plus eight real imagery fixtures — two hand-encoded animated GIFs (real variable-width LZW; a palette bounce and a transparent fade on disposal-2 sub-frames), an RGBA PNG, a 24-bit BMP, the QOI pair (RGB + RGBA, the fork's own decoder), a photographic JPEG and an animated WEBP. Every push and every release still opens the whole set through the freshly built exe; the coverage only grows.
-- **The QOI magic fix** — the host verification feeding the committed fixtures through a byte-identical copy of the real `src/qoi.c` caught a shipped defect: the magic constant was spelled in little-endian byte order, so the big-endian header reader refused every valid `.qoi` file at the first gate (and the round's guard had pinned the wrong bytes). One constant now reads the reference's word; the harness proves the pixels come back exact and the hostile refusals still refuse.
+- **The next/previous fix for the new formats** — the field report: the arrows stopped answering for the formats the format horizons round opened. The folder scan, the playlist build and the drop enumeration all filtered candidates through the eleven-extension association table while the open filter had been widened to nineteen — a QOI, an AVIF, a HEIF opened fine and then sat in a blind spot the arrows could not reach (a folder holding only the new formats answered every keypress with nothing at all). A new supported-extension table carries the viewer's own open universe — all nineteen, exactly the open filter's list — and the navigation filter answers it; the association table deliberately stays at its classic eleven (the installer's registry contract).
+- **The host verification** — the filter compiles from the tree's own bytes against a Windows-surface shim and proves the whole contract: all nineteen extensions accepted, case-insensitive, the last dot wins, directories and everything outside the open universe refused. The round's guard is the cross-list oracle the format horizons round lacked — three format lists that must widen as one, forever.
 - Full narrative: `Changes.txt`.
 
 **1.1.13 — the format horizons round (the current stable):**
@@ -32,6 +32,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.14-rc.2** — the fixture round: the test sample set commits (38 anomaly samples plus eight real imagery fixtures, two of them hand-encoded animated GIFs) and the QOI magic fix — the host verification caught a shipped constant spelled in the wrong byte order.
 - **1.1.14-rc.1** — the todo closure round: the upstream TODO list closes — the OpenGL and Direct3D renderers, the toolbar customization and the shell context menu all land.
 - **1.1.13-rc.7** — the field sweep round: the cold-start slideshow fix, the startup shortcut retirement, the no-image menu gate, the single keyboard focus ring and the icon payload diet (the ico drops 80%).
 - **1.1.13-rc.6** — the peripheral residue round: the closing sweep retires the never-built Wine DPI probe, four zero-reference api functions, the year-stringize pair and three never-requested localization strings.

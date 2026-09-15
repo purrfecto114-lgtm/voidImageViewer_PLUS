@@ -107,6 +107,8 @@
 
 #define _VIV_ASSOCIATION_COUNT	11
 
+#define _VIV_SUPPORTED_EXTENSION_COUNT	19
+
 #define _VIV_DIALOG_FONT_PROP L"VIV_DFONT"
 
 #define _VIV_DARK_OWNERDRAW_PROP L"VIV_DARK_OD"
@@ -370,6 +372,7 @@ extern int _viv_options_page_ids[];
 
 extern _viv_key_list_t *_viv_key_list;
 extern const char *_viv_association_extensions[];
+extern const char *_viv_supported_extensions[];
 extern const localization_id_t _viv_association_description_localization_id_array[];
 extern const char *_viv_association_icon_locations[];
 extern int _viv_recent_save_dirty;
