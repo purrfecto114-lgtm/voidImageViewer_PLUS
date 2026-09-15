@@ -49,6 +49,8 @@ static HBITMAP _viv_d3d_last_hbitmap;
 static int _viv_d3d_failed;
 static int _viv_d3d_need_pot;
 static int _viv_d3d_need_square;
+static int _viv_d3d_last_pot_wide;
+static int _viv_d3d_last_pot_high;
 static int _viv_d3d_max_wide;
 static int _viv_d3d_max_high;
 static int _viv_d3d_client_wide;
@@ -247,20 +249,31 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		return 0;
 	}
 	
-	if (_viv_d3d_texture)
+	// the reuse gate: an animation frame with the same padded
+	// dimensions refills the managed texture in place - the
+	// release/create cycle only answers a dimension change (the
+	// lock below rewrites every texel either way, and the managed
+	// pool survives the resets by contract).
+	if ((_viv_d3d_texture) && ((pot_wide != _viv_d3d_last_pot_wide) || (pot_high != _viv_d3d_last_pot_high)))
 	{
 		_viv_d3d_texture->lpVtbl->Release(_viv_d3d_texture);
 		
 		_viv_d3d_texture = 0;
 	}
 	
-	hresult = _viv_d3d_device->lpVtbl->CreateTexture(_viv_d3d_device,pot_wide,pot_high,1,0,D3DFMT_X8R8G8B8,D3DPOOL_MANAGED,&_viv_d3d_texture,0);
-	
-	if (FAILED(hresult))
+	if (!_viv_d3d_texture)
 	{
-		debug_printf("direct3d: CreateTexture failed %x\r\n",(unsigned int)hresult);
+		hresult = _viv_d3d_device->lpVtbl->CreateTexture(_viv_d3d_device,pot_wide,pot_high,1,0,D3DFMT_X8R8G8B8,D3DPOOL_MANAGED,&_viv_d3d_texture,0);
 		
-		return 0;
+		if (FAILED(hresult))
+		{
+			debug_printf("direct3d: CreateTexture failed %x\r\n",(unsigned int)hresult);
+			
+			return 0;
+		}
+		
+		_viv_d3d_last_pot_wide = pot_wide;
+		_viv_d3d_last_pot_high = pot_high;
 	}
 	
 	hresult = _viv_d3d_texture->lpVtbl->LockRect(_viv_d3d_texture,0,&locked,0,0);
@@ -507,6 +520,8 @@ void _viv_hwd3d_shutdown(void)
 	}
 	
 	_viv_d3d_last_hbitmap = 0;
+	_viv_d3d_last_pot_wide = 0;
+	_viv_d3d_last_pot_high = 0;
 	_viv_d3d_failed = 0;
 	_viv_d3d_client_wide = 0;
 	_viv_d3d_client_high = 0;

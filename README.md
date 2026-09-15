@@ -6,7 +6,7 @@
 
 > A stable fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with **touch optimizations**, **on-screen zoom controls**, a **complete dark UI**, and a **bilingual installer + UI language switcher**. Issues welcome in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/issues).
 
-A lightweight Windows image viewer (BMP, GIF, ICO, PNG, JPG, TIF, WEBP, JPEG-XR, HEIF, AVIF, DDS, QOI, EMF, WMF — animated GIF/WEBP included; JPEG-XR/DDS/HEIF/AVIF ride the system's WIC codecs, QOI is built in) that opens and displays images as fast as possible.
+A lightweight Windows image viewer (BMP, GIF, ICO, PNG, JPG, TIF, WEBP, JPEG-XR, HEIF, AVIF, DDS, QOI, EMF, WMF — animated GIF/WEBP included; JPEG-XR (Win7+) and DDS (Win8.1+) ride the WIC codecs Windows itself carries, HEIF/AVIF ride the store's image extensions wherever they are installed, QOI is built in) that opens and displays images as fast as possible.
 
 [Download](#download) · [What's new](#whats-new) · [Touch & zoom](#touch--zoom-controls) · [Canvas & backdrop](#canvas-backdrop--dark-mode) · [Recent files](#recent-files) · [Languages](#languages) · [Build](#build-from-source)
 
@@ -16,12 +16,14 @@ Stable binaries (setup + zip, x86/x64, SHA-256 checksums):
 
 https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
+The binaries are unsigned (an open-source signing account is on the roadmap) — verify each download against the release's `sha256.txt` before running.
+
 What's new
 --------
-**1.1.14-rc.3 — the navigation visibility round (the current release candidate):**
+**1.1.14-rc.4 — the corner and audit response round (the current release candidate):**
 
-- **The next/previous fix for the new formats** — the field report: the arrows stopped answering for the formats the format horizons round opened. The folder scan, the playlist build and the drop enumeration all filtered candidates through the eleven-extension association table while the open filter had been widened to nineteen — a QOI, an AVIF, a HEIF opened fine and then sat in a blind spot the arrows could not reach (a folder holding only the new formats answered every keypress with nothing at all). A new supported-extension table carries the viewer's own open universe — all nineteen, exactly the open filter's list — and the navigation filter answers it; the association table deliberately stays at its classic eleven (the installer's registry contract).
-- **The host verification** — the filter compiles from the tree's own bytes against a Windows-surface shim and proves the whole contract: all nineteen extensions accepted, case-insensitive, the last dot wins, directories and everything outside the open universe refused. The round's guard is the cross-list oracle the format horizons round lacked — three format lists that must widen as one, forever.
+- **The fullscreen corner fix** — the round preference the Win11 chrome carries stayed pinned during fullscreen, so a monitor-covering window answered the DWM's rounding with clipped image corners; the fullscreen transition now takes the sharp corners and the windowed restore gives them back (a mid-fullscreen theme flip re-applies the policy). The custom caption completes its set — the palette's own text token pins the caption contrast (attribute 36) in both themes.
+- **The audit response** — an external audit of the tree lands with evidence first: its alpha and square-padding renderer claims retire against the load path's pre-flattening and the D3D caps branch, while its surviving findings land as code — the GL padding zero, the GL pixel-format re-entry, the D3D same-dimension texture reuse, the experimental labels on both hardware renderers, the long-path manifest claim, the installer's user-key probe with the fork's publisher line, and the MSVC hardening line (`/sdl`, `/guard:cf`, SAFESEH restored, the buffer check back on). The 1.1.12 release candidates retire from the repository (tags and releases; the stable line keeps its history).
 - Full narrative: `Changes.txt`.
 
 **1.1.13 — the format horizons round (the current stable):**
@@ -32,6 +34,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.14-rc.3** — the navigation visibility round: the next/previous fix for the new formats — a supported-extension table carries the viewer's open universe and the navigation filter answers it.
 - **1.1.14-rc.2** — the fixture round: the test sample set commits (38 anomaly samples plus eight real imagery fixtures, two of them hand-encoded animated GIFs) and the QOI magic fix — the host verification caught a shipped constant spelled in the wrong byte order.
 - **1.1.14-rc.1** — the todo closure round: the upstream TODO list closes — the OpenGL and Direct3D renderers, the toolbar customization and the shell context menu all land.
 - **1.1.13-rc.7** — the field sweep round: the cold-start slideshow fix, the startup shortcut retirement, the no-image menu gate, the single keyboard focus ring and the icon payload diet (the ico drops 80%).

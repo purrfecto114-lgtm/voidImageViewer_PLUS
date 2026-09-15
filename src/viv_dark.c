@@ -295,7 +295,7 @@ void _viv_dark_dialog(HWND hwnd)
 {
 	// the win11 frame treatment for every dialog: rounded corners and a
 	// caption color that follows the chrome (a silent no-op earlier).
-	os_window_modern_chrome(hwnd,viv_theme_color(VIV_TK_CHROME));
+	os_window_modern_chrome(hwnd,viv_theme_color(VIV_TK_CHROME),viv_theme_color(VIV_TK_TEXT));
 	
 	if (_viv_is_dark())
 	{

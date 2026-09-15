@@ -172,44 +172,48 @@ static int _viv_gl_has_extension(const char *name)
 
 // the pixel format answers once per window: the flag set keeps gdi alive
 // on the same window (the renderer is an option, the gdi path must keep
-// painting whenever the option is off).
+// painting whenever the option is off). a window change re-runs the
+// format: setpixelformat binds to the window the dc belongs to, and a
+// fresh window without its own format fails every wglmakecurrent (the
+// defensive path - the viewer's main window lives as long as the
+// session, the guard keeps a hypothetical recreate honest).
 static int _viv_gl_context_create(HWND hwnd,HDC hdc)
 {
-	if (!_viv_gl_context)
+	if (hwnd != _viv_gl_pixel_format_hwnd)
 	{
-		if (hwnd != _viv_gl_pixel_format_hwnd)
+		PIXELFORMATDESCRIPTOR pfd;
+		int format;
+		
+		ZeroMemory(&pfd,sizeof(pfd));
+		pfd.nSize = sizeof(pfd);
+		pfd.nVersion = 1;
+		pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SUPPORT_GDI;
+		pfd.iPixelType = PFD_TYPE_RGBA;
+		pfd.cColorBits = 24;
+		pfd.cDepthBits = 0;
+		pfd.cStencilBits = 0;
+		pfd.iLayerType = PFD_MAIN_PLANE;
+		
+		format = ChoosePixelFormat(hdc,&pfd);
+		if (!format)
 		{
-			PIXELFORMATDESCRIPTOR pfd;
-			int format;
+			debug_printf("opengl: no pixel format answered\r\n");
 			
-			ZeroMemory(&pfd,sizeof(pfd));
-			pfd.nSize = sizeof(pfd);
-			pfd.nVersion = 1;
-			pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_SUPPORT_GDI;
-			pfd.iPixelType = PFD_TYPE_RGBA;
-			pfd.cColorBits = 24;
-			pfd.cDepthBits = 0;
-			pfd.cStencilBits = 0;
-			pfd.iLayerType = PFD_MAIN_PLANE;
-			
-			format = ChoosePixelFormat(hdc,&pfd);
-			if (!format)
-			{
-				debug_printf("opengl: no pixel format answered\r\n");
-				
-				return 0;
-			}
-			
-			if (!SetPixelFormat(hdc,format,&pfd))
-			{
-				debug_printf("opengl: SetPixelFormat failed %d\r\n",GetLastError());
-				
-				return 0;
-			}
-			
-			_viv_gl_pixel_format_hwnd = hwnd;
+			return 0;
 		}
 		
+		if (!SetPixelFormat(hdc,format,&pfd))
+		{
+			debug_printf("opengl: SetPixelFormat failed %d\r\n",GetLastError());
+			
+			return 0;
+		}
+		
+		_viv_gl_pixel_format_hwnd = hwnd;
+	}
+	
+	if (!_viv_gl_context)
+	{
 		_viv_gl_context = _viv_gl_wglCreateContext(hdc);
 		if (!_viv_gl_context)
 		{
@@ -326,6 +330,12 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		return 0;
 	}
 	
+	// the padding must not carry allocation garbage: the copy loop below
+	// leaves the right-hand gutter and every row under the image
+	// untouched, and the linear sampler's half texel at the sub-rectangle
+	// edge can still reach them.
+	ZeroMemory(buf,size);
+	
 	{
 		const BYTE *s;
 		BYTE *d;
@@ -365,6 +375,9 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 						p += 4;
 				}
 					
+				// the frames arrive pre-flattened: the load path composites
+				// the alpha onto the backdrop before the frame ever answers,
+				// so the opaque write matches the gdi path's own semantics.
 				d[3] = 255;
 				d += 4;
 			}

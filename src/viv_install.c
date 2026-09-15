@@ -1066,7 +1066,7 @@ static void _viv_install_add_remove_programs(const wchar_t *install_path)
 		
 		RegSetValueExW(hkey,L"DisplayName",0,REG_SZ,(BYTE *)L"void Image Viewer",sizeof(L"void Image Viewer"));
 		RegSetValueExW(hkey,L"DisplayVersion",0,REG_SZ,(BYTE *)version_wbuf,(string_get_length(version_wbuf) + 1) * sizeof(wchar_t));
-		RegSetValueExW(hkey,L"Publisher",0,REG_SZ,(BYTE *)L"voidtools",sizeof(L"voidtools"));
+		RegSetValueExW(hkey,L"Publisher",0,REG_SZ,(BYTE *)L"voidImageViewer_PLUS (voidtools fork)",sizeof(L"voidImageViewer_PLUS (voidtools fork)"));
 		RegSetValueExW(hkey,L"InstallLocation",0,REG_SZ,(BYTE *)install_path,(string_get_length(install_path) + 1) * sizeof(wchar_t));
 		RegSetValueExW(hkey,L"DisplayIcon",0,REG_SZ,(BYTE *)icon_wbuf,(string_get_length(icon_wbuf) + 1) * sizeof(wchar_t));
 		RegSetValueExW(hkey,L"UninstallString",0,REG_SZ,(BYTE *)uninstall_wbuf,(string_get_length(uninstall_wbuf) + 1) * sizeof(wchar_t));

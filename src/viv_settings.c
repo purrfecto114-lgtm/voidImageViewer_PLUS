@@ -1330,7 +1330,7 @@ static void _viv_settings_theme_update(void)
 
 	// windows 11 chrome: rounded corners. the popup carries no native
 	// caption (the title row is painted); a silent no-op on windows 10.
-	os_window_modern_chrome(_viv_settings_hwnd,_viv_settings_color(_VIV_SETTINGS_C_FACE));
+	os_window_modern_chrome(_viv_settings_hwnd,_viv_settings_color(_VIV_SETTINGS_C_FACE),_viv_settings_color(_VIV_SETTINGS_C_TEXT));
 
 	InvalidateRect(_viv_settings_hwnd,0,FALSE);
 }
@@ -1510,7 +1510,7 @@ static void _viv_settings_restore(void)
 		config_windowed_background_color_g = _viv_settings_snap_windowed_g;
 		config_windowed_background_color_b = _viv_settings_snap_windowed_b;
 
-		os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
+		os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));
 
 		InvalidateRect(_viv_hwnd,0,FALSE);
 		_viv_refresh();
@@ -2154,7 +2154,7 @@ static void _viv_settings_activate(int index,int x,int y)
 					// the mat, the win11 caption tint and any follow mode
 					// backdrop all read this color: re-tint the frame,
 					// repaint the canvas and reload the image.
-					os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
+					os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));
 
 					InvalidateRect(_viv_hwnd,0,FALSE);
 					_viv_refresh();

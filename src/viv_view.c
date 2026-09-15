@@ -32,6 +32,7 @@
 #include "viv_playlist.h"
 #include "viv_recent.h"
 #include "viv_render.h"
+#include "viv_theme.h"
 
 // forward declarations (order preserved from viv.c)
 void _viv_command(int command_id);
@@ -516,7 +517,7 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				// reload the open image so the transparency under it picks the new
 				// mat up immediately (the refresh is a no-op without an open file
 				// - no load error on the blank window).
-				os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
+				os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));
 				
 				InvalidateRect(_viv_hwnd,0,FALSE);
 				_viv_refresh();

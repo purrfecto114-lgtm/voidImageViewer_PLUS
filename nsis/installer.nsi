@@ -188,19 +188,32 @@ Function .onInit
 
         ClearErrors
         
+        ; probe the user-level uninstall key first: requestexecutionlevel
+        ; user means the exe's own /install writes the hkcU key whenever
+        ; it runs unelevated, and an hkLM-only probe would miss every
+        ; user-level install - the setup would fall back to the default
+        ; directory and leave a second copy plus a second uninstall
+        ; entry on the machine.
+        ReadRegStr $R2 HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\voidImageViewer" 'UninstallString'
+        
+        IfErrors probe_hklm probe_done
+        
         ; use the appropriate reg view.
         ; dont install to the previous x86 location C:\Program Files (x86) if we are x64
+probe_hklm:
 
 !ifdef x64
         SetRegView 64
 !endif
 
+        ClearErrors
         ReadRegStr $R2 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\voidImageViewer" 'UninstallString'
 
 !ifdef x64
         SetRegView 32
 !endif
 
+probe_done:
         IfErrors no_existing_install_dir
 
         ; the exe writes a quoted UninstallString (safe with spaces in the

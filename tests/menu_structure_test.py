@@ -342,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.14-rc.3.71 pre-release (the navigation visibility round)",
-          (major, minor, rev, build) == ("1", "1", "14", "71") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.14-rc.3 tag)",
-          vstr == "1.1.14-rc.3")
+    check("version.h = 1.1.14-rc.4.72 pre-release (the corner and audit response round)",
+          (major, minor, rev, build) == ("1", "1", "14", "72") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.14-rc.4 tag)",
+          vstr == "1.1.14-rc.4")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1450,16 +1450,16 @@ def t_modernization_round6():
     # rc.13: the chrome calls return int and double as the platform probe
     # (the attribute 33 result latches the win11 answer).
     check("os.c implements os_window_modern_chrome",
-          "int os_window_modern_chrome(HWND hwnd,COLORREF caption_color)" in osc)
+          "int os_window_modern_chrome(HWND hwnd,COLORREF caption_color,COLORREF text_color)" in osc)
     check("chrome sets corner preference 33 to round and probes the platform",
           "if (_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner)) != 0)" in osc
           and "corner = 2;" in osc and "_os_win11_chrome = 2;" in osc)
     check("chrome sets caption color 35",
           "_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));" in osc)
     check("os.h exports os_window_modern_chrome",
-          "int os_window_modern_chrome(HWND hwnd,COLORREF caption_color);" in osh)
+          "int os_window_modern_chrome(HWND hwnd,COLORREF caption_color,COLORREF text_color);" in osh)
     check("viv.c applies the chrome from apply_dark_mode",
-          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv)
+          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));" in viv)
 
     # vector glyphs
     check("glyphs.c/h exist and are in the shared props",
@@ -2516,11 +2516,11 @@ def t_field_fixes_round44():
     i = viv.find("config_windowed_background_color_b = GetBValue(colorref);")
     check("changing the mat color re-tints the win11 caption and reloads the image",
           i != -1 and
-          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv[i:i+800] and
+          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));" in viv[i:i+800] and
           "InvalidateRect(_viv_hwnd,0,FALSE);" in viv[i:i+800] and
           "_viv_refresh();" in viv[i:i+800])
     check("the caption tint follows the mat from startup, the options, the view menu and the settings window",
-          viv.count("os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());") == 5)  # rc.8: the settings theme row adds two
+          viv.count("os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));") == 5)  # rc.8: the settings theme row adds two
 
     # --- the dark comboboxes on every build ---
     check("comboboxes take the common dialog dark class in the dark ui only",
@@ -2843,7 +2843,7 @@ def t_field_fixes_round46():
     i = viv.find("case VIV_ID_VIEW_WINDOWED_BACKGROUND_COLOR:")
     check("the menu picker applies the color the same way as the options ok",
           i != -1 and
-          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv[i:i+1600] and
+          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));" in viv[i:i+1600] and
           "_viv_refresh();" in viv[i:i+1600])
     check("the backdrop menu is renamed to the transparency backdrop",
           '"&Transparency backdrop", // LOCALIZATION_ID_BACKDROP' in en and
@@ -3091,8 +3091,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 66 (the 1.1.14-rc.3 pins ride it)",
-          "#define VERSION_BUILD 71" in version)
+    check("the release candidate line moves to build 66 (the 1.1.14-rc.4 pins ride it)",
+          "#define VERSION_BUILD 72" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3162,9 +3162,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.14-rc.3 pins ride it)",
-          "#define VERSION_BUILD 71" in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version moves to build 66 (the 1.1.14-rc.4 pins ride it)",
+          "#define VERSION_BUILD 72" in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3436,9 +3436,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.3 build 71",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3501,9 +3501,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.14-rc.3 pins ride it)",
-          "#define VERSION_BUILD 71" in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version moves to build 66 (the 1.1.14-rc.4 pins ride it)",
+          "#define VERSION_BUILD 72" in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4065,9 +4065,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.3 build 71",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4235,9 +4235,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.14-rc.3 build 71",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4338,9 +4338,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.14-rc.3 build 71",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4417,9 +4417,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.14-rc.3 build 71",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4516,9 +4516,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.14-rc.3 build 71",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4633,9 +4633,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.14-rc.3 build 71",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4845,9 +4845,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.3 build 71 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4985,9 +4985,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.14-rc.3 build 71",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5190,9 +5190,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.3 build 71 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the version is 1.1.14-rc.4 build 72 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5211,6 +5211,7 @@ def t_navigation_visibility_round99():
     playlist = read("src/viv_playlist.c").decode("latin-1")
     version = read("src/version.h").decode("latin-1")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
 
     # 1. the supported-extension table exists beside the association table
     #    (the association set stays eleven - it is the installer contract;
@@ -5257,13 +5258,133 @@ def t_navigation_visibility_round99():
     check("the eight format-horizons extensions are navigation-visible",
           {"avif", "dds", "hdp", "heic", "heif", "jxr", "qoi", "wdp"} <= set(supported))
 
-    # 4. the version and the changelog.
+    # 4. the version and the changelog (the corner and audit response
+    #     round took the candidate slot and the top changelog entry; the
+    #     navigation visibility round rides one line in the readme list
+    #     below).
+    check("the changelog carries the navigation visibility round pre-release (below the corner and audit response round)",
+          "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
+    check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
+          "**1.1.14-rc.3** \u2014" in readme)
+    check("the version is 1.1.14-rc.4 build 72 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+
+
+def t_audit_response_round101():
+    """Guards for the corner and audit response round (1.1.14-rc.4: the
+    fullscreen window answers the sharp corners and the custom caption
+    pins its text color; the external audit of the tree lands with
+    evidence first - its alpha and square-padding renderer claims retire
+    against the load path's pre-flattening and the d3d caps branch, while
+    its surviving findings land as code: the gl padding zero, the gl
+    pixel format re-entry, the d3d same-dimension texture reuse, the
+    experimental renderer labels, the long-path manifest claim, the
+    installer's user-key probe and the fork's publisher line, and the
+    msvc hardening line)."""
+    osc = read("src/os.c").decode("latin-1")
+    osh = read("src/os.h").decode("latin-1")
+    chrome = read("src/viv_chrome.c").decode("latin-1")
+    hwgl = read("src/hwgl.c").decode("latin-1")
+    hwd3d = read("src/hwd3d.c").decode("latin-1")
+    loc_en = read("src/localization_en_us.h").decode("latin-1")
+    loc_zh = read("src/localization_zh_cn.h").decode("utf-8", errors="replace")
+    manifest = read("res/voidImageViewer.Manifest").decode("latin-1")
+    nsi = read("nsis/installer.nsi").decode("latin-1")
+    install = read("src/viv_install.c").decode("latin-1")
+    vcx = read("vs2019/voidImageViewer.vcxproj").decode("latin-1")
+    version = read("src/version.h").decode("latin-1")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+
+    # 1. the corner optimization: the custom chrome set completes (the
+    #    caption text follows the palette's own token) and the fullscreen
+    #    transitions own the corner policy (a monitor-covering window
+    #    answers the sharp corners - the round preference would clip the
+    #    image at the four corners).
+    check("the modern chrome signature carries the caption text color",
+          "int os_window_modern_chrome(HWND hwnd,COLORREF caption_color,COLORREF text_color);" in osh)
+    check("the modern chrome sets DWMWA_TEXT_COLOR (attribute 36)",
+          "_os_DwmSetWindowAttribute(hwnd,36,&color,sizeof(color));" in osc)
+    check("the corner helper exists for the fullscreen transitions",
+          "void os_window_corner_round(HWND hwnd,int round);" in osh and
+          "void os_window_corner_round(HWND hwnd,int round)" in osc and
+          "corner = round ? 2 : 1;" in osc)
+    enter = chrome.find("_viv_is_fullscreen = 1;")
+    check("the fullscreen enter pins the sharp corners",
+          enter != -1 and "os_window_corner_round(_viv_hwnd,0);" in chrome[enter:enter + 2500])
+    leave = chrome.find("_viv_is_fullscreen = 0;")
+    check("the windowed restore takes the round corners back",
+          leave != -1 and "os_window_corner_round(_viv_hwnd,1);" in chrome[leave:leave + 2500])
+    dark = chrome.find("void _viv_apply_dark_mode(int repaint)\r\n{")
+    check("the dark re-apply carries the text color and the fullscreen corner guard",
+          dark != -1 and
+          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));" in chrome[dark:dark + 3000] and
+          "os_window_corner_round(_viv_hwnd,0);" in chrome[dark:dark + 3000])
+
+    # 2. the audit's surviving renderer findings land as code (and its
+    #    two wrong claims retire on evidence: the load path pre-flattens
+    #    the alpha onto the backdrop, so the hardware paths' opaque
+    #    writes match the gdi semantics - the comment pins it).
+    fn = hwgl[hwgl.find("static int _viv_gl_context_create"):hwgl.find("int _viv_hwgl_render")]
+    check("the gl pixel format re-runs for a window change (outside the context guard)",
+          "if (hwnd != _viv_gl_pixel_format_hwnd)" in fn and
+          fn.find("if (hwnd != _viv_gl_pixel_format_hwnd)") < fn.find("if (!_viv_gl_context)"))
+    check("the gl padding zero rides the upload buffer",
+          "ZeroMemory(buf,size);" in hwgl and
+          "must not carry allocation garbage" in hwgl)
+    check("the gl upload records the pre-flattened alpha evidence",
+          "pre-flattened" in hwgl)
+    check("the d3d texture refills in place for same padded dimensions",
+          "_viv_d3d_last_pot_wide" in hwd3d and
+          "pot_wide != _viv_d3d_last_pot_wide" in hwd3d and
+          hwd3d.count("_viv_d3d_last_pot_wide") >= 3)
+    check("the d3d shutdown resets the reuse gate",
+          "_viv_d3d_last_pot_wide = 0;" in hwd3d)
+
+    # 3. the experimental labels, the long-path claim, the installer's
+    #    user-key probe, the fork's publisher line.
+    check("the renderer labels carry the experimental mark (en)",
+          '"OpenGL (experimental)", // LOCALIZATION_ID_RENDERER_OPENGL' in loc_en and
+          '"Direct3D (experimental)", // LOCALIZATION_ID_RENDERER_DIRECT3D' in loc_en)
+    check("the renderer labels carry the experimental mark (zh)",
+          '"OpenGL\uff08\u5b9e\u9a8c\u6027\uff09"' in loc_zh and
+          '"Direct3D\uff08\u5b9e\u9a8c\u6027\uff09"' in loc_zh)
+    check("the manifest claims long-path awareness",
+          "<longPathAware>true</longPathAware>" in manifest)
+    check("the installer probes the user uninstall key before the machine one",
+          'ReadRegStr $R2 HKCU "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer"' in nsi and
+          "IfErrors probe_hklm probe_done" in nsi and
+          "probe_hklm:" in nsi)
+    check("the publisher line carries the fork attribution",
+          'L"voidImageViewer_PLUS (voidtools fork)"' in install)
+
+    # 4. the msvc hardening line: sdl and control flow guard on every
+    #    configuration, the safeseh opt-out retired, the buffer check
+    #    back on everywhere.
+    check("the msvc line compiles with sdl and control flow guard (all eight configs)",
+          vcx.count("/sdl /guard:cf") == 8)
+    check("the msvc line links the guard on every configuration",
+          vcx.count("/GUARD:CF") == 8)
+    check("the safeseh opt-out retires from the project file",
+          "safeseh:no" not in vcx)
+    check("the buffer security check rides every configuration",
+          "<BufferSecurityCheck>false</BufferSecurityCheck>" not in vcx)
+
+    # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the navigation visibility round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)", top)
-    check("the version is 1.1.14-rc.3 build 71",
-          '#define VERSION_BUILD 71' in version and
-          '#define VERSION_STRING "1.1.14-rc.3"' in version)
+    check("the changelog top entry is the corner and audit response round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)", top)
+    check("the version is 1.1.14-rc.4 build 72",
+          '#define VERSION_BUILD 72' in version and
+          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the readme candidate slot holds the corner and audit response round",
+          "**1.1.14-rc.4 \u2014 the corner and audit response round (the current release candidate):**" in readme and
+          "**1.1.14-rc.3** \u2014" in readme)
+    check("the readme discloses the unsigned binaries",
+          "binaries are unsigned" in readme)
+    check("the readme's format line conditions the store-backed codecs",
+          "HEIF/AVIF ride the store's image extensions" in readme)
 
 
 if __name__ == "__main__":
@@ -5333,6 +5454,7 @@ if __name__ == "__main__":
     t_todo_closure_round96()
     t_fixture_round98()
     t_navigation_visibility_round99()
+    t_audit_response_round101()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

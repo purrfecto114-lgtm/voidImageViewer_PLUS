@@ -1,4 +1,90 @@
-﻿Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)
+﻿Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)
+
+	the round answers a fresh external audit of the tree with evidence
+	first. two of the audit's renderer claims retire on the spot. the
+	alpha complaint (the hardware renderers "drop the transparency")
+	misses that the load path itself pre-flattens every alpha-carrying
+	frame: viv_load.c fills the backdrop under the transparent pixels
+	and composites through gdi+ before the frame ever answers, so the
+	gdi path, the gl path and the d3d path all display the same
+	flattened pixels - the hardware upload's opaque write is not a
+	deviation, it is the contract, and the comment at the write now
+	pins the evidence. the square-padding complaint (a 4000x500 image
+	growing to 4096 squared) reads the square-only branch as
+	unconditional when it is caps driven: hwd3d pads square only where
+	the device itself reports square-only textures, and pads to plain
+	powers of two where the caps say pow2 - the caps branch the todo
+	closure round built stays exactly as designed.
+	the claims that survive the evidence land as code. the gl upload's
+	power-of-two padding carried allocation garbage in its gutter:
+	mem_alloc does not zero, the copy loop never touches the
+	right-hand gutter or the rows under the image, and the linear
+	sampler's half texel at the sub-rectangle edge can reach them -
+	the buffer zero rides the alloc now. the gl context creation
+	guarded the per-window pixel format behind the context-exists
+	check, so a window change could never re-run setpixelformat and
+	every wglmakecurrent on the fresh window would fail - the format
+	check now answers per window (the defensive path: the main window
+	lives as long as the session, the guard keeps a hypothetical
+	recreate honest). the d3d upload ran the release/create cycle on
+	every animation frame even when the padded dimensions never moved
+	- the reuse gate holds the managed texture and refills it in
+	place for same-dimension frames (the lock rewrites every texel
+	either way, and the managed pool survives the resets by
+	contract). the renderer menu rows carry the experimental mark in
+	both languages: the renderers stay opt-in, any refusal falls back
+	to gdi, and the audit's own verdict - their real replacement is a
+	direct2d/d3d11 line - is the recorded direction for the rounds
+	that want it.
+	the round's own headline: the fullscreen corner fix. the round
+	preference the win11 chrome carries stayed pinned during
+	fullscreen, so a monitor-covering window answered the dwm's
+	rounding with clipped image corners - the fullscreen transition
+	now pins the sharp corners and the windowed restore takes the
+	round ones back, and the theme re-apply carries its own
+	fullscreen guard so a mid-fullscreen theme flip cannot bring the
+	round corners back over the image. the custom caption completes
+	its set: the palette's own text token pins the caption contrast
+	explicitly (attribute 36, windows 11 22000+), keeping both themes
+	deterministic against the custom caption color the chrome already
+	carries.
+	the audit's remaining quick wins ride along. the manifest claims
+	long-path awareness (the system policy and the manifest claim must
+	both answer before the 260-character ceiling lifts; the app's
+	bounded copies and the shell layer's own long-path degradation
+	keep the rest of the path honest). the installer probes the
+	user-level uninstall key before the machine one:
+	requestexecutionlevel user means the exe's own /install writes the
+	hkcU key whenever it runs unelevated, and an hkLM-only probe would
+	miss every user-level install - the setup would fall back to the
+	default directory and leave a second copy plus a second uninstall
+	entry behind. the publisher line carries the fork's own
+	attribution ("voidImageViewer_PLUS (voidtools fork)" - the
+	upstream vendor never shipped this tree). the msvc project file
+	hardens every configuration: /sdl and /guard:cf ride the compile
+	line, /guard:cf rides the linker, the x86 safeseh opt-out
+	retires, and the one configuration with the buffer security check
+	off takes it back.
+	the deferred items stay on the record with their reasons: code
+	signing needs an account the project does not have yet (signpath
+	or trusted signing; the readme now discloses the unsigned
+	binaries and the sha256 verification path), the pixel-level
+	regression harness and the exit-time leak assertions need their
+	own verification round, and /w4 needs a warning-taming round of
+	its own.
+	the readme's format line stops over-promising: jpeg-xr (win7+)
+	and dds (win8.1+) ride the codecs windows itself carries, heif
+	and avif ride the store's image extensions wherever they are
+	installed.
+	the repository hygiene: the 1.1.12 release candidates retire
+	(the tags and the releases; the stable line keeps its full
+	history).
+	verified: the three suites pass (menu with the round-101 guard
+	section), link_scan audits 305 externs against 305 definitions
+	with zero missing, and the zig line links a 483,840-byte exe -
+	the round's additions ride the section-alignment slack and the
+	byte count answers the same boundary the navigation round's did.
+Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)
 
 	the field report: next/previous stopped answering for the formats
 	the format horizons round opened. the folder scan, the playlist

@@ -35,6 +35,7 @@
 #include "viv_playlist.h"
 #include "viv_recent.h"
 #include "viv_render.h"
+#include "viv_theme.h"
 #include "viv_view.h"
 
 // forward declarations (order preserved from viv.c)
@@ -1438,7 +1439,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							// backdrop all read this color: re-tint the frame, repaint
 							// the canvas and reload the image so transparency under
 							// an open file picks the new mat up immediately.
-							os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
+							os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));
 							
 							InvalidateRect(_viv_hwnd,0,FALSE);
 							_viv_refresh();

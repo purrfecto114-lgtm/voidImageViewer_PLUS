@@ -472,7 +472,7 @@ static LRESULT CALLBACK _viv_msgbox_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 			_viv_msgbox_hwnd = hwnd;
 
 			os_dark_titlebar(hwnd,_viv_is_dark());
-			os_window_modern_chrome(hwnd,viv_theme_color(VIV_TK_CHROME));
+			os_window_modern_chrome(hwnd,viv_theme_color(VIV_TK_CHROME),viv_theme_color(VIV_TK_TEXT));
 
 			// the entry measure pass already made the pair: reuse it.
 			if (!_viv_msgbox_font)

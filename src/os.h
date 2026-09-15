@@ -222,11 +222,19 @@ int os_GetSystemMetricsForDpi(int index,UINT dpi);
 // cjk labels. returns 1 on success.
 int os_dialog_font(LOGFONTW *lf,HWND hwnd);
 
-// windows 11 chrome: rounded corners + a caption color matching the canvas.
-// returns 0 on windows 10 and older so the caller can fall back to its own
-// frame. the first call latches the platform answer.
-int os_window_modern_chrome(HWND hwnd,COLORREF caption_color);
+// windows 11 chrome: rounded corners + a caption color matching the canvas
+// + the caption text color the palette itself answers (attribute 36 pins
+// the contrast the immersive dark flag only biases). returns 0 on windows
+// 10 and older so the caller can fall back to its own frame. the first
+// call latches the platform answer.
+int os_window_modern_chrome(HWND hwnd,COLORREF caption_color,COLORREF text_color);
 int os_menu_modern_chrome(HWND hwnd,COLORREF border_color);
+
+// the fullscreen corner policy: a monitor-covering window answers the
+// sharp corners (the round preference would clip the image at the four
+// corners), the windowed restore takes them back. a silent no-op where
+// the attribute does not exist.
+void os_window_corner_round(HWND hwnd,int round);
 
 // the latched platform answer from the chrome probes: 1 on windows 11
 // (the modern attributes landed), 0 before the first probe or on older

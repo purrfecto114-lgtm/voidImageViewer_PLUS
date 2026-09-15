@@ -628,6 +628,11 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 
 		SetWindowPos(_viv_hwnd,HWND_TOP,_viv_fullscreen_rect.left,_viv_fullscreen_rect.top,_viv_fullscreen_rect.right - _viv_fullscreen_rect.left,_viv_fullscreen_rect.bottom - _viv_fullscreen_rect.top,SWP_FRAMECHANGED|SWP_NOACTIVATE|SWP_NOCOPYBITS);
 	
+		// the windowed restore takes the round corners back (the theme
+		// re-apply carries its own fullscreen guard; this is the
+		// transition's own bookkeeping).
+		os_window_corner_round(_viv_hwnd,1);
+	
 		if (_viv_fullscreen_is_maxed)
 		{	
 			ShowWindow(_viv_hwnd,SW_MAXIMIZE);
@@ -661,6 +666,11 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 		_viv_zoomui_update();
 
 		SetWindowPos(_viv_hwnd,HWND_TOP,monitor_rect.left,monitor_rect.top,monitor_rect.right - monitor_rect.left,monitor_rect.bottom - monitor_rect.top,SWP_FRAMECHANGED|SWP_NOACTIVATE|SWP_NOCOPYBITS);
+
+		// the fullscreen window answers the sharp corners: the round
+		// preference the win11 chrome carries would clip the image at
+		// the four corners of a monitor-covering window.
+		os_window_corner_round(_viv_hwnd,0);
 
 		_viv_prevent_on_deactivate = 1;
 
@@ -872,9 +882,18 @@ void _viv_apply_dark_mode(int repaint)
 	
 	os_dark_titlebar(_viv_hwnd,dark);
 	
-	// windows 11 chrome: rounded corners and a caption color that
-	// matches the canvas. a silent no-op on windows 10 and older.
-	os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
+	// windows 11 chrome: rounded corners, a caption color that matches
+	// the canvas and the palette's caption text. a silent no-op on
+	// windows 10 and older.
+	os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));
+	
+	// the fullscreen policy rides the same re-apply: a theme flip during
+	// fullscreen must not bring the round corners back over the
+	// monitor-covering window.
+	if (_viv_is_fullscreen)
+	{
+		os_window_corner_round(_viv_hwnd,0);
+	}
 	
 	// the common controls follow the immersive dark flag per window:
 	// flag the control windows too so the status bar and the toolbars

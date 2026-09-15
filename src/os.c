@@ -1774,11 +1774,12 @@ int os_is_win11(void)
 	return _os_win11_chrome == 1;
 }
 
-// windows 11 chrome: rounded window corners (attribute 33, round)
-// and a caption color that matches the canvas (attribute 35). returns 0
-// on windows 10 and older (the classic title bar stays and the caller
-// falls back to its own frame).
-int os_window_modern_chrome(HWND hwnd,COLORREF caption_color)
+// windows 11 chrome: rounded window corners (attribute 33, round), a
+// caption color that matches the canvas (attribute 35) and the caption
+// text color the palette answers (attribute 36). returns 0 on windows 10
+// and older (the classic title bar stays and the caller falls back to
+// its own frame).
+int os_window_modern_chrome(HWND hwnd,COLORREF caption_color,COLORREF text_color)
 {
 	DWORD corner;
 	COLORREF color;
@@ -1806,7 +1807,34 @@ int os_window_modern_chrome(HWND hwnd,COLORREF caption_color)
 	color = caption_color;
 	_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));
 	
+	// DWMWA_TEXT_COLOR = 36: the palette's own text token pins the
+	// caption contrast explicitly - the immersive dark flag above
+	// already biases the text, this keeps both themes deterministic
+	// against the custom caption (windows 11 22000+; the call is a
+	// silent no-op where the attribute does not answer).
+	color = text_color;
+	_os_DwmSetWindowAttribute(hwnd,36,&color,sizeof(color));
+	
 	return 1;
+}
+
+// the fullscreen corner policy: the round preference a window carries
+// would clip a monitor-covering window's image at the four corners, so
+// the fullscreen transitions pin the sharp corners (attribute 33,
+// DWMWCP_DONOTROUND = 1) and the windowed restore takes the round ones
+// back (DWMWCP_ROUND = 2). a silent no-op where the attribute does not
+// answer.
+void os_window_corner_round(HWND hwnd,int round)
+{
+	DWORD corner;
+	
+	if ((!hwnd) || (!_os_DwmSetWindowAttribute))
+	{
+		return;
+	}
+	
+	corner = round ? 2 : 1;
+	_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner));
 }
 
 // the popup menu layer gets the modern treatment too: rounded corners and
