@@ -96,6 +96,15 @@ jobs:
             Write-Host "== $p ==" (Get-Item $p).Length bytes
           }
 
+      # the audit's binary-level baseline: the exe must carry the hardening
+      # bits the project files claim (/guard:cf + /GUARD:CF and the dynamic
+      # base / nx defaults). a flag that silently drops out of a project
+      # file fails here, not on a user's machine - the same drift-detector
+      # role the v145 leg plays for the toolchain.
+      - name: PE security attributes (ASLR / DEP / CFG)
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tools\pe_security_check.ps1 -ExePath "build\x64\voidImageViewer.exe","build\x86\voidImageViewer.exe"
+
       # the real machine smoke test from the 1.0.02 audit round never ran
       # automatically: every push now opens the full anomaly sample set
       # through the freshly compiled x64 exe on the windows-2022 runner

@@ -1,0 +1,28 @@
+# dependabot keeps the pinned github actions current.
+#
+# this repository pins every third-party action to a full commit sha with
+# the version comment kept beside the reference, for example:
+#   uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+# the sha is the supply-chain lock; the comment is the readable version.
+# dependabot updates those sha references and preserves the version
+# comments, so each bump stays reviewable against the release it came
+# from - verify in the diff that the new sha's comment names the release
+# it was resolved from.
+#
+# all github-actions updates are grouped into a single weekly pull
+# request: the updates are routine version bumps of the same handful of
+# actions, and one reviewable diff beats several scattered ones. the
+# weekly cadence matches the repo's pace; anything needing individual
+# attention can be split out the moment that changes.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

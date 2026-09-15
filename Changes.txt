@@ -1,4 +1,75 @@
-﻿Pre-release: Version 1.1.14-rc.5 (the pixel oracle round)
+﻿Pre-release: Version 1.1.14-rc.6 (the budget and baseline round)
+
+	the external audit of the rc.5 zip answered with evidence first,
+	and its headline finding held: a pixel ceiling alone never bounded
+	memory. the loaders now price the working set a load actually
+	holds (the decode canvas, the display dib and the renderer
+	staging, 12 bytes per pixel) and refuse when it crosses a byte
+	ceiling: on 64-bit builds the effective static cap lands at
+	~200 mp (2.4 gb of working set - twice the largest real
+	panoramic stitch the 400 mp headroom was defended with, half
+	the worst case it used to admit), 32-bit builds keep their
+	100 mp behavior unchanged. animations are stricter on every
+	axis: the x64 canvas ceiling drops to 150 mp, the frame count
+	carries its own 10000-frame ceiling, and the frame array -
+	which holds every decoded frame at once, the multi-gigabyte
+	bomb a small canvas with tens of thousands of frames could
+	set off - is bounded in total bytes (2 gb on x64, 400 mb on
+	x86). the refusal carries its own status-line message in both
+	languages ("the image exceeds the memory budget") and the
+	debug channel keeps the exact numbers.
+
+	the exit timeout's hard kill becomes a recorded event: the
+	loader thread publishes a stage marker (open / decode /
+	frames / webp / qoi / wic / done), the timeout path reports
+	the stage and the file before terminatethread ever runs, and
+	the qoi decoder honors the cooperative cancel flag mid-decode
+	(a torn buffer never ships - decode_ok drops with the break).
+	the gdi+ and webp frame loops already checked the flag
+	between frames; the static single-call decoders (gdi+, wic)
+	remain uninterruptible by nature and stay covered by the
+	bounded wait.
+
+	the toolchain baseline is machine-verified now: the v145
+	project file carries the same /sdl /guard:cf compile line and
+	/guard:cf link line as the shipping v143 one (eight
+	configurations each, the arm64 debug buffer-security opt-out
+	retires, the leftover safeseh opt-outs go, a stray double
+	space normalizes), and both ci pipelines run a
+	pure-powershell pe header check on the compiled exes - aslr,
+	dep and control flow guard asserted on every build, a flag
+	that silently drops out of a project file fails the build
+	instead of a user's machine. the duplicate viv_menu.h include
+	retires from the window procedure.
+
+	the release trust chain grows: every release asset carries
+	github artifact attestation (build provenance linking the
+	file to the workflow run and the tag commit, verifiable with
+	"gh attestation verify"), a codeql workflow analyzes the
+	fork's own c sources (src/ only - the vendored libwebp is
+	upstream's pinned subset) on pushes and weekly, and the
+	vendored libwebp tree gains tools/update_libwebp.py: an
+	offline --check that verifies the file set, the encoder
+	absence and the include closure against version.imported,
+	and a --fetch refresh flow that refuses to layer over a
+	dirty tree. the collaboration pack lands: security.md,
+	contributing.md, codeowners, dependabot, issue and pr
+	templates, third-party notices. the pixel golden structure
+	test is archive-safe now (a source zip without .git runs the
+	content checks and skips the git-tracked ones instead of
+	failing).
+
+	the anomaly set grows two budget samples: a 12000-frame gif
+	that trips the frame ceiling with a tiny canvas, and a
+	600-frame 1200x1200 gif whose file is 15 kb but whose
+	decoded frame array commits 3.2 gb (each frame pays the full
+	canvas).
+
+	verified: the four suites pass (menu with the round-103
+	guard section), link_scan audits the externs clean, and the
+	zig line links the exe with the new gates aboard.
+
+Pre-release: Version 1.1.14-rc.5 (the pixel oracle round)
 
 	the round the last one deferred: pixels as facts. two deeper
 	bugs the rc.4 fixes carried in retire first. the opengl renderer

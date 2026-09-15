@@ -16,7 +16,7 @@ the generator is standard library only and runs on any platform; the
 smoke test itself must run on windows because that is where the viewer
 lives.
 
-sample inventory (37):
+sample inventory (40):
   01-05  truncated files
   06-11  lying ihdr dimensions
   12-13  zero delay animations
@@ -26,6 +26,7 @@ sample inventory (37):
   24-27  empty or corrupted shells
   28-33  healthy controls
   34-37  boundary and format confusion
+  38-40  over budget canvases and animation budgets
 """
 
 import os
@@ -228,6 +229,15 @@ def build(out_dir):
          make_bmp(96, 64)[14:])
     emit('38_png_over_x64_budget_625mp.png', make_png(25000, 25000, 1))
 
+    # 39-40 animation budget refusals (the working-set round): the
+    # frame count and the total frame bytes carry their own ceilings
+    # now - 39 trips the frame cap with a tiny canvas, 40 trips the
+    # total-bytes cap with a frame count under the cap (each decoded
+    # frame pays the full canvas, so a small file still commits
+    # gigabytes).
+    emit('39_gif_anim_over_budget_frames.gif', make_gif(8, 8, [1] * 12000))
+    emit('40_gif_anim_over_budget_bytes.gif', make_gif(1200, 1200, [1] * 600))
+
     return files
 
 
@@ -249,7 +259,7 @@ def self_check(files, out_dir):
         if not cond:
             failures.append(msg)
 
-    expect(len(files) == 38, 'expected 38 samples, produced %d' % len(files))
+    expect(len(files) == 40, 'expected 40 samples, produced %d' % len(files))
 
     # png header claims
     for name, wh in [
@@ -290,6 +300,23 @@ def self_check(files, out_dir):
            '300 frame sample does not carry 300 frames')
     expect(by_name['16_gif_anim_1200_frames.gif'].count(b'\x2c') == 1200,
            '1200 frame sample does not carry 1200 frames')
+    # the animation budget samples: 39 over the frame ceiling, 40 over
+    # the total frame bytes on both pointer widths (canvas pixels x 4
+    # bytes x frame count).
+    expect(by_name['39_gif_anim_over_budget_frames.gif'].count(b'\x2c') == 12000,
+           '12000 frame budget sample does not carry 12000 frames')
+    expect(12000 > 10000,
+           'frame budget sample must exceed the frame ceiling')
+    expect(12000 * 8 * 8 * 4 < 400000000,
+           'frame budget sample must not trip the byte ceilings (pure frame trip)')
+    expect(by_name['40_gif_anim_over_budget_bytes.gif'].count(b'\x2c') == 600,
+           'bytes budget sample does not carry 600 frames')
+    expect(600 < 10000,
+           'bytes budget sample must stay under the frame ceiling')
+    expect(600 * 1200 * 1200 * 4 > 2000000000,
+           'bytes budget sample must exceed the x64 total frame bytes')
+    expect(600 * 1200 * 1200 * 4 > 400000000,
+           'bytes budget sample must exceed the x86 total frame bytes')
 
     # shells and truncations
     expect(by_name['24_empty_zero_bytes.png'] == b'', 'empty sample not empty')
@@ -327,7 +354,7 @@ def main():
         for f in failures:
             print('SELF CHECK FAIL: ' + f)
         sys.exit(1)
-    print('SELF CHECK PASS: 38 samples, all headers verified')
+    print('SELF CHECK PASS: 40 samples, all headers verified')
     sys.exit(0)
 
 

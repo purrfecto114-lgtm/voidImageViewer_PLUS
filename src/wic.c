@@ -29,15 +29,28 @@
 // create and the file fails like any unloadable file.
 
 #include "viv.h"
+#include "viv_state.h"
 #include <wincodec.h>
 
-// prints the refusal through the debug banner so a user wondering why a
-// huge file fails can turn the debug channel on and read the ceiling.
 static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
 {
 	if (pixels > ceiling)
 	{
 		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(ceiling / 1000000));
+		
+		_viv_load_refused_budget = 1;
+		
+		return 1;
+	}
+	
+	// the working-set gate (the viv_load.c twin): the load holds the
+	// decode canvas, the display dib and the renderer staging at once -
+	// 12 bytes per pixel priced against the byte ceiling.
+	if ((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES)
+	{
+		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
+		
+		_viv_load_refused_budget = 1;
 		
 		return 1;
 	}
@@ -67,6 +80,10 @@ int wic_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 	// this layer: the formats wic uniquely adds (jpeg-xr, dds, heif, avif)
 	// are stills, and the multi-frame containers already answer through
 	// gdi+.
+	// the loader's stage marker: the exit timeout names the decoder that
+	// was running when the wait expired.
+	_viv_load_stage = "wic";
+
 	if (SUCCEEDED(CoCreateInstance(&_wic_clsid_imaging_factory,NULL,CLSCTX_INPROC_SERVER,&_wic_iid_imaging_factory,(void **)&factory)))
 	{
 		IWICBitmapDecoder *decoder;

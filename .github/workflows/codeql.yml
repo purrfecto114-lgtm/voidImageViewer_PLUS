@@ -1,0 +1,40 @@
+name: codeql
+
+# Static analysis for the C sources (the audit's code-scanning ask): runs
+# on pushes to main and weekly. the analysis scope is src/ only - the
+# vendored libwebp tree is upstream's decode-only subset, pinned by
+# VERSION.imported and verified by tools/update_libwebp.py --check, so
+# alerts there would be upstream's, not this fork's changes.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    runs-on: windows-2022
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - uses: github/codeql-action/init@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
+        with:
+          languages: c-cpp
+          config-file: ./.github/codeql/config.yml
+
+      - name: Build x64 (Release)
+        shell: cmd
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x64\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x64\\" /m /nologo /v:m
+
+      - uses: github/codeql-action/analyze@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
+        with:
+          category: "/language:c-cpp"

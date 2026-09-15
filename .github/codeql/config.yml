@@ -1,0 +1,5 @@
+# the analysis scope: the fork's own sources. the vendored libwebp tree is
+# upstream's decode-only subset (see libwebp/VERSION.imported) - its alerts
+# belong upstream, not to this fork's changes.
+paths:
+  - src

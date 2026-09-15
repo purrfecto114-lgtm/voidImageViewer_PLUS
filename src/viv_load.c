@@ -59,6 +59,7 @@ void _viv_clear_last(void);
 void _viv_refresh(void);
 void _viv_open_preload(void);
 static int _viv_pixel_budget_refused(SIZE_T pixels);
+static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels);
 int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *dst,SIZE_T dst_size);
 
 
@@ -251,6 +252,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		if (_viv_load_failed)
 		{
 			_viv_load_failed = 0;
+			_viv_load_refused_budget = 0;
 
 			_viv_status_update();
 		}
@@ -336,6 +338,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 
 		_viv_load_image_allow_draw = 1;
 		_viv_load_image_terminate = 0;
+		_viv_load_refused_budget = 0;
 		
 		if (_viv_load_image_filename)
 		{
@@ -795,6 +798,7 @@ void _viv_blank(void)
 	if (_viv_load_failed)
 	{
 		_viv_load_failed = 0;
+		_viv_load_refused_budget = 0;
 	}
 
 	if (_viv_random)
@@ -845,6 +849,12 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	stream = NULL;
 	
 	debug_printf("%s %S...\n",_viv_load_is_preload ? "PRELOAD" : "LOAD",_viv_load_image_filename);
+
+	// the stage marker: "open" while the file reads into memory, then
+	// "decode" through the gdi+ attempt, "frames" inside the animation
+	// loop, "done" when the reply posts (the fallback decoders set their
+	// own stages at entry). the exit timeout reads it.
+	_viv_load_stage = "open";
 	
 	{
 		HANDLE h;
@@ -969,6 +979,9 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 			
 			if ((os_GdipLoadImageFromStream) && (os_GdipLoadImageFromStreamICM) && (os_GdipGetImageWidth) && (os_GdipGetImageHeight) && (os_GdipImageGetFrameDimensionsCount) && (os_GdipImageGetFrameDimensionsList) && (os_GdipImageGetFrameCount) && (os_GdipGetPropertyItemSize) && (os_GdipGetPropertyItem) && (os_GdipImageSelectActiveFrame) && (os_GdipGetImageFlags) && (os_GdipDisposeImage) && (os_GdipCreateFromHDC) && (os_GdipSetCompositingMode) && (os_GdipSetCompositingQuality) && (os_GdipSetInterpolationMode) && (os_GdipSetPixelOffsetMode) && (os_GdipSetSmoothingMode) && (os_GdipDrawImageRectI) && (os_GdipDeleteGraphics))
 			{
+				// the decode attempt begins: gdi+ owns the file until it answers.
+				_viv_load_stage = "decode";
+
 				if (config_icm)
 				{
 					load_ret = os_GdipLoadImageFromStreamICM(stream,&image);
@@ -1190,6 +1203,19 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 									}
 								}
 
+								// the animation budget gates the frame array below: the canvas
+								// ceiling above bounds one frame, but the array holds every decoded
+								// frame at once, so the frame count and the total frame bytes carry
+								// their own ceilings. on refusal the frame count drops to zero: the
+								// loop builds nothing, the first-frame reply never fires and the load
+								// fails like any other unloadable file (a low-res thumbnail already
+								// posted is cleared by the failure reply the same way any failed load
+								// is).
+								if (_viv_animation_budget_refused(first_frame.frame_count,safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high)))
+								{
+									first_frame.frame_count = 0;
+								}
+
 								// get frame delays.
 								if (first_frame.frame_count > 1)
 								{
@@ -1222,6 +1248,8 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 								}
 
 								// draw frames.
+								// the animation frame loop owns the next stretch of time.
+								_viv_load_stage = "frames";
 
 								{
 									HDC screen_hdc;
@@ -1464,6 +1492,8 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	{
 		debug_printf("Failed to create stream from %S\n",_viv_load_image_filename);
 	}
+
+	_viv_load_stage = "done";
 
 	_viv_reply_add(ret ? _VIV_REPLY_LOAD_IMAGE_COMPLETE : _VIV_REPLY_LOAD_IMAGE_FAILED,0,0);
 	
@@ -1759,6 +1789,7 @@ void _viv_refresh(void)
 		if (_viv_load_failed)
 		{
 			_viv_load_failed = 0;
+			_viv_load_refused_budget = 0;
 			
 			_viv_status_update();
 		}
@@ -1848,6 +1879,50 @@ static int _viv_pixel_budget_refused(SIZE_T pixels)
 	if (pixels > VIV_MAX_IMAGE_PIXELS)
 	{
 		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(VIV_MAX_IMAGE_PIXELS / 1000000));
+		
+		_viv_load_refused_budget = 1;
+		
+		return 1;
+	}
+	
+	// the working-set gate: the canvas ceiling bounds one buffer, but the
+	// load holds several at once (the decode canvas, the display dib, the
+	// renderer staging - 12 bytes per pixel priced). the refusal marks the
+	// status line so the reason reaches the user, not only the debug
+	// channel.
+	if ((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES)
+	{
+		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
+		
+		_viv_load_refused_budget = 1;
+		
+		return 1;
+	}
+	
+	return 0;
+}
+// the animation frame-array gate: the canvas ceilings above bound one
+// frame, but the loader holds every decoded frame at once. a small canvas
+// carrying tens of thousands of frames is a multi-gigabyte commitment the
+// canvas gate never sees, so the frame count and the total frame bytes
+// carry their own ceilings (4 bytes per canvas pixel per frame - the
+// display bitmap size the gdi+ path builds per frame).
+static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
+{
+	if (frame_count > VIV_MAX_ANIMATION_FRAMES)
+	{
+		debug_printf("animation budget: refusing %u frames (ceiling %u)\r\n",(unsigned int)frame_count,(unsigned int)VIV_MAX_ANIMATION_FRAMES);
+		
+		_viv_load_refused_budget = 1;
+		
+		return 1;
+	}
+	
+	if ((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4 > VIV_MAX_ANIMATION_TOTAL_BYTES)
+	{
+		debug_printf("animation budget: refusing %u frames of a %u mp canvas (%u mb of frames, ceiling %u mb)\r\n",(unsigned int)frame_count,(unsigned int)(canvas_pixels / 1000000),(unsigned int)(((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4) / 1000000),(unsigned int)(VIV_MAX_ANIMATION_TOTAL_BYTES / 1000000));
+		
+		_viv_load_refused_budget = 1;
 		
 		return 1;
 	}

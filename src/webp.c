@@ -22,17 +22,56 @@
 // webp layer
 
 #include "viv.h"
+#include "viv_state.h"
 #include <src/webp/decode.h>
 #include <src/webp/demux.h>
 #include <assert.h>
 
-// prints the refusal through the debug banner so a user wondering why a
-// huge file fails can turn the debug channel on and read the ceiling.
+// the animation frame-array gate (the viv_load.c twin): the canvas
+// ceilings bound one frame, the array holds them all - the frame count
+// and the total frame bytes carry their own ceilings.
+static int _animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
+{
+	if (frame_count > VIV_MAX_ANIMATION_FRAMES)
+	{
+		debug_printf("animation budget: refusing %u frames (ceiling %u)\r\n",(unsigned int)frame_count,(unsigned int)VIV_MAX_ANIMATION_FRAMES);
+		
+		_viv_load_refused_budget = 1;
+		
+		return 1;
+	}
+	
+	if ((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4 > VIV_MAX_ANIMATION_TOTAL_BYTES)
+	{
+		debug_printf("animation budget: refusing %u frames of a %u mp canvas (%u mb of frames, ceiling %u mb)\r\n",(unsigned int)frame_count,(unsigned int)(canvas_pixels / 1000000),(unsigned int)(((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4) / 1000000),(unsigned int)(VIV_MAX_ANIMATION_TOTAL_BYTES / 1000000));
+		
+		_viv_load_refused_budget = 1;
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
 static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
 {
 	if (pixels > ceiling)
 	{
 		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(ceiling / 1000000));
+		
+		_viv_load_refused_budget = 1;
+		
+		return 1;
+	}
+	
+	// the working-set gate (the viv_load.c twin): the load holds the
+	// decode canvas, the display dib and the renderer staging at once -
+	// 12 bytes per pixel priced against the byte ceiling.
+	if ((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES)
+	{
+		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
+		
+		_viv_load_refused_budget = 1;
 		
 		return 1;
 	}
@@ -49,6 +88,10 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 	
 //	_wassert(L"test",TEXT(__FILE__),__LINE__);
 	
+	// the loader's stage marker: the exit timeout names the decoder that
+	// was running when the wait expired.
+	_viv_load_stage = "webp";
+
 	if (SUCCEEDED(GetHGlobalFromStream(stream,&hglobal)))
 	{
 		void *data_ptr;
@@ -85,7 +128,7 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 							{
 								// pixel budget: refuse a hostile canvas before libwebp
 								// allocates the frame buffers of the animation.
-								if ((!_pixel_budget_refused(safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height),VIV_MAX_ANIMATION_PIXELS)) && (info_callback(user_data,anim_info.frame_count,anim_info.canvas_width,anim_info.canvas_height,features.has_alpha)))
+								if ((!_pixel_budget_refused(safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height),VIV_MAX_ANIMATION_PIXELS)) && (!_animation_budget_refused(anim_info.frame_count,safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height))) && (info_callback(user_data,anim_info.frame_count,anim_info.canvas_width,anim_info.canvas_height,features.has_alpha)))
 								{
 									uint8_t *frame;
 									int timestamp; // out-param of webpanimdecodergetnext: libwebp dereferences the pointer unconditionally, it is not dead

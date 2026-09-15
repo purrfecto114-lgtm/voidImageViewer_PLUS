@@ -1642,7 +1642,18 @@ void _viv_status_update(void)
 			else
 			if (_viv_load_failed)
 			{
-				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_FAILED_TO_LOAD_IMAGE));
+				// the budget refusals carry their own line: "failed to load"
+// hides the one failure the user can actually act on.
+if (_viv_load_refused_budget)
+{
+	string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET));
+}
+else
+{
+	string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_FAILED_TO_LOAD_IMAGE));
+}
+
+
 				text = text_buf;
 			}
 			else

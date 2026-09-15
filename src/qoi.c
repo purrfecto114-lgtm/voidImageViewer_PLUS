@@ -31,6 +31,7 @@
 // the canvas.
 
 #include "viv.h"
+#include "viv_state.h"
 #include <string.h>
 
 // the qoi magic: "qoif", big endian on the wire. the constant reads
@@ -44,13 +45,25 @@
 // the reference end marker: seven zero bytes then 0x01.
 static const BYTE _qoi_end_marker[8] = {0,0,0,0,0,0,0,1};
 
-// prints the refusal through the debug banner so a user wondering why a
-// huge file fails can turn the debug channel on and read the ceiling.
 static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
 {
 	if (pixels > ceiling)
 	{
 		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(ceiling / 1000000));
+		
+		_viv_load_refused_budget = 1;
+		
+		return 1;
+	}
+	
+	// the working-set gate (the viv_load.c twin): the load holds the
+	// decode canvas, the display dib and the renderer staging at once -
+	// 12 bytes per pixel priced against the byte ceiling.
+	if ((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES)
+	{
+		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
+		
+		_viv_load_refused_budget = 1;
 		
 		return 1;
 	}
@@ -70,6 +83,10 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 	
 	ret = 0;
 	
+	// the loader's stage marker: the exit timeout names the decoder that
+	// was running when the wait expired.
+	_viv_load_stage = "qoi";
+
 	if (SUCCEEDED(GetHGlobalFromStream(stream,&hglobal)))
 	{
 		void *data_ptr;
@@ -151,6 +168,17 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 								
 								while ((decode_ok) && (d < d_end))
 								{
+									// cooperative cancel: a quit or a navigation away must not
+									// wait out a huge decode. the torn buffer never ships -
+									// decode_ok drops with the break and the delivery below
+									// gates on it.
+									if (_viv_load_image_terminate)
+									{
+										decode_ok = 0;
+										
+										break;
+									}
+									
 									if (run)
 									{
 										run--;

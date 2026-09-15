@@ -40,7 +40,6 @@
 #include "viv_view.h"
 #include "viv_export.h"
 #include "viv_install.h"
-#include "viv_menu.h"
 
 // touch gesture messages. (not defined in older SDKs)
 #ifndef WM_GESTURENOTIFY

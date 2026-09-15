@@ -62,27 +62,40 @@ extern "C" {
 // any allocation happens so a huge canvas fails like any other
 // unloadable file instead of dying inside the allocator.
 //
-// the ceiling is pointer-width dependent (1.0.04): 32-bit builds
-// keep the 100 mp ceiling (a 100 mp rgba frame is already 400 mb
-// against a 2 gb address space once gdi copies, mipmaps and
-// rotation buffers pile up); 64-bit builds (x64 / arm64) can
-// afford 400 mp so real panoramic stitches and large flatbed
-// scans (15000 x 9000 and up) load normally instead of failing
-// like a corrupt file. both ceilings still bound a hostile canvas
-// before the decoder runs.
+// the working-set round (1.1.14-rc.6) answers the audit finding that
+// a pixel ceiling alone never bounded memory: the estimate prices the
+// peak a load actually holds - the decode canvas, the display dib and
+// the renderer staging each carry the frame once - and refuses when
+// it crosses the byte ceiling. on 64-bit builds the effective static
+// cap lands at ~200 mp (2.4 gb of working set): twice the largest
+// real panoramic stitch the 400 mp headroom was defended with
+// (15000 x 9000), half the worst case it used to admit. 32-bit builds
+// keep their 100 mp behavior (1.2 gb). the canvas ceilings stay on as
+// the coarse first gate and give the hardware renderers headroom for
+// their power-of-two padding above the accepted size.
+#define VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL	12
 #if defined(_WIN64)
 #define VIV_MAX_IMAGE_PIXELS	400000000
-// animated webp keeps the static ceiling on 64-bit builds: the address
-// space absorbs the decode canvas, the anim decoder working frame and
-// the display bitmap.
-#define VIV_MAX_ANIMATION_PIXELS	400000000
+#define VIV_MAX_IMAGE_BYTES	2400000000
+// animated frames are stricter than stills on every axis: the canvas
+// ceiling drops to 150 mp (a one-frame animation may not out-size the
+// static budget), the frame count carries its own ceiling, and the
+// frame array - which holds every decoded frame at once - is bounded
+// in total bytes (4 bytes per canvas pixel per frame, priced like the
+// display bitmaps the gdi+ path builds per frame).
+#define VIV_MAX_ANIMATION_PIXELS	150000000
+#define VIV_MAX_ANIMATION_FRAMES	10000
+#define VIV_MAX_ANIMATION_TOTAL_BYTES	2000000000
 #else
 #define VIV_MAX_IMAGE_PIXELS	100000000
-// 32-bit: an animated canvas pays for the decode canvas, the anim
-// decoder working frame and the display bitmap (roughly 12 bytes per
-// pixel) inside a 2 gb address space, so the animation ceiling is a
-// quarter of the static one (25 mp ~= 300 mb of buffers).
+#define VIV_MAX_IMAGE_BYTES	1200000000
+// 32-bit: the static behavior is unchanged (100 mp prices to the same
+// 1.2 gb working set); the animation canvas keeps its quarter-ceiling
+// (25 mp) and the frame array is bounded to 400 mb of total frames
+// inside the 2 gb address space.
 #define VIV_MAX_ANIMATION_PIXELS	25000000
+#define VIV_MAX_ANIMATION_FRAMES	10000
+#define VIV_MAX_ANIMATION_TOTAL_BYTES	400000000
 #endif
 
 typedef unsigned char utf8_t;

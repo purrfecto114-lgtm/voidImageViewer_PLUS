@@ -113,10 +113,19 @@ def main():
     # 5. the manifest itself: absent before the bootstrap (fine), valid
     #    once committed.
     manifest_path = "tests/golden/golden-manifest.json"
+    # a source archive (the github zip download) carries no .git directory:
+    # git-tracked state is a checkout-only fact, so the tracked checks gate
+    # on the repository being present while the content checks below run
+    # everywhere (the audit's archive-safe finding: a complete zip must not
+    # fail a test that mixes git state into content).
+    in_git_checkout = os.path.isdir(".git")
     if os.path.exists(manifest_path):
         raw = open(manifest_path, "rb").read().decode("utf-8", errors="replace")
-        check("the golden manifest is tracked",
-              manifest_path in os.popen("git ls-files tests/golden").read())
+        if in_git_checkout:
+            check("the golden manifest is tracked",
+                  manifest_path in os.popen("git ls-files tests/golden").read())
+        else:
+            print("skip  the golden manifest is tracked (source archive, not a git checkout)")
         try:
             manifest = json.loads(raw)
         except ValueError as e:
@@ -139,8 +148,11 @@ def main():
               all(entry.get("gdi") for entry in manifest.values())
               if manifest else False)
     else:
-        check("the golden manifest is absent only before the bootstrap",
-              "golden-manifest.json" not in os.popen("git ls-files tests/golden").read())
+        if in_git_checkout:
+            check("the golden manifest is absent only before the bootstrap",
+                  "golden-manifest.json" not in os.popen("git ls-files tests/golden").read())
+        else:
+            print("skip  the manifest-absent check (source archive, not a git checkout)")
 
     print()
     if failures:

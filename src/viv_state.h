@@ -324,6 +324,15 @@ extern wchar_t *_viv_load_image_filename;
 extern WIN32_FIND_DATA *_viv_load_image_next_fd;
 extern BYTE _viv_load_image_next_is_preload;
 extern volatile int _viv_load_image_terminate;
+// the loader's stage marker ("open" / "decode" / "frames" / "webp" /
+// "qoi" / "wic" / "done"): written only by the loader thread, read by the
+// exit timeout so a hard kill can at least report where the thread spent
+// its last seconds. a stale value only names the previous stage.
+extern const char *volatile _viv_load_stage;
+// set by the budget refusals (canvas / working set / animation) and read
+// by the status line: the user sees why a file was refused, not just that
+// it failed. cleared when the next load dispatches.
+extern BYTE _viv_load_refused_budget;
 extern _viv_reply_t *_viv_reply_start;
 extern _viv_reply_t *_viv_reply_last;
 extern wchar_t *_viv_status_temp_text;

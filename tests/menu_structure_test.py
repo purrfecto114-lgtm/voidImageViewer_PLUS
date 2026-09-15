@@ -342,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.14-rc.5.73 pre-release (the pixel oracle round)",
-          (major, minor, rev, build) == ("1", "1", "14", "73") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.14-rc.5 tag)",
-          vstr == "1.1.14-rc.5")
+    check("version.h = 1.1.14-rc.6.74 pre-release (the budget and baseline round)",
+          (major, minor, rev, build) == ("1", "1", "14", "74") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.14-rc.6 tag)",
+          vstr == "1.1.14-rc.6")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -2214,7 +2214,7 @@ def t_ux_round41():
     check("animated webp canvases honor a separate ceiling",
           "VIV_MAX_ANIMATION_PIXELS" in webp and
           "VIV_MAX_ANIMATION_PIXELS\t25000000" in vivh and
-          "VIV_MAX_ANIMATION_PIXELS\t400000000" in vivh)
+          "VIV_MAX_ANIMATION_PIXELS\t150000000" in vivh)
 
     # the spelling fix and the dead-variable note
     check("context menu count macro spelled right",
@@ -3092,7 +3092,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the pixel oracle round sweeps the pin)",
-          "#define VERSION_BUILD 73" in version)
+          "#define VERSION_BUILD 74" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3163,8 +3163,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 73" in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+          "#define VERSION_BUILD 74" in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3437,9 +3437,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3503,8 +3503,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 73" in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+          "#define VERSION_BUILD 74" in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4066,9 +4066,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4236,9 +4236,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4339,9 +4339,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4418,9 +4418,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4517,9 +4517,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4634,9 +4634,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4847,9 +4847,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.5 build 73 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4987,9 +4987,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5042,16 +5042,16 @@ def t_fixture_round98():
     present = sorted(n for n in os.listdir(samples)
                      if os.path.isfile(os.path.join(samples, n))) \
         if os.path.isdir(samples) else []
-    check("the sample directory carries exactly 46 files (38 anomalies + 8 fixtures)",
-          len(present) == 46, "%d files" % len(present))
+    check("the sample directory carries exactly 48 files (40 anomalies + 8 fixtures)",
+          len(present) == 48, "%d files" % len(present))
     check("the eight fixtures are all present by name",
           all(n in present for n in fx_names),
           ", ".join(n for n in fx_names if n not in present))
     check("the over budget canvas still rides the sweep (the stage 3 leg)",
           "35_png_over_budget_110mp.png" in present)
     total = sum(os.path.getsize(os.path.join(samples, n)) for n in present)
-    check("the sample set stays under 2 mb (the 110mp budget canvas is the one heavyweight)",
-          total < 2000000, "%d bytes" % total)
+    check("the sample set stays under 2.5 mb (the budget canvas and the frame-count sample are the heavyweights)",
+          total < 2500000, "%d bytes" % total)
 
     # 2. the gitignore flip: the samples used to be ci-time generated,
     #    the ignore line kept them out of the tree - it retires now.
@@ -5080,7 +5080,7 @@ def t_fixture_round98():
                 if os.path.isfile(have_path) else None
             if have != want:
                 mismatch.append(n)
-        check("all 38 anomaly samples regenerate byte-identical",
+        check("all 40 anomaly samples regenerate byte-identical",
               not mismatch, ", ".join(mismatch))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -5192,9 +5192,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.5 build 73 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5268,9 +5268,9 @@ def t_navigation_visibility_round99():
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.3** \u2014" in readme)
-    check("the version is 1.1.14-rc.5 build 73 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
 
 
 def t_audit_response_round101():
@@ -5387,9 +5387,9 @@ def t_audit_response_round101():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
     check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.4** \u2014" in readme and
           "**1.1.14-rc.3** \u2014" in readme)
@@ -5400,7 +5400,7 @@ def t_audit_response_round101():
 
 
 def t_pixel_oracle_round102():
-    """Guards for the pixel oracle round (1.1.14-rc.5: the deeper renderer
+    """Guards for the pixel oracle round (1.1.14-rc.6: the deeper renderer
     fixes the rc.4 round carried in - the gl context rebuild on a window
     change and the pad edge replication both renderers - and the hidden
     render export, the pixel regression harness the external audit asked
@@ -5500,13 +5500,13 @@ def t_pixel_oracle_round102():
 
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the pixel oracle round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.5 (the pixel oracle round)", top)
-    check("the version is 1.1.14-rc.5 build 73",
-          '#define VERSION_BUILD 73' in version and
-          '#define VERSION_STRING "1.1.14-rc.5"' in version)
-    check("the readme candidate slot holds the pixel oracle round",
-          "**1.1.14-rc.5 \u2014 the pixel oracle round (the current release candidate):**" in readme and
+    check("the changelog top entry is the budget and baseline round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.6 (the budget and baseline round)", top)
+    check("the version is 1.1.14-rc.6 build 74",
+          '#define VERSION_BUILD 74' in version and
+          '#define VERSION_STRING "1.1.14-rc.6"' in version)
+    check("the readme candidate slot holds the budget and baseline round",
+          "**1.1.14-rc.6 \u2014 the budget and baseline round (the current release candidate):**" in readme and
           "**1.1.14-rc.4** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog states the wglmakecurrent contract wording",
@@ -5562,6 +5562,162 @@ def t_pixel_oracle_round102():
     check("the shutdowns clear the export pointers",
           "_viv_gl_export_bits = 0;" in hwgl and
           "_viv_d3d_export_bits = 0;" in hwd3d)
+
+
+def t_audit_hardening_round103():
+    """Guards for the budget and baseline round (1.1.14-rc.6: the working
+    set and animation budgets with their own status-line reason, the loader
+    stage telemetry ahead of the hard kill, the machine-verified toolchain
+    security baseline, and the release trust chain - attestation, codeql,
+    the libwebp verifier, the collaboration pack, archive-safe goldens)."""
+    viv = read("src/viv.c").decode("latin-1")
+    vivh = read("src/viv.h").decode()
+    state = read("src/viv_state.h").decode()
+    vivload = read("src/viv_load.c").decode("latin-1")
+    webp = read("src/webp.c").decode("latin-1")
+    wic = read("src/wic.c").decode("latin-1")
+    qoi = read("src/qoi.c").decode("latin-1")
+    chrome = read("src/viv_chrome.c").decode("latin-1")
+    loc_h = read("src/localization.h").decode()
+    loc_e = read("src/localization_en_us.h").decode("utf-8", errors="replace")
+    loc_z = read("src/localization_zh_cn.h").decode("utf-8", errors="replace")
+    wndproc = read("src/viv_wndproc.c").decode("latin-1")
+    vcx26 = read("vs2026/voidImageViewer.vcxproj").decode("latin-1")
+    tests_yml = read(".github/workflows/tests.yml").decode()
+    release_yml = read(".github/workflows/release.yml").decode()
+    golden_pg = read("tests/pixel_golden_test.py").decode()
+
+    # 1. the budget regime: the byte ceilings ride the pixel ceilings, the
+    #    animation axes are all bounded, and every decoder prices the same
+    #    working-set estimate.
+    check("the working set ceilings ride the pixel ceilings",
+          "#define VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL\t12" in vivh and
+          "#define VIV_MAX_IMAGE_BYTES\t2400000000" in vivh and
+          "#define VIV_MAX_IMAGE_BYTES\t1200000000" in vivh)
+    check("the animation ceilings carry frames and total bytes",
+          "#define VIV_MAX_ANIMATION_FRAMES\t10000" in vivh and
+          "#define VIV_MAX_ANIMATION_TOTAL_BYTES\t2000000000" in vivh and
+          "#define VIV_MAX_ANIMATION_TOTAL_BYTES\t400000000" in vivh and
+          "#define VIV_MAX_ANIMATION_PIXELS\t150000000" in vivh)
+    check("every loader prices the working set (the 12 bytes per pixel estimate)",
+          "(VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES" in vivload and
+          "(VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES" in webp and
+          "(VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES" in wic and
+          "(VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES" in qoi)
+    check("the working set refusal is diagnosable in every decoder",
+          "working set budget: refusing a %u mp canvas" in vivload and
+          "working set budget: refusing a %u mp canvas" in webp and
+          "working set budget: refusing a %u mp canvas" in wic and
+          "working set budget: refusing a %u mp canvas" in qoi)
+    check("the gdi+ frame array is gated before the frame loop",
+          "if (_viv_animation_budget_refused(first_frame.frame_count,safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high)))" in vivload and
+          "fails like any other unloadable file" in vivload)
+    check("the webp frame array is gated with the canvas",
+          "(!_animation_budget_refused(anim_info.frame_count,safe_size_mul((SIZE_T)anim_info.canvas_width,(SIZE_T)anim_info.canvas_height)))" in webp)
+    check("the animation gates price frames and total bytes",
+          "(VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4 > VIV_MAX_ANIMATION_TOTAL_BYTES" in vivload and
+          "(VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4 > VIV_MAX_ANIMATION_TOTAL_BYTES" in webp and
+          "frame_count > VIV_MAX_ANIMATION_FRAMES" in vivload and
+          "frame_count > VIV_MAX_ANIMATION_FRAMES" in webp)
+
+    # 2. the refusal reason reaches the user: the flag is shared state with
+    #    a cleared dispatch, every refusal marks it, and the status line has
+    #    its own localized string for it.
+    check("the refusal flag is shared state with a cleared dispatch",
+          "extern BYTE _viv_load_refused_budget;" in state and
+          "BYTE _viv_load_refused_budget = 0;" in viv and
+          "_viv_load_refused_budget = 0;" in vivload)
+    check("every budget refusal marks the flag",
+          vivload.count("_viv_load_refused_budget = 1;") == 4 and
+          webp.count("_viv_load_refused_budget = 1;") == 4 and
+          wic.count("_viv_load_refused_budget = 1;") == 2 and
+          qoi.count("_viv_load_refused_budget = 1;") == 2)
+    check("the status line carries the budget reason",
+          "if (_viv_load_refused_budget)" in chrome and
+          "LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET" in chrome and
+          "LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET" in loc_h and
+          "LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET" in loc_e and
+          "LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET" in loc_z)
+
+    # 3. the hard kill is a recorded event: the stage ladder publishes
+    #    through shared state, the timeout reports before terminating, and
+    #    the one decoder with a hand-rolled pixel loop honors the cancel.
+    check("the loader publishes its stage through shared state",
+          "extern const char *volatile _viv_load_stage;" in state and
+          'const char *volatile _viv_load_stage = "";' in viv)
+    check("the thread proc walks the stage ladder",
+          vivload.count('_viv_load_stage = "') == 4 and
+          webp.count('_viv_load_stage = "webp";') == 1 and
+          qoi.count('_viv_load_stage = "qoi";') == 1 and
+          wic.count('_viv_load_stage = "wic";') == 1)
+    check("the kill timeout reports the stage before the hard stop",
+          'debug_printf("load thread timeout: terminating at stage %s (%S)\\n"' in viv)
+    check("the qoi decode honors the cooperative cancel",
+          "if (_viv_load_image_terminate)" in qoi and
+          "the torn buffer never ships" in qoi)
+
+    # 4. the toolchain baseline: the v145 project matches the v143 hardening
+    #    line, the opt-outs retire, and the pe header check rides both
+    #    pipelines so a dropped flag fails the build, not a user's machine.
+    check("the v145 project compiles with the same hardening line (all eight configs)",
+          vcx26.count("/sdl /guard:cf") == 8)
+    check("the v145 project links the guard on every configuration",
+          vcx26.count("/GUARD:CF") == 8)
+    check("the v145 opt-outs retire",
+          "safeseh:no" not in vcx26 and
+          "<BufferSecurityCheck>false</BufferSecurityCheck>" not in vcx26)
+    check("the window procedure includes viv_menu.h once",
+          wndproc.count('#include "viv_menu.h"') == 1)
+    pe_ps1 = read("tools/pe_security_check.ps1").decode("utf-8", errors="replace")
+    check("the pe checker asserts the mitigation bits",
+          "GUARD_CF" in pe_ps1 and "0x4000" in pe_ps1 and
+          "DllCharacteristics" in pe_ps1 and "HIGH_ENTROPY_VA" in pe_ps1)
+    check("both pipelines run the pe check after the build",
+          "pe_security_check.ps1" in tests_yml and
+          "pe_security_check.ps1" in release_yml and
+          release_yml.find("Verify build output") < release_yml.find("pe_security_check.ps1"))
+
+    # 5. the release trust chain: provenance attestation on every asset,
+    #    codeql on the fork's own sources, the vendored verifier, and the
+    #    archive-safe golden structure test.
+    check("the publish job attests the build provenance",
+          "actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8" in release_yml and
+          "id-token: write" in release_yml and
+          "attestations: write" in release_yml and
+          "subject-path:" in release_yml)
+    codeql_yml = read(".github/workflows/codeql.yml").decode()
+    codeql_cfg = read(".github/codeql/config.yml").decode()
+    check("the codeql workflow analyzes the fork's own sources",
+          "github/codeql-action/init@4bd7200e1f146b1c937cae12d258b50f41a53cf8" in codeql_yml and
+          "github/codeql-action/analyze@4bd7200e1f146b1c937cae12d258b50f41a53cf8" in codeql_yml and
+          "config-file: ./.github/codeql/config.yml" in codeql_yml and
+          "paths:" in codeql_cfg and "- src" in codeql_cfg)
+    check("the golden structure test is archive-safe",
+          'in_git_checkout = os.path.isdir(".git")' in golden_pg and
+          "source archive, not a git checkout" in golden_pg)
+    check("the vendored tree carries its offline verifier",
+          os.path.exists("tools/update_libwebp.py") and
+          "--check" in read("tools/update_libwebp.py").decode("utf-8", errors="replace"))
+    check("the collaboration pack is in place",
+          os.path.exists("SECURITY.md") and
+          os.path.exists("CONTRIBUTING.md") and
+          os.path.exists("CODEOWNERS") and
+          os.path.exists(".github/dependabot.yml") and
+          os.path.exists("THIRD_PARTY_NOTICES.md"))
+
+    # 6. the budget anomaly samples ride the sweep (the generator self
+    #    check pins their math; this pins their presence and the refusal
+    #    naming that the smoke stage 3 glob expects).
+    samples_dir = "tests/samples"
+    check("the animation budget samples ride the sweep",
+          os.path.isfile(os.path.join(samples_dir, "39_gif_anim_over_budget_frames.gif")) and
+          os.path.isfile(os.path.join(samples_dir, "40_gif_anim_over_budget_bytes.gif")))
+    gen = read("tests/make_anomaly_samples.py").decode()
+    check("the generator prices the budget samples on both axes",
+          "emit('39_gif_anim_over_budget_frames.gif', make_gif(8, 8, [1] * 12000))" in gen and
+          "emit('40_gif_anim_over_budget_bytes.gif', make_gif(1200, 1200, [1] * 600))" in gen and
+          "600 * 1200 * 1200 * 4 > 2000000000" in gen and
+          "12000 > 10000" in gen)
 
 
 if __name__ == "__main__":
@@ -5633,6 +5789,7 @@ if __name__ == "__main__":
     t_navigation_visibility_round99()
     t_audit_response_round101()
     t_pixel_oracle_round102()
+    t_audit_hardening_round103()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

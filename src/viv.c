@@ -162,6 +162,15 @@ wchar_t *_viv_load_image_filename = 0;
 WIN32_FIND_DATA *_viv_load_image_next_fd = NULL;
 BYTE _viv_load_image_next_is_preload = 0;
 volatile int _viv_load_image_terminate = 0;
+// the loader's stage marker ("open" / "decode" / "frames" / "webp" /
+// "qoi" / "wic" / "done"): written only by the loader thread, read by the
+// exit timeout so a hard kill can at least report where the thread spent
+// its last seconds. a stale value only names the previous stage.
+const char *volatile _viv_load_stage = "";
+// set by the budget refusals (canvas / working set / animation) and read
+// by the status line: the user sees why a file was refused, not just that
+// it failed. cleared when the next load dispatches.
+BYTE _viv_load_refused_budget = 0;
 _viv_reply_t *_viv_reply_start = 0;
 _viv_reply_t *_viv_reply_last = 0;
 wchar_t *_viv_status_temp_text = 0;
@@ -1469,6 +1478,12 @@ void _viv_kill(void)
 			// stop the thread where it stands. it is no longer safe for the
 			// rest of the teardown to share memory with it. the process is
 			// exiting: anything the thread leaked is reclaimed by the OS.
+			// the timeout telemetry: the stage marker names where the thread spent
+			// its last seconds (open / decode / frames / webp / qoi / wic) and the
+			// file names the decoder family, so the hard kill is a recorded event
+			// with a paper trail before the cooperative cancel ever retires it.
+			debug_printf("load thread timeout: terminating at stage %s (%S)\n",_viv_load_stage,(_viv_load_image_filename) ? _viv_load_image_filename : L"?");
+
 			TerminateThread(_viv_load_image_thread,1);
 			
 			WaitForSingleObject(_viv_load_image_thread,1000);
