@@ -1,4 +1,74 @@
-﻿Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)
+﻿Pre-release: Version 1.1.14-rc.5 (the pixel oracle round)
+
+	the round the last one deferred: pixels as facts. two deeper
+	bugs the rc.4 fixes carried in retire first. the opengl renderer
+	kept its rendering context across a window change - the pixel
+	format re-ran for the fresh window but the old context stayed,
+	and the wglmakecurrent contract (the dc must answer the same
+	device and the same pixel format the rc was created against,
+	the msdn wording, second-verified) left every later call one
+	format mismatch away from a session-wide fallback: the original
+	refusal wearing a more hidden shell. the window change now
+	deletes and rebuilds the context with the window, the whole
+	state (the texture, the last hbitmap) rebuilding against it.
+
+	the second: both hardware renderers padded to the power-of-two
+	(or square) sides their contracts demand and left the pad
+	zeroed (the round-101 gl fix) or stale (the d3d same-size reuse
+	- the lock only rewrites the image's own texels). the linear
+	sampler's half texel at the sub-rectangle edge reads into that
+	pad - d3d9 maps the address range onto the [-0.5, n-0.5] texel
+	row, and clamp only answers at the texture's own border, never
+	at a sub-rectangle inside it. a zeroed pad stops the stale
+	garbage but still averages black into the outermost destination
+	pixels on a heavy upscale. the pad now replicates the image's
+	own last column and last row on every upload, both renderers,
+	so the border answers as if the texture ended where the image
+	does - and the d3d animation reuse cannot bleed the previous
+	frame back in.
+
+	the main event: the hidden render export, the pixel regression
+	harness the external audit asked for and the rc.4 round
+	deferred. -render-export <file> (with -render-gdi, -render-gl,
+	-render-d3d and -render-size WxH) walks the real pipeline -
+	the threaded loader, the fit math, the canvas paint, the
+	selected renderer - and writes a 32bpp bitmap of the exact
+	pixels. the ci hashes it against committed goldens: the decode,
+	the scaling, the backdrop, the alpha flattening and the
+	three-way renderer agreement become checked facts. the switches
+	stay out of the help text (a test surface, not a user face),
+	the config pins pin every host-variable setting (theme, icm,
+	exif, the filters, the strips - a runner's machine must never
+	leak into the hash), the export never redirects to a live
+	viewer, never touches the installer, and never rewrites the
+	user's ini (the deferred recent-save timer is guarded too).
+	the readbacks: gdi through the paint backbuffer (getdibits),
+	gl through glreadpixels (the bgra extension probed, the rgba
+	fallback swizzled, the reserved byte pinned), d3d through
+	getrendertargetdata into a system-memory surface (the x byte
+	of the x8r8g8b8 back buffer answered undefined values - pinned
+	to zero before the hash ever sees it).
+
+	the guard migration rides along: three check names that still
+	said build 66 while their assertions had been swept for rounds
+	now say what they verify (the naming tax the audit called
+	out), and the counts, the manifests and the splice windows
+	take the export module in stride.
+
+	the parallel carpet audit (six lanes, max parallelism) earned
+	its keep: the gl and d3d max-texture clauses now answer the
+	non-power-of-two overshoot and the square promote (the refusal
+	was silently misattributed before), the d3d readback gates on
+	a finished scene and a 32bpp back buffer format, both readbacks
+	disarm and the shutdowns clear the pointers, and the export
+	module caught two of its own: the renderer words fell through
+	to the usage box - a modal message the hidden harness window
+	could never dismiss - and the config pins missed the shrink
+	gate, the auto zoom, the animation re-assert and the windowed
+	background color (a developer machine's custom mat would have
+	leaked into the goldens).
+
+Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)
 
 	the round answers a fresh external audit of the tree with evidence
 	first. two of the audit's renderer claims retire on the spot. the

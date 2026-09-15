@@ -38,6 +38,7 @@
 #include "viv_dark.h"
 #include "viv_dialogs.h"
 #include "viv_view.h"
+#include "viv_export.h"
 #include "viv_install.h"
 #include "viv_menu.h"
 
@@ -1020,7 +1021,10 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			// the open burst is over, write the settings once.
 			KillTimer(hwnd,VIV_ID_RECENT_SAVE_TIMER);
 			
-			if (_viv_recent_save_dirty)
+			// a render export never writes the ini back: the command line
+			// load still dirties the mru, but the pinned export settings are
+			// harness state, not user state.
+			if ((!_viv_export_mode) && (_viv_recent_save_dirty))
 			{
 				_viv_recent_save_dirty = 0;
 				

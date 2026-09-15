@@ -51,6 +51,8 @@ typedef void (__stdcall *_viv_gl_texcoord2f_t)(GLfloat,GLfloat);
 typedef void (__stdcall *_viv_gl_vertex2f_t)(GLfloat,GLfloat);
 typedef void (__stdcall *_viv_gl_clearcolor_t)(GLclampf,GLclampf,GLclampf,GLclampf);
 typedef void (__stdcall *_viv_gl_clear_t)(GLbitfield);
+typedef void (__stdcall *_viv_gl_readpixels_t)(GLint,GLint,GLsizei,GLsizei,GLenum,GLenum,GLvoid *);
+typedef void (__stdcall *_viv_gl_readbuffer_t)(GLenum);
 
 static HMODULE _viv_gl_module;
 static _viv_gl_wglCreateContext_t _viv_gl_wglCreateContext;
@@ -76,6 +78,8 @@ static _viv_gl_texcoord2f_t _viv_gl_texcoord2f;
 static _viv_gl_vertex2f_t _viv_gl_vertex2f;
 static _viv_gl_clearcolor_t _viv_gl_clearcolor;
 static _viv_gl_clear_t _viv_gl_clear;
+static _viv_gl_readpixels_t _viv_gl_readpixels;
+static _viv_gl_readbuffer_t _viv_gl_readbuffer;
 
 static HGLRC _viv_gl_context;
 static HWND _viv_gl_pixel_format_hwnd;
@@ -87,6 +91,13 @@ static int _viv_gl_bgra;
 static GLfloat _viv_gl_u;
 static GLfloat _viv_gl_v;
 static int _viv_gl_bottom_up;
+
+// the export harness readback state: a top-down bgra buffer armed before
+// the paint, filled by the render instead of a present.
+static BYTE *_viv_gl_export_bits;
+static int _viv_gl_export_wide;
+static int _viv_gl_export_high;
+static int _viv_gl_export_filled;
 
 static int _viv_gl_procs(void)
 {
@@ -123,6 +134,8 @@ static int _viv_gl_procs(void)
 		_viv_gl_vertex2f = (_viv_gl_vertex2f_t)GetProcAddress(_viv_gl_module,"glVertex2f");
 		_viv_gl_clearcolor = (_viv_gl_clearcolor_t)GetProcAddress(_viv_gl_module,"glClearColor");
 		_viv_gl_clear = (_viv_gl_clear_t)GetProcAddress(_viv_gl_module,"glClear");
+		_viv_gl_readpixels = (_viv_gl_readpixels_t)GetProcAddress(_viv_gl_module,"glReadPixels");
+		_viv_gl_readbuffer = (_viv_gl_readbuffer_t)GetProcAddress(_viv_gl_module,"glReadBuffer");
 	}
 	
 	return (_viv_gl_wglCreateContext) && (_viv_gl_wglMakeCurrent) && (_viv_gl_wglDeleteContext) && (_viv_gl_getstring) && (_viv_gl_getintegerv) && (_viv_gl_viewport) && (_viv_gl_matrixmode) && (_viv_gl_loadidentity) && (_viv_gl_ortho) && (_viv_gl_pixelstorei) && (_viv_gl_gentextures) && (_viv_gl_bindtexture) && (_viv_gl_teximage2d) && (_viv_gl_texparameteri) && (_viv_gl_deletetextures) && (_viv_gl_enable) && (_viv_gl_disable) && (_viv_gl_begin) && (_viv_gl_end) && (_viv_gl_texcoord2f) && (_viv_gl_vertex2f) && (_viv_gl_clearcolor) && (_viv_gl_clear);
@@ -176,7 +189,9 @@ static int _viv_gl_has_extension(const char *name)
 // format: setpixelformat binds to the window the dc belongs to, and a
 // fresh window without its own format fails every wglmakecurrent (the
 // defensive path - the viewer's main window lives as long as the
-// session, the guard keeps a hypothetical recreate honest).
+// session, the guard keeps a hypothetical recreate honest) - and the
+// context rebuilds with it, the same-format contract leaves the old
+// rc unusable on a differently formatted dc.
 static int _viv_gl_context_create(HWND hwnd,HDC hdc)
 {
 	if (hwnd != _viv_gl_pixel_format_hwnd)
@@ -210,6 +225,26 @@ static int _viv_gl_context_create(HWND hwnd,HDC hdc)
 		}
 		
 		_viv_gl_pixel_format_hwnd = hwnd;
+		
+		// a fresh window means a fresh context. the wglMakeCurrent
+		// contract demands the dc answer "the same device and the
+		// same pixel format" the rc was created against (the msdn
+		// wording, second-verified), and choosepixelformat owes no
+		// index stability across windows - keeping the old rc on
+		// the new dc leaves every later wglMakeCurrent one format
+		// mismatch away from a session-wide _viv_gl_failed (the
+		// original refusal wearing a more hidden shell). the
+		// context delete frees its texture with it; the last
+		// hbitmap reset makes the next frame rebuild the whole
+		// state against the new context.
+		if (_viv_gl_context)
+		{
+			_viv_gl_wglMakeCurrent(NULL,NULL);
+			_viv_gl_wglDeleteContext(_viv_gl_context);
+			_viv_gl_context = 0;
+			_viv_gl_texture = 0;
+			_viv_gl_last_hbitmap = 0;
+		}
 	}
 	
 	if (!_viv_gl_context)
@@ -299,7 +334,11 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		pot_high <<= 1;
 	}
 	
-	if ((pot_wide < wide) || (pot_high < high))
+	// the max clause answers the overshoot: a non power of two max texture size
+	// can sit between two powers, and the loop above lands past it (the
+	// refusal check below only compares against the image, the texture the
+	// device would refuse answers here instead - silently, at draw time).
+	if ((pot_wide < wide) || (pot_high < high) || (pot_wide > _viv_gl_max_texture) || (pot_high > _viv_gl_max_texture))
 	{
 		debug_printf("opengl: the image exceeds the max texture size (%d)\r\n",_viv_gl_max_texture);
 		
@@ -329,12 +368,6 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	{
 		return 0;
 	}
-	
-	// the padding must not carry allocation garbage: the copy loop below
-	// leaves the right-hand gutter and every row under the image
-	// untouched, and the linear sampler's half texel at the sub-rectangle
-	// edge can still reach them.
-	ZeroMemory(buf,size);
 	
 	{
 		const BYTE *s;
@@ -389,6 +422,47 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		}
 	}
 	
+	// the pad must answer as if the texture border sat at the image
+	// border. the linear sampler's half texel at the sub-rectangle
+	// edge reads the neighbouring texel, and the clamp modes only
+	// answer at the texture's own border - never at a sub-rectangle
+	// inside it. so the right-hand gutter carries the image's last
+	// column and every row under the image carries the image's last
+	// row (gutter included, so the corner holds the bottom-right
+	// pixel). a merely zeroed pad would stop the stale garbage but
+	// still average black into the outermost destination pixels on
+	// a heavy upscale; the replication is the clamp the image's own
+	// edges imply.
+	if ((pot_wide > wide) || (pot_high > high))
+	{
+		int bpp;
+		int y;
+		
+		bpp = (format == GL_BGR_EXT) ? 3 : 4;
+		
+		for(y=0;y<high;y++)
+		{
+			BYTE *row;
+			const BYTE *last;
+			int x;
+			
+			row = buf + (uintptr_t)y * (uintptr_t)pot_wide * (uintptr_t)bpp;
+			last = row + (uintptr_t)(wide - 1) * (uintptr_t)bpp;
+			
+			for(x=wide;x<pot_wide;x++)
+			{
+				memcpy(row + (uintptr_t)x * (uintptr_t)bpp,last,(size_t)bpp);
+			}
+		}
+		
+		for(y=high;y<pot_high;y++)
+		{
+			memcpy(buf + (uintptr_t)y * (uintptr_t)pot_wide * (uintptr_t)bpp,
+			       buf + (uintptr_t)(y - 1) * (uintptr_t)pot_wide * (uintptr_t)bpp,
+			       (uintptr_t)pot_wide * (uintptr_t)bpp);
+		}
+	}
+	
 	_viv_gl_pixelstorei(GL_UNPACK_ALIGNMENT,1);
 	_viv_gl_bindtexture(GL_TEXTURE_2D,_viv_gl_texture);
 	_viv_gl_teximage2d(GL_TEXTURE_2D,0,GL_RGB,pot_wide,pot_high,0,format,GL_UNSIGNED_BYTE,buf);
@@ -405,6 +479,79 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	_viv_gl_last_hbitmap = hbitmap;
 	
 	return 1;
+}
+
+// the export readback: the back buffer holds the frame, the read buffer
+// is pinned to GL_BACK (the double buffered default, made explicit), and
+// the rows arrive bottom-up - the export buffer is top-down bgra with
+// the reserved byte pinned to zero (the hash must never see undefined
+// bytes). bgra rides the same extension the upload probes; the rgba
+// fallback swizzles as it copies.
+static void _viv_gl_export_readback(int wide,int high)
+{
+	BYTE *tmp;
+	
+	if ((!_viv_gl_readpixels) || (wide != _viv_gl_export_wide) || (high != _viv_gl_export_high))
+	{
+		return;
+	}
+	
+	tmp = (BYTE *)mem_alloc((uintptr_t)wide * (uintptr_t)high * 4);
+	if (!tmp)
+	{
+		return;
+	}
+	
+	if (_viv_gl_readbuffer)
+	{
+		_viv_gl_readbuffer(GL_BACK);
+	}
+	
+	_viv_gl_readpixels(0,0,wide,high,_viv_gl_bgra ? GL_BGRA_EXT : GL_RGBA,GL_UNSIGNED_BYTE,tmp);
+	
+	{
+		int y;
+		
+		for(y=0;y<high;y++)
+		{
+			const BYTE *s;
+			BYTE *d;
+			int x;
+			
+			s = tmp + (uintptr_t)(high - 1 - y) * (uintptr_t)wide * 4;
+			d = _viv_gl_export_bits + (uintptr_t)y * (uintptr_t)wide * 4;
+			
+			if (_viv_gl_bgra)
+			{
+				memcpy(d,s,(uintptr_t)wide * 4);
+				
+				for(x=0;x<wide;x++)
+				{
+					d[x * 4 + 3] = 0;
+				}
+			}
+			else
+			{
+				for(x=0;x<wide;x++)
+				{
+					d[0] = s[2];
+					d[1] = s[1];
+					d[2] = s[0];
+					d[3] = 0;
+					s += 4;
+					d += 4;
+				}
+			}
+		}
+	}
+	
+	mem_free(tmp);
+	
+	// the disarm: the buffer belongs to the caller (freed right after the
+	// run) - a second render must never touch it again, and a session that
+	// ever grew a second caller must keep its presents.
+	_viv_gl_export_bits = 0;
+	_viv_gl_export_filled = 1;
 }
 
 int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int dst_wide,int dst_high,COLORREF clear_color)
@@ -525,7 +672,14 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	
 	_viv_gl_disable(GL_TEXTURE_2D);
 	
-	SwapBuffers(hdc);
+	if (_viv_gl_export_bits)
+	{
+		_viv_gl_export_readback(wide,high);
+	}
+	else
+	{
+		SwapBuffers(hdc);
+	}
 	
 	return 1;
 }
@@ -549,6 +703,28 @@ void _viv_hwgl_shutdown(void)
 	_viv_gl_last_hbitmap = 0;
 	_viv_gl_failed = 0;
 	// the pixel format hwnd stays: the window keeps its format (the
+	// the export pointer dies with the caller's buffer - the shutdown
+	// clears it so no later session state can point at freed memory.
+	_viv_gl_export_bits = 0;
 	// setPixelFormat contract answers once), a recreated window sets its
 	// own.
+}
+
+// the export harness hooks: arm a top-down bgra buffer before the paint,
+// the next render fills it instead of presenting. the query lets the
+// harness tell a refused renderer (the gdi fallback painted instead)
+// from a successful readback.
+int _viv_hwgl_export_begin(BYTE *bits,int wide,int high)
+{
+	_viv_gl_export_bits = bits;
+	_viv_gl_export_wide = wide;
+	_viv_gl_export_high = high;
+	_viv_gl_export_filled = 0;
+	
+	return 1;
+}
+
+int _viv_hwgl_export_filled(void)
+{
+	return _viv_gl_export_filled;
 }

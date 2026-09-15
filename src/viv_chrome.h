@@ -32,6 +32,9 @@ void _viv_on_size(void);
 HBRUSH _viv_dark_chrome_brush(int which);
 int _viv_paint_begin(HDC hdc,int wide,int high);
 void _viv_paint_kill(void);
+// read the cached paint backbuffer out as top-down 32bpp bgra (the
+// export harness readback).
+int _viv_paint_readback(BYTE *bits,int wide,int high);
 void _viv_toggle_fullscreen(void);
 HFONT _viv_menu_font(void);
 void _viv_menu_font_drop(void);

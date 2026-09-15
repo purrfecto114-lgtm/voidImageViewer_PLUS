@@ -556,6 +556,59 @@ void _viv_paint_kill(void)
 	_viv_paint_wide = 0;
 	_viv_paint_high = 0;
 }
+// read the cached backbuffer out as top-down 32bpp bgra. the export
+// harness pixel oracle (viv_export.c) calls this after the paint: the
+// bitmap is selected into the paint dc, so it steps out for the
+// getdibits call (getdibits refuses a selected bitmap) and back in
+// after.
+int _viv_paint_readback(BYTE *bits,int wide,int high)
+{
+	HDC screen_hdc;
+	BITMAPINFO bmi;
+	int ret;
+	
+	if ((!_viv_paint_hdc) || (!_viv_paint_hbitmap) || (_viv_paint_wide != wide) || (_viv_paint_high != high))
+	{
+		return 0;
+	}
+	
+	screen_hdc = GetDC(0);
+	
+	if (!screen_hdc)
+	{
+		return 0;
+	}
+	
+	ret = 0;
+	
+	if (_viv_paint_last_hbitmap)
+	{
+		SelectObject(_viv_paint_hdc,_viv_paint_last_hbitmap);
+	}
+	
+	ZeroMemory(&bmi,sizeof(bmi));
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biWidth = wide;
+	bmi.bmiHeader.biHeight = -high; // top-down.
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 32;
+	bmi.bmiHeader.biCompression = BI_RGB;
+	
+	if (GetDIBits(screen_hdc,_viv_paint_hbitmap,0,high,bits,&bmi,DIB_RGB_COLORS) == high)
+	{
+		ret = 1;
+	}
+	
+	if (_viv_paint_last_hbitmap)
+	{
+		_viv_paint_last_hbitmap = SelectObject(_viv_paint_hdc,_viv_paint_hbitmap);
+	}
+	
+	ReleaseDC(0,screen_hdc);
+	
+	return ret;
+}
+
 void _viv_toggle_fullscreen(void)
 {
 	DWORD style;

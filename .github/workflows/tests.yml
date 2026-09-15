@@ -19,6 +19,12 @@ on:
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:
+    inputs:
+      bootstrap-golden:
+        description: 'regenerate tests/golden/golden-manifest.json from this build (then download the artifact and commit it)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   tests:
@@ -39,6 +45,9 @@ jobs:
 
       - name: Second-rework simulation tests (the 1.1.07 check)
         run: python3 tests/simulation_test.py
+
+      - name: Pixel golden harness structure tests
+        run: python3 tests/pixel_golden_test.py
 
   # Compile both shipping configurations on every push (since rc.2), pull
   # request, tag and daily schedule so a build break is caught before
@@ -97,3 +106,33 @@ jobs:
         if: matrix.runner == 'windows-2022'
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File tests\smoke_test.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
+
+      # the pixel oracle: the hidden render export walks the real pipeline
+      # and the golden hashes pin the exact pixels (the decode, the fit
+      # math, the backdrop, the alpha flattening and each renderer's own
+      # sampling). the strict comparison only runs once the manifest is
+      # tracked - before the bootstrap it stays soft so the pre-golden
+      # pushes stay green (the dispatch input regenerates the manifest
+      # for a maintainer to commit; a deleted manifest cannot silently
+      # downgrade the gate, the ls-files check answers the tracked state).
+      - name: Pixel golden test (the bitmap hash oracle)
+        if: matrix.runner == 'windows-2022'
+        shell: powershell
+        env:
+          BOOTSTRAP_GOLDEN: ${{ github.event_name == 'workflow_dispatch' && inputs.bootstrap-golden }}
+        run: |
+          $tracked = git ls-files tests/golden/golden-manifest.json
+          if ($env:BOOTSTRAP_GOLDEN -eq 'true') {
+            powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples" -UpdateGolden
+          } elseif ($tracked) {
+            powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
+          } else {
+            Write-Host "golden manifest not bootstrapped yet - the strict pixel comparison waits for the dispatch bootstrap (see the workflow inputs)"
+          }
+
+      - name: Upload the bootstrapped golden manifest
+        if: matrix.runner == 'windows-2022' && github.event_name == 'workflow_dispatch' && inputs.bootstrap-golden
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: golden-manifest
+          path: tests/golden/golden-manifest.json

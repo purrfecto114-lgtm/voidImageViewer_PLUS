@@ -47,6 +47,7 @@
 #include "viv_menu.h"
 #include "viv_wndproc.h"
 #include "viv_selfshot.h"
+#include "viv_export.h"
 
 // the recent-files mru command ids run VIV_ID_FILE_RECENT_0 .. +count-1 and
 // the menu builder emits ids straight off that base. this compile-time check
@@ -781,6 +782,33 @@ void _viv_process_command_line(wchar_t *cl)
 				_viv_send_everything_search(0,0,1,buf);
 			}
 			else
+			if (string_icompare_lowercase_ascii(bufstart,"render-export") == 0)
+			{
+				// the hidden render export owns its own early parse
+				// (viv_export.c answers before the mutex); this case
+				// only swallows the value word so the output path never
+				// reads as a file to open.
+				p = string_get_word(p,buf,STRING_SIZE);
+				p = string_skip_ws(p);
+			}
+			else
+			if (string_icompare_lowercase_ascii(bufstart,"render-size") == 0)
+			{
+				p = string_get_word(p,buf,STRING_SIZE);
+				p = string_skip_ws(p);
+			}
+			else
+			if ((string_icompare_lowercase_ascii(bufstart,"render-gdi") == 0) ||
+			    (string_icompare_lowercase_ascii(bufstart,"render-gl") == 0) ||
+			    (string_icompare_lowercase_ascii(bufstart,"render-d3d") == 0))
+			{
+				// the renderer words are value-less: the export probe
+				// (viv_export.c) already answered them. without this case
+				// they fall through to the usage box - a modal message the
+				// harness export could never dismiss (its window is hidden
+				// and its process waits for a click that never comes).
+			}
+			else
 			if (string_icompare_lowercase_ascii(bufstart,"minimal") == 0)
 			{
 				_viv_command(VIV_ID_VIEW_PRESET_1);
@@ -1062,6 +1090,12 @@ static int _viv_init(int nCmdShow)
 	
 	os_init();
 	localization_init(); // Initialize language system
+	
+	// the render export probe answers before anything else can claim
+	// the process: a render export never touches the installer and
+	// never redirects to a live single instance.
+	_viv_export_probe_command_line();
+	
 	show_maximized = 0;
 	
 	debug_printf("%u\n",sizeof(_viv_key_list_t));
@@ -1159,11 +1193,21 @@ static int _viv_init(int nCmdShow)
 	// so the dark mode applies from the very first draw.
 	os_dark_set_app_mode(config_dark_mode);
 	
+	// the render export pins its own deterministic settings over
+	// whatever the ini just answered (the harness bytes must not vary
+	// by host).
+	if (_viv_export_mode)
+	{
+		_viv_export_apply_config_pins();
+	}
+	
 	// config_maximized will be overwritten when we show are normal window
 	// so save it now and apply it later.
 	show_maximized = config_maximized;
 	
-	// process install command line options
+	// process install command line options (a render export never
+	// touches the installer)
+	if (!_viv_export_mode)
 	{
 		if (_viv_process_install_command_line_options(GetCommandLineW()))
 		{
@@ -1173,8 +1217,9 @@ static int _viv_init(int nCmdShow)
 		}
 	}
 
-	// mutex
-	if (!config_multiple_instances)
+	// mutex (a render export is a headless one shot: it never redirects
+	// to a live viewer and it must answer even when one is running)
+	if ((!_viv_export_mode) && (!config_multiple_instances))
 	{
 		SetLastError(0);
 
@@ -1311,6 +1356,14 @@ static int _viv_init(int nCmdShow)
 	// the first strip is built from the globals.
 	os_window_update_dpi(_viv_hwnd);
 
+	// the render export canvas: the client must answer the exact export
+	// size before the first frame arrives (the fit math reads the live
+	// client rect).
+	if (_viv_export_mode)
+	{
+		_viv_export_resize_window();
+	}
+	
 	// the frame icons ride the window dpi from the first show (the
 	// class icons stay as the fallback).
 	_viv_icons_apply(_viv_hwnd);
@@ -1356,13 +1409,13 @@ static int _viv_init(int nCmdShow)
 	
 	// default is to shownormal.
 	// if its anything else, like minimize/maximize to that before we apply the command line.
-	if (si.wShowWindow != SW_SHOWNORMAL)
+	if ((!_viv_export_mode) && (si.wShowWindow != SW_SHOWNORMAL))
 	{
 		ShowWindow(_viv_hwnd,si.wShowWindow);
 		UpdateWindow(_viv_hwnd);
 	}
 	
-	if (show_maximized)
+	if ((!_viv_export_mode) && (show_maximized))
 	{
 		ShowWindow(_viv_hwnd,SW_MAXIMIZE);
 	}
@@ -1370,8 +1423,9 @@ static int _viv_init(int nCmdShow)
 	_viv_process_command_line(GetCommandLineW());
 
 	// if we didn't show the window above, make sure it 
-	// is shown now.
-	if (si.wShowWindow == SW_SHOWNORMAL)
+	// is shown now (a render export stays hidden - the pixels answer
+	// to the harness, not the screen).
+	if ((!_viv_export_mode) && (si.wShowWindow == SW_SHOWNORMAL))
 	{
 		ShowWindow(_viv_hwnd,SW_SHOW);
 		UpdateWindow(_viv_hwnd);
@@ -1587,6 +1641,19 @@ static int _viv_main(int nCmdShow)
 {
 	if (_viv_init(nCmdShow))
 	{
+		// the render export: one pump, one paint, one bitmap, one exit
+		// code - the pixel regression harness contract (viv_export.c).
+		if (_viv_export_mode)
+		{
+			int export_ret;
+			
+			export_ret = _viv_export_run();
+			
+			_viv_kill();
+			
+			return export_ret;
+		}
+		
 #ifdef VIVP_SELF_SHOT
 		vivp_selfshot_init();
 #endif

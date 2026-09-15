@@ -35,4 +35,11 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 // releases the device, the d3d object and the texture.
 void _viv_hwd3d_shutdown(void);
 
+// the export harness hooks (viv_export.c): arm a top-down bgra buffer
+// before the paint, the next render fills it instead of presenting. the
+// query tells a refused renderer (the gdi fallback painted instead)
+// from a successful readback.
+int _viv_hwd3d_export_begin(BYTE *bits,int wide,int high);
+int _viv_hwd3d_export_filled(void);
+
 #endif

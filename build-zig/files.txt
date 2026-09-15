@@ -81,6 +81,7 @@ src/viv_anim.c
 src/viv_chrome.c
 src/viv_dark.c
 src/viv_dialogs.c
+src/viv_export.c
 src/viv_install.c
 src/viv_load.c
 src/viv_menu.c

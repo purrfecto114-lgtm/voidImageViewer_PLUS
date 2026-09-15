@@ -59,6 +59,15 @@ static float _viv_d3d_u;
 static float _viv_d3d_v;
 static int _viv_d3d_bottom_up;
 
+// the export harness readback state: a top-down bgra buffer armed before
+// the paint, filled by the render instead of a present.
+static BYTE *_viv_d3d_export_bits;
+static int _viv_d3d_export_wide;
+static int _viv_d3d_export_high;
+static int _viv_d3d_export_filled;
+
+static void _viv_d3d_export_readback(void);
+
 static int _viv_d3d_init(HWND hwnd)
 {
 	D3DCAPS9 caps;
@@ -235,7 +244,11 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		}
 	}
 	
-	if ((pot_wide < wide) || (pot_high < high))
+	// the max clauses answer the overshoots: a non power of two max can sit
+	// between two powers (the loop lands past it) and the square promote can
+	// lift the short side past its own max - the device would refuse the
+	// create either way, with the diagnostic blaming the wrong gate.
+	if ((pot_wide < wide) || (pot_high < high) || (pot_wide > _viv_d3d_max_wide) || (pot_high > _viv_d3d_max_high))
 	{
 		debug_printf("direct3d: the image exceeds the max texture size\r\n");
 		
@@ -252,8 +265,9 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	// the reuse gate: an animation frame with the same padded
 	// dimensions refills the managed texture in place - the
 	// release/create cycle only answers a dimension change (the
-	// lock below rewrites every texel either way, and the managed
-	// pool survives the resets by contract).
+	// copy loop only rewrites the image's own texels, the edge
+	// replication below rewrites the pad every upload, and the
+	// managed pool survives the resets by contract).
 	if ((_viv_d3d_texture) && ((pot_wide != _viv_d3d_last_pot_wide) || (pot_high != _viv_d3d_last_pot_high)))
 	{
 		_viv_d3d_texture->lpVtbl->Release(_viv_d3d_texture);
@@ -318,6 +332,52 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		}
 	}
 	
+	// the pad must answer as if the texture border sat at the image
+	// border. the linear sampler's half texel at the sub-rectangle
+	// edge reads the neighbouring texel (d3d9 maps the address range
+	// onto the [-0.5, n-0.5] texel row), and clamp only answers at
+	// the texture's own border - never at a sub-rectangle inside it.
+	// so the right-hand gutter carries the image's last column and
+	// every row under the image carries the image's last row (gutter
+	// included, so the corner holds the bottom-right pixel). a
+	// reused texture cannot bleed the previous frame's pixels back
+	// in, and the outermost destination pixels stop averaging into
+	// whatever the pad used to hold.
+	if ((pot_wide > wide) || (pot_high > high))
+	{
+		const BYTE *last_row;
+		BYTE *base;
+		int y;
+		int x;
+		
+		base = (BYTE *)locked.pBits;
+		
+		for(y=0;y<high;y++)
+		{
+			const BYTE *last;
+			BYTE *d;
+			
+			last = base + (uintptr_t)y * (uintptr_t)locked.Pitch + (uintptr_t)(wide - 1) * 4;
+			d = base + (uintptr_t)y * (uintptr_t)locked.Pitch + (uintptr_t)wide * 4;
+			
+			for(x=wide;x<pot_wide;x++)
+			{
+				d[0] = last[0];
+				d[1] = last[1];
+				d[2] = last[2];
+				d[3] = 255;
+				d += 4;
+			}
+		}
+		
+		last_row = base + (uintptr_t)(high - 1) * (uintptr_t)locked.Pitch;
+		
+		for(y=high;y<pot_high;y++)
+		{
+			memcpy(base + (uintptr_t)y * (uintptr_t)locked.Pitch,last_row,(uintptr_t)pot_wide * 4);
+		}
+	}
+	
 	_viv_d3d_texture->lpVtbl->UnlockRect(_viv_d3d_texture,0);
 	
 	_viv_d3d_u = (float)wide / (float)pot_wide;
@@ -333,6 +393,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	DIBSECTION ds;
 	_viv_d3d_vertex_t verts[4];
 	HRESULT hresult;
+	int scene_ok;
 	float x;
 	float y;
 	float w;
@@ -412,8 +473,12 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	
 	hresult = _viv_d3d_device->lpVtbl->BeginScene(_viv_d3d_device);
 	
+	scene_ok = 0;
+	
 	if (SUCCEEDED(hresult))
 	{
+		scene_ok = 1;
+		
 		x = (float)dst_x;
 		y = (float)dst_y;
 		w = (float)dst_wide;
@@ -475,25 +540,111 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 		_viv_d3d_device->lpVtbl->EndScene(_viv_d3d_device);
 	}
 	
-	hresult = _viv_d3d_device->lpVtbl->Present(_viv_d3d_device,0,0,0,0);
-	
-	if (hresult == D3DERR_DEVICELOST)
+	// the scene gate: a refused beginscene leaves the back buffer with the
+	// clear only - the harness must see the refusal, not a blank hash.
+	if ((_viv_d3d_export_bits) && (scene_ok))
 	{
-		// the lost-device discipline: not-reset resets now, a plain lost
-		// waits for the next paint (the managed texture survives either
-		// way; the gdi path already painted this frame).
-		hresult = _viv_d3d_device->lpVtbl->TestCooperativeLevel(_viv_d3d_device);
+		_viv_d3d_export_readback();
+	}
+	else
+	{
+		hresult = _viv_d3d_device->lpVtbl->Present(_viv_d3d_device,0,0,0,0);
 		
-		if (hresult == D3DERR_DEVICENOTRESET)
+		if (hresult == D3DERR_DEVICELOST)
 		{
-			_viv_d3d_params.BackBufferWidth = _viv_d3d_client_wide;
-			_viv_d3d_params.BackBufferHeight = _viv_d3d_client_high;
-			
-			_viv_d3d_device->lpVtbl->Reset(_viv_d3d_device,&_viv_d3d_params);
+			// the lost-device discipline: not-reset resets now, a plain lost
+			// waits for the next paint (the managed texture survives either
+			// way; this frame is dropped, the next paint answers it).
+			hresult = _viv_d3d_device->lpVtbl->TestCooperativeLevel(_viv_d3d_device);
+		
+			if (hresult == D3DERR_DEVICENOTRESET)
+			{
+				_viv_d3d_params.BackBufferWidth = _viv_d3d_client_wide;
+				_viv_d3d_params.BackBufferHeight = _viv_d3d_client_high;
+				
+				_viv_d3d_device->lpVtbl->Reset(_viv_d3d_device,&_viv_d3d_params);
+			}
 		}
 	}
 	
 	return 1;
+}
+
+// the export readback: the back buffer holds the frame (the clear, the
+// quad, the whole scene). getrendertargetdata lands it in a system
+// memory surface, the lock walks the pitch, and the export buffer takes
+// top-down bgra rows with the reserved byte pinned to zero - the x byte
+// of an x8r8g8b8 back buffer answers undefined values and the hash must
+// never see them.
+static void _viv_d3d_export_readback(void)
+{
+	IDirect3DSurface9 *backbuffer;
+	IDirect3DSurface9 *sysmem;
+	
+	backbuffer = 0;
+	sysmem = 0;
+	
+	if (SUCCEEDED(_viv_d3d_device->lpVtbl->GetBackBuffer(_viv_d3d_device,0,0,D3DBACKBUFFER_TYPE_MONO,&backbuffer)))
+	{
+		D3DSURFACE_DESC desc;
+		
+		ZeroMemory(&desc,sizeof(desc));
+		
+		// the format guard: the walk below assumes 4 byte pixels - a 16bpp
+		// desktop would hand the walk garbage with a clean fill flag.
+		if ((SUCCEEDED(backbuffer->lpVtbl->GetDesc(backbuffer,&desc))) && (desc.Width == (UINT)_viv_d3d_export_wide) && (desc.Height == (UINT)_viv_d3d_export_high) && ((desc.Format == D3DFMT_X8R8G8B8) || (desc.Format == D3DFMT_A8R8G8B8)))
+		{
+			if (SUCCEEDED(_viv_d3d_device->lpVtbl->CreateOffscreenPlainSurface(_viv_d3d_device,desc.Width,desc.Height,desc.Format,D3DPOOL_SYSTEMMEM,&sysmem,0)))
+			{
+				if (SUCCEEDED(_viv_d3d_device->lpVtbl->GetRenderTargetData(_viv_d3d_device,backbuffer,sysmem)))
+				{
+					D3DLOCKED_RECT sys_locked;
+					
+					if (SUCCEEDED(sysmem->lpVtbl->LockRect(sysmem,&sys_locked,0,0)))
+					{
+						int y;
+						int x;
+						
+						for(y=0;y<_viv_d3d_export_high;y++)
+						{
+							const BYTE *s;
+							BYTE *d;
+							
+							s = (const BYTE *)sys_locked.pBits + (uintptr_t)y * (uintptr_t)sys_locked.Pitch;
+							d = _viv_d3d_export_bits + (uintptr_t)y * (uintptr_t)_viv_d3d_export_wide * 4;
+							
+							for(x=0;x<_viv_d3d_export_wide;x++)
+							{
+								d[0] = s[0];
+								d[1] = s[1];
+								d[2] = s[2];
+								d[3] = 0;
+								s += 4;
+								d += 4;
+							}
+						}
+						
+						sysmem->lpVtbl->UnlockRect(sysmem);
+						
+						// the disarm: the buffer belongs to the caller (freed right
+						// after the run) - a second render must never touch it.
+						_viv_d3d_export_bits = 0;
+						_viv_d3d_export_filled = 1;
+					}
+				}
+			}
+		}
+	}
+	
+	if (sysmem)
+	{
+		sysmem->lpVtbl->Release(sysmem);
+	}
+	
+	if (backbuffer)
+	{
+		backbuffer->lpVtbl->Release(backbuffer);
+	}
 }
 
 void _viv_hwd3d_shutdown(void)
@@ -525,4 +676,26 @@ void _viv_hwd3d_shutdown(void)
 	_viv_d3d_failed = 0;
 	_viv_d3d_client_wide = 0;
 	_viv_d3d_client_high = 0;
+	// the export pointer dies with the caller's buffer - the shutdown
+	// clears it so no later session state can point at freed memory.
+	_viv_d3d_export_bits = 0;
+}
+
+// the export harness hooks: arm a top-down bgra buffer before the paint,
+// the next render fills it instead of presenting. the query lets the
+// harness tell a refused renderer (the gdi fallback painted instead)
+// from a successful readback.
+int _viv_hwd3d_export_begin(BYTE *bits,int wide,int high)
+{
+	_viv_d3d_export_bits = bits;
+	_viv_d3d_export_wide = wide;
+	_viv_d3d_export_high = high;
+	_viv_d3d_export_filled = 0;
+	
+	return 1;
+}
+
+int _viv_hwd3d_export_filled(void)
+{
+	return _viv_d3d_export_filled;
 }

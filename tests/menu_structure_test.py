@@ -342,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.14-rc.4.72 pre-release (the corner and audit response round)",
-          (major, minor, rev, build) == ("1", "1", "14", "72") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.14-rc.4 tag)",
-          vstr == "1.1.14-rc.4")
+    check("version.h = 1.1.14-rc.5.73 pre-release (the pixel oracle round)",
+          (major, minor, rev, build) == ("1", "1", "14", "73") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.14-rc.5 tag)",
+          vstr == "1.1.14-rc.5")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1020,7 +1020,7 @@ def t_review_fixes():
     check("string_get_word clamps both copy branches",
           stc.count("if (d - buf < buf_size - 1)") == 2)
     check("all viv.c callers pass STRING_SIZE",
-          viv.count("string_get_word(p,buf,STRING_SIZE)") == 11 and
+          viv.count("string_get_word(p,buf,STRING_SIZE)") == 17 and
           "string_get_word(p,install_path,STRING_SIZE)" in viv and
           "string_get_word(p,language_wbuf,STRING_SIZE)" in viv)
 
@@ -1357,7 +1357,7 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 103)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders + the R96 gl, d3d and shell menu modules
+          len(re.findall(r"<ClCompile ", fp)) == 104)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders + the R96 gl, d3d and shell menu modules + the R102 export module
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
     check("shared props has the resource script and the app icon only",
@@ -1465,9 +1465,9 @@ def t_modernization_round6():
     check("glyphs.c/h exist and are in the shared props",
           os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
           and "glyphs.c" in fp and "glyphs.h" in fp)
-    check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair, the remake pair and the R96 renderers",
-          len(re.findall(r"<ClCompile ", fp)) == 103
-          and len(re.findall(r"<ClInclude ", fp)) == 72)
+    check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair, the remake pair, the R96 renderers and the R102 export module",
+          len(re.findall(r"<ClCompile ", fp)) == 104
+          and len(re.findall(r"<ClInclude ", fp)) == 73)
     check("glyphs.c loads its own gdi+ flat api table",
           '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
           and '"GdipCreateBitmapFromScan0"' in gc
@@ -2425,8 +2425,8 @@ def t_field_fixes_round43():
           "KillTimer(hwnd,VIV_ID_RECENT_SAVE_TIMER);" in viv)
     i = viv.find("case VIV_ID_RECENT_SAVE_TIMER:")
     seg = viv[i:viv.find("case VIV_ID_STATUS_TEMP_TEXT_TIMER:", i)]
-    check("the timer save is dirty-gated",
-          "if (_viv_recent_save_dirty)" in seg and
+    check("the timer save is dirty-gated (and never fires for a render export)",
+          "if ((!_viv_export_mode) && (_viv_recent_save_dirty))" in seg and
           "config_save_settings(config_appdata);" in seg)
     check("the exit path folds the pending write",
           re.search(r"(?:static\s+)?void _viv_recent_save_fold\(void\)", viv) is not None and
@@ -3091,8 +3091,8 @@ def t_about_band_round64():
           "_APS_NEXT_CONTROL_VALUE         1076" in ids)
 
     version = read("src/version.h").decode("latin-1")
-    check("the release candidate line moves to build 66 (the 1.1.14-rc.4 pins ride it)",
-          "#define VERSION_BUILD 72" in version)
+    check("the release candidate line rides the current build (the pixel oracle round sweeps the pin)",
+          "#define VERSION_BUILD 73" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3162,9 +3162,9 @@ def t_white_band_round67():
           "_VIV_REBAR" not in viv)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.14-rc.4 pins ride it)",
-          "#define VERSION_BUILD 72" in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
+          "#define VERSION_BUILD 73" in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3214,7 +3214,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 30300)  # rc.5 recalibration: the dead residue round trimmed the splice (measured 30159)
+          viv_lines >= 21130 and viv_lines <= 31100)  # round-102 recalibration: the export module joins the splice (measured 30548)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3275,7 +3275,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 30300, f"({total})")  # rc.5 recalibration (the dead residue round measured 30159)
+          21130 <= total <= 31100, f"({total})")  # round-102 recalibration (the export module measured 30548)
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3355,12 +3355,13 @@ def t_structure_round76():
     #    a new domain must be added here (and to the props) on purpose.
     actual = sorted(os.path.basename(p) for p in glob.glob("src/viv_*.c"))
     expected = ["viv_anim.c", "viv_chrome.c", "viv_dark.c", "viv_dialogs.c",
-                "viv_install.c", "viv_load.c", "viv_menu.c", "viv_menubar.c",
-                "viv_msgbox.c", "viv_playlist.c", "viv_recent.c", "viv_render.c",
-                "viv_selfshot.c", "viv_settings.c", "viv_theme.c",
-                "viv_toolbar.c", "viv_view.c", "viv_wndproc.c"]
-    check("the splice manifest is the pinned 18-domain list",
-          actual == expected, f"({actual})")  # remake-2: the theme and msgbox domains join
+                "viv_export.c", "viv_install.c", "viv_load.c", "viv_menu.c",
+                "viv_menubar.c", "viv_msgbox.c", "viv_playlist.c",
+                "viv_recent.c", "viv_render.c", "viv_selfshot.c",
+                "viv_settings.c", "viv_theme.c", "viv_toolbar.c",
+                "viv_view.c", "viv_wndproc.c"]
+    check("the splice manifest is the pinned 19-domain list",
+          actual == expected, f"({actual})")  # round-102: the export module joins
     check("the state layer is the splice tail",
           os.path.exists("src/viv_state.h"))
 
@@ -3436,9 +3437,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.4 build 72",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3501,9 +3502,9 @@ def t_theme_race_round72():
           "TVM_SETTEXTCOLOR,0,dark ? viv_theme_color(VIV_TK_TEXT) : (COLORREF)0xFFFFFFFF" in walk)
 
     version = read("src/version.h").decode("latin-1")
-    check("the version moves to build 66 (the 1.1.14-rc.4 pins ride it)",
-          "#define VERSION_BUILD 72" in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
+          "#define VERSION_BUILD 73" in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4065,9 +4066,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.4 build 72",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4235,9 +4236,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.14-rc.4 build 72",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4338,9 +4339,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.14-rc.4 build 72",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4417,9 +4418,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.14-rc.4 build 72",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4516,9 +4517,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.14-rc.4 build 72",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4633,9 +4634,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.14-rc.4 build 72",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4821,11 +4822,12 @@ def t_todo_closure_round96():
           wnd.count("COLORREF brush_color;") == 1)
 
     # 9. the build wiring.
-    check("the zig file list carries the three new units",
+    check("the zig file list carries the four new units",
           "src/hwgl.c" in files_txt and
           "src/hwd3d.c" in files_txt and
           "src/shellmenu.c" in files_txt and
-          files_txt.count("\n") == 103)
+          "src/viv_export.c" in files_txt and
+          files_txt.count("\n") == 104)
     check("the shared props list carries all six new files",
           props.count('Include="..\\src\\hwgl.c"') == 1 and
           props.count('Include="..\\src\\hwd3d.c"') == 1 and
@@ -4845,9 +4847,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.4 build 72 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4985,9 +4987,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.14-rc.4 build 72",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5190,9 +5192,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.4 build 72 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5266,9 +5268,9 @@ def t_navigation_visibility_round99():
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.3** \u2014" in readme)
-    check("the version is 1.1.14-rc.4 build 72 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
+    check("the version is 1.1.14-rc.5 build 73 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
 
 
 def t_audit_response_round101():
@@ -5330,9 +5332,10 @@ def t_audit_response_round101():
     check("the gl pixel format re-runs for a window change (outside the context guard)",
           "if (hwnd != _viv_gl_pixel_format_hwnd)" in fn and
           fn.find("if (hwnd != _viv_gl_pixel_format_hwnd)") < fn.find("if (!_viv_gl_context)"))
-    check("the gl padding zero rides the upload buffer",
-          "ZeroMemory(buf,size);" in hwgl and
-          "must not carry allocation garbage" in hwgl)
+    check("the gl padding replicates the image edges (the round-101 zero retired)",
+          "ZeroMemory(buf,size);" not in hwgl and
+          "the pad must answer as if the texture border sat at the image" in hwgl and
+          "for(x=wide;x<pot_wide;x++)" in hwgl)
     check("the gl upload records the pre-flattened alpha evidence",
           "pre-flattened" in hwgl)
     check("the d3d texture refills in place for same padded dimensions",
@@ -5382,18 +5385,183 @@ def t_audit_response_round101():
 
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the corner and audit response round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)", top)
-    check("the version is 1.1.14-rc.4 build 72",
-          '#define VERSION_BUILD 72' in version and
-          '#define VERSION_STRING "1.1.14-rc.4"' in version)
-    check("the readme candidate slot holds the corner and audit response round",
-          "**1.1.14-rc.4 \u2014 the corner and audit response round (the current release candidate):**" in readme and
+    check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
+          "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
+          "**1.1.14-rc.4** \u2014" in readme and
           "**1.1.14-rc.3** \u2014" in readme)
     check("the readme discloses the unsigned binaries",
           "binaries are unsigned" in readme)
     check("the readme's format line conditions the store-backed codecs",
           "HEIF/AVIF ride the store's image extensions" in readme)
+
+
+def t_pixel_oracle_round102():
+    """Guards for the pixel oracle round (1.1.14-rc.5: the deeper renderer
+    fixes the rc.4 round carried in - the gl context rebuild on a window
+    change and the pad edge replication both renderers - and the hidden
+    render export, the pixel regression harness the external audit asked
+    for: the real pipeline renders a sample, the exact pixels read back,
+    and the ci hashes them against committed goldens)."""
+    hwgl = read("src/hwgl.c").decode("latin-1")
+    hwd3d = read("src/hwd3d.c").decode("latin-1")
+    exp = read("src/viv_export.c").decode("latin-1")
+    exph = read("src/viv_export.h").decode("latin-1")
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+    wnd = read("src/viv_wndproc.c").decode("latin-1")
+    chrome = read("src/viv_chrome.c").decode("latin-1")
+    version = read("src/version.h").decode()
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+
+    # 1. the gl context rebuild: the wglMakeCurrent contract (the dc must
+    #    answer the same device and the same pixel format the rc was
+    #    created against - the msdn wording, second-verified) leaves the
+    #    old rc unusable on a differently formatted dc; keeping it was the
+    #    original refusal wearing a more hidden shell.
+    fn = hwgl[hwgl.find("static int _viv_gl_context_create"):hwgl.find("int _viv_hwgl_render")]
+    check("the gl context rebuilds when the window changes",
+          "if (_viv_gl_context)" in fn and
+          "_viv_gl_wglDeleteContext(_viv_gl_context);" in fn and
+          "_viv_gl_texture = 0;" in fn and
+          "_viv_gl_last_hbitmap = 0;" in fn)
+    check("the gl rebuild lives inside the pixel format branch",
+          fn.find("if (_viv_gl_context)") > fn.find("if (hwnd != _viv_gl_pixel_format_hwnd)"))
+
+    # 2. the pad edge replication (both renderers): the linear sampler's
+    #    half texel at the sub-rectangle edge reads the pad; clamp only
+    #    answers at the texture's own border. the round-101 gl zero
+    #    retired (a zeroed pad still averages black into the outermost
+    #    destination pixels on a heavy upscale) and the d3d same-size
+    #    reuse cannot bleed the previous frame back in.
+    check("the gl pad replicates the last column and the last row",
+          "for(x=wide;x<pot_wide;x++)" in hwgl and
+          "for(y=high;y<pot_high;y++)" in hwgl and
+          "ZeroMemory(buf,size);" not in hwgl)
+    check("the d3d pad replicates the last column and the last row",
+          "for(x=wide;x<pot_wide;x++)" in hwd3d and
+          "for(y=high;y<pot_high;y++)" in hwd3d and
+          "memcpy(base + (uintptr_t)y * (uintptr_t)locked.Pitch,last_row" in hwd3d)
+    check("the d3d reuse gate comment tells the copy truth",
+          "copy loop only rewrites the image's own texels" in hwd3d)
+
+    # 3. the export module: the hidden switches, the deterministic pins,
+    #    the readbacks, the exit codes.
+    check("the export module exists and is registered",
+          os.path.exists("src/viv_export.c") and os.path.exists("src/viv_export.h")
+          and "viv_export.c" in read("build-zig/files.txt").decode()
+          and "viv_export.c" in read("voidImageViewer.files.props").decode("utf-8-sig"))
+    check("the export header carries the harness contract",
+          "_VIV_EXPORT_DEFAULT_WIDE 640" in exph and
+          "_VIV_EXPORT_TIMEOUT_MS 60000" in exph)
+    check("the export probe answers before the install options and the mutex",
+          "_viv_export_probe_command_line();" in viv and
+          viv.find("_viv_export_probe_command_line();") < viv.find("_viv_process_install_command_line_options(GetCommandLineW())")
+          and "if (!_viv_export_mode)" in viv)
+    check("the export never redirects to a live single instance",
+          "((!_viv_export_mode) && (!config_multiple_instances))" in viv)
+    check("the export window stays hidden and forces its canvas",
+          "(! _viv_export_mode)" in viv.replace(" ", "") or
+          viv.count("(!_viv_export_mode)") >= 2)
+    check("the export config pins answer before the first frame",
+          "_viv_export_apply_config_pins();" in viv and
+          "config_dark_mode = 0;" in exp and
+          "config_icm = 0;" in exp and
+          "config_orientation = 0;" in exp and
+          "_viv_animation_play = 0;" in exp)
+    check("the export switches stay out of the user help face",
+          "render-export" in viv and
+          "the output path never" in viv)
+    check("the export run owns the main loop exit",
+          "export_ret = _viv_export_run();" in viv and
+          "return export_ret;" in viv)
+    check("the exit codes are the harness contract",
+          "return 2;" in exp and "return 3;" in exp and "return 4;" in exp and "return 5;" in exp)
+    check("the export never rewrites the user's ini",
+          "if ((!_viv_export_mode) && (_viv_recent_save_dirty))" in wnd)
+    check("the gdi readback rides the paint backbuffer",
+          "int _viv_paint_readback(BYTE *bits,int wide,int high)" in chrome and
+          "GetDIBits(screen_hdc,_viv_paint_hbitmap" in chrome and
+          "bmi.bmiHeader.biHeight = -high;" in chrome)
+    check("the gl readback rides glreadpixels with the reserved byte pinned",
+          "_viv_gl_readpixels" in hwgl and
+          "d[x * 4 + 3] = 0;" in hwgl)
+    check("the d3d readback rides getrendertargetdata through a system memory surface",
+          "GetRenderTargetData" in hwd3d and
+          "D3DPOOL_SYSTEMMEM" in hwd3d and
+          "d[3] = 0;" in hwd3d)
+    check("the export writes the classic bottom-up 32bpp bitmap",
+          "file_header.bfType = 0x4d42;" in exp and
+          "info_header.biBitCount = 32;" in exp and
+          "for(y=high-1;y>=0;y--)" in exp)
+
+    # 4. the version, the changelog, the readme.
+    top = changes.lstrip("\ufeff").split("\r\n")[0]
+    check("the changelog top entry is the pixel oracle round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.5 (the pixel oracle round)", top)
+    check("the version is 1.1.14-rc.5 build 73",
+          '#define VERSION_BUILD 73' in version and
+          '#define VERSION_STRING "1.1.14-rc.5"' in version)
+    check("the readme candidate slot holds the pixel oracle round",
+          "**1.1.14-rc.5 \u2014 the pixel oracle round (the current release candidate):**" in readme and
+          "**1.1.14-rc.4** \u2014" in readme)
+    flat_changes = " ".join(changes.split())
+    check("the changelog states the wglmakecurrent contract wording",
+          "the same device and the same pixel format" in flat_changes)
+    check("the changelog states the texel row mapping",
+          "[-0.5, n-0.5]" in changes)
+
+    # 5. the carpet audit's fixes (the parallel round-102 sweep): the max
+    #    clauses answer the non power of two overshoot and the square
+    #    promote, the scene gate keeps a refused beginscene from hashing a
+    #    blank frame, the format guard keeps a 16bpp desktop from walking
+    #    garbage, the readbacks disarm, the background color pins (a
+    #    developer machine's custom mat must not leak into the goldens)
+    #    and the harness never leaks a wedged export.
+    check("the gl max clause answers the pot overshoot",
+          "(pot_wide > _viv_gl_max_texture)" in hwgl and
+          "(pot_high > _viv_gl_max_texture)" in hwgl)
+    check("the d3d max clauses answer the pot and square overshoots",
+          "(pot_wide > _viv_d3d_max_wide)" in hwd3d and
+          "(pot_high > _viv_d3d_max_high)" in hwd3d)
+    check("the d3d readback gates on the scene and the format",
+          "scene_ok" in hwd3d and
+          "desc.Format == D3DFMT_X8R8G8B8" in hwd3d)
+    check("the readbacks disarm after the fill",
+          "_viv_gl_export_bits = 0;" in hwgl and
+          "_viv_d3d_export_bits = 0;" in hwd3d)
+    check("the export pins the windowed background",
+          "config_windowed_background_color_r = 255;" in exp and
+          "config_windowed_background_color_g = 255;" in exp and
+          "config_windowed_background_color_b = 255;" in exp)
+    golden_ps1 = read("tests/render_golden.ps1").decode("utf-8", errors="replace")
+    check("the harness canvas carries the min-width headroom",
+          '$size = "640x480"' in golden_ps1)
+    check("the harness kills a wedged export and sweeps the tail",
+          "the export hung (killed)" in golden_ps1 and
+          "never leave a viewer behind" in golden_ps1)
+
+    # 6. the export re-audit's catches: the renderer words must never reach
+    #    the usage box (a modal message the hidden harness window could
+    #    never dismiss), the fit gates pin, the animation pause re-asserts
+    #    after the first-frame reply resets it, and the shutdowns clear
+    #    the export pointers.
+    check("the renderer words carry consumption cases (no usage box)",
+          'string_icompare_lowercase_ascii(bufstart,"render-gdi")' in viv and
+          'string_icompare_lowercase_ascii(bufstart,"render-gl")' in viv and
+          'string_icompare_lowercase_ascii(bufstart,"render-d3d")' in viv and
+          "a click that never comes" in viv)
+    check("the export pins the fit gates",
+          "config_allow_shrinking = 1;" in exp and
+          "config_auto_zoom = 0;" in exp)
+    check("the export re-asserts the animation pause before the paint",
+          exp.count("_viv_animation_play = 0;") >= 2)
+    check("the shutdowns clear the export pointers",
+          "_viv_gl_export_bits = 0;" in hwgl and
+          "_viv_d3d_export_bits = 0;" in hwd3d)
 
 
 if __name__ == "__main__":
@@ -5464,6 +5632,7 @@ if __name__ == "__main__":
     t_fixture_round98()
     t_navigation_visibility_round99()
     t_audit_response_round101()
+    t_pixel_oracle_round102()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

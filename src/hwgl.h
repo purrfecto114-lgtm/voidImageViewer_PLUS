@@ -36,4 +36,11 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 // format - setPixelFormat answers once per window by contract).
 void _viv_hwgl_shutdown(void);
 
+// the export harness hooks (viv_export.c): arm a top-down bgra buffer
+// before the paint, the next render fills it instead of presenting. the
+// query tells a refused renderer (the gdi fallback painted instead)
+// from a successful readback.
+int _viv_hwgl_export_begin(BYTE *bits,int wide,int high);
+int _viv_hwgl_export_filled(void);
+
 #endif

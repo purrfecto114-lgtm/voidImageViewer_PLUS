@@ -152,6 +152,9 @@ jobs:
       - name: Second-rework simulation tests (the 1.1.07 check)
         run: python3 tests/simulation_test.py
 
+      - name: Pixel golden harness structure tests
+        run: python3 tests/pixel_golden_test.py
+
   build:
     needs: [validate, tests]
     runs-on: windows-2022
@@ -219,6 +222,14 @@ jobs:
       - name: Real machine smoke test (the anomaly sweep)
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File tests\smoke_test.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
+
+      # the shipping binary answers the pixel oracle before anything is
+      # packaged or published: the golden hashes pin the exact pixels of
+      # the render export (strict - a tag with drifted pixels must not
+      # ship; the manifest rides the tree since the pixel oracle round).
+      - name: Pixel golden test (the bitmap hash oracle)
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
 
       - name: Build installers (NSIS)
         shell: pwsh

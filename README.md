@@ -20,10 +20,11 @@ The binaries are unsigned (an open-source signing account is on the roadmap) —
 
 What's new
 --------
-**1.1.14-rc.4 — the corner and audit response round (the current release candidate):**
+**1.1.14-rc.5 — the pixel oracle round (the current release candidate):**
 
-- **The fullscreen corner fix** — the round preference the Win11 chrome carries stayed pinned during fullscreen, so a monitor-covering window answered the DWM's rounding with clipped image corners; the fullscreen transition now takes the sharp corners and the windowed restore gives them back (a mid-fullscreen theme flip re-applies the policy). The custom caption completes its set — the palette's own text token pins the caption contrast (attribute 36) in both themes.
-- **The audit response** — an external audit of the tree lands with evidence first: its alpha and square-padding renderer claims retire against the load path's pre-flattening and the D3D caps branch, while its surviving findings land as code — the GL padding zero, the GL pixel-format re-entry, the D3D same-dimension texture reuse, the experimental labels on both hardware renderers, the long-path manifest claim, the installer's user-key probe with the fork's publisher line, and the MSVC hardening line (`/sdl`, `/guard:cf`, SAFESEH restored, the buffer check back on). The 1.1.12 release candidates retire from the repository (tags and releases; the stable line keeps its history).
+- **The renderer pad bleeds** — two deeper bugs the rc.4 fixes carried in. The OpenGL renderer kept its rendering context across a window change: the pixel format re-ran for the fresh window but the old context stayed, and the wglMakeCurrent contract (the dc must answer the same device and the same pixel format the rc was created against) left every later call one mismatch away from a session-wide fallback — the window change now rebuilds the context with the window. Both hardware renderers padded to power-of-two (or square) sides and left the pad zeroed (GL) or stale (D3D, where a same-size animation frame reused the texture): the linear sampler's half texel at the sub-rectangle edge reads into that pad — the pad now replicates the image's own last column and last row, so the border answers as if the texture ended where the image does.
+- **The hidden render export** — the pixel regression harness the audit asked for. `-render-export <file>` (with `-render-gdi`, `-render-gl`, `-render-d3d` and `-render-size WxH`) walks the real pipeline — the threaded loader, the fit math, the canvas paint, the selected renderer — and writes a 32bpp bitmap of the exact pixels; the CI hashes it against committed goldens, which turns the decode, the scaling, the backdrop, the alpha flattening and the three-way renderer agreement into a checked fact instead of a reviewed intention.
+- **The guard migration** — three check names that still said “build 66” while their assertions had been swept for rounds now say what they verify; the counts, the manifests and the splice windows take the export module in stride. A six-lane parallel carpet audit rode the round: the renderer max-texture overshoots now refuse at the right gate, the D3D readback demands a finished 32bpp scene, both readbacks disarm, and the export module caught its own renderer-word modal trap and four missing config pins (the shrink gate, the auto zoom, the animation re-assert, the background color) before the first golden ever booted.
 - Full narrative: `Changes.txt`.
 
 **1.1.13 — the format horizons round (the current stable):**
@@ -34,6 +35,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.14-rc.4** — the corner and audit response round: the fullscreen sharp-corner fix, the caption text color (attribute 36) and the evidence-first audit response (the GL pad zero, the per-window pixel format, the D3D same-size reuse, the SDL elevation catches).
 - **1.1.14-rc.3** — the navigation visibility round: the next/previous fix for the new formats — a supported-extension table carries the viewer's open universe and the navigation filter answers it.
 - **1.1.14-rc.2** — the fixture round: the test sample set commits (38 anomaly samples plus eight real imagery fixtures, two of them hand-encoded animated GIFs) and the QOI magic fix — the host verification caught a shipped constant spelled in the wrong byte order.
 - **1.1.14-rc.1** — the todo closure round: the upstream TODO list closes — the OpenGL and Direct3D renderers, the toolbar customization and the shell context menu all land.

@@ -90,6 +90,7 @@
     <ClCompile Include="..\src\viv_chrome.c" />
     <ClCompile Include="..\src\viv_dark.c" />
     <ClCompile Include="..\src\viv_dialogs.c" />
+    <ClCompile Include="..\src\viv_export.c" />
     <ClCompile Include="..\src\viv_install.c" />
     <ClCompile Include="..\src\viv_load.c" />
     <ClCompile Include="..\src\viv_menu.c" />
@@ -164,6 +165,7 @@
     <ClInclude Include="..\src\viv_chrome.h" />
     <ClInclude Include="..\src\viv_dark.h" />
     <ClInclude Include="..\src\viv_dialogs.h" />
+    <ClInclude Include="..\src\viv_export.h" />
     <ClInclude Include="..\src\viv_install.h" />
     <ClInclude Include="..\src\viv_load.h" />
     <ClInclude Include="..\src\viv_menu.h" />
