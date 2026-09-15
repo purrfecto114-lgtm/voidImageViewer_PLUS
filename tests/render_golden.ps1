@@ -53,7 +53,12 @@ if (-not (Test-Path $SamplesDir)) {
     exit 2
 }
 
-# the golden set: fourteen samples chosen to cover every decoder family
+# the golden set: the real, byte-complete imagery only. the anomaly
+# generator's "control" gif/bmp stubs and the truncated 16-bit png are
+# physically impossible byte counts (a 96x64 24bpp bmp in 246 bytes) -
+# the decode refuses them, which the gui smoke tolerated as a survivable
+# refused load but the pixel oracle correctly reports as a failure. the
+# eleven below cover every decoder family
 # (png, gif, bmp, jpeg, qoi, webp), the alpha paths (rgba png, rgba qoi,
 # the fade's sub-rectangle disposal), both ends of the scaling range
 # (the 100x100 magnify, the 4000x3000 mipmap shrink) and the animation
@@ -61,10 +66,6 @@ if (-not (Test-Path $SamplesDir)) {
 $goldenSamples = @(
     "28_control_png_100x100.png",
     "29_control_png_4000x3000.png",
-    "30_control_gif_single_frame.gif",
-    "31_control_gif_anim_normal.gif",
-    "32_control_bmp_24bpp.bmp",
-    "33_control_png_16bit_depth.png",
     "fx_anim_bounce.gif",
     "fx_anim_fade.gif",
     "fx_still_24bpp.bmp",
@@ -116,6 +117,7 @@ New-Item -ItemType Directory -Path $outDir | Out-Null
 
 try {
     $results = @{}
+    foreach ($s in $goldenSamples) { $results[$s] = @{} }
     $failures = 0
     $renderersAvailable = @{ gdi = $true; gl = $false; d3d = $false }
 
@@ -153,7 +155,6 @@ try {
                 }
                 $renderersAvailable[$r.Name] = $true
                 $hash = (Get-FileHash -Path $bmp -Algorithm SHA256).Hash.ToLowerInvariant()
-                if (-not $results.ContainsKey($s)) { $results[$s] = @{} }
                 $results[$s][$r.Name] = $hash
             }
             elseif ($code -eq 3) {
@@ -163,7 +164,6 @@ try {
                 # a refusal on a machine where the renderer DID answer for
                 # another sample is an inconsistency the comparison below
                 # catches; here the leg just records null.
-                if (-not $results.ContainsKey($s)) { $results[$s] = @{} }
                 $results[$s][$r.Name] = $null
             }
             else {

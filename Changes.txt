@@ -55,6 +55,19 @@
 	out), and the counts, the manifests and the splice windows
 	take the export module in stride.
 
+	the first golden bootstrap on the real runner caught two more
+	before anything shipped: a hidden window never paints (the
+	system defers wm_paint until the window shows, so every gdi
+	readback fed on a backbuffer that was never drawn) - the
+	export now shows its window without activating it; and four
+	of the golden candidates were the anomaly generator's
+	truncated stubs (a 96x64 24bpp bmp in 246 bytes is physically
+	impossible) - the decode refuses them, which the gui smoke
+	tolerated as a survivable refused load but the pixel oracle
+	correctly reports as a failure, so the golden set carries the
+	real byte-complete imagery only (the two valid control pngs
+	and the eight fixtures).
+
 	the parallel carpet audit (six lanes, max parallelism) earned
 	its keep: the gl and d3d max-texture clauses now answer the
 	non-power-of-two overshoot and the square promote (the refusal

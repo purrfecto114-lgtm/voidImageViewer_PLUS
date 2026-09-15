@@ -1362,6 +1362,15 @@ static int _viv_init(int nCmdShow)
 	if (_viv_export_mode)
 	{
 		_viv_export_resize_window();
+		
+		// a hidden window never paints: the system defers wm_paint until
+		// the window shows, so updatewindow answers nothing and the pixel
+		// readback would feed on a backbuffer that was never drawn (the
+		// first bootstrap caught every gdi leg dying exactly there). the
+		// export shows the window without activating it instead - the ci
+		// runner has no watching human, and a developer running the
+		// harness locally sees the canvas for the duration of one sample.
+		ShowWindow(_viv_hwnd,SW_SHOWNOACTIVATE);
 	}
 	
 	// the frame icons ride the window dpi from the first show (the
