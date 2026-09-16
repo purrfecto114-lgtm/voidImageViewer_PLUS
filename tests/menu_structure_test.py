@@ -5676,6 +5676,11 @@ def t_audit_hardening_round103():
           "pe_security_check.ps1" in tests_yml and
           "pe_security_check.ps1" in release_yml and
           release_yml.find("Verify build output") < release_yml.find("pe_security_check.ps1"))
+    check("the pe check passes its file list as a real array",
+          '-Command "& tools\\pe_security_check.ps1 -ExePath' in tests_yml and
+          '-Command "& tools\\pe_security_check.ps1 -ExePath' in release_yml and
+          '-File tools\\pe_security_check.ps1 -ExePath "build\\x64' not in tests_yml and
+          '-File tools\\pe_security_check.ps1 -ExePath "build\\x64' not in release_yml)
 
     # 5. the release trust chain: provenance attestation on every asset,
     #    codeql on the fork's own sources, the vendored verifier, and the

@@ -23,8 +23,13 @@
 # usage:
 #   powershell -ExecutionPolicy Bypass -File tools\pe_security_check.ps1 `
 #       -ExePath build\x64\voidImageViewer.exe
-#   powershell ... -ExePath exe1.exe,exe2.exe    (an array; repeated
-#   -ExePath arguments accumulate too)
+#   multiple files ride -Command with the call operator: a -File
+#   command line delivers "a","b" as one joined string and the
+#   [string[]] binding never splits it (the step's first ci run
+#   failed on exactly that), while 'a','b' inside -Command
+#   parses as the array the parameter wants:
+#   powershell -ExecutionPolicy Bypass -Command `
+#       "& tools\pe_security_check.ps1 -ExePath 'exe1.exe','exe2.exe'"
 #
 # a missing mitigation prints a github actions annotation
 # (::error::<file> is missing <bits>) and exits 1. exit 0 only when

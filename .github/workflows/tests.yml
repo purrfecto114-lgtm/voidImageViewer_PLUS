@@ -103,7 +103,11 @@ jobs:
       # role the v145 leg plays for the toolchain.
       - name: PE security attributes (ASLR / DEP / CFG)
         shell: powershell
-        run: powershell -ExecutionPolicy Bypass -File tools\pe_security_check.ps1 -ExePath "build\x64\voidImageViewer.exe","build\x86\voidImageViewer.exe"
+        # the exe list rides -Command with the call operator: a -File
+        # command line delivers "a","b" as one joined string and the
+        # [string[]] binding never splits it (the first ci run of this
+        # step failed on exactly that).
+        run: powershell -ExecutionPolicy Bypass -Command "& tools\pe_security_check.ps1 -ExePath 'build\x64\voidImageViewer.exe','build\x86\voidImageViewer.exe'"
 
       # the real machine smoke test from the 1.0.02 audit round never ran
       # automatically: every push now opens the full anomaly sample set
