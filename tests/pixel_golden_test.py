@@ -153,9 +153,20 @@ def main():
         check("every gdi leg is pinned",
               all(entry.get("gdi") for entry in manifest.values())
               if manifest else False)
-        check("the manifest answers on every leg (the renderer parity round: a null read as an environment gap while whole decoder families were being refused)",
-              all(entry.get(leg) for entry in manifest.values()
-                  for leg in ("gdi", "gl", "d3d")) if manifest else False)
+        # the renderer parity floor: every parity-sized sample (a power
+        # of two padding that fits the software renderers' 1024 texture
+        # ceiling) must answer on every leg. the one exemption is the
+        # 4000x3000 control's gl leg - its 4096x4096 padding exceeds the
+        # software gl ceiling, a capability refusal the max-texture gate
+        # exists to make (its d3d leg answers; the sample's own role is
+        # the gdi mipmap shrink). any other null is the "no renderer on
+        # this machine" reading that hid whole decoder families while
+        # the per-image refusals wore it.
+        parity_exempt = {("29_control_png_4000x3000.png", "gl")}
+        check("every parity-sized golden sample answers on every leg (a null read as an environment gap while whole decoder families were being refused)",
+              all(manifest[s].get(leg) for s in manifest
+                  for leg in ("gdi", "gl", "d3d")
+                  if (s, leg) not in parity_exempt) if manifest else False)
     else:
         if in_git_checkout:
             check("the golden manifest is absent only before the bootstrap",

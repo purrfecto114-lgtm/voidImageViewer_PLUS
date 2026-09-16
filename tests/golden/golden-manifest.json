@@ -1,0 +1,62 @@
+{
+    "28_control_png_100x100.png":  {
+                                       "gdi":  "3bab4c2aad6fdf68593f7b91275c3f99a460a4f3d2ae9475941fb2ca9dafd925",
+                                       "gl":  "f30c15c0ae2db6fc1c14f19faacad9c9dfdfa0995758415875f77b6258fee8e4",
+                                       "d3d":  "3bab4c2aad6fdf68593f7b91275c3f99a460a4f3d2ae9475941fb2ca9dafd925"
+                                   },
+    "29_control_png_4000x3000.png":  {
+                                         "gdi":  "86b2bbf058b723cdab2a485cb203530a8a0f37c8b1c86123b60d434dfef34c9a",
+                                         "gl":  null,
+                                         "d3d":  "86b2bbf058b723cdab2a485cb203530a8a0f37c8b1c86123b60d434dfef34c9a"
+                                     },
+    "fx_anim_bounce.gif":  {
+                               "gdi":  "060131fa917986ac0a4bf970d1b263ab3bb5908378832ebb2d3394bc79fbe12a",
+                               "gl":  "7d0eb3361c4c1cee3dc41da813ecd4b0198266bc41962a02f0264086ca49e8f5",
+                               "d3d":  "9669125cf71736d2043927a64d41047fcc39454ae3aea9b308deae6ec922a903"
+                           },
+    "fx_anim_fade.gif":  {
+                             "gdi":  "774675c66949dadc41e8b77e4db06d0a4568682d4b462f6a8d99aa4989d67a42",
+                             "gl":  "3b77f81542abc14372e8899edcc553d8f1c1f1f54dc568bb1de93b88d8b07852",
+                             "d3d":  "89203fb13c9a14ee48f29658a1ac0cfc45d75c2629b9aba3ebc5d9d92fc3f4f0"
+                         },
+    "fx_still_24bpp.bmp":  {
+                               "gdi":  "2e69e06f7ec65a8fd8572a12b0ccb07f47eda9969048ba9804718159846baaff",
+                               "gl":  "54ab659f8f9d0a121229f9a8227fd8a88d4bb4060fc720befcae88eab08121bd",
+                               "d3d":  "1713426a7cd6e15920a663aa56eee2b0646044f415609739b951261a630e5dbd"
+                           },
+    "fx_still_photo.jpg":  {
+                               "gdi":  "08718618dede618758e564f377ae0fdd0d9f9e71730ea8b4398aa8f3f3e5221e",
+                               "gl":  "4ab89fc8ab08259da76ef9672bdcd54c34b99ca1167c091707e0f3de32cf66a7",
+                               "d3d":  "ca039b58ffa177910e113f2124b3168e72490d97d523f18f3e061a4faa4a5d0f"
+                           },
+    "fx_still_qoi_rgb.qoi":  {
+                                 "gdi":  "52f230c5964b1af9c079004b851fbbfc2935fbec333fb4e0a38f28f37e2c9a4e",
+                                 "gl":  "34adb8024af80a211f6e0b7b82cddef28ae9e45379db71e40e2a1e50934caeef",
+                                 "d3d":  "66b139744c7a094989d6f4b4914d385babc9848a18e209c35957b9d4e8d33e43"
+                             },
+    "fx_still_qoi_rgba.qoi":  {
+                                  "gdi":  "fa021f79a029121e8837089d8883f4df2d21fc6cca4b2a8b740f4acf2a00e4af",
+                                  "gl":  "9027442287089d3e22ae9478edf42bf40b3ebac4ac7936d6873c967089b11a7e",
+                                  "d3d":  "08c6f73582c106bb0fe7b6ca91eb872c662693dd971f22ac6faa8358931adac7"
+                              },
+    "fx_still_rgba.png":  {
+                              "gdi":  "b3370bdeb14540f5029b7c87145fda4d4394507269f61f36d6dcc5fb72ead5f2",
+                              "gl":  "f18abbadd7f9b6b2f5b90f7676a0ffe3097576b914d3778fbea2cd95299e2882",
+                              "d3d":  "f5abefd6995ead5d9b407d284fe1f326a24aa6b5fa6e3a5ab442c0e42c104200"
+                          },
+    "fx_anim_pulse.webp":  {
+                               "gdi":  "90e92c4f5ab525dab24d83a1e64533825410b78b792015ef2e6ba78e1e89435f",
+                               "gl":  "c36afb6d806f8fb29a0302fc25cb013dc6e53e05f0cfff812bae6010fc1def0f",
+                               "d3d":  "3a3cfe703566968c9a3b3712310e302829c37fcf9f79297c1ea6320258034d0f"
+                           },
+    "fx_still_webp_odd.webp":  {
+                                   "gdi":  "336494945f5b650384459996326fb39d3d0486fd72f1afab9e8ab44a3552e501",
+                                   "gl":  "ef1ead780352157f91e17d006d6dd52f4aa1a256de0a3b4fec7c3efa6f3a88ea",
+                                   "d3d":  "88863bb9b2ed2e01b9a0d29a14f2357baea428ad9ae94fffcc9d6b94b7bb2486"
+                               },
+    "fx_still_qoi_sliver.qoi":  {
+                                    "gdi":  "6b48e99223dc1e415146bd7f232e74992a428f4315d60badd1cdf8e3e2074466",
+                                    "gl":  "ac63dd115d7a33674e0a48ea3d65ffbefd0ff87441bc9e5fd1669e2c8b3d9da4",
+                                    "d3d":  "776a9c33375f1254f442716fec1996c8555727e51388e3f98ab939219ebce946"
+                                }
+}
