@@ -399,21 +399,21 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 						d[1] = p[1]; // g
 						d[2] = p[0]; // b
 						p += 3;
-				}
+					}
 					else
 					{
 						d[0] = p[2]; // r
 						d[1] = p[1]; // g
 						d[2] = p[0]; // b
 						p += 4;
-				}
+					}
 					
 				// the frames arrive pre-flattened: the load path composites
 				// the alpha onto the backdrop before the frame ever answers,
 				// so the opaque write matches the gdi path's own semantics.
 				d[3] = 255;
 				d += 4;
-			}
+				}
 				
 				d += (pot_wide - wide) * 4;
 			}
@@ -578,7 +578,20 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	
 	if ((!ds.dsBm.bmBits) || ((ds.dsBm.bmBitsPixel != 24) && (ds.dsBm.bmBitsPixel != 32)))
 	{
-		// the palette-bitmap frames stay on the gdi path.
+		// the refusal names its reason: a silent return 0 is how an
+		// entire decoder family (the gdi+ frames, back when they were
+		// ddb surfaces) hid behind this gate for rounds while the pixel
+		// oracle kept recording nulls that read as "no renderer on this
+		// machine".
+		if (!ds.dsBm.bmBits)
+		{
+			debug_printf("opengl: the frame is not a dib section (no bits answered) - the gdi path paints it\r\n");
+		}
+		else
+		{
+			debug_printf("opengl: the frame is %d bpp (24 or 32 answer) - the gdi path paints it\r\n",ds.dsBm.bmBitsPixel);
+		}
+		
 		return 0;
 	}
 	

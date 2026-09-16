@@ -204,6 +204,38 @@ try {
                     Sample = "(input ceiling)"; Status = "PASS"; Detail = $detail })
                 Stop-Viewer $proc
             }
+
+            # the oracle closes the loop: "still alive after five
+            # seconds" only proves the refusal did not crash - the
+            # render export must actually refuse the same file (exit 2,
+            # the load-refused contract) and answer no bitmap. a viewer
+            # that silently loaded and displayed the over-ceiling file
+            # would pass the stage above and fail here.
+            $probeBmp = Join-Path $env:TEMP ("viv_ceiling_probe_" + $PID + ".bmp")
+            if (Test-Path $probeBmp) { Remove-Item $probeBmp -Force }
+            $probe = Start-Process -FilePath $ExePath -ArgumentList @(
+                "-render-gdi", "-render-size", "640x480", "-render-export",
+                ('"' + $probeBmp + '"'), ('"' + $bigPath + '"')
+            ) -PassThru -WindowStyle Hidden
+            if (-not $probe.WaitForExit(90000)) {
+                Stop-Process -Id $probe.Id -Force -ErrorAction SilentlyContinue
+                $script:crashes++
+                $results.Add([pscustomobject]@{
+                    Sample = "(input ceiling export)"; Status = "FAIL";
+                    Detail = "the export hung on the over-ceiling file" })
+            } elseif (($probe.ExitCode -eq 2) -and (-not (Test-Path $probeBmp))) {
+                $script:passes++
+                $results.Add([pscustomobject]@{
+                    Sample = "(input ceiling export)"; Status = "PASS";
+                    Detail = "refused the load (exit 2, no bitmap)" })
+            } else {
+                $script:crashes++
+                $results.Add([pscustomobject]@{
+                    Sample = "(input ceiling export)"; Status = "FAIL";
+                    Detail = ("exit " + $probe.ExitCode +
+                        $(if (Test-Path $probeBmp) { ", bitmap answered" } else { ", no bitmap" })) })
+            }
+            Remove-Item -Path $probeBmp -Force -ErrorAction SilentlyContinue
             $stage4 = "ran"
         }
     }

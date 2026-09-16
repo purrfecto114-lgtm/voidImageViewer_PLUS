@@ -58,11 +58,18 @@ if (-not (Test-Path $SamplesDir)) {
 # physically impossible byte counts (a 96x64 24bpp bmp in 246 bytes) -
 # the decode refuses them, which the gui smoke tolerated as a survivable
 # refused load but the pixel oracle correctly reports as a failure. the
-# eleven below cover every decoder family
+# twelve below cover every decoder family
 # (png, gif, bmp, jpeg, qoi, webp), the alpha paths (rgba png, rgba qoi,
 # the fade's sub-rectangle disposal), both ends of the scaling range
-# (the 100x100 magnify, the 4000x3000 mipmap shrink) and the animation
-# first-frame contract.
+# (the 100x100 magnify, the 4000x3000 mipmap shrink), the animation
+# first-frame contract, and - since the renderer parity round - the
+# shape dimension: a non power of two width on a 24bpp dib frame (the
+# 101x101 webp, the exact figure the hardware upload paths' gutter
+# logic exists for) and the extreme aspect (the 1000x37 sliver, gutters
+# on both axes). the shape lines exist because the first ten only ever
+# sent power-of-two widths down the hardware paths - two defects can
+# cover for each other when every sample that reaches the code is the
+# one shape it cannot break.
 $goldenSamples = @(
     "28_control_png_100x100.png",
     "29_control_png_4000x3000.png",
@@ -73,7 +80,9 @@ $goldenSamples = @(
     "fx_still_qoi_rgb.qoi",
     "fx_still_qoi_rgba.qoi",
     "fx_still_rgba.png",
-    "fx_anim_pulse.webp"
+    "fx_anim_pulse.webp",
+    "fx_still_webp_odd.webp",
+    "fx_still_qoi_sliver.qoi"
 )
 
 foreach ($s in $goldenSamples) {

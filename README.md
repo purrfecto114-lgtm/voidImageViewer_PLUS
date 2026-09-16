@@ -17,14 +17,17 @@ Stable binaries (setup + zip, x86/x64, SHA-256 checksums):
 https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 The binaries are unsigned (an open-source signing account is on the roadmap) — verify each download against the release's `sha256.txt` before running.
+Every release artifact also carries a build-provenance attestation: `gh attestation verify <file> --repo purfecto114-lgtm/voidImageViewer_PLUS`
+answers the workflow run and commit each file was built from (signing would still be its own round — attestation proves origin, not publisher identity).
 
 What's new
 --------
-**1.1.14-rc.7 — the input ceiling round (the current release candidate):**
+**1.1.14-rc.8 — the renderer parity round (the current release candidate):**
 
-- **The input ceiling** — the whole-file read that feeds every decoder never had a ceiling of its own: a normal-sized image carrying a huge appended payload or a garbage tail committed its bytes before any pixel budget could see the file, and the 32-bit `GetFileSize` couldn't even see past 4 GB (it answers the low dword there). The loaders now ask `GetFileSizeEx` and refuse the size before the buffer ever allocates — 1 GB on x64, 512 MB on x86, so every file the pixel budgets would accept still gets in — with its own status-line message in both languages; an empty file and a file that changes size mid-read both refuse cleanly with the reason recorded, and the ini reader takes the same 64-bit form (its 16 MB ceiling stays).
-- **The hard kill retires** — the exit timeout no longer `TerminateThread`s the loader and keeps tearing down over the ground the killed thread may still hold locks in (CloseHandle, mem_free, DestroyWindow all take those locks): it records the stage and the file, then exits the process — no further teardown shares memory with a stuck thread. Thread-creation failures unwind their own state instead of leaving a "loading…" line no thread will ever answer (the loader dispatch and the self-shot harness both).
-- **The static surface grows its second leg** — CodeQL keeps the src-only push-time gate and adds a full attack-surface scan (src + the vendored libwebp that parses untrusted WebP inside the exe) weekly and on dispatch; the vendored-tree verifier (`update_libwebp.py --check`) rides both pipelines for real, and the smoke test opens a sparse 4-GB-plus file against the real viewer — the exact shape the 32-bit size read couldn't see.
+- **The renderer parity** — the hardware renderers only accepted frames that answered the DIB contract, and the GDI+ decode path built its frames as screen-compatible DDBs (no bits pointer): every PNG, GIF, BMP, JPEG, TIFF and ICO silently fell back to the GDI path the moment the user picked OpenGL or Direct3D. The GDI+ frames, their embedded-thumbnail early frames and the orientation copies (EXIF-rotated and user-rotated alike) now answer as 24bpp/32bpp top-down DIB sections — the same shape the WebP path has always built — so the selected renderer actually renders, and the refusal gates name their reason in the debug channel instead of returning zero in silence.
+- **The shape dimension reaches the pixel oracle** — the golden set covered every decoder family but only power-of-two widths ever reached the hardware paths (the two QOI samples at 32 and the WebP at 64), so the gutter replication the last round built had zero live coverage. Two fixtures land: a 101×101 WebP (hand-encoded VP8L, the standard library only) and a 1000×37 QOI sliver — non-power-of-two on both axes, extreme aspect, the exact shapes the pad logic exists for; the manifest re-bootstrapped at twelve samples with the hardware legs answering for every family for the first time.
+- **The ceiling gate proves the refusal** — the smoke stage that opens a sparse 4-GB-plus file used to pass on “did not crash”; it now runs the render export against the same file and requires the load-refused exit code and no bitmap — the oracle makes the assertion cheap and the gate stops proving the weaker claim.
+- **The audit finding that did not survive verification** — the round's external audit reported a heap overflow in the GL upload loop (a brace-placement claim at 24bpp non-power-of-two widths); the mechanical brace-stack analysis shows the increment sits inside the RGBA branch where it belongs and the BGR row advance is exact — no overflow, no misaddressed pad. What was real was the indentation: three closing braces sat one level shallower than their nesting, the exact bait the audit bit on. The indentation retired (pure whitespace, byte-identical codegen); the round-105 guard now parses the brace nesting itself so the claim stays answered by structure, not by eyeball.
 - Full narrative: `Changes.txt`.
 
 **1.1.13 — the format horizons round (the current stable):**
@@ -35,6 +38,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.14-rc.7** — the input ceiling round: `GetFileSizeEx` and the 1 GB/512 MB whole-file ceilings, the hard kill retiring into the recorded process exit, thread-creation unwinding, the CodeQL full attack-surface leg, the sparse 4-GB-plus smoke stage.
 - **1.1.14-rc.6** — the budget and baseline round: the working-set and animation frame budgets, the recorded exit timeout, the v145 security baseline with PE binary assertions, the release trust chain (attestation, CodeQL, the collaboration pack).
 - **1.1.14-rc.5** — the pixel oracle round: the GL context rebuild across window changes, the renderer pad edge replication, the hidden render export and the golden hash CI.
 - **1.1.14-rc.4** — the corner and audit response round: the fullscreen sharp-corner fix, the caption text color (attribute 36) and the evidence-first audit response (the GL pad zero, the per-window pixel format, the D3D same-size reuse, the SDL elevation catches).

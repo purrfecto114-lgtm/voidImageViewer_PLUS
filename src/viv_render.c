@@ -791,6 +791,8 @@ HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int orientation)
 			{
 				int ret_wide;
 				int ret_high;
+				BITMAPINFO bmi;
+				void *ret_bits;
 				
 				ret_wide = bitmap.bmWidth;
 				ret_high = bitmap.bmHeight;
@@ -808,7 +810,20 @@ HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int orientation)
 						break;
 				}
 				
-				ret_hbitmap = CreateCompatibleBitmap(screen_hdc,ret_wide,ret_high);
+				// the oriented frame keeps the dib contract (32bpp top-down): a
+				// ddb here would drop an exif-rotated or user-rotated frame back
+				// onto the gdi path the moment the orientation applied - the
+				// hardware parity the dib frames earn at load would not survive
+				// their own rotation.
+				os_zero_memory(&bmi,sizeof(BITMAPINFO));
+				bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+				bmi.bmiHeader.biWidth = ret_wide;
+				bmi.bmiHeader.biHeight = -ret_high;
+				bmi.bmiHeader.biPlanes = 1;
+				bmi.bmiHeader.biBitCount = 32;
+				bmi.bmiHeader.biCompression = BI_RGB;
+				
+				ret_hbitmap = CreateDIBSection(screen_hdc,&bmi,DIB_RGB_COLORS,&ret_bits,NULL,0);
 				if (ret_hbitmap)
 				{
 					int ret;
@@ -937,18 +952,13 @@ HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int orientation)
 								break;
 						}
 						
-						os_zero_memory(&bi,sizeof(BITMAPINFOHEADER));
-						bi.biSize = sizeof(BITMAPINFOHEADER);
-						bi.biWidth = ret_wide;
-						bi.biHeight = -ret_high;
-						bi.biPlanes = 1;
-						bi.biBitCount = 32;
-						bi.biCompression = BI_RGB;
+						// the section's own layout is exactly the shuffle
+						// buffer's (32bpp top-down, stride = wide * 4): the copy is
+						// the SetDIBits a dib section answers natively, with no ddb
+						// conversion riding the write.
+						os_copy_memory(ret_bits,new_pixels,safe_size_mul(safe_size_mul((SIZE_T)ret_wide,(SIZE_T)ret_high),sizeof(DWORD)));
 						
-						if (SetDIBits(mem_hdc,ret_hbitmap,0,ret_high,new_pixels,(BITMAPINFO *)&bi,DIB_RGB_COLORS))
-						{
-							ret = 1;
-						}
+						ret = 1;
 					}
 					
 					if (!ret)

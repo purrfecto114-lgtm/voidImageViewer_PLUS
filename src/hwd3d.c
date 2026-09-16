@@ -416,7 +416,18 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	
 	if ((!ds.dsBm.bmBits) || ((ds.dsBm.bmBitsPixel != 24) && (ds.dsBm.bmBitsPixel != 32)))
 	{
-		// the palette-bitmap frames stay on the gdi path.
+		// the refusal names its reason (the gl twin carries the full
+		// story): a silent return 0 is how an entire decoder family hid
+		// behind this gate while the pixel oracle recorded nulls.
+		if (!ds.dsBm.bmBits)
+		{
+			debug_printf("direct3d: the frame is not a dib section (no bits answered) - the gdi path paints it\r\n");
+		}
+		else
+		{
+			debug_printf("direct3d: the frame is %d bpp (24 or 32 answer) - the gdi path paints it\r\n",ds.dsBm.bmBitsPixel);
+		}
+		
 		return 0;
 	}
 	

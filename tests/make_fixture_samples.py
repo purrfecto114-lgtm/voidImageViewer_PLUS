@@ -20,6 +20,18 @@ version:
   fx_still_24bpp.bmp    48x32 uncompressed classic (the gdi mainline)
   fx_still_qoi_rgb.qoi  32x16 rgb gradient (the fork's own decoder)
   fx_still_qoi_rgba.qoi 32x16 rgba with an alpha ramp (the qoi alpha path)
+  fx_still_webp_odd.webp
+                        101x101 vp8l still - a two-color weave behind
+                        simple prefix codes, hand-encoded (the shape
+                        dimension: a 24bpp dib frame with a non power of
+                        two width is the exact figure the hardware
+                        upload paths' gutter logic exists for, and the
+                        golden set only ever sent it power-of-two widths)
+  fx_still_qoi_sliver.qoi
+                        1000x37 rgb bands, 8px blocks (the extreme
+                        aspect: pot_high carries 27 rows of replicated
+                        last row, pot_wide 24 columns of replicated
+                        last column - the pad replication on both axes)
 
 the gif lzw is a real variable-width compressor (dictionary growth, the
 code-width lockstep the format owns); the self check decodes every frame
@@ -27,7 +39,13 @@ back through a mirror decoder and compares pixel-for-pixel. the qoi
 encoder rides the reference semantics and the self check decodes both
 qoi fixtures through a verbatim port of src/qoi.c's opcode walk (the
 index hash, the diff and luma deltas, the run bias of -1, rgb chunks
-preserving the running alpha, the trailing-chunk leniency).
+preserving the running alpha, the trailing-chunk leniency). the vp8l
+writer packs the container's own lsb-first bit order and the self check
+walks the stream back through a mirror decoder (the header, the five
+simple prefix codes, the literal pixel walk) and compares pixel for
+pixel - the shape the encoder writes is the only shape the mirror
+accepts, so a bit-order or field-width slip fails the round trip, not
+some downstream consumer.
 
 usage:  python tests/make_fixture_samples.py [output_dir]
 
@@ -42,7 +60,7 @@ import zlib
 
 PNG_SIG = b'\x89PNG\r\n\x1a\n'
 
-FIXTURE_COUNT = 6
+FIXTURE_COUNT = 8
 
 
 # ---------------------------------------------------------------- png tools
@@ -210,6 +228,194 @@ def qoi_decode(data):
             raise ValueError('the input ran out before the canvas filled')
         out.append((r, g, b, a))
     return width, height, channels, out
+
+
+# ---------------------------------------------------------------- vp8l tools
+
+class Vp8lBits:
+    """the vp8l bit order: fields pack lsb-first into little-endian
+    bytes (the container's own rule - the first bit written lands in
+    bit 0 of byte 0)."""
+
+    def __init__(self):
+        self.acc = 0
+        self.nbits = 0
+        self.out = bytearray()
+
+    def put(self, value, count):
+        for i in range(count):
+            self.acc |= ((value >> i) & 1) << self.nbits
+            self.nbits += 1
+            if self.nbits == 8:
+                self.out.append(self.acc)
+                self.acc = 0
+                self.nbits = 0
+
+    def finish(self):
+        if self.nbits:
+            self.out.append(self.acc)
+            self.acc = 0
+            self.nbits = 0
+        return bytes(self.out)
+
+
+class Vp8lRead:
+    """the mirror: the same lsb-first order, walked back."""
+
+    def __init__(self, data):
+        self.data = data
+        self.pos = 0
+        self.acc = 0
+        self.nbits = 0
+
+    def get(self, count):
+        value = 0
+        for i in range(count):
+            if self.nbits == 0:
+                self.acc = self.data[self.pos]
+                self.pos += 1
+                self.nbits = 8
+            value |= (self.acc & 1) << i
+            self.acc >>= 1
+            self.nbits -= 1
+        return value
+
+
+def _vp8l_simple_code(w, symbols):
+    """a simple prefix code: 1 bit simple flag, 1 bit num_symbols-1,
+    1 bit first-symbol width, then the symbols as (value, width) pairs
+    (8 bits when the width flag answers 8, 1 bit otherwise). a
+    two-symbol code reads one bit per use (0 selects the first); a
+    one-symbol code reads nothing."""
+    if len(symbols) == 2 and symbols[1][1] != 8:
+        raise ValueError('the format reads a second symbol at 8 bits, '
+                         'whatever the first one cost')
+    w.put(1, 1)
+    w.put(len(symbols) - 1, 1)
+    w.put(1 if symbols[0][1] == 8 else 0, 1)
+    for value, width in symbols:
+        w.put(value, width)
+
+
+def _vp8l_read_simple_code(r):
+    if r.get(1) != 1:
+        raise ValueError('the mirror only reads simple codes')
+    count = r.get(1) + 1
+    wide = r.get(1)
+    width = 8 if wide else 1
+    symbols = [r.get(width) for _ in range(count)]
+    return symbols
+
+
+# the weave pair: every channel differs between the two colors and no
+# channel value collides across the pair, so each of the three channel
+# bits a pixel costs answers its own channel - a flipped bit is a wrong
+# color in the hash, not a coincidence that still decodes.
+VP8L_WEAVE_A = (0x28, 0x60, 0x98)
+VP8L_WEAVE_B = (0xd8, 0xa8, 0x38)
+
+
+def webp_weave_pixel(x, y):
+    """4px blocks on the diagonal, the bmp weave's own granularity
+    (opaque - the alpha answers nothing at these sizes)."""
+    if ((x // 4) + (y // 4)) & 1:
+        return VP8L_WEAVE_B + (255,)
+    return VP8L_WEAVE_A + (255,)
+
+
+def make_still_webp(width, height, pixel_fn):
+    """a hand-encoded vp8l still, all literals: the header, no color
+    cache, a single prefix-code group of five simple codes (green, red,
+    blue carry the two weave colors; alpha carries one opaque symbol;
+    the distance code exists because the group has five slots and never
+    answers), then one green/red/blue bit per pixel. a decode of this
+    stream never takes an lz77 copy, so the only variables the pixels
+    carry are the ones the weave function owns. one caveat the mirror
+    cannot see: with a two-color weave the green and red bits are
+    equal at every pixel, so a green/red write-order transposition
+    produces byte-identical output - the vendored-decoder host proof
+    carries that permutation, and a third color would be the fixture
+    that closes it.
+
+    the channel pairs ride sorted ascending because the canonical
+    assignment orders same-length codes by symbol value (the smaller
+    value takes code 0 - the vendored huffman table build sorts, the
+    stream order does not choose), and a single-symbol code builds a
+    zero-bit table entry, so alpha and the distance code never cost a
+    bit at a pixel."""
+    w = Vp8lBits()
+    w.put(0x2f, 8)                      # the vp8l signature
+    w.put(width - 1, 14)
+    w.put(height - 1, 14)
+    w.put(0, 1)                         # alpha_is_used
+    w.put(0, 3)                         # version
+    w.put(0, 1)                         # transform: absent (the level-0
+    #                                   # loop reads present bits until a
+    #                                   # zero answers)
+    w.put(0, 1)                         # color cache: absent
+    w.put(0, 1)                         # meta huffman: single group
+    pairs = [sorted((VP8L_WEAVE_A[1], VP8L_WEAVE_B[1])),
+             sorted((VP8L_WEAVE_A[0], VP8L_WEAVE_B[0])),
+             sorted((VP8L_WEAVE_A[2], VP8L_WEAVE_B[2]))]
+    for pair in pairs:
+        _vp8l_simple_code(w, [(value, 8) for value in pair])
+    _vp8l_simple_code(w, [(255, 8)])
+    _vp8l_simple_code(w, [(0, 1)])
+    for y in range(height):
+        for x in range(width):
+            r, g, b, _a = pixel_fn(x, y)
+            w.put(pairs[0].index(g), 1)
+            w.put(pairs[1].index(r), 1)
+            w.put(pairs[2].index(b), 1)
+    payload = w.finish()
+    chunk = b'VP8L' + struct.pack('<I', len(payload)) + payload
+    if len(payload) & 1:                # riff chunks pad to even
+        chunk += b'\x00'
+    return b'RIFF' + struct.pack('<I', 4 + len(chunk)) + b'WEBP' + chunk
+
+
+def vp8l_decode_still(data):
+    """the mirror decoder: the exact shape the encoder writes, walked
+    back bit for bit (header, five simple codes, the literal pixel
+    walk) - any field-width or bit-order slip in the writer fails here
+    instead of in some downstream consumer."""
+    if data[:4] != b'RIFF' or data[8:12] != b'WEBP' or data[12:16] != b'VP8L':
+        raise ValueError('not a riff/webp/vp8l container')
+    if struct.unpack('<I', data[4:8])[0] != len(data) - 8:
+        raise ValueError('riff size does not match the file')
+    payload_size = struct.unpack('<I', data[16:20])[0]
+    if payload_size > len(data) - 20:
+        raise ValueError('vp8l chunk overruns the file')
+    r = Vp8lRead(data[20:20 + payload_size])
+    if r.get(8) != 0x2f:
+        raise ValueError('vp8l signature missing')
+    width = r.get(14) + 1
+    height = r.get(14) + 1
+    if r.get(1):
+        raise ValueError('the mirror reads alpha-is-used = 0 only')
+    if r.get(3) != 0:
+        raise ValueError('vp8l version must be 0')
+    if r.get(1):
+        raise ValueError('the mirror reads no transform (the level-0 loop)')
+    if r.get(1):
+        raise ValueError('the mirror reads no color cache')
+    if r.get(1):
+        raise ValueError('the mirror reads a single code group')
+    codes = [_vp8l_read_simple_code(r) for _ in range(5)]
+    # the canonical rule the vendored table build owns: same-length
+    # codes order by symbol value (the smaller takes code 0), the
+    # stream order does not choose - a two-symbol code read back sorts
+    # before any pixel bit indexes it.
+    codes = [sorted(c) for c in codes]
+    if len(codes[3]) != 1 or codes[3][0] != 255:
+        raise ValueError('the alpha code must be the single opaque symbol')
+    pixels = []
+    for _ in range(width * height):
+        g = codes[0][r.get(1)] if len(codes[0]) == 2 else codes[0][0]
+        rr = codes[1][r.get(1)] if len(codes[1]) == 2 else codes[1][0]
+        b = codes[2][r.get(1)] if len(codes[2]) == 2 else codes[2][0]
+        pixels.append((rr, g, b, 255))
+    return width, height, pixels
 
 
 # ---------------------------------------------------------------- gif tools
@@ -453,6 +659,20 @@ def build(out_dir):
     emit('fx_still_qoi_rgb.qoi', make_qoi(32, 16, 3, rgb_pixel))
     emit('fx_still_qoi_rgba.qoi', make_qoi(32, 16, 4, rgba_pixel))
 
+    # the shape dimension: a 24bpp dib frame at a non power of two
+    # width is the exact figure the hardware upload paths' gutter
+    # logic exists for, and a sliver answers the extreme aspect. see
+    # the set docstring for what each shape covers.
+    emit('fx_still_webp_odd.webp', make_still_webp(101, 101, webp_weave_pixel))
+
+    def sliver_pixel(x, y):
+        u = x // 8
+        return ((40 + u * 5 + y * 3) & 0xff,
+                (90 + u * 2 + y * 4) & 0xff,
+                (150 - u * 3 - y * 2) & 0xff, 255)
+
+    emit('fx_still_qoi_sliver.qoi', make_qoi(1000, 37, 3, sliver_pixel))
+
     return files, (bounce_frames, fade_frames)
 
 
@@ -612,6 +832,40 @@ def self_check(files, frames_data):
         expect(pixels == want, name + ' decode mismatch (%d pixels)' %
                sum(1 for a, b in zip(pixels, want) if a != b))
 
+    # the vp8l still: the container contract, the 101x101 non power of
+    # two shape, and the mirror decoder returns the exact weave pixels.
+    data = by_name['fx_still_webp_odd.webp']
+    w, h, pixels = vp8l_decode_still(data)
+    expect((w, h) == (101, 101),
+           'webp dims %r' % ((w, h),))
+    want = [webp_weave_pixel(x, y)
+            for y in range(h) for x in range(w)]
+    expect(pixels == want, 'webp weave decode mismatch (%d pixels)' %
+           sum(1 for a, b in zip(pixels, want) if a != b))
+    expect(data[12:16] == b'VP8L',
+           'the odd webp is the simple vp8l container (no vp8x wrapper)')
+
+    # the qoi sliver: the extreme aspect decodes back through the same
+    # verbatim opcode port, and the shape is the point (1000x37: the
+    # hardware pads answer 1024x64 - gutters on both axes).
+    data = by_name['fx_still_qoi_sliver.qoi']
+    expect(data[:4] == b'qoif', 'sliver magic missing')
+    expect(data[-8:] == QOI_END, 'sliver end marker missing')
+    expect(data[12] == 3, 'sliver channels %d' % data[12])
+
+    def sliver_pixel(x, y):
+        u = x // 8
+        return ((40 + u * 5 + y * 3) & 0xff,
+                (90 + u * 2 + y * 4) & 0xff,
+                (150 - u * 3 - y * 2) & 0xff, 255)
+
+    w, h, ch, pixels = qoi_decode(data)
+    expect((w, h, ch) == (1000, 37, 3),
+           'sliver header %r' % ((w, h, ch),))
+    want = [sliver_pixel(x, y) for y in range(h) for x in range(w)]
+    expect(pixels == want, 'sliver decode mismatch (%d pixels)' %
+           sum(1 for a, b in zip(pixels, want) if a != b))
+
     # size hygiene: fixtures stay small (the repo carries them now).
     for name, data in files:
         expect(len(data) < 32768, '%s grew past 32 kb (%d bytes)'
@@ -632,7 +886,7 @@ def main():
         for f in failures:
             print('SELF CHECK FAIL: ' + f)
         sys.exit(1)
-    print('SELF CHECK PASS: %d fixtures, lzw and qoi round trips exact'
+    print('SELF CHECK PASS: %d fixtures, lzw, qoi and vp8l round trips exact'
           % FIXTURE_COUNT)
     sys.exit(0)
 

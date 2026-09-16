@@ -45,14 +45,16 @@ def main():
     # 1. the harness script exists and carries the golden set.
     check("the golden harness script exists",
           os.path.exists("tests/render_golden.ps1"))
-    check("the golden set is the pinned ten (the real imagery only)",
+    check("the golden set is the pinned twelve (the real imagery and the shape dimension)",
           ps1.count('"28_control_png_100x100.png"') == 1 and
           ps1.count('"29_control_png_4000x3000.png"') == 1 and
           ps1.count('"fx_still_qoi_rgba.qoi"') == 1 and
           ps1.count('"fx_anim_pulse.webp"') == 1 and
           ps1.count('"fx_anim_fade.gif"') == 1 and
           ps1.count('"fx_still_24bpp.bmp"') == 1 and
-          ps1.count('"fx_still_photo.jpg"') == 1)
+          ps1.count('"fx_still_photo.jpg"') == 1 and
+          ps1.count('"fx_still_webp_odd.webp"') == 1 and
+          ps1.count('"fx_still_qoi_sliver.qoi"') == 1)
     check("the truncated anomaly stubs stay out of the golden set",
           '"30_control_gif_single_frame.gif"' not in ps1 and
           '"31_control_gif_anim_normal.gif"' not in ps1 and
@@ -62,7 +64,11 @@ def main():
     ps1_normalized = ps1.replace("\r\n", "\n")
     check("the golden sample count is pinned",
           re.search(r"\$goldenSamples = @\(", ps1_normalized) is not None and
-          len(re.findall(r'^\s+"[0-9a-z_.]+",?$', ps1_normalized, re.M)) == 10)
+          len(re.findall(r'^\s+"[0-9a-z_.]+",?$', ps1_normalized, re.M)) == 12)
+    check("the shape dimension rides the golden set (the non power of two webp and the sliver)",
+          '"fx_still_webp_odd.webp"' in ps1 and
+          '"fx_still_qoi_sliver.qoi"' in ps1 and
+          "two defects can" in ps1)
     check("the export canvas is the fixed 640x480 (the min-width headroom)",
           '$size = "640x480"' in ps1)
     check("the renderer legs map to the hidden switches",
@@ -134,7 +140,7 @@ def main():
         samples = [s for s in re.findall(r'"([^"]+)":\s*\{', raw)]
         check("the golden manifest covers exactly the golden set",
               sorted(samples) == sorted(re.findall(r'"([0-9a-z_.]+.png|[0-9a-z_.]+.gif|[0-9a-z_.]+.bmp|[0-9a-z_.]+.jpg|[0-9a-z_.]+.qoi|[0-9a-z_.]+.webp)"',
-                                                   ps1)) or len(samples) == 10,
+                                                   ps1)) or len(samples) == 12,
               "(%d entries)" % len(samples))
         bad_hashes = []
         for s, entry in manifest.items():
@@ -147,6 +153,9 @@ def main():
         check("every gdi leg is pinned",
               all(entry.get("gdi") for entry in manifest.values())
               if manifest else False)
+        check("the manifest answers on every leg (the renderer parity round: a null read as an environment gap while whole decoder families were being refused)",
+              all(entry.get(leg) for entry in manifest.values()
+                  for leg in ("gdi", "gl", "d3d")) if manifest else False)
     else:
         if in_git_checkout:
             check("the golden manifest is absent only before the bootstrap",

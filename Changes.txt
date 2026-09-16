@@ -1,4 +1,97 @@
-﻿Pre-release: Version 1.1.14-rc.7 (the input ceiling round)
+﻿Pre-release: Version 1.1.14-rc.8 (the renderer parity round)
+
+	the third external audit arrived with the strongest single finding
+	of the series - a heap overflow in the opengl upload loop, a brace
+	misplacement it said it had verified with cat -a - and the round
+	opens by answering it the only way that settles anything: a
+	mechanical brace-stack parse of the actual bytes. the increment at
+	hwgl.c:418 sits inside the rgba branch where it belongs (the close
+	at 419 pairs with the else that opens at 388, the row stride walks
+	pot_wide * 3 in the bgr branch exactly as the pad copy addresses
+	it), the s += stride line answers to the for-loop body, and no
+	write passes the allocation on any width. the claim does not
+	survive verification. what was real was the bait: three closing
+	braces sat one indentation level shallower than their nesting, the
+	exact trap a careful reader falls into when the display and the
+	structure disagree. the indentation retired - pure whitespace, a
+	byte-identical codegen, the same 489,984-byte zig answer - and the
+	round-105 guard now parses the brace nesting itself, so the shape
+	stays answered by structure instead of by eyeball.
+
+	the finding that did hold is the one the audit built its case on:
+	the hardware renderers only accept frames that answer the dib
+	contract, and the gdi+ decode path built its frames as
+	screen-compatible bitmaps - ddbs, GetObject answers bmBits == NULL
+	for them - so the gl and d3d gates refused every png, gif, bmp,
+	jpeg, tiff, ico and emf frame on the machine, silently, and the
+	viewer painted with gdi no matter which renderer the user picked.
+	the pixel oracle recorded null after null for those families and
+	the harness read the nulls as "no renderer on this machine" - the
+	audit proved the same runner answered for the webp and qoi family,
+	so the nulls were per-image refusals wearing an environment
+	explanation. the gdi+ frames now answer as 24bpp top-down dib
+	sections, the exact shape the webp path has built since the
+	animation round: the drawing is unchanged (gdi+ into the selected
+	section, the alpha compositing over the backdrop exactly as
+	before), only the storage answers the contract both hardware paths
+	read. the embedded-thumbnail early frames take the same form (a
+	big png now keeps its hardware renderer through the blurry phase),
+	and the orientation copies - exif-rotated camera jpegs and
+	user-rotated frames alike - build as 32bpp top-down sections whose
+	write is the section's own native copy instead of a SetDIBits
+	through a ddb. the mipmaps and the clipboard keep their own
+	surfaces: they answer to gdi alone and no renderer ever reads
+	them. the refusal gates themselves stop returning in silence - a
+	frame that is not a section or carries a depth the upload paths
+	do not take now names itself in the debug channel, because a
+	silent zero is exactly how a whole decoder family hid for rounds.
+
+	the audit's second lens - the oracle's own blind spot - lands as
+	the shape dimension: the golden set covered every decoder family
+	but the only frames that reached the hardware paths were power of
+	two wide (the qoi pair at 32, the webp at 64), so the gutter
+	replication the rc.5 round built had zero live coverage - the two
+	defects covered for each other, exactly as the audit drew it. two
+	fixtures land: a 101x101 webp, hand-encoded vp8l with the standard
+	library only (two-color weave through simple prefix codes, a
+	mirror decoder in the self check), and a 1000x37 qoi sliver -
+	non-power-of-two on both axes, extreme aspect, the shapes the pad
+	logic exists for. the golden manifest re-bootstrapped at twelve
+	samples: the gdi hashes pin the new dib-backed draws, and for the
+	first time every family answers on the gl and d3d legs. the
+	bootstrap itself rides the manifest's own dispatch path - the
+	strict comparison steps aside for exactly the window the rebuild
+	needs (the tracked-manifest gate the pixel oracle round built),
+	then the fresh manifest lands as its own commit and the strict
+	comparison takes it back.
+
+	the input ceiling's smoke stage grew its teeth the same way: the
+	sparse 4gb-plus file used to pass the stage by not crashing (a
+	viewer still standing after five seconds proved nothing about the
+	refusal), and the audit called it - the gate proved the weaker
+	claim. the stage now runs the render export against the same
+	over-ceiling file and requires the load-refused exit code with no
+	bitmap answered: the refusal is the behavior under test, and the
+	oracle makes asserting it cheap. the exit timeout's
+	ExitProcess(1) skip of the ini save stays on the record for the
+	user to see: a stuck loader thread costs the unsaved settings of
+	that session, by design, because the alternative is tearing down
+	memory a killed thread may still hold locks in.
+
+	the deferred items stay deferred with their reasons on the record:
+	code signing needs the account (signpath or trusted signing - the
+	readme now carries the attestation verification line next to the
+	sha256 one, so a user can prove origin today while publisher
+	identity waits), the 19 max_path sites want their own round with
+	the \\?\ side effects reviewed, the dynamic memory budget, /w4, the
+	decoder worker process and the loader-state context each keep
+	their own. verified: the four suites pass, link_scan audits the
+	externs against the definitions with zero missing, the vendored
+	libwebp verifier reports no drift, and the zig line links a
+	490,496-byte exe (the deselect hygiene
+	crossed a section boundary).
+
+Pre-release: Version 1.1.14-rc.7 (the input ceiling round)
 
 	the second external audit of the rc.6 tree answered the same way
 	the first one did: evidence first, then code. its headline finding

@@ -342,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.14-rc.7.75 pre-release (the input ceiling round)",
-          (major, minor, rev, build) == ("1", "1", "14", "75") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.14-rc.7 tag)",
-          vstr == "1.1.14-rc.7")
+    check("version.h = 1.1.14-rc.8.76 pre-release (the renderer parity round)",
+          (major, minor, rev, build) == ("1", "1", "14", "76") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.14-rc.8 tag)",
+          vstr == "1.1.14-rc.8")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3094,7 +3094,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the pixel oracle round sweeps the pin)",
-          "#define VERSION_BUILD 75" in version)
+          "#define VERSION_BUILD 76" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3165,8 +3165,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 75" in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+          "#define VERSION_BUILD 76" in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3439,9 +3439,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3505,8 +3505,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 75" in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+          "#define VERSION_BUILD 76" in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4068,9 +4068,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4238,9 +4238,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4341,9 +4341,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4420,9 +4420,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4519,9 +4519,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4636,9 +4636,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4849,9 +4849,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.7 build 75 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4989,9 +4989,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5039,14 +5039,15 @@ def t_fixture_round98():
         "fx_anim_bounce.gif", "fx_anim_fade.gif", "fx_still_rgba.png",
         "fx_still_24bpp.bmp", "fx_still_qoi_rgb.qoi",
         "fx_still_qoi_rgba.qoi", "fx_still_photo.jpg",
-        "fx_anim_pulse.webp",
+        "fx_anim_pulse.webp", "fx_still_webp_odd.webp",
+        "fx_still_qoi_sliver.qoi",
     ]
     present = sorted(n for n in os.listdir(samples)
                      if os.path.isfile(os.path.join(samples, n))) \
         if os.path.isdir(samples) else []
-    check("the sample directory carries exactly 48 files (40 anomalies + 8 fixtures)",
-          len(present) == 48, "%d files" % len(present))
-    check("the eight fixtures are all present by name",
+    check("the sample directory carries exactly 50 files (40 anomalies + 10 fixtures)",
+          len(present) == 50, "%d files" % len(present))
+    check("the ten fixtures are all present by name",
           all(n in present for n in fx_names),
           ", ".join(n for n in fx_names if n not in present))
     check("the over budget canvas still rides the sweep (the stage 3 leg)",
@@ -5106,11 +5107,14 @@ def t_fixture_round98():
         check("the fixture generator self check passes on regeneration",
               r.returncode == 0,
               (r.stdout.strip().splitlines() or ["no output"])[-1])
-        mismatch = [n for n in fx_names[:6]
+        hand_encoded = [n for n in fx_names
+                        if n not in ("fx_still_photo.jpg",
+                                     "fx_anim_pulse.webp")]
+        mismatch = [n for n in hand_encoded
                     if open(os.path.join(samples, n), "rb").read() !=
                     open(os.path.join(tmp2, n), "rb").read()]
-        check("all six hand-encoded fixtures regenerate byte-identical",
-              not mismatch, ", ".join(mismatch))
+        check("all eight hand-encoded fixtures regenerate byte-identical",
+              not mismatch and len(hand_encoded) == 8, ", ".join(mismatch))
     finally:
         shutil.rmtree(tmp2, ignore_errors=True)
 
@@ -5151,6 +5155,25 @@ def t_fixture_round98():
           riff_size == len(webp) - 8)
     check("the webp fixture carries six animation frames",
           webp.count(b"ANMF") == 6)
+
+    # 5c. the shape fixtures (the renderer parity round): the odd webp
+    #     is the hand-encoded simple vp8l container - no vp8x wrapper,
+    #     a non power of two 101x101 canvas - and the sliver is the
+    #     extreme aspect through the long-proven qoi decoder.
+    odd = open(os.path.join(samples, "fx_still_webp_odd.webp"), "rb").read()
+    odd_riff = struct.unpack("<I", odd[4:8])[0]
+    check("the odd webp fixture is the simple vp8l container (no vp8x)",
+          odd[:4] == b"RIFF" and odd[8:12] == b"WEBP" and
+          odd[12:16] == b"VP8L" and b"VP8X" not in odd and
+          odd_riff == len(odd) - 8 and
+          struct.unpack("<I", odd[16:20])[0] == len(odd) - 20)
+    check("the odd webp header claims 101 wide (the non power of two shape)",
+          odd[20] == 0x2f and
+          ((struct.unpack("<I", odd[20:24])[0] >> 8) & 0x3fff) + 1 == 101)
+    sliver = open(os.path.join(samples, "fx_still_qoi_sliver.qoi"), "rb").read()
+    check("the sliver fixture claims the 1000x37 extreme aspect",
+          sliver[:4] == b"qoif" and
+          struct.unpack(">II", sliver[4:12]) == (1000, 37))
 
     # 5b. the qoi magic fix - the round's real catch: the format
     #     horizons round shipped the constant in little-endian spelling,
@@ -5194,9 +5217,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.7 build 75 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5270,9 +5293,9 @@ def t_navigation_visibility_round99():
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.3** \u2014" in readme)
-    check("the version is 1.1.14-rc.7 build 75 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
 
 
 def t_audit_response_round101():
@@ -5389,9 +5412,9 @@ def t_audit_response_round101():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
     check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.4** \u2014" in readme and
           "**1.1.14-rc.3** \u2014" in readme)
@@ -5502,13 +5525,13 @@ def t_pixel_oracle_round102():
 
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the input ceiling round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.7 (the input ceiling round)", top)
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
-    check("the readme candidate slot holds the input ceiling round",
-          "**1.1.14-rc.7 \u2014 the input ceiling round (the current release candidate):**" in readme and
+    check("the changelog top entry is the renderer parity round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.8 (the renderer parity round)", top)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the readme candidate slot holds the renderer parity round",
+          "**1.1.14-rc.8 \u2014 the renderer parity round (the current release candidate):**" in readme and
           "**1.1.14-rc.4** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog states the wglmakecurrent contract wording",
@@ -5824,19 +5847,196 @@ def t_input_ceiling_round104():
 
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the input ceiling round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.7 (the input ceiling round)", top)
-    check("the version is 1.1.14-rc.7 build 75",
-          '#define VERSION_BUILD 75' in version and
-          '#define VERSION_STRING "1.1.14-rc.7"' in version)
-    check("the readme candidate slot holds the input ceiling round",
-          "**1.1.14-rc.7 \u2014 the input ceiling round (the current release candidate):**" in readme and
-          "**1.1.14-rc.6** \u2014" in readme)
+    check("the changelog top entry is the renderer parity round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.8 (the renderer parity round)", top)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the readme candidate slot holds the renderer parity round",
+          "**1.1.14-rc.8 \u2014 the renderer parity round (the current release candidate):**" in readme and
+          "**1.1.14-rc.7** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog states the 32-bit size read's blind spot",
           "answers the low dword there" in flat_changes)
     check("the changelog states the hard exit reasoning",
           "no further teardown shares memory with a stuck thread" in flat_changes)
+
+
+def t_renderer_parity_round105():
+    """Guards for the renderer parity round (1.1.14-rc.8: the third
+    external audit arrived with a heap-overflow claim in the gl upload
+    loop; the mechanical brace-stack parse answered it - the increment
+    sits inside the rgba branch, the claim does not survive, and the
+    misindented closing braces that baited it retired - while the
+    finding that did hold landed as code: the gdi+ frames answer as dib
+    sections so the hardware renderers actually render every decoder
+    family, the golden set gains the shape dimension, and the ceiling
+    smoke stage proves the refusal through the export oracle)."""
+    hwgl = read("src/hwgl.c").decode("latin-1")
+    hwd3d = read("src/hwd3d.c").decode("latin-1")
+    vivload = read("src/viv_load.c").decode("latin-1")
+    vivrender = read("src/viv_render.c").decode("latin-1")
+    version = read("src/version.h").decode()
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    smoke = read("tests/smoke_test.ps1").decode("latin-1")
+    golden_ps1 = read("tests/render_golden.ps1").decode("latin-1")
+    golden_pg = read("tests/pixel_golden_test.py").decode()
+    fixture_gen = read("tests/make_fixture_samples.py").decode("latin-1")
+
+    # 1. the audit's headline claim answered by structure, not eyeball:
+    #    a real brace parser walks the upload loop and pins where the
+    #    gutter increment sits (inside the rgba else, never the bgr
+    #    if), and every closing brace in both hardware renderers sits
+    #    at its opening's indentation depth - the misleading-indent
+    #    bait that fooled a careful audit retires for good.
+    def _c_strip(line):
+        out = []
+        i = 0
+        instr = None
+        while i < len(line):
+            c = line[i]
+            if instr:
+                if c == instr:
+                    instr = None
+                i += 1
+                continue
+            if c in "\"'":
+                instr = c
+                i += 1
+                continue
+            if c == "/" and i + 1 < len(line) and line[i + 1] == "/":
+                break
+            out.append(c)
+            i += 1
+        return "".join(out)
+
+    def _c_enclosing(src, needle):
+        """the construct stack enclosing the first line carrying needle:
+        a list of (opening line text, preceding non-blank text) pairs,
+        outermost first."""
+        lines = src.split("\n")
+        idx = next((i for i, l in enumerate(lines) if needle in l), None)
+        if idx is None:
+            return None
+        stack = []
+        prev_text = ""
+        for l in lines[:idx + 1]:
+            clean = _c_strip(l)
+            for ch in clean:
+                if ch == "{":
+                    stack.append((l.strip(), prev_text))
+                elif ch == "}" and stack:
+                    stack.pop()
+            if l.strip():
+                prev_text = l.strip()
+        return stack
+
+    gutter = _c_enclosing(hwgl, "d += (pot_wide - wide) * 4;")
+    check("the gl upload's gutter increment sits inside the rgba else (the brace-stack answer to the overflow claim)",
+          gutter is not None and
+          len(gutter) == 4 and
+          gutter[-1][1] == "else" and
+          gutter[-2][1] == "for(y=0;y<high;y++)" and
+          all("if (format == GL_BGR_EXT)" not in g[0] for g in gutter),
+          repr(gutter[-1]) if gutter else None)
+    bgr = _c_enclosing(hwgl, "d += pot_wide * 3;")
+    check("the bgr row advance stays inside its own branch (the whole-pot stride)",
+          bgr is not None and
+          any(g[1] == "if (format == GL_BGR_EXT)" for g in bgr) and
+          bgr[-1][1] == "if (format == GL_BGR_EXT)")
+    stride = _c_enclosing(hwgl, "s += stride;")
+    check("the source stride advance answers to the row loop, not a branch",
+          stride is not None and
+          any(g[1] == "for(y=0;y<high;y++)" for g in stride) and
+          all(g[1] != "else" for g in stride))
+
+    def _c_indent_clean(src):
+        lines = src.split("\n")
+        stack = []
+        for l in lines:
+            clean = _c_strip(l)
+            tabs = len(l) - len(l.lstrip("\t"))
+            for ch in clean:
+                if ch == "{":
+                    stack.append(tabs)
+                elif ch == "}":
+                    if stack and stack.pop() != tabs:
+                        return False
+        return True
+
+    check("every closing brace in the hardware renderers sits at its opening's depth (the indent bait retired)",
+          _c_indent_clean(hwgl) and _c_indent_clean(hwd3d))
+
+    # 2. the renderer parity: the gdi+ frames, their thumbnails and the
+    #    orientation copies answer the dib contract the hardware gates
+    #    read; the gdi-only surfaces (clipboard copy, mipmaps, the gdi
+    #    stretch temp) keep their own.
+    check("the frame dib helper is the webp shape (24bpp top-down)",
+          "static HBITMAP _viv_load_create_frame_dib(HDC dc,int wide,int high)" in vivload and
+          "bmi.bmiHeader.biHeight = -high; // top-down, the webp frames' own shape" in vivload and
+          "bmi.bmiHeader.biBitCount = 24;" in vivload and
+          "return CreateDIBSection(dc,&bmi,DIB_RGB_COLORS,&bits,NULL,0);" in vivload)
+    check("the gdi+ frame loop and the thumbnail both build dib sections",
+          "hbitmap = _viv_load_create_frame_dib(screen_hdc,load_wide,load_high);" in vivload and
+          "hbitmap = _viv_load_create_frame_dib(screen_hdc,(int)thumb_wide,(int)thumb_high);" in vivload and
+          vivload.count("CreateCompatibleBitmap(") == 1)
+    check("the orientation copies keep the dib contract (32bpp top-down, the native section write)",
+          "ret_hbitmap = CreateDIBSection(screen_hdc,&bmi,DIB_RGB_COLORS,&ret_bits,NULL,0);" in vivrender and
+          "os_copy_memory(ret_bits,new_pixels,safe_size_mul(safe_size_mul((SIZE_T)ret_wide,(SIZE_T)ret_high),sizeof(DWORD)));" in vivrender and
+          "SetDIBits(" not in vivrender and
+          vivrender.count("CreateCompatibleBitmap(") == 2)
+    check("the renderer refusals name their reason (the silent zero retired)",
+          'debug_printf("opengl: the frame is not a dib section (no bits answered) - the gdi path paints it\\r\\n");' in hwgl and
+          'debug_printf("direct3d: the frame is not a dib section (no bits answered) - the gdi path paints it\\r\\n");' in hwd3d and
+          'debug_printf("opengl: the frame is %d bpp (24 or 32 answer) - the gdi path paints it\\r\\n",ds.dsBm.bmBitsPixel);' in hwgl and
+          'debug_printf("direct3d: the frame is %d bpp (24 or 32 answer) - the gdi path paints it\\r\\n",ds.dsBm.bmBitsPixel);' in hwd3d)
+
+    # 3. the shape dimension: the fixtures, the golden wiring, and the
+    #    vp8l writer's own rules.
+    check("the fixture generator carries the hand-rolled vp8l writer and its mirror",
+          "def make_still_webp(width, height, pixel_fn):" in fixture_gen and
+          "def vp8l_decode_still(data):" in fixture_gen and
+          "FIXTURE_COUNT = 8" in fixture_gen)
+    check("the vp8l writer pins the vendored decoder's own rules (canonical order, zero-bit single codes)",
+          "sorted((VP8L_WEAVE_A[1], VP8L_WEAVE_B[1]))" in fixture_gen and
+          "value takes code 0" in fixture_gen and
+          "transform: absent" in fixture_gen)
+    check("the shape fixtures are generated at their shapes",
+          "make_still_webp(101, 101, webp_weave_pixel)" in fixture_gen and
+          "make_qoi(1000, 37, 3, sliver_pixel)" in fixture_gen)
+    check("the golden set rides the shape dimension",
+          '"fx_still_webp_odd.webp"' in golden_ps1 and
+          '"fx_still_qoi_sliver.qoi"' in golden_ps1 and
+          "two defects can" in golden_ps1)
+    check("the pixel golden suite pins the no-null manifest (the parity round's own oracle)",
+          "whole decoder families were being refused" in golden_pg)
+
+    # 4. the ceiling smoke stage proves the refusal through the export.
+    check("the ceiling stage runs the export oracle and demands the refusal",
+          '"(input ceiling export)"' in smoke and
+          '($probe.ExitCode -eq 2) -and (-not (Test-Path $probeBmp))' in smoke and
+          '"-render-gdi", "-render-size", "640x480", "-render-export",' in smoke and
+          "the export hung on the over-ceiling file" in smoke)
+
+    # 5. the version, the changelog, the readme.
+    top = changes.lstrip("\ufeff").split("\r\n")[0]
+    check("the changelog top entry is the renderer parity round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.8 (the renderer parity round)", top)
+    check("the version is 1.1.14-rc.8 build 76",
+          '#define VERSION_BUILD 76' in version and
+          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the readme candidate slot holds the renderer parity round",
+          "**1.1.14-rc.8 \u2014 the renderer parity round (the current release candidate):**" in readme and
+          "**1.1.14-rc.7** \u2014" in readme)
+    flat_changes = " ".join(changes.split())
+    check("the changelog states the brace-stack verdict",
+          "the claim does not survive verification" in flat_changes and
+          "what was real was the bait" in flat_changes)
+    check("the changelog discloses the exit timeout's ini cost",
+          "costs the unsaved settings of that session" in flat_changes)
+    check("the readme carries the attestation verification line",
+          "gh attestation verify" in readme)
 
 
 if __name__ == "__main__":
@@ -5910,6 +6110,7 @@ if __name__ == "__main__":
     t_pixel_oracle_round102()
     t_audit_hardening_round103()
     t_input_ceiling_round104()
+    t_renderer_parity_round105()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

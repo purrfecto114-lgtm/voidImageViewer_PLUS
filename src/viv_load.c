@@ -893,6 +893,32 @@ static int _viv_input_size_refused(HANDLE h,LARGE_INTEGER *file_size)
 	return 0;
 }
 
+// the gdi+ frames answer as 24bpp top-down dib sections, the webp path's
+// own shape (viv_anim.c). the hardware renderers read the bits through the
+// dib contract and a ddb answers GetObject with bmBits == NULL: the gl/d3d
+// gates refuse such frames, so every png/gif/bmp/jpeg frame used to fall
+// back to the gdi path silently - the user picked a hardware renderer and
+// the viewer painted with gdi anyway, while the pixel oracle recorded null
+// after null that read as "no renderer on this machine". the drawing is
+// unchanged (gdi+ into the selected section, the alpha composites over the
+// backdrop exactly as before); only the storage answers to the contract
+// both hardware paths read.
+static HBITMAP _viv_load_create_frame_dib(HDC dc,int wide,int high)
+{
+	BITMAPINFO bmi;
+	void *bits;
+	
+	ZeroMemory(&bmi,sizeof(BITMAPINFO));
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biWidth = wide;
+	bmi.bmiHeader.biHeight = -high; // top-down, the webp frames' own shape
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 24;
+	bmi.bmiHeader.biCompression = BI_RGB;
+	
+	return CreateDIBSection(dc,&bmi,DIB_RGB_COLORS,&bits,NULL,0);
+}
+
 // 14.447 - CreateStreamOnHGlobal - this is too slow over slow networks -which doesn't matter because the gif wont show the first frame until the entire gif is loaded anyway.
 // 14.520 - CreateStreamOnHGlobal
 // 15.834 - SHCreateStreamOnFile
@@ -1170,7 +1196,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 												{
 													HBITMAP hbitmap;
 													
-													hbitmap = CreateCompatibleBitmap(screen_hdc,(int)thumb_wide,(int)thumb_high);
+													hbitmap = _viv_load_create_frame_dib(screen_hdc,(int)thumb_wide,(int)thumb_high);
 													
 													if (hbitmap)
 													{
@@ -1205,6 +1231,13 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 																	if (orientation > 1)
 																	{
 																		HBITMAP new_hbitmap;
+																		
+																		// GetDIBits must not see a bitmap still selected in a dc -
+																		// the orientate helper reads the source through its own
+																		// GetDIBits (the chrome module documents the same contract
+																		// for its readbacks). the restore further down answers the
+																		// non-oriented path and runs as a no-op here.
+																		SelectObject(mem_hdc,last_hbitmap);
 																		
 																		new_hbitmap = _viv_orientate_hbitmap(hbitmap,orientation);
 																		
@@ -1367,7 +1400,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 													break;
 												}
 												
-												hbitmap = CreateCompatibleBitmap(screen_hdc,load_wide,load_high);
+												hbitmap = _viv_load_create_frame_dib(screen_hdc,load_wide,load_high);
 												if (hbitmap)
 												{
 													UINT image_flags;
@@ -1422,6 +1455,13 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 													if (orientation > 1)
 													{
 														HBITMAP new_hbitmap;
+														
+														// GetDIBits must not see a bitmap still selected in a dc -
+														// the orientate helper reads the source through its own
+														// GetDIBits (the chrome module documents the same contract
+														// for its readbacks). the restore further down answers the
+														// non-oriented path and runs as a no-op here.
+														SelectObject(mem_hdc,last_hbitmap);
 														
 														new_hbitmap = _viv_orientate_hbitmap(hbitmap,orientation);
 														if (new_hbitmap)
