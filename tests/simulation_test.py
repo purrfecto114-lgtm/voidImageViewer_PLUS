@@ -719,10 +719,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.14-rc.9.77",
-          (major, minor, rev, build) == (1, 1, 14, 77), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.14-rc.9",
-          vstr is not None and vstr.group(1) == "1.1.14-rc.9", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.14-rc.10.78",
+          (major, minor, rev, build) == (1, 1, 14, 78), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.14-rc.10",
+          vstr is not None and vstr.group(1) == "1.1.14-rc.10", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -737,9 +737,10 @@ def t_sim_version_117():
     readme = read("README.md").decode("utf-8", errors="replace")
     check("the readme current-stable line says 1.1.13",
           "**1.1.13 —" in readme and "(the current stable):**" in readme)
-    check("the readme candidate slot holds the navigation faces round",
-          "**1.1.14-rc.9 —" in readme and
+    check("the readme candidate slot holds the corrections round",
+          "**1.1.14-rc.10 —" in readme and
           "**1.1.14-rc.8** —" in readme and
+          "**1.1.14-rc.9** —" in readme and
           "**1.1.14-rc.3** —" in readme and
           "(the current release candidate):**" in readme and
           "**1.1.14-rc.2** —" in readme and

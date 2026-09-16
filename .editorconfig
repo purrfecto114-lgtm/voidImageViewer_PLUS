@@ -1,0 +1,54 @@
+# Editor configuration for voidImageViewer_PLUS.
+#
+# This file describes the byte conventions the tree actually carries -
+# the same invariants tests/byte_invariant_test.py enforces in CI. The
+# classes that are deliberately mixed (the two visual studio projects
+# carry different histories, the nsis tree mixes encodings by upstream
+# design) get no rule here: the editor default stands, exactly as the
+# tree stands. Nothing in this file aspires - it records.
+#
+# The byte discipline matters more here than in most trees: an editor
+# that rewrites line endings or widens tabs has silently corrupted
+# pinned guard text four recorded times now (see the encounters ledger
+# in Changes.txt), so the honest spelling of every class is written
+# down where editors can read it.
+#
+# Section order matters: later sections override earlier ones for the
+# same property, so [Changes.txt] is stated after [*.txt] on purpose.
+
+root = true
+
+[*]
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# The C89 sources and the resource layer are windows-native files:
+# CRLF line endings, tab indentation (width 4).
+[*.{c,h}]
+end_of_line = crlf
+indent_style = tab
+indent_size = 4
+
+[*.{rc,manifest}]
+end_of_line = crlf
+
+# The python, powershell, markdown, yaml and shell layers are
+# unix-native: LF line endings, space indentation (width 4). The
+# powershell scripts and the python suites carry pinned text that
+# CRLF conversion would corrupt.
+[*.{py,ps1,md,yml,yaml,sh,txt}]
+end_of_line = lf
+indent_style = space
+indent_size = 4
+
+[*.py]
+charset = utf-8
+
+# The changelog: CRLF, a UTF-8 BOM and tab indentation - the form the
+# release pipeline's own derivation scripts and the guard suite read.
+# This section must stay last: the [*.txt] glob above would otherwise
+# win the end_of_line contest for it.
+[Changes.txt]
+end_of_line = crlf
+charset = utf-8-bom
+indent_style = tab

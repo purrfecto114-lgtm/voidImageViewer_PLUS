@@ -254,6 +254,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 			_viv_load_failed = 0;
 			_viv_load_refused_budget = 0;
 			_viv_load_refused_input_size = 0;
+			_viv_hw_render_fallback = 0;
 
 			_viv_status_update();
 		}
@@ -341,6 +342,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		_viv_load_image_terminate = 0;
 		_viv_load_refused_budget = 0;
 		_viv_load_refused_input_size = 0;
+		_viv_hw_render_fallback = 0;
 		
 		if (_viv_load_image_filename)
 		{
@@ -836,6 +838,7 @@ void _viv_blank(void)
 		_viv_load_failed = 0;
 		_viv_load_refused_budget = 0;
 		_viv_load_refused_input_size = 0;
+		_viv_hw_render_fallback = 0;
 	}
 
 	if (_viv_random)
@@ -1929,6 +1932,7 @@ void _viv_refresh(void)
 			_viv_load_failed = 0;
 			_viv_load_refused_budget = 0;
 			_viv_load_refused_input_size = 0;
+			_viv_hw_render_fallback = 0;
 			
 			_viv_status_update();
 		}

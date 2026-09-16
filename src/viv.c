@@ -175,6 +175,13 @@ BYTE _viv_load_refused_budget = 0;
 // before any pixel budget can see the file) and read by the status
 // line: like the budget flag, cleared when the next load dispatches.
 BYTE _viv_load_refused_input_size = 0;
+// set when a hardware renderer the user picked refuses the current
+// image (no context on the machine, a canvas past the texture
+// ceiling, a frame the upload paths do not take) and the gdi path
+// paints it: the status line says so instead of a silent fallback.
+// cleared when the next load dispatches, like the refusal flags
+// above it.
+BYTE _viv_hw_render_fallback = 0;
 _viv_reply_t *_viv_reply_start = 0;
 _viv_reply_t *_viv_reply_last = 0;
 wchar_t *_viv_status_temp_text = 0;

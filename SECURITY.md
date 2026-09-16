@@ -24,6 +24,11 @@ vulnerability**, or go directly to
 Private reporting keeps the details between you and the maintainer until a
 fix and a coordinated advisory are ready.
 
+An honest expectation: the project has one active maintainer, and the
+response is best-effort - there is no dedicated security inbox or an SLA
+behind the private channel, just the same GitHub account that ships the
+releases. Reports are answered as fast as one person can.
+
 Please do **not** open a public issue, discussion or pull request for
 anything security-sensitive.
 

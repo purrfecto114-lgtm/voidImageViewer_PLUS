@@ -2585,15 +2585,34 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
 				ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
 				
-				if ((config_renderer != CONFIG_RENDERER_GDI) && (_viv_hw_render_frame(hwnd,ps.hdc,rx,ry + view_top,rw,rh,brush_color)))
+				if (config_renderer != CONFIG_RENDERER_GDI)
 				{
-					_viv_is_animation_paint = 0;
-					
-					DeleteObject(update_hrgn);
-					
-					EndPaint(hwnd,&ps);
-					
-					return 0;
+					if (_viv_hw_render_frame(hwnd,ps.hdc,rx,ry + view_top,rw,rh,brush_color))
+					{
+						_viv_is_animation_paint = 0;
+
+						DeleteObject(update_hrgn);
+
+						EndPaint(hwnd,&ps);
+
+						return 0;
+					}
+
+					// the refusal the debug channel already names reaches
+					// the user: a hardware back end the user picked that
+					// cannot take this image says so on the status line
+					// instead of falling back to the gdi path in silence.
+					// the flag is sticky for this image (every paint of
+					// every frame refuses the same way) and the next load
+					// dispatch clears it; the once-only transition pays
+					// for the status refresh so the hot path never repeats
+					// it.
+					if (!_viv_hw_render_fallback)
+					{
+						_viv_hw_render_fallback = 1;
+
+						_viv_status_update();
+					}
 				}
 			}
 

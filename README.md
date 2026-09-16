@@ -22,9 +22,14 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.14-rc.9 — the navigation faces round (the current release candidate):**
+**1.1.14-rc.10 — the corrections round (the current release candidate):**
 
-- **The navigation faces** — the toolbar's previous/next buttons sat permanently gray on a plain open: the enable rule read a cache only the Jump-To dialog ever fills, while the navigation itself walks two other paths (the playlist when one is loaded, or a live folder scan in single-file mode). The faces now answer the same question the navigation walks — the playlist branch reads the playlist's own items, and the single-file branch reads a folder fact the navigation's own scan records (the preload runs that scan after every load, so the fact is current before the first click; unknown counts as a yes, and a scan that finds nothing grays the faces it just answered).
+- **The byte invariants** — an external review's fact-check found the editor-tool byte corruption class (tabs widened, endings converted) had hit the tree four recorded times with no gate of its own. The class now answers in CI: an `.editorconfig` that records the tree's real conventions, a byte-invariant suite (line endings, BOMs, final newlines, per file class) that caught four live stragglers on its first run (two whole C sources still on LF, a 939-line doubled-carriage-return region fossilized in the changelog, a CRLF markdown doc), and `git diff --check` over every pushed range.
+- **The conservation proof** — the one-shot split's "every function body is byte-identical" claim was verified once by tooling that never landed in the tree. `tools/split_conservation.py` is the re-runnable form: 290 function bodies at the split, all 290 conserved, independently re-derived.
+- **The QOI fuzz smoke** — the built-in decoder is the only format with no system codec behind it; 36 deterministic mutants of the tracked fixtures now open through the hidden export path on every push, each one required to decode or refuse — never crash, never wedge.
+- **The ARM64 compile gate** — `viv_state.h` has carried the `VERSION_ARM64` machine chain since the split with nothing ever compiling it; a zig `aarch64-windows` cross build now runs on every push (runtime verification stays deferred — no free-tier ARM64 Windows runner exists).
+- **The renderer honesty line** — a hardware renderer the user picked that cannot take an image (no context on the machine, a canvas past the texture ceiling, an unsupported frame depth) now says so on the status line instead of falling back to GDI in silence.
+- **The documentation honesty** — a Credits section names the fork's authors beside the upstream, CONTRIBUTING gains the DCO sign-off flow, an adding-a-language guide and the structural-refactor conservation policy, and SECURITY.md states the sole-maintainer best-effort reality.
 - Full narrative: `Changes.txt`.
 
 **1.1.13 — the format horizons round (the current stable):**
@@ -35,6 +40,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.14-rc.9** — the navigation faces round: the toolbar's previous/next enable rule reads the navigation's own two paths (the playlist items, the folder fact the preload scan records) instead of a cache only the Jump-To dialog ever fills.
 - **1.1.14-rc.8** — the renderer parity round: the GDI+ frames answer as DIB sections so the hardware renderers actually render every decoder family, the shape dimension reaches the pixel oracle (two non-power-of-two fixtures), the ceiling gate proves the refusal through the export oracle.
 - **1.1.14-rc.7** — the input ceiling round: `GetFileSizeEx` and the 1 GB/512 MB whole-file ceilings, the hard kill retiring into the recorded process exit, thread-creation unwinding, the CodeQL full attack-surface leg, the sparse 4-GB-plus smoke stage.
 - **1.1.14-rc.6** — the budget and baseline round: the working-set and animation frame budgets, the recorded exit timeout, the v145 security baseline with PE binary assertions, the release trust chain (attestation, CodeQL, the collaboration pack).
@@ -112,13 +118,23 @@ Plain C + Win32 API, Visual Studio:
 2. Build the `voidImageViewer` project (x64 or Win32).
 3. Optional setup: NSIS 3 via `nsis\build_installer.ps1` (auto-detects the VS version; sources compile with `/utf-8`).
 
-The zig cross build needs no Visual Studio: `sh build-zig/build.sh` (100 translation units, about 462 KB x64 with `-Os`). The vs linker embeds `res/voidImageViewer.Manifest` (per-monitor v2); the zig build keeps no embedded manifest, so it writes `viv.exe.manifest` next to the exe and the runtime claim in `os_init` covers even a stripped copy — keep the two files together, or build through vs when you need a single-file binary.
+The zig cross build needs no Visual Studio: `sh build-zig/build.sh` (104 translation units, about 479 KB x64 with `-Os`). The vs linker embeds `res/voidImageViewer.Manifest` (per-monitor v2); the zig build keeps no embedded manifest, so it writes `viv.exe.manifest` next to the exe and the runtime claim in `os_init` covers even a stripped copy — keep the two files together, or build through vs when you need a single-file binary.
 
 The source layout: one core (`src/viv.c` — the startup, the command line, the teardown) plus eighteen domain modules (`src/viv_<domain>.c/.h`), the decoder modules (`src/webp.c`, `src/qoi.c`, `src/wic.c`) and the shared-context header (`src/viv_state.h`); see `docs/architecture/viv-split-spec.md`.
 
 GitHub Actions compiles every push (pinned `windows-2022`/v143 + `windows-2025`/v145 legs); tag pushes run the tests, verify SHA-256 end to end and publish the release assets.
 
 ![Void Image Viewer Image View](https://www.voidtools.com/voidImageViewer.Image.View10.gif)
+
+Credits
+--------
+Upstream: **voidtools / David Carpenter** — [voidImageViewer](https://github.com/voidtools/voidImageViewer), MIT.
+
+This fork: the original fork, the Chinese localization and the modern UI
+rewrite by **hesphoros** (2026, as recorded in the git history), carried
+forward by the current maintainer under the same MIT terms. The complete
+author record lives in the repository history; `THIRD_PARTY_NOTICES.md`
+covers the vendored components (Google's libwebp among them).
 
 See also
 --------

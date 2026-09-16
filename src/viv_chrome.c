@@ -1685,6 +1685,19 @@ else
 					string_copy(text_buf,_viv_frame_fd->cFileName);
 				}
 
+				// the renderer's honesty line rides the position text: a
+				// hardware back end the user picked that cannot take this
+				// image (no context on the machine, a canvas past the
+				// texture ceiling, a frame the upload paths do not take)
+				// names itself beside the filename - the gdi path still
+				// paints the image, the status says which path is painting
+				// it. cleared when the next load dispatches.
+				if (_viv_hw_render_fallback)
+				{
+					string_cat_utf8(text_buf,(const utf8_t *)"  ");
+					string_cat_utf8(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK));
+				}
+
 				text = text_buf;
 			}
 		

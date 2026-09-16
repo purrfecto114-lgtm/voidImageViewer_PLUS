@@ -342,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.14-rc.9.77 pre-release (the navigation faces round)",
-          (major, minor, rev, build) == ("1", "1", "14", "77") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.14-rc.9 tag)",
-          vstr == "1.1.14-rc.9")
+    check("version.h = 1.1.14-rc.10.78 pre-release (the corrections round)",
+          (major, minor, rev, build) == ("1", "1", "14", "78") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.14-rc.10 tag)",
+          vstr == "1.1.14-rc.10")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3094,7 +3094,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the pixel oracle round sweeps the pin)",
-          "#define VERSION_BUILD 77" in version)
+          "#define VERSION_BUILD 78" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3165,8 +3165,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 77" in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+          "#define VERSION_BUILD 78" in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3370,8 +3370,8 @@ def t_structure_round76():
     # 2. the wndproc domain: exists, sized, registered exactly once.
     wnd = open("src/viv_wndproc.c", "rb").read().decode("utf-8", errors="replace")
     check("the wndproc domain exists", "static LRESULT _viv_on_wm_nchittest(" in wnd)
-    check("the wndproc domain is under the 3,100 line cap",
-          wnd.count("\n") + 1 < 3100, f"({wnd.count(chr(10)) + 1})")  # rc.4: the halftone palette and the dpi icons join the domain
+    check("the wndproc domain is under the 3,200 line cap",
+          wnd.count("\n") + 1 < 3200, f"({wnd.count(chr(10)) + 1})")  # rc.4: the halftone palette and the dpi icons; rc.10: the renderer-fallback notice joins the paint path
     props = read("voidImageViewer.files.props").decode("utf-8-sig")
     check("viv_wndproc.c is registered in the props",
           props.count('src\\viv_wndproc.c" />') == 1)
@@ -3439,9 +3439,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3505,8 +3505,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 77" in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+          "#define VERSION_BUILD 78" in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4068,9 +4068,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4238,9 +4238,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4341,9 +4341,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4420,9 +4420,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4519,9 +4519,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4636,9 +4636,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4849,9 +4849,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.9 build 77 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4989,9 +4989,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5217,9 +5217,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.9 build 77 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5293,9 +5293,9 @@ def t_navigation_visibility_round99():
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.3** \u2014" in readme)
-    check("the version is 1.1.14-rc.9 build 77 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
 
 
 def t_audit_response_round101():
@@ -5412,9 +5412,9 @@ def t_audit_response_round101():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.4** \u2014" in readme and
           "**1.1.14-rc.3** \u2014" in readme)
@@ -5526,12 +5526,12 @@ def t_pixel_oracle_round102():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.9 (the navigation faces round)", top)
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+          top == "Pre-release: Version 1.1.14-rc.10 (the corrections round)", top)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the readme candidate slot holds the navigation faces round",
-          "**1.1.14-rc.9 \u2014 the navigation faces round (the current release candidate):**" in readme and
+          "**1.1.14-rc.10 \u2014 the corrections round (the current release candidate):**" in readme and
           "**1.1.14-rc.4** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog states the wglmakecurrent contract wording",
@@ -5848,12 +5848,12 @@ def t_input_ceiling_round104():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.9 (the navigation faces round)", top)
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+          top == "Pre-release: Version 1.1.14-rc.10 (the corrections round)", top)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the readme candidate slot holds the navigation faces round",
-          "**1.1.14-rc.9 \u2014 the navigation faces round (the current release candidate):**" in readme and
+          "**1.1.14-rc.10 \u2014 the corrections round (the current release candidate):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog states the 32-bit size read's blind spot",
@@ -6022,12 +6022,12 @@ def t_renderer_parity_round105():
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.9 (the navigation faces round)", top)
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+          top == "Pre-release: Version 1.1.14-rc.10 (the corrections round)", top)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the readme candidate slot holds the navigation faces round",
-          "**1.1.14-rc.9 \u2014 the navigation faces round (the current release candidate):**" in readme and
+          "**1.1.14-rc.10 \u2014 the corrections round (the current release candidate):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog states the brace-stack verdict",
@@ -6135,12 +6135,12 @@ def t_navigation_faces_round106():
     # 6. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.9 (the navigation faces round)", top)
-    check("the version is 1.1.14-rc.9 build 77",
-          '#define VERSION_BUILD 77' in version and
-          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+          top == "Pre-release: Version 1.1.14-rc.10 (the corrections round)", top)
+    check("the version is 1.1.14-rc.10 build 78",
+          '#define VERSION_BUILD 78' in version and
+          '#define VERSION_STRING "1.1.14-rc.10"' in version)
     check("the readme candidate slot holds the navigation faces round",
-          "**1.1.14-rc.9 \u2014 the navigation faces round (the current release candidate):**" in readme and
+          "**1.1.14-rc.10 \u2014 the corrections round (the current release candidate):**" in readme and
           "**1.1.14-rc.8** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog tells the cache-versus-paths story",
@@ -6148,6 +6148,173 @@ def t_navigation_faces_round106():
           "two other paths" in flat_changes)
     check("the changelog states the unknown-counts-as-yes default",
           "unknown counts as a yes" in flat_changes)
+
+
+
+def t_corrections_round107():
+    """Guards for the corrections round (1.1.14-rc.10: the external
+    corrections review - a fact-check pass over the first review's
+    claims - with its two must-fix gates and the honest closures.
+    the byte-mangling class gets its own gate (editorconfig + the
+    byte invariant suite + git diff --check), the split's pure-move
+    claim gets its re-runnable proof (the conservation tool, 290/290
+    over the actual split pair), the built-in qoi decoder gets its
+    deterministic mutant corpus, the arm64 machine chain gets its
+    compile gate, and the renderer fallback names itself on the
+    status line instead of falling back in silence)."""
+    ec = read(".editorconfig").decode()
+    byte_test = read("tests/byte_invariant_test.py").decode()
+    cons = read("tools/split_conservation.py").decode()
+    fuzz = read("tests/qoi_fuzz_smoke.ps1").decode()
+    arm = read("build-zig/build-arm64.sh").decode()
+    tests_yml = read(".github/workflows/tests.yml").decode()
+    release_yml = read(".github/workflows/release.yml").decode()
+    gitignore = read(".gitignore").decode()
+    stateh = read("src/viv_state.h").decode("latin-1")
+    viv = read("src/viv.c").decode("latin-1")
+    vivload = read("src/viv_load.c").decode("latin-1")
+    wnd = read("src/viv_wndproc.c").decode("latin-1")
+    chrome = read("src/viv_chrome.c").decode("latin-1")
+    loch = read("src/localization.h").decode("latin-1")
+    loce = read("src/localization_en_us.h").decode("latin-1")
+    locz = read("src/localization_zh_cn.h").decode("utf-8", errors="replace")
+    safe = read("src/safe_size.c").decode("latin-1")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    contributing = read("CONTRIBUTING.md").decode("utf-8", errors="replace")
+    security = read("SECURITY.md").decode("utf-8", errors="replace")
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+
+    # 1. the editorconfig records the tree's real conventions and
+    #    stays out of the mixed corners (the two projects, the nsis
+    #    tree) - the file describes what is.
+    check("the editorconfig exists and roots itself",
+          "root = true" in ec)
+    check("the editorconfig states the C layer as crlf + tab",
+          "end_of_line = crlf" in ec and "indent_style = tab" in ec)
+    check("the editorconfig states the unix layers as lf + space",
+          "end_of_line = lf" in ec and "indent_style = space" in ec)
+    check("the editorconfig states the changelog bom and keeps its section after the txt glob",
+          "charset = utf-8-bom" in ec and
+          ec.find("\n[Changes.txt]") > ec.find("\n[*.{py,ps1,md,yml,yaml,sh,txt}]"))
+
+    # 2. the byte invariant suite: the class gate the review asked
+    #    for, with its population pins so a renamed class cannot
+    #    pass by vacuity.
+    check("the byte invariant suite exists and pins the endings per class",
+          "want_crlf=True" in byte_test and "want_crlf=False" in byte_test and
+          "bare_lf" in byte_test and "bare_cr" in byte_test)
+    check("the byte suite pins the changelog bom and the final newlines",
+          "has_bom" in byte_test and "ends_with_newline" in byte_test and
+          "Changes.txt carries its UTF-8 BOM" in byte_test)
+    check("the byte suite was born from real stragglers (the population floor)",
+          "len(c_files) > 80" in byte_test and "len(md_files) >= 7" in byte_test)
+    check("the byte suite cross-checks the editorconfig it audits beside",
+          "the editorconfig exists beside the invariants it describes" in byte_test)
+    check("the workflows run the byte suite on both pipelines",
+          "tests/byte_invariant_test.py" in tests_yml and
+          "tests/byte_invariant_test.py" in release_yml)
+    check("the whitespace gate rides the pushed ranges (git diff --check)",
+          "git diff --check" in tests_yml and "github.event_before" in tests_yml)
+
+    # 3. the conservation tool: the split's pure-move claim,
+    #    re-runnable. the lexer masks literals before counting
+    #    braces (the guard suites pin brace-bearing text in string
+    #    constants), and the default file set is the union of both
+    #    sides (the domains did not exist before the split).
+    check("the conservation tool exists with its literal mask",
+          "def mask_literals" in cons and "def extract_functions" in cons)
+    check("the conservation tool unions the file lists of both revisions",
+          'git_ls(old_rev, r"src/viv_.*\\.c$")' in cons and
+          'git_ls(new_rev, r"src/viv_.*\\.c$")' in cons)
+    check("the conservation tool normalizes exactly the documented move edits",
+          're.sub(r"^static\\s+", "", text)' in cons)
+    check("the changelog records the conservation answer over the split pair",
+          "290 old, 290 new, 290" in changes and
+          "tools/split_conservation.py" in changes)
+    check("contributing carries the structural-refactor policy",
+          "## Structural refactors and the conservation gate" in contributing and
+          "split_conservation.py" in contributing)
+
+    # 4. the qoi fuzz smoke: decode-or-refuse over a deterministic
+    #    corpus, on the gdi leg where the renderer question cannot
+    #    contaminate the exit contract.
+    check("the qoi fuzz harness exists with its deterministic seeds",
+          "fx_still_qoi_rgb.qoi" in fuzz and "fx_still_qoi_sliver.qoi" in fuzz and
+          "0x514F49" in fuzz)
+    check("the fuzz contract is decode-or-refuse (0 or 2, bitmap required on 0)",
+          "$code -eq 0" in fuzz and "$code -eq 2" in fuzz and
+          "exit 0 but no bitmap answered" in fuzz and
+          "outside the decode-or-refuse contract" in fuzz)
+    check("the fuzz stage wedges get killed, not waited out",
+          "Stop-Process" in fuzz and "WaitForExit(45000)" in fuzz)
+    check("the fuzz stage rides the windows leg beside the smoke sweep",
+          "qoi_fuzz_smoke.ps1" in tests_yml)
+
+    # 5. the arm64 compile gate: the machine chain the tree carries
+    #    finally compiles somewhere, every push.
+    check("the arm64 zig build targets aarch64 windows with the VERSION_ARM64 chain",
+          "aarch64-windows-gnu" in arm and "-DVERSION_ARM64" in arm and
+          "viv-arm64.exe" in arm)
+    check("the arm64 gate rides the ubuntu job",
+          "build-arm64.sh" in tests_yml and "ziglang==0.16.0" in tests_yml)
+    check("the arm64 build artifacts stay untracked",
+          "build-zig/obj-arm64/" in gitignore and
+          "build-zig/viv-arm64.exe.manifest" in gitignore)
+
+    # 6. the renderer honesty line: the refusal point sets a per-image
+    #    flag once, the status line names the fallback beside the
+    #    filename, and the next load dispatch clears it where the
+    #    budget refusal flags clear.
+    check("the fallback flag is shared state with its own comment",
+          "extern BYTE _viv_hw_render_fallback;" in stateh and
+          "BYTE _viv_hw_render_fallback = 0;" in viv)
+    check("the paint path sets the flag once and pays for one status refresh",
+          "_viv_hw_render_fallback = 1;" in wnd and
+          wnd.count("_viv_status_update();") >= 1 and
+          "if (!_viv_hw_render_fallback)" in wnd)
+    check("every load dispatch reset clears the fallback flag (four sites)",
+          vivload.count("_viv_hw_render_fallback = 0;") == 4)
+    check("the status line appends the fallback notice beside the filename",
+          "LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK" in chrome and
+          'string_cat_utf8(text_buf,(const utf8_t *)"  ");' in chrome)
+    check("the fallback string answers in both languages",
+          'LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK' in loch and
+          'The selected renderer cannot display this image - painting with GDI.' in loce and
+          "所选渲染器无法显示此图像" in locz)
+    check("the debug channel still names the refusal it always named",
+          "the frame is not a dib section" in read("src/hwgl.c").decode("latin-1"))
+
+    # 7. the documentation honesty: credits, dco, the language guide,
+    #    the sole-maintainer expectation, and the one style nit.
+    check("the readme credits section names upstream beside the fork author",
+          "## Credits" not in readme and "\nCredits\n" in readme and
+          "hesphoros" in readme and "David Carpenter" in readme)
+    check("contributing carries the dco sign-off flow",
+          "## Contributor sign-off (DCO)" in contributing and
+          "developercertificate.org" in contributing)
+    check("contributing carries the adding-a-language guide",
+          "## Adding a language" in contributing and
+          "localization_en_us.h" in contributing)
+    check("the code style section points at the byte gates",
+          "byte_invariant_test.py" in contributing and ".editorconfig" in contributing)
+    check("security states the sole-maintainer best-effort reality",
+          "one active maintainer" in security and "best-effort" in security)
+    check("the safe_size copyright header matches the dominant spelling",
+          "// Copyright 2025 voidtools / David Carpenter" in safe and
+          "// Copyright (C) 2025" not in safe)
+
+    # 8. the changelog's own record: the encounters ledger the review
+    #    asked for (the author claim becomes the auditable list) and
+    #    the round's version identity.
+    check("the changelog carries the byte-mangling encounters ledger",
+          "byte-mangling encounters ledger" in changes and
+          changes.count("doubled carriage returns") >= 1)
+    check("the changelog top entry is the corrections round",
+          "Pre-release: Version 1.1.14-rc.10 (the corrections round)" in changes and
+          changes.find("1.1.14-rc.10 (the corrections round)") <
+          changes.find("1.1.14-rc.9 (the navigation faces round)"))
+    check("the readme zig line states the measured translation unit count",
+          "104 translation units" in readme and "479 KB" in readme)
 
 
 if __name__ == "__main__":
@@ -6223,6 +6390,7 @@ if __name__ == "__main__":
     t_input_ceiling_round104()
     t_renderer_parity_round105()
     t_navigation_faces_round106()
+    t_corrections_round107()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

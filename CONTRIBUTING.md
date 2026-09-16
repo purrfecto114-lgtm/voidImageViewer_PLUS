@@ -95,6 +95,32 @@ images, with the smoke and golden legs riding the windows-2022 one.
   overwrite an existing release. `-rc`/`-beta` tags publish as
   pre-releases.
 
+## Structural refactors and the conservation gate
+
+A refactor that moves code between files (a split, an extraction, a
+module reshuffle) must prove it only moved code. The one-shot split of
+the original monolith carried that proof as commit-message prose; the
+re-runnable form is `tools/split_conservation.py`:
+
+```
+python3 tools/split_conservation.py <old_rev> <new_rev>
+```
+
+It extracts every top-level function body from both revisions, normalizes
+the two text edits a move is allowed to carry (the `static`-prefix strip
+on an exported definition; line endings), and compares the sides as
+multisets. A pure move answers `N old, N new, N matched, 0 lost, 0
+gained`. Run it before opening the PR and paste the output into the
+testing section; a refactor that also edits bodies is fine, but the
+edited functions belong in the PR description, named, so the reviewer
+sees moves and edits as separate facts.
+
+The same policy asks the move to stay reviewable: one commit per slice
+when the slices are separable, so a revert can target one. The split
+spec's own rollback discipline (`docs/architecture/viv-split-spec.md`)
+records what a one-shot landing costs; the conservation gate is what it
+buys back.
+
 ## The vendored libwebp
 
 `libwebp/` is a vendored, decode-only subset of Google's libwebp (see
@@ -131,6 +157,46 @@ anything. Once the manifest is tracked, every push compares strictly and
 every release compares the shipping binary strictly — so a deliberate
 pixel change rides the bootstrap flow, not the editor.
 
+## Adding a language
+
+The UI is bilingual today (English and Simplified Chinese) through the
+hand-maintained string tables in `src/localization.h` (the id enum) and
+`src/localization_en_us.h` / `src/localization_zh_cn.h` (the arrays).
+There is no community translation platform on purpose - the tables are
+code, and the guard suite checks their alignment on every push. To add
+a language:
+
+1. Copy `src/localization_en_us.h` to `src/localization_<lang>.h` and
+   translate the strings in place, keeping the trailing
+   `// LOCALIZATION_ID_*` comments exactly as they are - the alignment
+   guard reads them.
+2. Add the file to both project file lists (`voidImageViewer.files.props`,
+   which the two projects share) and to `build-zig/files.txt`.
+3. Wire the language into `src/localization.c`'s table list and the
+   language switcher in the settings domain, mirroring the existing
+   pair.
+4. Run the suites (`tests/menu_structure_test.py` first - the
+   localization alignment check will name any drift between the enum
+   and the arrays).
+
+Non-ASCII string literals are UTF-8 by contract (the sources compile
+with `/utf-8`); the Chinese tables are the working example.
+
+## Contributor sign-off (DCO)
+
+Every commit carries a sign-off line:
+
+```
+git commit -s
+```
+
+which appends `Signed-off-by: Name <email>` - the Developer Certificate
+of Origin (https://developercertificate.org/): you wrote the change, or
+have the right to submit it under the project's MIT license. The
+project has a single active maintainer today, so the line mostly
+documents intent for the future: when an outside contribution arrives,
+the sign-off is what makes its provenance explicit.
+
 ## Code style
 
 - C89: plain C with the Win32 API, nothing newer relied on.
@@ -138,8 +204,12 @@ pixel change rides the bootstrap flow, not the editor.
   says what it does. The whole tree reads this way; keep it that way.
 - Indentation in `src/*.c` and `src/*.h` is tabs: match the surrounding
   file; a space-indented new line reads as a diff artifact here.
-- Line endings are per-file and must stay consistent within each file:
-  `src/` and `Changes.txt` are CRLF; this readme and the `.github/`
-  files are LF. Never mix endings inside one file.
+- Line endings are per class, not per file: `src/` and `Changes.txt`
+  are CRLF (the changelog carries a UTF-8 BOM); the python, powershell,
+  markdown, yaml and shell layers are LF. `.editorconfig` records the
+  classes and `tests/byte_invariant_test.py` enforces them in CI -
+  never mix endings inside one file, and never let an editor widen a
+  tab (the byte-mangling encounters ledger in `Changes.txt` counts
+  four; the suite exists so there is no fifth unnoticed).
 - Sources compile with `/utf-8`; non-ASCII literals (the Simplified
   Chinese strings) are UTF-8 by contract.

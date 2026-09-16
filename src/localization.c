@@ -1,16 +1,16 @@
 //
 // Copyright 2026 hesphoros
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -25,7 +25,7 @@
 #include "localization_en_us.h"
 #include "localization_zh_cn.h"
 
-static const utf8_t **_localization_language_array[LOCALIZATION_LANGUAGE_COUNT] = 
+static const utf8_t **_localization_language_array[LOCALIZATION_LANGUAGE_COUNT] =
 {
 	_localization_string_array_en_us, // LOCALIZATION_LANGUAGE_ENGLISH
 	_localization_string_array_zh_cn, // LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED
@@ -45,7 +45,7 @@ const utf8_t *localization_get_string(localization_id_t localization_id)
 #endif
 		return _localization_string_array_en_us[0];
 	}
-	
+
 	return _localization_language_array[localization_language][localization_id];
 }
 
@@ -55,7 +55,7 @@ const utf8_t *localization_get_en_us_string(localization_id_t localization_id)
 	{
 		return _localization_string_array_en_us[0];
 	}
-	
+
 	return _localization_string_array_en_us[localization_id];
 }
 
@@ -63,12 +63,12 @@ const utf8_t *localization_get_language_name(BYTE language)
 {
 	// Return the name of a language in that language itself.
 	// Used by the options dialog so every language is listed in its own script.
-	
+
 	if (language < LOCALIZATION_LANGUAGE_COUNT)
 	{
 		return _localization_language_array[language][LOCALIZATION_ID_LANGUAGE];
 	}
-	
+
 	return _localization_string_array_en_us[LOCALIZATION_ID_LANGUAGE];
 }
 
@@ -76,7 +76,7 @@ void localization_set_language(BYTE language)
 {
 	// Explicitly select the active language.
 	// Invalid values are ignored (the current language is kept).
-	
+
 	if (language < LOCALIZATION_LANGUAGE_COUNT)
 	{
 		localization_language = language;
@@ -89,7 +89,7 @@ void localization_init(void)
 	if (os_GetUserDefaultUILanguage)
 	{
 		LANGID langid;
-	
+
 		langid = os_GetUserDefaultUILanguage();
 
 		// Check if it's Chinese (Simplified or Traditional).

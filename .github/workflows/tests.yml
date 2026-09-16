@@ -31,7 +31,11 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
+      # full history: the whitespace gate diffs the pushed range
+      # (before-sha to head), which a depth-1 checkout cannot see.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -49,10 +53,54 @@ jobs:
       - name: Pixel golden harness structure tests
         run: python3 tests/pixel_golden_test.py
 
+      # the byte invariants: line endings, BOMs and final newlines per
+      # file class. an editor tool has silently rewritten bytes in this
+      # tree four recorded times; the class itself now answers in ci.
+      - name: Byte invariant tests (line endings, BOMs, final newlines)
+        run: python3 tests/byte_invariant_test.py
+
+      # the whitespace gate: git's own diff --check over the pushed
+      # range (the merge base for pull requests). catches trailing
+      # whitespace and space-before-tab in added lines before they
+      # ride a commit. the check set carries cr-at-eol on purpose:
+      # the crlf sources are this tree's normal form and the byte
+      # invariant suite owns that domain - a bare \r must not read
+      # as trailing whitespace here.
+      - name: Whitespace discipline (git diff --check over the pushed range)
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.event_before }}" ] && git cat-file -e "${{ github.event_before }}" 2>/dev/null; then
+            base="${{ github.event_before }}"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base="origin/${{ github.base_ref }}"
+          else
+            echo "no comparable range for a ${{ github.event_name }} event - the check waits for a push or a pull request"
+            exit 0
+          fi
+          WS="blank-at-eol,space-before-tab,blank-at-eof,cr-at-eol"
+          if git -c core.whitespace="$WS" diff --check "$base" HEAD; then
+            echo "whitespace clean over $base..HEAD"
+          else
+            echo "whitespace errors above - fix them before this can merge"
+            exit 1
+          fi
+
       # the vendored libwebp tree: the offline verifier proves the file
       # set, the version record and the include closure carry no drift.
       - name: Vendored libwebp closure check
         run: python3 tools/update_libwebp.py --check
+
+      # the arm64 compile gate: viv_state.h has carried the
+      # VERSION_ARM64 branch of the machine chain since the split,
+      # and nothing ever compiled it. the zig cross build proves the
+      # tree still translates and links for aarch64 windows on every
+      # push; runtime verification for the target stays deferred (no
+      # windows-arm64 runner rides the free tier) - this is the
+      # compile half of that honesty.
+      - name: ARM64 cross-compile gate (aarch64 windows, zig cc)
+        run: |
+          python3 -m pip install --quiet ziglang==0.16.0
+          sh build-zig/build-arm64.sh
 
   # Compile both shipping configurations on every push (since rc.2), pull
   # request, tag and daily schedule so a build break is caught before
@@ -124,6 +172,18 @@ jobs:
         if: matrix.runner == 'windows-2022'
         shell: powershell
         run: powershell -ExecutionPolicy Bypass -File tests\smoke_test.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
+
+      # the qoi fuzz smoke: the built-in decoder is the only format
+      # with no system codec behind it, so its adversarial input
+      # testing cannot lean on anyone else. thirty-six deterministic
+      # mutants of the tracked qoi fixtures open through the hidden
+      # export path; each must decode or refuse - a crash exit code
+      # or a wedge past the kill timeout is the failure the stage
+      # exists to catch.
+      - name: QOI fuzz smoke (deterministic mutant corpus)
+        if: matrix.runner == 'windows-2022'
+        shell: powershell
+        run: powershell -ExecutionPolicy Bypass -File tests\qoi_fuzz_smoke.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
 
       # the pixel oracle: the hidden render export walks the real pipeline
       # and the golden hashes pin the exact pixels (the decode, the fit
