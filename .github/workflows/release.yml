@@ -155,6 +155,11 @@ jobs:
       - name: Pixel golden harness structure tests
         run: python3 tests/pixel_golden_test.py
 
+      # the vendored libwebp tree: the offline verifier proves the file
+      # set, the version record and the include closure carry no drift.
+      - name: Vendored libwebp closure check
+        run: python3 tools/update_libwebp.py --check
+
   build:
     needs: [validate, tests]
     runs-on: windows-2022

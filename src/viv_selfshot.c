@@ -329,6 +329,7 @@ int vivp_selfshot_init(void)
 
 	os_GdiplusStartupInput_t gdi_input;
 	ULONG_PTR gdi_token;
+	int gdi_started;
 	char env[1024];
 	char *p;
 	char *tok;
@@ -419,16 +420,34 @@ int vivp_selfshot_init(void)
 	}
 
 	// the png saver needs a gdi+ session of its own.
+	gdi_started = 0;
 	os_zero_memory(&gdi_input,sizeof(gdi_input));
 	gdi_input.GdiplusVersion = 1;
 
 	if (os_GdiplusStartup)
 	{
-		os_GdiplusStartup(&gdi_token,&gdi_input,0);
+		if (os_GdiplusStartup(&gdi_token,&gdi_input,0) == 0)
+		{
+			gdi_started = 1;
+		}
 	}
 
 	_viv_self_log("env_ok",_viv_self.want_settings);
 	thread = CreateThread(0,0,_viv_self_thread,0,0,&thread_id);
+
+	if (!thread)
+	{
+		// the self-shot thread never started: the gdi+ session this
+		// function opened for it shuts back down (nothing else ever
+		// will) and the failure answers through the return value the
+		// caller already handles.
+		_viv_self_log("thread_create_failed",0);
+
+		if ((gdi_started) && (os_GdiplusShutdown))
+		{
+			os_GdiplusShutdown(gdi_token);
+		}
+	}
 
 	return (thread != 0);
 }

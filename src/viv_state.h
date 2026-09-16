@@ -333,6 +333,10 @@ extern const char *volatile _viv_load_stage;
 // by the status line: the user sees why a file was refused, not just that
 // it failed. cleared when the next load dispatches.
 extern BYTE _viv_load_refused_budget;
+// set by the input ceiling refusal (the whole-file read happens
+// before any pixel budget can see the file) and read by the status
+// line: like the budget flag, cleared when the next load dispatches.
+extern BYTE _viv_load_refused_input_size;
 extern _viv_reply_t *_viv_reply_start;
 extern _viv_reply_t *_viv_reply_last;
 extern wchar_t *_viv_status_temp_text;

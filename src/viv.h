@@ -97,6 +97,23 @@ extern "C" {
 #define VIV_MAX_ANIMATION_FRAMES	10000
 #define VIV_MAX_ANIMATION_TOTAL_BYTES	400000000
 #endif
+// the input ceiling (the input-size round): the whole-file buffer is
+// the first allocation a load makes and it happens before any pixel
+// budget can see the file - a normal-sized image carrying a huge
+// appended payload, a garbage tail or an oversized raw frame commits
+// its bytes before the decoders ever answer. the ceiling prices the
+// largest honest input the accepted budgets can need: a 200 mp qoi
+// or 32-bpp bmp runs near 800 mb on x64 (100 mp / 400 mb on x86), so
+// 1 gb / 512 mb admits every file the pixel budgets would accept and
+// refuses the rest before the allocation. GetFileSizeEx reads the
+// 64-bit size: the 32-bit GetFileSize cannot see a file past 4 gb
+// (it answers the low dword there, and INVALID_FILE_SIZE only when
+// that dword happens to be 0xffffffff).
+#if defined(_WIN64)
+#define VIV_MAX_INPUT_FILE_BYTES	1000000000
+#else
+#define VIV_MAX_INPUT_FILE_BYTES	512000000
+#endif
 
 typedef unsigned char utf8_t;
 

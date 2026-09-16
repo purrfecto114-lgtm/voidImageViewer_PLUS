@@ -1,0 +1,11 @@
+# the full attack surface: the fork's own sources plus the vendored
+# libwebp tree. libwebp parses untrusted webp bytes inside the shipping
+# exe, so its alerts are this fork's runtime responsibility even when
+# their origin is upstream - this scan runs them (the src-only scan in
+# config.yml stays the high-signal gate for the fork's own changes).
+# upstream findings may be dismissed on the security tab; the dismissal
+# persists per alert, which is the baseline suppression the two-leg
+# split allows.
+paths:
+  - src
+  - libwebp

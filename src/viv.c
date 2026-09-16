@@ -171,6 +171,10 @@ const char *volatile _viv_load_stage = "";
 // by the status line: the user sees why a file was refused, not just that
 // it failed. cleared when the next load dispatches.
 BYTE _viv_load_refused_budget = 0;
+// set by the input ceiling refusal (the whole-file read happens
+// before any pixel budget can see the file) and read by the status
+// line: like the budget flag, cleared when the next load dispatches.
+BYTE _viv_load_refused_input_size = 0;
 _viv_reply_t *_viv_reply_start = 0;
 _viv_reply_t *_viv_reply_last = 0;
 wchar_t *_viv_status_temp_text = 0;
@@ -1475,18 +1479,20 @@ void _viv_kill(void)
 		// the timeout below only fires on a truly stuck decoder.)
 		if (WaitForSingleObject(_viv_load_image_thread,10000) != WAIT_OBJECT_0)
 		{
-			// stop the thread where it stands. it is no longer safe for the
-			// rest of the teardown to share memory with it. the process is
-			// exiting: anything the thread leaked is reclaimed by the OS.
-			// the timeout telemetry: the stage marker names where the thread spent
-			// its last seconds (open / decode / frames / webp / qoi / wic) and the
-			// file names the decoder family, so the hard kill is a recorded event
-			// with a paper trail before the cooperative cancel ever retires it.
-			debug_printf("load thread timeout: terminating at stage %s (%S)\n",_viv_load_stage,(_viv_load_image_filename) ? _viv_load_image_filename : L"?");
+			// the hard exit, not the hard kill: TerminateThread stops the
+			// thread wherever it stands - inside a heap lock, inside gdi+
+			// or libwebp or wic state, mid critical section - and every later
+			// line of this teardown would then share that corrupted ground
+			// (CloseHandle, mem_free and DestroyWindow all take the same locks
+			// the killed thread may still hold). exiting the process instead
+			// runs no further teardown at all: the kernel reclaims everything.
+			// the timeout telemetry stays: the stage marker names where the
+			// thread spent its last seconds (open / decode / frames / webp /
+			// qoi / wic) and the file names the decoder family, so the exit is
+			// a recorded event, not a silent hang.
+			debug_printf("load thread timeout: exiting at stage %s (%S)\n",_viv_load_stage,(_viv_load_image_filename) ? _viv_load_image_filename : L"?");
 
-			TerminateThread(_viv_load_image_thread,1);
-			
-			WaitForSingleObject(_viv_load_image_thread,1000);
+			ExitProcess(1);
 		}
 		
 		CloseHandle(_viv_load_image_thread);

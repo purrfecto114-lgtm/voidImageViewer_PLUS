@@ -181,6 +181,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Loading...", // LOCALIZATION_ID_STATUS_BAR_LOADING,
 	"File not found.", // LOCALIZATION_ID_STATUS_BAR_FILE_NOT_FOUND,
 	"Failed to load image.", // LOCALIZATION_ID_STATUS_BAR_FAILED_TO_LOAD_IMAGE,
+	"The file exceeds the input size limit.", // LOCALIZATION_ID_STATUS_BAR_INPUT_OVER_LIMIT,
 	"The image exceeds the memory budget (canvas, frame count or working set).", // LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET,
 	"Slideshow playing", // LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING,
 	"Zoom %d%%", // LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT,

@@ -1,10 +1,13 @@
 name: codeql
 
 # Static analysis for the C sources (the audit's code-scanning ask): runs
-# on pushes to main and weekly. the analysis scope is src/ only - the
-# vendored libwebp tree is upstream's decode-only subset, pinned by
-# VERSION.imported and verified by tools/update_libwebp.py --check, so
-# alerts there would be upstream's, not this fork's changes.
+# on pushes to main and weekly. two legs: the fork's own sources on every
+# trigger (the high-signal gate), and the full attack surface - src plus
+# the vendored libwebp tree - weekly and on dispatch, because libwebp
+# parses untrusted webp bytes inside the shipping exe: its alerts are this
+# fork's runtime responsibility even when their origin is upstream (the
+# full leg does not ride every push: the upstream tree rarely changes
+# between pushes, and the src gate keeps those covered).
 on:
   push:
     branches: [main]
@@ -38,3 +41,30 @@ jobs:
       - uses: github/codeql-action/analyze@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
         with:
           category: "/language:c-cpp"
+
+  # the full attack surface leg: src plus the vendored libwebp tree (see
+  # .github/codeql/config-full.yml). weekly and dispatch only - the push
+  # leg above keeps the fork's own changes covered on every push.
+  analyze-full:
+    if: github.event_name != 'push'
+    runs-on: windows-2022
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3
+
+      - uses: github/codeql-action/init@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
+        with:
+          languages: c-cpp
+          config-file: ./.github/codeql/config-full.yml
+
+      - name: Build x64 (Release)
+        shell: cmd
+        run: msbuild vs2019\voidImageViewer.vcxproj /p:Configuration=Release /p:Platform=x64 /p:PlatformToolset=v143 "/p:OutDir=%GITHUB_WORKSPACE%\build\x64\\" "/p:IntDir=%GITHUB_WORKSPACE%\build\obj\x64\\" /m /nologo /v:m
+
+      - uses: github/codeql-action/analyze@4bd7200e1f146b1c937cae12d258b50f41a53cf8 # v4.38.0
+        with:
+          category: "/language:c-cpp:full"

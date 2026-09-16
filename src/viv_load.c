@@ -253,6 +253,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		{
 			_viv_load_failed = 0;
 			_viv_load_refused_budget = 0;
+			_viv_load_refused_input_size = 0;
 
 			_viv_status_update();
 		}
@@ -339,6 +340,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		_viv_load_image_allow_draw = 1;
 		_viv_load_image_terminate = 0;
 		_viv_load_refused_budget = 0;
+		_viv_load_refused_input_size = 0;
 		
 		if (_viv_load_image_filename)
 		{
@@ -364,7 +366,38 @@ debug_printf("LOAD %S is_preload %d\n",_viv_load_image_filename,is_preload);
 
 		_viv_load_image_thread = CreateThread(NULL,0,_viv_load_image_thread_proc,0,0,&thread_id);
 
-		_viv_status_update();
+		if (_viv_load_image_thread)
+		{
+			_viv_status_update();
+		}
+		else
+		{
+			// the thread never started: no reply will ever come for the state
+			// this dispatch just staged, so it unwinds here - the filename
+			// frees, the draw gate closes and the load fails like any refused
+			// file instead of a "loading..." line no thread will ever answer.
+			debug_printf("CreateThread failed %x\n",GetLastError());
+			
+			mem_free(_viv_load_image_filename);
+			_viv_load_image_filename = 0;
+			_viv_load_image_allow_draw = 0;
+			
+			// a failed preload mirrors the background reply's shape: the
+			// preload state carries the failure (navigation onto the file
+			// re-reports it through _viv_open_preload) and the on-screen
+			// status line stays as it was - a background preload's failure
+			// is not the user's failure.
+			if (is_preload)
+			{
+				_viv_preload_state = 2;
+			}
+			else
+			{
+				_viv_load_failed = 1;
+				
+				_viv_status_update();
+			}
+		}
 	}
 	
 	if (!is_preload)
@@ -799,6 +832,7 @@ void _viv_blank(void)
 	{
 		_viv_load_failed = 0;
 		_viv_load_refused_budget = 0;
+		_viv_load_refused_input_size = 0;
 	}
 
 	if (_viv_random)
@@ -820,6 +854,45 @@ void _viv_blank(void)
 	_viv_start_first_frame();
 	_viv_process_pending_clear();
 }
+// the input ceiling (the input-size round): the whole-file buffer is
+// the first allocation a load makes and it happens before any pixel
+// budget can see the file - a normal-sized image carrying a huge
+// appended payload, a garbage tail or an oversized raw frame commits
+// its bytes before the decoders ever answer. GetFileSizeEx reads the
+// 64-bit size (the 32-bit GetFileSize cannot see a file past 4 gb: it
+// answers the low dword there, and INVALID_FILE_SIZE only when that
+// dword happens to be 0xffffffff). the over-ceiling refusal marks the
+// status line so the reason reaches the user; an empty or unreadable
+// size is simply an unloadable file. returns 0 when the size is sane
+// (file_size filled in for the caller).
+static int _viv_input_size_refused(HANDLE h,LARGE_INTEGER *file_size)
+{
+	if (!GetFileSizeEx(h,file_size))
+	{
+		debug_printf("GetFileSizeEx %x\n",GetLastError());
+		
+		return 1;
+	}
+	
+	if (file_size->QuadPart <= 0)
+	{
+		debug_printf("empty file\n");
+		
+		return 1;
+	}
+	
+	if ((VIV_UINT64)file_size->QuadPart > VIV_MAX_INPUT_FILE_BYTES)
+	{
+		debug_printf("input ceiling: refusing a %u mb file (ceiling %u mb)\n",(unsigned int)((VIV_UINT64)file_size->QuadPart / 1000000),(unsigned int)(VIV_MAX_INPUT_FILE_BYTES / 1000000));
+		
+		_viv_load_refused_input_size = 1;
+		
+		return 1;
+	}
+	
+	return 0;
+}
+
 // 14.447 - CreateStreamOnHGlobal - this is too slow over slow networks -which doesn't matter because the gif wont show the first frame until the entire gif is loaded anyway.
 // 14.520 - CreateStreamOnHGlobal
 // 15.834 - SHCreateStreamOnFile
@@ -858,14 +931,15 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	
 	{
 		HANDLE h;
+		LARGE_INTEGER file_size;
 		
 		h = CreateFile(_viv_load_image_filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE|((os_major_version >= 5) ? FILE_SHARE_DELETE : 0),0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0);
-		if (h != INVALID_HANDLE_VALUE)
+		if ((h != INVALID_HANDLE_VALUE) && (!_viv_input_size_refused(h,&file_size)))
 		{
 			DWORD size;
 			HANDLE global_handle;
 
-			size = GetFileSize(h,0);
+			size = (DWORD)file_size.QuadPart;
 			
 			global_handle = GlobalAlloc(GMEM_MOVEABLE,size);
 			if (global_handle)
@@ -932,6 +1006,14 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 							stream = 0;
 						}
 					}
+					else
+					{
+						// the short read: the file changed size under the load (or
+						// the media failed) - the truncated stream refuses like any
+						// other unloadable file instead of feeding the decoders a
+						// partial buffer that was sized for a file that no longer is.
+						debug_printf("short read: %u of %u bytes (the file changed size or the media failed)\n",size - totreadsize,size);
+					}
 				}
 				
 				if (global_handle)
@@ -944,7 +1026,17 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 		}
 		else
 		{
-			debug_printf("CreateFile %x\n",GetLastError());
+			if (h != INVALID_HANDLE_VALUE)
+			{
+				// the input ceiling refusal: the helper already recorded it
+				// (the debug channel and the status line name the reason);
+				// the handle still closes.
+				CloseHandle(h);
+			}
+			else
+			{
+				debug_printf("CreateFile %x\n",GetLastError());
+			}
 		}
 	}
 
@@ -1790,6 +1882,7 @@ void _viv_refresh(void)
 		{
 			_viv_load_failed = 0;
 			_viv_load_refused_budget = 0;
+			_viv_load_refused_input_size = 0;
 			
 			_viv_status_update();
 		}

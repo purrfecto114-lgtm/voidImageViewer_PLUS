@@ -170,6 +170,58 @@ if ($over) {
     Write-Host "no over_budget sample found (regenerate samples)."
 }
 
+# 4. the input ceiling: a sparse file far past the byte cap must be
+#    refused, not crashed on (the 4gb-plus size is also the exact shape
+#    the 32-bit GetFileSize could not see: it answered the low dword).
+#    the file is sparse on ntfs, so it costs the runner nothing; when
+#    the sparse flag cannot be set the stage warns and skips rather
+#    than commit 4gb for real.
+Write-Host "=== stage 4: input ceiling (sparse) ==="
+$bigPath = Join-Path $env:TEMP ("viv_input_over_" + $PID + ".png")
+$bigSize = 4294967297
+$stage4 = "skipped"
+try {
+    $null = New-Item -Path $bigPath -ItemType File -Force
+    fsutil sparse setflag $bigPath 2>$null | Out-Null
+    $flagOut = fsutil sparse queryflag $bigPath 2>$null
+    if (($LASTEXITCODE -eq 0) -and ($flagOut -match "is set as sparse")) {
+        $fs = [System.IO.File]::Open($bigPath,'Open','Write')
+        $fs.SetLength($bigSize)
+        $fs.Close()
+        if ((Get-Item $bigPath).Length -eq $bigSize) {
+            $proc = Start-Process -FilePath $ExePath -ArgumentList ('"' + $bigPath + '"') -PassThru
+            Start-Sleep -Seconds $SampleTimeoutSec
+            if ($proc.HasExited -and $proc.ExitCode -ne 0) {
+                $script:crashes++
+                $results.Add([pscustomobject]@{
+                    Sample = "(input ceiling)"; Status = "FAIL";
+                    Detail = "died on the over-ceiling sparse file" })
+            } else {
+                $script:passes++
+                $detail = "refused the over-ceiling input without a crash"
+                if ($proc.HasExited) { $detail = "clean exit on the over-ceiling input" }
+                $results.Add([pscustomobject]@{
+                    Sample = "(input ceiling)"; Status = "PASS"; Detail = $detail })
+                Stop-Viewer $proc
+            }
+            $stage4 = "ran"
+        }
+    }
+} catch {
+    # powershell 5.1 wraps native stderr (even redirected to $null) as an
+    # error record and $ErrorActionPreference stop promotes it - a volume
+    # without fsutil or sparse support is a warn-skip, not a red script.
+    $stage4 = "skipped"
+} finally {
+    Remove-Item -Path $bigPath -Force -ErrorAction SilentlyContinue
+}
+if ($stage4 -eq "skipped") {
+    $script:warns++
+    $results.Add([pscustomobject]@{
+        Sample = "(input ceiling)"; Status = "WARN";
+        Detail = "sparse file unavailable on this volume" })
+}
+
 # ------------------------------------------------------------------ report
 
 Write-Host ""

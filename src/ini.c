@@ -75,18 +75,21 @@ ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section)
 	h = CreateFile(filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0);
 	if (h != INVALID_HANDLE_VALUE)
 	{
-		DWORD size;
-
-		size = GetFileSize(h,0);
+		LARGE_INTEGER file_size;
 		
-		// GetFileSize returns INVALID_FILE_SIZE on failure and for
-		// files over 4GB: never trust that as an allocation size. a real
-		// ini is a few kilobytes: anything past 16 mb is a hostile or
-		// corrupted file, refuse it before the allocation.
-		if ((size != INVALID_FILE_SIZE) && (size) && (size <= 0x1000000))
+		// GetFileSizeEx, not GetFileSize: the 32-bit form answers a
+		// 4 gb-plus file with its low dword (INVALID_FILE_SIZE only when
+		// that dword happens to be 0xffffffff), so a huge ini could slip
+		// through as a small one. a real ini is a few kilobytes: anything
+		// past 16 mb is a hostile or corrupted file, refuse it before the
+		// allocation.
+		if ((GetFileSizeEx(h,&file_size)) && (file_size.QuadPart > 0) && (file_size.QuadPart <= 0x1000000))
 		{
 			char *buf;
+			DWORD size;
 			DWORD numread;
+			
+			size = (DWORD)file_size.QuadPart;
 			
 			buf = mem_alloc(safe_size_add_one(size));
 			
