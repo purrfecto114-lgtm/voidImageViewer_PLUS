@@ -22,12 +22,9 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.14-rc.8 — the renderer parity round (the current release candidate):**
+**1.1.14-rc.9 — the navigation faces round (the current release candidate):**
 
-- **The renderer parity** — the hardware renderers only accepted frames that answered the DIB contract, and the GDI+ decode path built its frames as screen-compatible DDBs (no bits pointer): every PNG, GIF, BMP, JPEG, TIFF and ICO silently fell back to the GDI path the moment the user picked OpenGL or Direct3D. The GDI+ frames, their embedded-thumbnail early frames and the orientation copies (EXIF-rotated and user-rotated alike) now answer as 24bpp/32bpp top-down DIB sections — the same shape the WebP path has always built — so the selected renderer actually renders, and the refusal gates name their reason in the debug channel instead of returning zero in silence.
-- **The shape dimension reaches the pixel oracle** — the golden set covered every decoder family but only power-of-two widths ever reached the hardware paths (the two QOI samples at 32 and the WebP at 64), so the gutter replication the last round built had zero live coverage. Two fixtures land: a 101×101 WebP (hand-encoded VP8L, the standard library only) and a 1000×37 QOI sliver — non-power-of-two on both axes, extreme aspect, the exact shapes the pad logic exists for; the manifest re-bootstrapped at twelve samples with the hardware legs answering for every family for the first time.
-- **The ceiling gate proves the refusal** — the smoke stage that opens a sparse 4-GB-plus file used to pass on “did not crash”; it now runs the render export against the same file and requires the load-refused exit code and no bitmap — the oracle makes the assertion cheap and the gate stops proving the weaker claim.
-- **The audit finding that did not survive verification** — the round's external audit reported a heap overflow in the GL upload loop (a brace-placement claim at 24bpp non-power-of-two widths); the mechanical brace-stack analysis shows the increment sits inside the RGBA branch where it belongs and the BGR row advance is exact — no overflow, no misaddressed pad. What was real was the indentation: three closing braces sat one level shallower than their nesting, the exact bait the audit bit on. The indentation retired (pure whitespace, byte-identical codegen); the round-105 guard now parses the brace nesting itself so the claim stays answered by structure, not by eyeball.
+- **The navigation faces** — the toolbar's previous/next buttons sat permanently gray on a plain open: the enable rule read a cache only the Jump-To dialog ever fills, while the navigation itself walks two other paths (the playlist when one is loaded, or a live folder scan in single-file mode). The faces now answer the same question the navigation walks — the playlist branch reads the playlist's own items, and the single-file branch reads a folder fact the navigation's own scan records (the preload runs that scan after every load, so the fact is current before the first click; unknown counts as a yes, and a scan that finds nothing grays the faces it just answered).
 - Full narrative: `Changes.txt`.
 
 **1.1.13 — the format horizons round (the current stable):**
@@ -38,6 +35,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.14-rc.8** — the renderer parity round: the GDI+ frames answer as DIB sections so the hardware renderers actually render every decoder family, the shape dimension reaches the pixel oracle (two non-power-of-two fixtures), the ceiling gate proves the refusal through the export oracle.
 - **1.1.14-rc.7** — the input ceiling round: `GetFileSizeEx` and the 1 GB/512 MB whole-file ceilings, the hard kill retiring into the recorded process exit, thread-creation unwinding, the CodeQL full attack-surface leg, the sparse 4-GB-plus smoke stage.
 - **1.1.14-rc.6** — the budget and baseline round: the working-set and animation frame budgets, the recorded exit timeout, the v145 security baseline with PE binary assertions, the release trust chain (attestation, CodeQL, the collaboration pack).
 - **1.1.14-rc.5** — the pixel oracle round: the GL context rebuild across window changes, the renderer pad edge replication, the hidden render export and the golden hash CI.

@@ -1,4 +1,27 @@
-﻿Pre-release: Version 1.1.14-rc.8 (the renderer parity round)
+﻿Pre-release: Version 1.1.14-rc.9 (the navigation faces round)
+
+	the field report: the toolbar's previous and next faces sat
+	permanently gray on a plain open. the enable rule read
+	_viv_nav_item_count - a cache only the jump-to dialog ever fills
+	(its WM_INITDIALOG folder scan) - while the navigation itself walks
+	two other paths entirely: the playlist when one is loaded, and a
+	live FindFirstFile folder scan in single file mode. the faces now
+	answer the same question the navigation walks. the playlist branch
+	reads the playlist's own items: two or more entries always hold a
+	step, and a one entry playlist steps when its entry is not the
+	current file - the same inequality the walk tests. the single file
+	branch reads a folder fact the _viv_next scan records: the scan
+	that answers "where is the next image" answers "is there one" for
+	free, and the preload runs it after every load, so the fact is
+	current before the first click. unknown counts as a yes (the honest
+	default the keys and the menu always had), a scan that finds
+	nothing grays the faces it just answered, and every current-file
+	swap resets the fact to unknown. the random everything mode always
+	has another answer and the faces say so. the jump-to dialog keeps
+	its cache - it was never the right source for the faces, and it
+	stays what it always was: the dialog's own listing.
+
+Pre-release: Version 1.1.14-rc.8 (the renderer parity round)
 
 	the third external audit arrived with the strongest single finding
 	of the series - a heap overflow in the opengl upload loop, a brace

@@ -1392,6 +1392,39 @@ debug_printf("FIND next\n");
 					
 			}
 
+			// the resolution just answered the only question the
+			// toolbar's step faces ask between opens: is there anywhere
+			// to step to from here? record it for them (the wrap target
+			// being the current file itself means there is not). the
+			// fact is only read in single file mode, and every swap of
+			// the current file resets it to unknown first.
+			{
+				int folder_neighbor;
+				
+				if (got_best)
+				{
+					folder_neighbor = 1;
+				}
+				else
+				{
+					if (got_start)
+					{
+						folder_neighbor = (string_compare(start_fd.cFileName,_viv_current_fd->cFileName) != 0) ? 1 : 0;
+					}
+					else
+					{
+						folder_neighbor = 0;
+					}
+				}
+				
+				if (_viv_nav_folder_neighbor != folder_neighbor)
+				{
+					_viv_nav_folder_neighbor = folder_neighbor;
+					
+					_viv_toolbar_update_buttons();
+				}
+			}
+			
 			if (got_best)
 			{
 				_viv_open(&best_fd,is_preload);

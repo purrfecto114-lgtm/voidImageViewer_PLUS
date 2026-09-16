@@ -185,6 +185,7 @@ wchar_t *_viv_last_open_folder = 0;
 _viv_nav_item_t **_viv_nav_items = 0;
 _viv_nav_item_t *__viv_nav_item_start = 0;
 int _viv_nav_item_count = 0;
+int _viv_nav_folder_neighbor = -1; // single file mode: is there another navigable file to step to? -1 unknown, 0 no, 1 yes - the _viv_next resolution records it.
 wchar_t *_viv_random = 0; // temp shuffle.
 DWORD _viv_random_tot_results = 0xffffffff;
 BYTE _viv_is_animation_timer_event = 0;

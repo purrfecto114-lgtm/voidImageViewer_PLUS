@@ -404,6 +404,9 @@ debug_printf("LOAD %S is_preload %d\n",_viv_load_image_filename,is_preload);
 	{
 		os_copy_memory(_viv_current_fd,fd,sizeof(WIN32_FIND_DATA));
 		
+		// the folder fact belongs to the position being left.
+		_viv_nav_folder_neighbor = -1;
+		
 		_viv_update_title();
 	}
 }
@@ -1844,6 +1847,9 @@ debug_printf("*** Cache LAST2 : %S\n",_viv_frame_fd->cFileName);
 	
 	os_copy_memory(_viv_current_fd,_viv_last_fd,sizeof(WIN32_FIND_DATA));
 	
+	// the folder fact belongs to the position being left.
+	_viv_nav_folder_neighbor = -1;
+	
 	_viv_update_title();
 	_viv_status_update();
 	
@@ -1935,7 +1941,10 @@ void _viv_refresh(void)
 void _viv_open_preload(void)
 {
 	os_copy_memory(_viv_current_fd,_viv_preload_fd,sizeof(WIN32_FIND_DATA));
-		
+	
+	// the folder fact belongs to the position being left.
+	_viv_nav_folder_neighbor = -1;
+	
 	_viv_update_title();
 	
 	if (_viv_preload_state == 0)

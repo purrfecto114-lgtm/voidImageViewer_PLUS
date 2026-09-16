@@ -346,6 +346,7 @@ extern wchar_t *_viv_last_open_folder;
 extern _viv_nav_item_t **_viv_nav_items;
 extern _viv_nav_item_t *__viv_nav_item_start;
 extern int _viv_nav_item_count;
+extern int _viv_nav_folder_neighbor;
 extern wchar_t *_viv_random;
 extern DWORD _viv_random_tot_results;
 extern BYTE _viv_is_animation_timer_event;

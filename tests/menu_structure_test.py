@@ -342,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.14-rc.8.76 pre-release (the renderer parity round)",
-          (major, minor, rev, build) == ("1", "1", "14", "76") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.14-rc.8 tag)",
-          vstr == "1.1.14-rc.8")
+    check("version.h = 1.1.14-rc.9.77 pre-release (the navigation faces round)",
+          (major, minor, rev, build) == ("1", "1", "14", "77") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.14-rc.9 tag)",
+          vstr == "1.1.14-rc.9")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3094,7 +3094,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the pixel oracle round sweeps the pin)",
-          "#define VERSION_BUILD 76" in version)
+          "#define VERSION_BUILD 77" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3165,8 +3165,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 76" in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+          "#define VERSION_BUILD 77" in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3439,9 +3439,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3505,8 +3505,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release candidate (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 76" in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+          "#define VERSION_BUILD 77" in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4068,9 +4068,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4238,9 +4238,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4341,9 +4341,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4420,9 +4420,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4519,9 +4519,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4636,9 +4636,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4849,9 +4849,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.8 build 76 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4989,9 +4989,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
     check("the current line is the format horizons stable",
           "**1.1.13 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5217,9 +5217,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14-rc.8 build 76 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5293,9 +5293,9 @@ def t_navigation_visibility_round99():
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.3** \u2014" in readme)
-    check("the version is 1.1.14-rc.8 build 76 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
 
 
 def t_audit_response_round101():
@@ -5412,9 +5412,9 @@ def t_audit_response_round101():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
     check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.4** \u2014" in readme and
           "**1.1.14-rc.3** \u2014" in readme)
@@ -5525,13 +5525,13 @@ def t_pixel_oracle_round102():
 
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the renderer parity round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.8 (the renderer parity round)", top)
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
-    check("the readme candidate slot holds the renderer parity round",
-          "**1.1.14-rc.8 \u2014 the renderer parity round (the current release candidate):**" in readme and
+    check("the changelog top entry is the navigation faces round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.9 (the navigation faces round)", top)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the readme candidate slot holds the navigation faces round",
+          "**1.1.14-rc.9 \u2014 the navigation faces round (the current release candidate):**" in readme and
           "**1.1.14-rc.4** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog states the wglmakecurrent contract wording",
@@ -5847,13 +5847,13 @@ def t_input_ceiling_round104():
 
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the renderer parity round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.8 (the renderer parity round)", top)
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
-    check("the readme candidate slot holds the renderer parity round",
-          "**1.1.14-rc.8 \u2014 the renderer parity round (the current release candidate):**" in readme and
+    check("the changelog top entry is the navigation faces round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.9 (the navigation faces round)", top)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the readme candidate slot holds the navigation faces round",
+          "**1.1.14-rc.9 \u2014 the navigation faces round (the current release candidate):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog states the 32-bit size read's blind spot",
@@ -6021,13 +6021,13 @@ def t_renderer_parity_round105():
 
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the renderer parity round pre-release",
-          top == "Pre-release: Version 1.1.14-rc.8 (the renderer parity round)", top)
-    check("the version is 1.1.14-rc.8 build 76",
-          '#define VERSION_BUILD 76' in version and
-          '#define VERSION_STRING "1.1.14-rc.8"' in version)
-    check("the readme candidate slot holds the renderer parity round",
-          "**1.1.14-rc.8 \u2014 the renderer parity round (the current release candidate):**" in readme and
+    check("the changelog top entry is the navigation faces round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.9 (the navigation faces round)", top)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the readme candidate slot holds the navigation faces round",
+          "**1.1.14-rc.9 \u2014 the navigation faces round (the current release candidate):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
     flat_changes = " ".join(changes.split())
     check("the changelog states the brace-stack verdict",
@@ -6037,6 +6037,117 @@ def t_renderer_parity_round105():
           "costs the unsaved settings of that session" in flat_changes)
     check("the readme carries the attestation verification line",
           "gh attestation verify" in readme)
+
+
+def t_navigation_faces_round106():
+    """Guards for the navigation faces round (1.1.14-rc.9: the field
+    report - the toolbar's prev/next faces sat permanently gray on a
+    plain open. the enable rule read _viv_nav_item_count, a cache only
+    the jump-to dialog ever fills (its WM_INITDIALOG folder scan), while
+    the navigation itself walks two other paths entirely - the playlist
+    when one is loaded, and a live FindFirstFile folder scan in single
+    file mode. the faces now answer the same question the navigation
+    walks: the playlist branch reads the playlist's own items, the
+    single file branch reads a folder fact the _viv_next scan records
+    (the preload runs that scan after every load), and the jump-to
+    cache goes back to being the dialog's own listing)."""
+    toolbar = read("src/viv_toolbar.c").decode("latin-1")
+    view = read("src/viv_view.c").decode("latin-1")
+    vivload = read("src/viv_load.c").decode("latin-1")
+    stateh = read("src/viv_state.h").decode("latin-1")
+    viv = read("src/viv.c").decode("latin-1")
+    menu = read("src/viv_menu.c").decode("latin-1")
+    dialogs = read("src/viv_dialogs.c").decode("latin-1")
+    version = read("src/version.h").decode()
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+
+    # 1. the root cause retires: the toolbar must not read the jump-to
+    #    dialog's cache - a variable only _viv_jumpto_proc's
+    #    WM_INITDIALOG scan ever fills. on a plain open (single file,
+    #    empty playlist) it sits at its viv.c zero forever and the faces
+    #    stay gray while the keys, the menu and the pill keep stepping.
+    check("the toolbar no longer gates the step faces on the jump-to dialog's cache",
+          "_viv_nav_item_count" not in toolbar)
+    check("the toolbar's playlist branch reads the playlist's own items",
+          "_viv_playlist_count > 1" in toolbar and
+          "_viv_fd_compare(&_viv_playlist_start->fd,_viv_current_fd) != 0" in toolbar)
+    check("the toolbar's single file branch reads the folder fact and keeps the random mode live",
+          "_viv_nav_folder_neighbor != 0" in toolbar and
+          "_viv_random" in toolbar)
+    check("the toolbar includes the playlist domain for the walk's own compare",
+          '#include "viv_playlist.h"' in toolbar)
+
+    # 2. the tri-state fact: -1 unknown, 0 the folder holds nothing
+    #    else, 1 it does. defined beside the dialog cache it replaces
+    #    in the toolbar's reading, exported through the state layer.
+    check("the folder fact is defined unknown beside the dialog cache",
+          "int _viv_nav_folder_neighbor = -1;" in viv)
+    check("the state layer exports the folder fact beside the dialog cache",
+          stateh.count("extern int _viv_nav_folder_neighbor;") == 1 and
+          "extern int _viv_nav_item_count;" in stateh)
+
+    # 3. the producer: the _viv_next folder scan resolves best / wrap /
+    #    none for the current position, and that resolution IS the
+    #    answer to "is there anywhere to step to". the wrap target
+    #    being the current file itself means the folder holds nothing
+    #    else. a fact change refreshes the faces on the spot - a failed
+    #    step must gray the very face that was clicked.
+    check("the _viv_next scan resolution records the folder fact",
+          "_viv_nav_folder_neighbor = folder_neighbor;" in view)
+    check("the wrap target compare feeds the fact (the open guard and the fact read share it)",
+          view.count("string_compare(start_fd.cFileName,_viv_current_fd->cFileName) != 0") == 2)
+    fact_at = view.find("_viv_nav_folder_neighbor = folder_neighbor;")
+    check("the fact change refreshes the faces immediately",
+          fact_at != -1 and
+          "_viv_toolbar_update_buttons();" in view[fact_at:fact_at + 400])
+
+    # 4. the invalidation: every site that swaps the current file
+    #    resets the fact to unknown - the plain open, the last-cache
+    #    activation and the preload activation (the three current-fd
+    #    writes in the load domain). the preload's own _viv_open
+    #    (is_preload) never swaps the current fd, so the fact the scan
+    #    just recorded survives until the load it triggered lands.
+    def _reset_near(anchor):
+        i = vivload.find(anchor)
+        return i != -1 and "_viv_nav_folder_neighbor = -1;" in vivload[i:i + 220]
+
+    check("the three current-fd swaps each reset the fact to unknown",
+          vivload.count("_viv_nav_folder_neighbor = -1;") == 3)
+    check("the plain open resets the fact when it swaps the current fd",
+          _reset_near("os_copy_memory(_viv_current_fd,fd,sizeof(WIN32_FIND_DATA));"))
+    check("the last-cache activation resets the fact",
+          _reset_near("os_copy_memory(_viv_current_fd,_viv_last_fd,sizeof(WIN32_FIND_DATA));"))
+    check("the preload activation resets the fact",
+          _reset_near("os_copy_memory(_viv_current_fd,_viv_preload_fd,sizeof(WIN32_FIND_DATA));"))
+
+    # 5. the dialog cache stays the dialog's own: the jump-to listing
+    #    still populates from its WM_INITDIALOG scan and the shutdown
+    #    still frees it - the fix must not reach into the dialog's
+    #    world, and the menu keeps its permissive image gate.
+    check("the jump-to dialog still builds its own listing",
+          "_viv_nav_item_add(&d->fd);" in dialogs and
+          "_viv_nav_item_add(&fd);" in dialogs)
+    check("the menu still gates navigation on the image alone",
+          "EnableMenuItem(hmenu,VIV_ID_NAV_PREV,is_image_enabled);" in menu and
+          "EnableMenuItem(hmenu,VIV_ID_NAV_NEXT,is_image_enabled);" in menu)
+
+    # 6. the version, the changelog, the readme.
+    top = changes.lstrip("\ufeff").split("\r\n")[0]
+    check("the changelog top entry is the navigation faces round pre-release",
+          top == "Pre-release: Version 1.1.14-rc.9 (the navigation faces round)", top)
+    check("the version is 1.1.14-rc.9 build 77",
+          '#define VERSION_BUILD 77' in version and
+          '#define VERSION_STRING "1.1.14-rc.9"' in version)
+    check("the readme candidate slot holds the navigation faces round",
+          "**1.1.14-rc.9 \u2014 the navigation faces round (the current release candidate):**" in readme and
+          "**1.1.14-rc.8** \u2014" in readme)
+    flat_changes = " ".join(changes.split())
+    check("the changelog tells the cache-versus-paths story",
+          "only the jump-to dialog ever fills" in flat_changes and
+          "two other paths" in flat_changes)
+    check("the changelog states the unknown-counts-as-yes default",
+          "unknown counts as a yes" in flat_changes)
 
 
 if __name__ == "__main__":
@@ -6111,6 +6222,7 @@ if __name__ == "__main__":
     t_audit_hardening_round103()
     t_input_ceiling_round104()
     t_renderer_parity_round105()
+    t_navigation_faces_round106()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

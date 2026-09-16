@@ -42,6 +42,7 @@
 #include "viv_menubar.h"
 #include "viv_toolbar.h"
 #include "viv_menu.h"
+#include "viv_playlist.h"
 
 // not defined in older sdks.
 #ifndef BN_CLICKED
@@ -956,8 +957,41 @@ void _viv_toolbar_update_buttons(void)
 			case VIV_ID_NAV_PREV:
 			case VIV_ID_NAV_NEXT:
 			
-				// a single item playlist has nowhere to step to.
-				enable = ((has_image) && (_viv_nav_item_count > 1)) ? 1 : 0;
+				// the step faces answer the same question the navigation
+				// itself walks: is there anywhere to go? the old rule read
+				// the jump-to dialog's nav cache, which only ever fills
+				// when that dialog opens - on a plain open the count sits
+				// at zero and the faces stay gray while the keys, the menu
+				// and the pill keep stepping.
+				enable = 0;
+				
+				if (has_image)
+				{
+					if (_viv_playlist_start)
+					{
+						if (_viv_playlist_count > 1)
+						{
+							// two or more entries: at least one of them
+							// is not the current file.
+							enable = 1;
+						}
+						else
+						{
+							// a one entry playlist still steps when the entry
+							// is not the current file itself (the same
+							// inequality the walk tests).
+							enable = (_viv_fd_compare(&_viv_playlist_start->fd,_viv_current_fd) != 0) ? 1 : 0;
+						}
+					}
+					else
+					{
+						// single file mode: the folder scan fact _viv_next
+						// records (unknown counts as a yes until a scan
+						// answers); the random everything mode always has
+						// another image to fetch.
+						enable = ((_viv_nav_folder_neighbor != 0) || (_viv_random)) ? 1 : 0;
+					}
+				}
 				break;
 			
 			case VIV_ID_VIEW_1TO1:
