@@ -59,6 +59,7 @@ void _viv_clear_last(void);
 void _viv_refresh(void);
 void _viv_open_preload(void);
 static int _viv_pixel_budget_refused(SIZE_T pixels);
+static void _viv_cache_set_trim(void);
 static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels);
 int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *dst,SIZE_T dst_size);
 
@@ -303,10 +304,14 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		return;
 	}
 	else
-	if ((!is_preload) && (_viv_load_image_thread) && (_viv_load_image_filename) && (string_compare(_viv_load_image_filename,fd->cFileName) == 0))
+	if ((!is_preload) && (!_viv_load_is_preload) && (_viv_load_image_thread) && (_viv_load_image_filename) && (string_compare(_viv_load_image_filename,fd->cFileName) == 0))
 	{
 		debug_printf("already loading...\n");
-		// already loading this one..
+		// already loading this one - and only a load headed for the
+		// screen can honor that promise: an in-flight preload whose fd
+		// was cleared (the cache-set abandonment, or a displaced
+		// decode) is discarding its frames, so the request queues as
+		// the normal load it is instead of trusting it.
 		return;
 	}
 	
@@ -502,6 +507,12 @@ static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high)
 	_viv_start_first_frame();
 	
 	_viv_process_pending_clear();
+
+	// the paste path never reaches a load-settle hook, so the
+	// cache-set trim runs here: a pasted image is exactly as binding
+	// on the ceiling as a loaded one, and the last cache it displaced
+	// is the cache to drop.
+	_viv_cache_set_trim();
 }
 // the clipboard must already be open by the caller.
 // dib first: the system synthesizes a CF_DIB for nearly every image
@@ -1737,8 +1748,88 @@ void _viv_reply_clear_all(void)
 		e = next_e;
 	}
 }
+// the cache-set arithmetic: one slot's held bytes, priced as the
+// worst-case 32bpp frame set with the mipmap chain's extra third
+// (the gdi+ path builds 24bpp frames, so the estimate runs a third
+// heavy there - the conservative side is the safe side for a gate
+// whose whole job is to refuse). every multiplication goes through
+// the safe helpers: a hostile dimension pair must not wrap the
+// arithmetic into an "it fits" answer, and the SIZE_MAX sentinel
+// refuses on its own.
+static SIZE_T _viv_frame_set_bytes(int wide,int high,int frame_count)
+{
+	SIZE_T pixels;
+	SIZE_T bytes;
+
+	if ((wide <= 0) || (high <= 0) || (frame_count <= 0))
+	{
+		return 0;
+	}
+
+	pixels = safe_size_mul((SIZE_T)(unsigned int)wide,(SIZE_T)(unsigned int)high);
+	bytes = safe_size_mul(pixels,4);
+	bytes = safe_size_mul(bytes,(SIZE_T)(unsigned int)frame_count);
+	bytes = safe_size_mul(bytes,4);
+
+	if (bytes == SIZE_MAX)
+	{
+		return SIZE_MAX;
+	}
+
+	return bytes / 3;
+}
+// the cache-set ceiling: the budget gates price one image at a time
+// while the viewer holds up to three - the current image, the
+// last-image cache and the preload slot. the sum answers against
+// the same working-set number the per-image gates use. the
+// pending-clear slot never joins the sum: every handler that fills
+// it frees it before returning, so it is empty wherever these gates
+// run.
+static int _viv_cache_set_over_ceiling(SIZE_T incoming_bytes)
+{
+	SIZE_T total;
+
+	total = _viv_frame_set_bytes(_viv_image_wide,_viv_image_high,_viv_frame_count);
+	total = safe_size_add(total,_viv_frame_set_bytes(_viv_last_image_wide,_viv_last_image_high,_viv_last_frame_count));
+	total = safe_size_add(total,_viv_frame_set_bytes(_viv_preload_image_wide,_viv_preload_image_high,_viv_preload_frame_count));
+	total = safe_size_add(total,incoming_bytes);
+
+	if (total == SIZE_MAX)
+	{
+		return 1;
+	}
+
+	return total > VIV_MAX_IMAGE_BYTES;
+}
+// the preload fill gate: the one load nobody asked for must never
+// push the set over the ceiling. the current image and the last
+// cache are priced beside the incoming frames; over the ceiling the
+// answer is "don't cache this" - silent, exactly like every other
+// background preload failure, and navigation onto the file takes the
+// normal load path (the caller clears the staged fd).
+int _viv_preload_set_refused(int wide,int high,int frame_count)
+{
+	return _viv_cache_set_over_ceiling(_viv_frame_set_bytes(wide,high,frame_count));
+}
+// the settle-point trim: over the ceiling the last cache goes and
+// the current image stays - a cache is opportunistic and the image
+// on screen is not. the preload slot is never trimmed here: an
+// in-flight decode may still be filling it, and its own fill gate
+// already priced it.
+static void _viv_cache_set_trim(void)
+{
+	if (_viv_cache_set_over_ceiling(0))
+	{
+		_viv_clear_last();
+	}
+}
 void _viv_preload_next(void)
 {
+	// the trim runs before the config gate: the cache-set ceiling is a
+	// memory promise, not a convenience, and it binds the users who
+	// turned preloading off just as much as the ones who left it on.
+	_viv_cache_set_trim();
+
 	if (config_preload_next)
 	{
 		//UpdateWindow(_viv_hwnd);

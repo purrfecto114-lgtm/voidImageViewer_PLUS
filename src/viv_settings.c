@@ -610,7 +610,9 @@ static void _viv_settings_layout(void)
 
 			y += _viv_settings_dip(10);
 
-			// startup and window section: two switch rows with a description.
+			// the system integration section: three switch rows - the
+			// multiple instances toggle with its description, then the two
+			// integration rows.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_STARTUP,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
 			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
 
@@ -619,8 +621,6 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
-			y += row_high;
-
 			y += row_high;
 
 			// start menu shortcuts and the appdata storage: the two rows the

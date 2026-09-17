@@ -22,24 +22,17 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.14-rc.10 — the corrections round (the current release candidate):**
+**1.1.14 — the stable promotion round (the current stable):**
 
-- **The byte invariants** — an external review's fact-check found the editor-tool byte corruption class (tabs widened, endings converted) had hit the tree four recorded times with no gate of its own. The class now answers in CI: an `.editorconfig` that records the tree's real conventions, a byte-invariant suite (line endings, BOMs, final newlines, per file class) that caught four live stragglers on its first run (two whole C sources still on LF, a 939-line doubled-carriage-return region fossilized in the changelog, a CRLF markdown doc), and `git diff --check` over every pushed range.
-- **The conservation proof** — the one-shot split's "every function body is byte-identical" claim was verified once by tooling that never landed in the tree. `tools/split_conservation.py` is the re-runnable form: 290 function bodies at the split, all 290 conserved, independently re-derived.
-- **The QOI fuzz smoke** — the built-in decoder is the only format with no system codec behind it; 36 deterministic mutants of the tracked fixtures now open through the hidden export path on every push, each one required to decode or refuse — never crash, never wedge.
-- **The ARM64 compile gate** — `viv_state.h` has carried the `VERSION_ARM64` machine chain since the split with nothing ever compiling it; a zig `aarch64-windows` cross build now runs on every push (runtime verification stays deferred — no free-tier ARM64 Windows runner exists).
-- **The renderer honesty line** — a hardware renderer the user picked that cannot take an image (no context on the machine, a canvas past the texture ceiling, an unsupported frame depth) now says so on the status line instead of falling back to GDI in silence.
-- **The documentation honesty** — a Credits section names the fork's authors beside the upstream, CONTRIBUTING gains the DCO sign-off flow, an adding-a-language guide and the structural-refactor conservation policy, and SECURITY.md states the sole-maintainer best-effort reality.
-- Full narrative: `Changes.txt`.
-
-**1.1.13 — the format horizons round (the current stable):**
-
-- **The format horizons** — the WIC layer defers to the system codecs when GDI+ and libwebp both decline a file (JPEG-XR, DDS, HEIF/AVIF wherever the OS carries them — zero static cost, nothing rides the exe), and a hand-rolled QOI decoder (the reference port, bounds-checked, works on every Windows the viewer runs on) opens `.qoi` with no codec dependency at all. The open filter and the Everything search prefixes gain the eight new extensions; shell associations deliberately stay at the classic eleven until a dedicated round asks for them.
-- **The stable mark** — the verdict on the 1.1.13 rc arc (the readme diet, the association guard, the halftone palette, the high-dpi icons, the dead residue, the peripheral residue, the field sweep — seven candidates, each landed changelog-first and green on the CI legs), with the format horizons riding the promotion itself: the fork's first stable to carry code.
+- **The cache-set ceiling** — the memory budget priced one image at a time while the viewer holds up to three (the current image, the last-image cache, the preload slot). Every fill point now prices the whole set against the working-set ceiling: a preload that would overflow is abandoned silently (it is the one load nobody asked for), and the settle point after every load drops the cache — never the image on screen. The clipboard paste path trims the same way.
+- **The defaults, pinned** — preloading the next image and caching the last one have shipped on by default since the upstream introduction, and the preloader follows the navigation direction both ways; the promotion makes the promise a guard instead of an accident (a user's explicit off in the ini stays off).
+- **The already-loading answer** — asking for the file an in-flight preload was decoding used to be swallowed when that preload had already been displaced; the request now queues as the normal load it is.
+- **The settings blank** — the retired startup row's leftover advance drew a blank band inside the General page; the rows below move up, and the footer, the window frame and the navigation column stay exactly where they were.
 - Full narrative: `Changes.txt`.
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.14-rc.10** — the corrections round: the byte-invariant class gates (`.editorconfig`, the byte suite, the pushed-range whitespace check), the re-runnable split conservation proof (290/290), the QOI fuzz smoke (36 deterministic mutants), the ARM64 compile leg, the renderer fallback naming itself on the status line.
 - **1.1.14-rc.9** — the navigation faces round: the toolbar's previous/next enable rule reads the navigation's own two paths (the playlist items, the folder fact the preload scan records) instead of a cache only the Jump-To dialog ever fills.
 - **1.1.14-rc.8** — the renderer parity round: the GDI+ frames answer as DIB sections so the hardware renderers actually render every decoder family, the shape dimension reaches the pixel oracle (two non-power-of-two fixtures), the ceiling gate proves the refusal through the export oracle.
 - **1.1.14-rc.7** — the input ceiling round: `GetFileSizeEx` and the 1 GB/512 MB whole-file ceilings, the hard kill retiring into the recorded process exit, thread-creation unwinding, the CodeQL full attack-surface leg, the sparse 4-GB-plus smoke stage.
@@ -49,6 +42,7 @@ Recent versions, one line each — full per-round detail in [Changes.txt](Change
 - **1.1.14-rc.3** — the navigation visibility round: the next/previous fix for the new formats — a supported-extension table carries the viewer's open universe and the navigation filter answers it.
 - **1.1.14-rc.2** — the fixture round: the test sample set commits (38 anomaly samples plus eight real imagery fixtures, two of them hand-encoded animated GIFs) and the QOI magic fix — the host verification caught a shipped constant spelled in the wrong byte order.
 - **1.1.14-rc.1** — the todo closure round: the upstream TODO list closes — the OpenGL and Direct3D renderers, the toolbar customization and the shell context menu all land.
+- **1.1.13** — the format horizons round: the WIC layer defers to the system codecs when GDI+ and libwebp both decline a file (JPEG-XR, DDS, HEIF/AVIF wherever the OS carries them), and a hand-rolled QOI decoder opens `.qoi` with no codec dependency at all; the fork's first stable to carry code.
 - **1.1.13-rc.7** — the field sweep round: the cold-start slideshow fix, the startup shortcut retirement, the no-image menu gate, the single keyboard focus ring and the icon payload diet (the ico drops 80%).
 - **1.1.13-rc.6** — the peripheral residue round: the closing sweep retires the never-built Wine DPI probe, four zero-reference api functions, the year-stringize pair and three never-requested localization strings.
 - **1.1.13-rc.5** — the dead residue round: the carpet sweep retires three dead functions, four dead macro families and fourteen VS-generated resource ids; the frozen corners stay pinned by the round-91 guard.
@@ -118,7 +112,7 @@ Plain C + Win32 API, Visual Studio:
 2. Build the `voidImageViewer` project (x64 or Win32).
 3. Optional setup: NSIS 3 via `nsis\build_installer.ps1` (auto-detects the VS version; sources compile with `/utf-8`).
 
-The zig cross build needs no Visual Studio: `sh build-zig/build.sh` (104 translation units, about 479 KB x64 with `-Os`). The vs linker embeds `res/voidImageViewer.Manifest` (per-monitor v2); the zig build keeps no embedded manifest, so it writes `viv.exe.manifest` next to the exe and the runtime claim in `os_init` covers even a stripped copy — keep the two files together, or build through vs when you need a single-file binary.
+The zig cross build needs no Visual Studio: `sh build-zig/build.sh` (104 translation units, about 480 KB x64 with `-Os`). The vs linker embeds `res/voidImageViewer.Manifest` (per-monitor v2); the zig build keeps no embedded manifest, so it writes `viv.exe.manifest` next to the exe and the runtime claim in `os_init` covers even a stripped copy — keep the two files together, or build through vs when you need a single-file binary.
 
 The source layout: one core (`src/viv.c` — the startup, the command line, the teardown) plus eighteen domain modules (`src/viv_<domain>.c/.h`), the decoder modules (`src/webp.c`, `src/qoi.c`, `src/wic.c`) and the shared-context header (`src/viv_state.h`); see `docs/architecture/viv-split-spec.md`.
 

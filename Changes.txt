@@ -1,4 +1,88 @@
-﻿Pre-release: Version 1.1.14-rc.10 (the corrections round)
+﻿Stable: Version 1.1.14 (the stable promotion round)
+
+	the 1.1.13 arc's promotion question was never going to be "is it
+	ready" - ten candidates answered that along the way, each landing
+	changelog-first and green on the CI legs. the question a stable
+	mark asks in writing is what the viewer promises about memory
+	when the whole world installs it, and this round pays that
+	question its answer.
+
+	the budget ceilings built across the rc arc priced one image at a
+	time. the viewer holds up to three at once - the current image,
+	the last-image cache and the preload slot - and on a 32-bit
+	machine three near-ceiling images is an allocation failure
+	waiting for its folder. the cache-set ceiling closes the gap at
+	every fill point:
+
+	the frame-set estimator prices one slot's held bytes as the
+	worst-case 32bpp frame set with the mipmap chain's extra third
+	(the gdi+ path builds 24bpp frames, so the estimate runs a third
+	heavy there - the conservative side is the safe side for a gate
+	whose whole job is to refuse). every multiplication goes through
+	the safe helpers; the SIZE_MAX sentinel refuses on its own, so a
+	hostile dimension pair cannot wrap the arithmetic into an "it
+	fits" answer.
+
+	the preload fill gate prices the incoming frames on top of the
+	current image and the last cache, at the first-frame reply - the
+	one choke point every codec family shares. over the ceiling the
+	slot is abandoned instead of filled: the arriving frame frees, the
+	state answers nothing-cached, the fd clears so navigation onto the
+	file takes the normal load path, and the terminate pair routes the
+	decode's remaining frames to the existing discard path. the refusal
+	is silent exactly like every other background preload failure - a
+	cache nobody asked for has no standing to complain.
+
+	the settle-point trim runs after every load, before the config
+	gate: the ceiling is a memory promise, not a convenience, and it
+	binds the users who turned preloading off just as much as the ones
+	who left it on. over the ceiling the last cache goes and the
+	current image stays - a cache is opportunistic and the image on
+	screen is not. the clipboard paste path trims the same way (it
+	never reaches a load-settle hook of its own). the preload slot is
+	never trimmed: an in-flight decode may still be filling it, and
+	its own fill gate already priced it.
+
+	the defaults this promotion was asked to "turn on" were already
+	on: preloading the next image and caching the last one have
+	shipped as the defaults since the upstream introduction, and the
+	preloader follows the navigation direction both ways - forward
+	preloads the next file, backward preloads the previous one, and
+	either way the image just left becomes the last cache. what the
+	round adds is the promise as a guard: the two defaults are pinned
+	by the suite now, so a refactor that flips them answers with a red
+	test instead of a quiet behavior change. a user's explicit off in
+	the ini stays off - the defaults speak for the silent majority,
+	not over them.
+
+	the already-loading answer in _viv_open only speaks for loads
+	headed to the screen now: an in-flight preload whose fd was
+	cleared (the cache-set abandonment, or a decode displaced by a
+	newer open) is discarding its frames, so a request for that same
+	file queues as the normal load it is instead of trusting a
+	completion that will never show it. the same hole existed for any
+	displaced preload - the queue path clears the fd at dispatch - so
+	the fix closes both windows.
+
+	the settings blank rides along: the round-93 startup-row removal
+	deleted its control row but left the row's y-advance behind, and
+	the orphan drew a 52-dip blank band inside the general page
+	between the multiple-instances row and the integration rows. the
+	advance is gone (the rows below move up), the section comment
+	tells the truth about its three rows, and the footer, the window
+	frame and the navigation column stay exactly where they were - the
+	walk's shape is pinned now: no y-advance without its control row,
+	so the next removal cannot leave its advance behind either.
+
+	verified: the five suites pass (menu with the round-108 section,
+	the version pins swept to 1.1.14 build 79, the splice growth
+	window recalibrated for the cache-set block), the zig line links
+	a 491,008-byte x64 exe and a 372,224-byte aarch64 exe, link_scan
+	audits 321 externs against 321 definitions with zero missing,
+	update_libwebp --check reports no drift, and the staged tree
+	passes the whitespace gate it ships.
+
+Pre-release: Version 1.1.14-rc.10 (the corrections round)
 
 	the corrections review arrived as a second pass over the first
 	review's claims - a fact-check that corrected its own predecessor

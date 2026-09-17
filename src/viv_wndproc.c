@@ -805,17 +805,57 @@ debug_printf("FIRST FRAME TERMINATE\n");
 							_viv_preload_image_high = first_frame->high;
 							_viv_preload_frame_count = first_frame->frame_count;
 
-							// allocate hbitmaps.
-							_viv_preload_frames = (_viv_frame_t *)mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_preload_frame_count));
-							_viv_preload_frames[0].hbitmap = first_frame->frame.hbitmap;
-							_viv_preload_frames[0].mipmap = first_frame->frame.mipmap;
-							_viv_preload_frames[0].delay = first_frame->frame.delay;
+							// the cache-set gate: a preload is the one load nobody asked
+							// for, so it is the one that refuses first. the per-image
+							// ceilings bound each buffer alone; this gate prices the
+							// incoming frames on top of what the current image and the
+							// last cache already hold. over the ceiling the slot is
+							// abandoned instead of filled: the arriving frame frees, the
+							// state answers nothing-cached, the fd clears so navigation
+							// onto the file takes the normal load path, and the terminate
+							// pair routes every further frame of this decode to the
+							// existing discard path instead of a slot that no longer exists.
+							if (_viv_preload_set_refused(first_frame->wide,first_frame->high,first_frame->frame_count))
+							{
+								if (first_frame->frame.hbitmap)
+								{
+									DeleteObject(first_frame->frame.hbitmap);
 
-							first_frame->frame.hbitmap = 0;
-							first_frame->frame.mipmap = NULL;
-							_viv_preload_frame_loaded_count = 1;
-							
-							_viv_status_update();
+									first_frame->frame.hbitmap = NULL;
+								}
+
+								if (first_frame->frame.mipmap)
+								{
+									_viv_mipmap_free(first_frame->frame.mipmap);
+
+									first_frame->frame.mipmap = NULL;
+								}
+
+								_viv_preload_image_wide = 0;
+								_viv_preload_image_high = 0;
+								_viv_preload_frame_count = 0;
+								_viv_preload_state = 2;
+								_viv_preload_fd->cFileName[0] = 0;
+
+								_viv_load_image_terminate = 1;
+								_viv_load_image_allow_draw = 0;
+
+								_viv_status_update();
+							}
+							else
+							{
+								// allocate hbitmaps.
+								_viv_preload_frames = (_viv_frame_t *)mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_preload_frame_count));
+								_viv_preload_frames[0].hbitmap = first_frame->frame.hbitmap;
+								_viv_preload_frames[0].mipmap = first_frame->frame.mipmap;
+								_viv_preload_frames[0].delay = first_frame->frame.delay;
+
+								first_frame->frame.hbitmap = 0;
+								first_frame->frame.mipmap = NULL;
+								_viv_preload_frame_loaded_count = 1;
+
+								_viv_status_update();
+							}
 						}
 						else
 						{
