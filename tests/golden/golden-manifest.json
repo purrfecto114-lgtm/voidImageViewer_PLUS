@@ -58,5 +58,10 @@
                                     "gdi":  "6b48e99223dc1e415146bd7f232e74992a428f4315d60badd1cdf8e3e2074466",
                                     "gl":  "ac63dd115d7a33674e0a48ea3d65ffbefd0ff87441bc9e5fd1669e2c8b3d9da4",
                                     "d3d":  "776a9c33375f1254f442716fec1996c8555727e51388e3f98ab939219ebce946"
-                                }
+                                },
+    "fx_still_textured.png":  {
+                                  "gdi":  "2052ad621003d16a341ef4bb0013e5c99c62aacad748de6b5f1305c0f3bb72cc",
+                                  "gl":  "37f2af7241327a1d84d2fec67522a5bdd69ac836a23942a0817789fa67d81885",
+                                  "d3d":  "ef49b97568f6ae5e03f60a22fd18055596127210d39d488fcb3b24eb2a72f6fb"
+                              }
 }
