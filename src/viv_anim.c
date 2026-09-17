@@ -152,12 +152,12 @@ void _viv_frame_step(void)
 		_viv_animation_play = 0;
 	}
 
-	if (_viv_frame_count > 1)			
+	if (_viv_slot_current.frame_count > 1)
 	{
-		if ((_viv_frame_loaded_count == _viv_frame_count) || (_viv_frame_position + 1 < _viv_frame_loaded_count))
+		if ((_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count) || (_viv_frame_position + 1 < _viv_slot_current.frame_loaded_count))
 		{
 			_viv_frame_position++;
-			if (_viv_frame_position == _viv_frame_count)
+			if (_viv_frame_position == _viv_slot_current.frame_count)
 			{
 				_viv_frame_position = 0;
 			}
@@ -188,7 +188,7 @@ void _viv_frame_prev(void)
 		_viv_animation_play = 0;
 	}
 
-	if (_viv_frame_count > 1)
+	if (_viv_slot_current.frame_count > 1)
 	{
 		if (_viv_frame_position > 0)
 		{
@@ -196,7 +196,7 @@ void _viv_frame_prev(void)
 		}
 		else
 		{
-			_viv_frame_position = _viv_frame_loaded_count - 1;
+			_viv_frame_position = _viv_slot_current.frame_loaded_count - 1;
 		}
 	
 		_viv_animation_timer_tick_start = os_get_tick_count();
@@ -326,16 +326,16 @@ void _viv_update_frame(void)
 }
 void _viv_frame_skip(int size)
 {
-	if (_viv_frame_count > 1)			
+	if (_viv_slot_current.frame_count > 1)
 	{
 		if (size > 0)
 		{
 			while(size > 0)
 			{
-				if ((_viv_frame_loaded_count == _viv_frame_count) || (_viv_frame_position + 1 < _viv_frame_loaded_count))
+				if ((_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count) || (_viv_frame_position + 1 < _viv_slot_current.frame_loaded_count))
 				{
 					_viv_frame_position++;
-					if (_viv_frame_position == _viv_frame_count)
+					if (_viv_frame_position == _viv_slot_current.frame_count)
 					{
 						_viv_frame_position = 0;
 					}
@@ -346,7 +346,7 @@ void _viv_frame_skip(int size)
 
 				// a zero delay frame (a webp chunk with no duration) must still
 				// make progress, otherwise this loop never terminates.
-				size -= (_viv_frames[_viv_frame_position].delay > 0) ? _viv_frames[_viv_frame_position].delay : 1;
+				size -= (_viv_slot_current.frames[_viv_frame_position].delay > 0) ? _viv_slot_current.frames[_viv_frame_position].delay : 1;
 			}
 		}
 		else
@@ -357,13 +357,13 @@ void _viv_frame_skip(int size)
 				_viv_frame_position--;
 				if (_viv_frame_position < 0)
 				{
-					_viv_frame_position = _viv_frame_loaded_count - 1;
+					_viv_frame_position = _viv_slot_current.frame_loaded_count - 1;
 				}
 				
 				_viv_animation_timer_tick_start = os_get_tick_count();
 				_viv_timer_tick = 0;
 				
-				size += (_viv_frames[_viv_frame_position].delay > 0) ? _viv_frames[_viv_frame_position].delay : 1;
+				size += (_viv_slot_current.frames[_viv_frame_position].delay > 0) ? _viv_slot_current.frames[_viv_frame_position].delay : 1;
 			}
 		}
 			
@@ -600,7 +600,7 @@ void _viv_start_first_frame(void)
 	_viv_animation_timer_tick_start = os_get_tick_count();
 	_viv_timer_tick = 0;
 	
-	if (_viv_frame_count > 1)
+	if (_viv_slot_current.frame_count > 1)
 	{
 		_viv_timer_start();
 	}

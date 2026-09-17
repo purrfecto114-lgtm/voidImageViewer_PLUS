@@ -85,7 +85,7 @@ void _viv_get_render_size(int *prw,int *prh)
 	int rh;
 	int fill_window;
 	
-	if (!((_viv_image_wide) && (_viv_image_high)))
+	if (!((_viv_slot_current.image_wide) && (_viv_slot_current.image_high)))
 	{
 		*prw = 0;
 		*prh = 0;
@@ -107,8 +107,8 @@ void _viv_get_render_size(int *prw,int *prh)
 
 	if ((_viv_1to1) || (_viv_doing == _VIV_DOING_1TO1SCROLL))
 	{
-		*prw = _viv_image_wide;
-		*prh = _viv_image_high;
+		*prw = _viv_slot_current.image_wide;
+		*prh = _viv_slot_current.image_high;
 		
 		return;
 	}
@@ -124,12 +124,12 @@ void _viv_get_render_size(int *prw,int *prh)
 	
 	if (config_keep_aspect_ratio)
 	{
-		if ((high * _viv_image_wide) / _viv_image_high < wide)
+		if ((high * _viv_slot_current.image_wide) / _viv_slot_current.image_high < wide)
 		{
 			// tall image.
-			// add  _viv_image_high - 1 so when we resize the window to 50% it stretches to the screen edges correctly.
+			// add  _viv_slot_current.image_high - 1 so when we resize the window to 50% it stretches to the screen edges correctly.
 			rh = high;
-			rw = ((high * (__int64)_viv_image_wide) + _viv_image_high - 1) / _viv_image_high;
+			rw = ((high * (__int64)_viv_slot_current.image_wide) + _viv_slot_current.image_high - 1) / _viv_slot_current.image_high;
 
 			// make sure we have some width.			
 			if (rw <= 0)
@@ -140,9 +140,9 @@ void _viv_get_render_size(int *prw,int *prh)
 		else
 		{
 			// long image.
-			// add _viv_image_wide - 1 so when we resize the window to 50% it stretches to the screen edges correctly.
+			// add _viv_slot_current.image_wide - 1 so when we resize the window to 50% it stretches to the screen edges correctly.
 			rw = wide;
-			rh = ((wide * (__int64)_viv_image_high) + _viv_image_wide - 1) / _viv_image_wide;
+			rh = ((wide * (__int64)_viv_slot_current.image_high) + _viv_slot_current.image_wide - 1) / _viv_slot_current.image_wide;
 
 			// make sure we have some height	
 			if (rh <= 0)
@@ -153,10 +153,10 @@ void _viv_get_render_size(int *prw,int *prh)
 
 		if (!fill_window)
 		{
-			if ((rw > _viv_image_wide) || (rh > _viv_image_high))
+			if ((rw > _viv_slot_current.image_wide) || (rh > _viv_slot_current.image_high))
 			{
-				rw = _viv_image_wide;
-				rh = _viv_image_high;
+				rw = _viv_slot_current.image_wide;
+				rh = _viv_slot_current.image_high;
 			}
 		}
 	}
@@ -167,14 +167,14 @@ void _viv_get_render_size(int *prw,int *prh)
 
 		if (!fill_window)
 		{
-			if (rw > _viv_image_wide)
+			if (rw > _viv_slot_current.image_wide)
 			{
-				rw = _viv_image_wide;
+				rw = _viv_slot_current.image_wide;
 			}			
 	
-			if (rh > _viv_image_high)
+			if (rh > _viv_slot_current.image_high)
 			{
-				rh = _viv_image_high;
+				rh = _viv_slot_current.image_high;
 			}
 		}
 	}
@@ -185,22 +185,22 @@ void _viv_get_render_size(int *prw,int *prh)
 	{
 		if (config_keep_aspect_ratio)
 		{
-			if ((rw < _viv_image_wide) || (rh < _viv_image_high))
+			if ((rw < _viv_slot_current.image_wide) || (rh < _viv_slot_current.image_high))
 			{
-				rw = _viv_image_wide;
-				rh = _viv_image_high;
+				rw = _viv_slot_current.image_wide;
+				rh = _viv_slot_current.image_high;
 			}
 		}
 		else
 		{
-			if (rw < _viv_image_wide)
+			if (rw < _viv_slot_current.image_wide)
 			{
-				rw = _viv_image_wide;
+				rw = _viv_slot_current.image_wide;
 			}
 
-			if (rh < _viv_image_high)
+			if (rh < _viv_slot_current.image_high)
 			{
-				rh = _viv_image_high;
+				rh = _viv_slot_current.image_high;
 			}
 		}
 	}		
@@ -226,8 +226,8 @@ void _viv_get_render_size(int *prw,int *prh)
 		
 		// the caps are computed in double space: an int cap could itself
 		// overflow for an absurd panorama.
-		max_w = 16.0 * (double)_viv_image_wide;
-		max_h = 16.0 * (double)_viv_image_high;
+		max_w = 16.0 * (double)_viv_slot_current.image_wide;
+		max_h = 16.0 * (double)_viv_slot_current.image_high;
 		
 		// never shrink below the pos 0 size: the fill window upscale is a
 		// layout decision, not a zoom level.
@@ -307,8 +307,8 @@ int _viv_zoom_pos_max(void)
 	}
 	
 	if ((_viv_zoom_pos_max_cache >= 0)
-		&& (_viv_zoom_pos_max_cache_image_wide == _viv_image_wide)
-		&& (_viv_zoom_pos_max_cache_image_high == _viv_image_high)
+		&& (_viv_zoom_pos_max_cache_image_wide == _viv_slot_current.image_wide)
+		&& (_viv_zoom_pos_max_cache_image_high == _viv_slot_current.image_high)
 		&& (_viv_zoom_pos_max_cache_view_wide == wide)
 		&& (_viv_zoom_pos_max_cache_view_high == high)
 		&& (_viv_zoom_pos_max_cache_fill_window == fill_window)
@@ -346,8 +346,8 @@ int _viv_zoom_pos_max(void)
 		
 		// 16x native (1600%), never below the measured pos 0 fit (fill
 		// window keeps its upscale): mirrors _viv_get_render_size.
-		max_w = 16.0 * (double)_viv_image_wide;
-		max_h = 16.0 * (double)_viv_image_high;
+		max_w = 16.0 * (double)_viv_slot_current.image_wide;
+		max_h = 16.0 * (double)_viv_slot_current.image_high;
 		
 		if (max_w < (double)rw)
 		{
@@ -391,8 +391,8 @@ int _viv_zoom_pos_max(void)
 	}
 	
 	_viv_zoom_pos_max_cache = max_pos;
-	_viv_zoom_pos_max_cache_image_wide = _viv_image_wide;
-	_viv_zoom_pos_max_cache_image_high = _viv_image_high;
+	_viv_zoom_pos_max_cache_image_wide = _viv_slot_current.image_wide;
+	_viv_zoom_pos_max_cache_image_high = _viv_slot_current.image_high;
 	_viv_zoom_pos_max_cache_view_wide = wide;
 	_viv_zoom_pos_max_cache_view_high = high;
 	_viv_zoom_pos_max_cache_fill_window = fill_window;
@@ -680,7 +680,7 @@ int _viv_zoom_percent(void)
 	int rw;
 	int rh;
 	
-	if ((!_viv_image_wide) || (!_viv_image_high))
+	if ((!_viv_slot_current.image_wide) || (!_viv_slot_current.image_high))
 	{
 		return 100;
 	}
@@ -696,8 +696,8 @@ int _viv_zoom_percent(void)
 		double zoom_x;
 		double zoom_y;
 		
-		zoom_x = (double)rw / (double)_viv_image_wide;
-		zoom_y = (double)rh / (double)_viv_image_high;
+		zoom_x = (double)rw / (double)_viv_slot_current.image_wide;
+		zoom_y = (double)rh / (double)_viv_slot_current.image_high;
 		
 		return (int)((((zoom_x + zoom_y) / 2.0) * 100.0) + 0.5);
 	}
@@ -1339,7 +1339,7 @@ static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt
 	wide = client_rect.right - client_rect.left;
 	high = client_rect.bottom - client_rect.top - _viv_get_status_high() - _viv_get_view_top();
 
-	if (_viv_frame_count)
+	if (_viv_slot_current.frame_count)
 	{
 		_viv_get_render_size(&rw,&rh);
 
@@ -1352,8 +1352,8 @@ static BOOL _viv_get_src_pixel_pos(int client_x,int client_y,POINT *out_pixel_pt
 		{
 			if ((client_x >= rx) && (client_y >= ry) && (client_x < rx + rw) && (client_y < ry + rh))
 			{
-				out_pixel_pt->x = ((client_x - rx) * (__int64)_viv_image_wide) / rw;
-				out_pixel_pt->y = ((client_y - ry) * (__int64)_viv_image_high) / rh;
+				out_pixel_pt->x = ((client_x - rx) * (__int64)_viv_slot_current.image_wide) / rw;
+				out_pixel_pt->y = ((client_y - ry) * (__int64)_viv_slot_current.image_high) / rh;
 				
 				return TRUE;
 			}
@@ -1378,7 +1378,7 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 	wide = client_rect.right - client_rect.left;
 	high = client_rect.bottom - client_rect.top - _viv_get_status_high() - _viv_get_view_top();
 
-	if (_viv_frame_count)
+	if (_viv_slot_current.frame_count)
 	{
 		HDC screen_hdc;
 		
@@ -1399,7 +1399,7 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 			{
 				HGDIOBJ last_hbitmap;
 				
-				last_hbitmap = SelectObject(mem_hdc,_viv_frames[_viv_frame_position].hbitmap);
+				last_hbitmap = SelectObject(mem_hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap);
 				
 				if (last_hbitmap)
 				{

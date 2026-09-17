@@ -418,7 +418,7 @@ int _viv_export_run(void)
 			DispatchMessage(&msg);
 		}
 		
-		if (_viv_frame_count)
+		if (_viv_slot_current.frame_count)
 		{
 			break;
 		}

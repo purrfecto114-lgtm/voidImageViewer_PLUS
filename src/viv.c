@@ -115,7 +115,6 @@ BYTE _viv_animation_play = 1; // play or pause animations
 BYTE _viv_1to1 = 0; // temporarily show the image with 100% scaling
 BYTE _viv_have_old_zoom = 0; // restore this zoom level after leaving 1:1 mode.
 WIN32_FIND_DATA *_viv_current_fd = 0; // the current image find data including the full path and filename.
-WIN32_FIND_DATA *_viv_preload_fd = 0;
 int _viv_view_x = 0; // the current image offset in pixels
 int _viv_view_y = 0; // the current image offset in pixels
 double _viv_view_ix = 0.0; // the current image offset in percent, used when resizing the window
@@ -129,14 +128,16 @@ float _viv_zoom_scales[_VIV_ZOOM_MAX];
 
 static ULONG_PTR os_GdiplusToken; // gdiplus handle
 BYTE _viv_image_is_low_res = 0; // 1 = the displayed image is a progressive preview frame
-int _viv_image_wide = 0; // current image width
-int _viv_image_high = 0; // current image width
-int _viv_frame_count = 0; // current image frame count, 1 for static image, > 1 for animation
-int _viv_frame_loaded_count = 0; // number of loaded frames, can be less than _viv_frame_count
+// the three image slots (see viv_state.h): the image on screen, the
+// last-image cache and the preload slot. zero-initialized static
+// storage - the embedded find-data needs no heap block, and the
+// three fd allocations the split era made for them are gone.
+_viv_image_slot_t _viv_slot_current;
+_viv_image_slot_t _viv_slot_last;
+_viv_image_slot_t _viv_slot_preload;
 int _viv_frame_position = 0; // the current frame position
 BYTE _viv_frame_looped = 0; // all frames have been displayed for this animation
 BYTE _viv_is_slideshow_timeup = 0; // the slideshow timer has expired, but we are still showing an animation at least once.
-_viv_frame_t *_viv_frames = 0; // the frames that make up an image, could be more than one for animations.
 VIV_UINT64 _viv_timer_tick = 0; // the current tick for the current frame.
 BYTE _viv_is_animation_timer = 0; // animation timer started?
 VIV_UINT64 _viv_animation_timer_tick_start = 0; // the current start tick
@@ -196,21 +197,11 @@ int _viv_nav_folder_neighbor = -1; // single file mode: is there another navigab
 wchar_t *_viv_random = 0; // temp shuffle.
 DWORD _viv_random_tot_results = 0xffffffff;
 BYTE _viv_is_animation_timer_event = 0;
-BYTE _viv_preload_state = 0; // 0 = loading, 1=complete, 2=failed
-int _viv_preload_image_wide = 0; // current image width
-int _viv_preload_image_high = 0; // current image height
-int _viv_preload_frame_count = 0; // current image frame count, 1 for static image, > 1 for animation
-int _viv_preload_frame_loaded_count = 0; // number of loaded frames, can be less than _viv_frame_count
-_viv_frame_t *_viv_preload_frames = 0; // the frames that make up an image, could be more than one for animations.
 BYTE _viv_last_is_prev = 0; // preload next or previous?
 BYTE _viv_should_activate_preload_on_load = 0;
 int _viv_load_render_wide = 0;
 int _viv_load_render_high = 0;
-WIN32_FIND_DATA *_viv_last_fd = 0; // the last find data including the full path and filename.
-WIN32_FIND_DATA *_viv_frame_fd = 0; // the frame fd, may differ to the current fd because we change the title before the frames are loaded.
 WIN32_FIND_DATA *_viv_load_fd = 0; // the load fd
-int _viv_last_frame_count = 0; // last image frame count, 1 for static image, > 1 for animation (all frames are loaded)
-_viv_frame_t *_viv_last_frames = 0; // the last frames that make up an image, could be more than one for animations.
 BYTE _viv_load_image_allow_draw = 0; // allow the image to show if it loaded successfully after the load was terminated.
 BYTE _viv_file_not_found = 0; // the current file was not found. -filename is shown in the window caption.
 BYTE _viv_load_failed = 0; // the current file failed to load. -filename is shown in the window caption.
@@ -1159,15 +1150,6 @@ static int _viv_init(int nCmdShow)
 	_viv_current_fd = (WIN32_FIND_DATA *)mem_alloc(sizeof(WIN32_FIND_DATA));
 	os_zero_memory(_viv_current_fd,sizeof(WIN32_FIND_DATA));
 
-	_viv_preload_fd = (WIN32_FIND_DATA *)mem_alloc(sizeof(WIN32_FIND_DATA));
-	os_zero_memory(_viv_preload_fd,sizeof(WIN32_FIND_DATA));
-	
-	_viv_last_fd = (WIN32_FIND_DATA *)mem_alloc(sizeof(WIN32_FIND_DATA));
-	os_zero_memory(_viv_last_fd,sizeof(WIN32_FIND_DATA));
-
-	_viv_frame_fd = (WIN32_FIND_DATA *)mem_alloc(sizeof(WIN32_FIND_DATA));
-	os_zero_memory(_viv_frame_fd,sizeof(WIN32_FIND_DATA));
-	
 	_viv_load_fd = (WIN32_FIND_DATA *)mem_alloc(sizeof(WIN32_FIND_DATA));
 	os_zero_memory(_viv_load_fd,sizeof(WIN32_FIND_DATA));
 	
@@ -1511,11 +1493,11 @@ void _viv_kill(void)
 		mem_free(_viv_load_image_filename);
 	}
 	
-	if (_viv_last_frames)
+	if (_viv_slot_last.frames)
 	{
-		_viv_clear_frames(_viv_last_frames,_viv_last_frame_count);
+		_viv_clear_frames(_viv_slot_last.frames,_viv_slot_last.frame_count);
 		
-		_viv_last_frames = NULL;
+		_viv_slot_last.frames = NULL;
 	}
 
 	_viv_clear_preload_frames();
@@ -1585,9 +1567,6 @@ void _viv_kill(void)
 	}
 
 	mem_free(_viv_load_fd);
-	mem_free(_viv_frame_fd);
-	mem_free(_viv_last_fd);
-	mem_free(_viv_preload_fd);
 	mem_free(_viv_current_fd);
 	
 	

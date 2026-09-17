@@ -1,4 +1,70 @@
-﻿Stable: Version 1.1.14 (the stable promotion round)
+﻿Pre-release: Version 1.1.15-rc.1 (the image slot architecture round)
+
+	the split era moved the code into files without ever asking what
+	the moved code was made of, and nowhere did that show more than
+	in the three places an image lives: the current image, the
+	last-image cache and the preload slot. three parallel families of
+	loose globals - the frames, the declared count, the loaded count,
+	the width, the height, a find-data pointer each - nineteen
+	variables in all, every transition between them a hand-written
+	field list, every budget gate naming each family's variables one
+	by one. the round-108 ceiling worked correctly precisely because
+	it enumerated all three families at every fill point; this round
+	makes that enumeration a property of the type instead of a
+	discipline of the author.
+
+	one typed slot now describes a held image: the embedded file
+	identity, the frames, both counts, the dimensions, and the
+	preload role's dispatch state. three instances replace the
+	nineteen globals, and the lifecycle collapses into two
+	primitives. _viv_slot_take moves a whole slot into another - the
+	fd with the frames, one status update earlier than the
+	hand-written path bothered to copy it, so the empty-name flash
+	between the clear and the late fd copy is gone.
+	_viv_slot_clear_frames empties one - the frees go by the loaded
+	count, exactly the partial-animation rule the preload family
+	always had, now the rule for every slot. the preload activation,
+	the last-cache fill and the back-navigation ping-pong are three
+	takes and zero hand-rolled moves; the five old_* locals the
+	ping-pong used to spell are one local slot and one restore
+	assignment. a field added to a held image is now moved and
+	cleared everywhere or nowhere - the compiler holds the list the
+	authors used to hold in their heads.
+
+	the cache-set ceiling prices the three slots through one
+	_viv_slot_bytes helper: a fourth slot the future wants (both
+	neighbours preloaded at once, say) prices itself by joining the
+	sum, not by teaching a new gate a new family. the three
+	family clears keep their extern names and route through the one
+	primitive. the last cache's old clear left its dimensions
+	behind when the frames were already gone - harmless under the
+	readers' non-empty gates, and the unified clear zeroes them
+	anyway. the dead _viv_preload_is_prev, written once at dispatch
+	and read nowhere since its introduction, retires with the
+	family it never actually served.
+
+	the walk past the status code caught a real one: the playlist
+	position pane cached its walk on the frame fd's address, but
+	that address has been stable since the file split - the pointer
+	key could never tell one file from the next, and the pane froze
+	on the first file the walk ever saw. the cache keys on the file
+	name now; the walk an image change costs is the walk it always
+	should have cost.
+
+	zero behavior change is the round's promise everywhere else:
+	the worker protocol is untouched (the loader thread never
+	touched the slot families - every frame crossed the reply
+	queue), the pending-clear mailbox keeps its shape, and the
+	navigation fd and the load fd stay where they are. the binaries
+	answer the same: 491,008 bytes on x64, 371,200 on aarch64
+	(the three retired heap blocks and their init and kill walks
+	shave a kilobyte off the arm), and the warning census holds at
+	the 756-line baseline with no new class. the round-109 guard
+	section pins the whole shape: the type, the three instances,
+	the two primitives, the three takes, the retirement of the
+	nineteen names from the spliced tree, the name-keyed nav cache,
+	and the two fd allocations that remain.
+Stable: Version 1.1.14 (the stable promotion round)
 
 	the 1.1.13 arc's promotion question was never going to be "is it
 	ready" - ten candidates answered that along the way, each landing

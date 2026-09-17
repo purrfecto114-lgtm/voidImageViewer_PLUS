@@ -373,7 +373,7 @@ static void _viv_toolbar_fire(int itemi)
 		{
 			command_id = VIV_ID_SLIDESHOW_PAUSE_ONLY;
 		}
-		else if ((_viv_frame_count > 1) && (_viv_animation_play))
+		else if ((_viv_slot_current.frame_count > 1) && (_viv_animation_play))
 		{
 			command_id = VIV_ID_ANIMATION_PLAY_PAUSE;
 		}
@@ -933,7 +933,7 @@ void _viv_toolbar_update_buttons(void)
 	// bare preference bit sits at 1 on every static image, so the face
 	// showed the pause bars on an idle photo. the ontop rule and the
 	// animation timer gate the same way.)
-	playing = ((_viv_is_slideshow) || ((_viv_frame_count > 1) && (_viv_animation_play))) ? 1 : 0;
+	playing = ((_viv_is_slideshow) || ((_viv_slot_current.frame_count > 1) && (_viv_animation_play))) ? 1 : 0;
 	
 	// the menu bar's no image gate: no file, a missed file or a failed load
 	// disables everything that acts on the image.
@@ -997,7 +997,7 @@ void _viv_toolbar_update_buttons(void)
 			case VIV_ID_VIEW_1TO1:
 			
 				// already at 1:1 (the old toolbar rule, the no image gate added).
-				enable = ((has_image) && !((rw == _viv_image_wide) && (rh == _viv_image_high))) ? 1 : 0;
+				enable = ((has_image) && !((rw == _viv_slot_current.image_wide) && (rh == _viv_slot_current.image_high))) ? 1 : 0;
 				break;
 			
 			case VIV_ID_VIEW_BESTFIT:

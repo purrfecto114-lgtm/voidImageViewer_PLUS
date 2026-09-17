@@ -664,7 +664,7 @@ debug_printf("LOADED/FAILED TERMINATE\n");
 									// we update status below.
 								}
 
-								_viv_preload_state = 2;
+								_viv_slot_preload.state = 2;
 							}
 							else
 							{
@@ -676,7 +676,7 @@ debug_printf("LOADED/FAILED TERMINATE\n");
 									_viv_activate_preload();
 								}
 
-								_viv_preload_state = 1;
+								_viv_slot_preload.state = 1;
 
 								// we update status below.
 							}
@@ -801,9 +801,9 @@ debug_printf("FIRST FRAME TERMINATE\n");
 						{
 							_viv_clear_preload_frames();
 							
-							_viv_preload_image_wide = first_frame->wide;
-							_viv_preload_image_high = first_frame->high;
-							_viv_preload_frame_count = first_frame->frame_count;
+							_viv_slot_preload.image_wide = first_frame->wide;
+							_viv_slot_preload.image_high = first_frame->high;
+							_viv_slot_preload.frame_count = first_frame->frame_count;
 
 							// the cache-set gate: a preload is the one load nobody asked
 							// for, so it is the one that refuses first. the per-image
@@ -831,11 +831,11 @@ debug_printf("FIRST FRAME TERMINATE\n");
 									first_frame->frame.mipmap = NULL;
 								}
 
-								_viv_preload_image_wide = 0;
-								_viv_preload_image_high = 0;
-								_viv_preload_frame_count = 0;
-								_viv_preload_state = 2;
-								_viv_preload_fd->cFileName[0] = 0;
+								_viv_slot_preload.image_wide = 0;
+								_viv_slot_preload.image_high = 0;
+								_viv_slot_preload.frame_count = 0;
+								_viv_slot_preload.state = 2;
+								_viv_slot_preload.fd.cFileName[0] = 0;
 
 								_viv_load_image_terminate = 1;
 								_viv_load_image_allow_draw = 0;
@@ -845,14 +845,14 @@ debug_printf("FIRST FRAME TERMINATE\n");
 							else
 							{
 								// allocate hbitmaps.
-								_viv_preload_frames = (_viv_frame_t *)mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_preload_frame_count));
-								_viv_preload_frames[0].hbitmap = first_frame->frame.hbitmap;
-								_viv_preload_frames[0].mipmap = first_frame->frame.mipmap;
-								_viv_preload_frames[0].delay = first_frame->frame.delay;
+								_viv_slot_preload.frames = (_viv_frame_t *)mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_slot_preload.frame_count));
+								_viv_slot_preload.frames[0].hbitmap = first_frame->frame.hbitmap;
+								_viv_slot_preload.frames[0].mipmap = first_frame->frame.mipmap;
+								_viv_slot_preload.frames[0].delay = first_frame->frame.delay;
 
 								first_frame->frame.hbitmap = 0;
 								first_frame->frame.mipmap = NULL;
-								_viv_preload_frame_loaded_count = 1;
+								_viv_slot_preload.frame_loaded_count = 1;
 
 								_viv_status_update();
 							}
@@ -872,20 +872,20 @@ debug_printf("FIRST FRAME TERMINATE\n");
 							
 							_viv_image_is_low_res = first_frame->is_low_res ? 1 : 0;
 
-							_viv_image_wide = first_frame->wide;
-							_viv_image_high = first_frame->high;
-							_viv_frame_count = first_frame->frame_count;
+							_viv_slot_current.image_wide = first_frame->wide;
+							_viv_slot_current.image_high = first_frame->high;
+							_viv_slot_current.frame_count = first_frame->frame_count;
 
 							// allocate hbitmaps.
-							_viv_frames = (_viv_frame_t *)mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_frame_count));
-							_viv_frames[0].hbitmap = first_frame->frame.hbitmap;
-							_viv_frames[0].mipmap = first_frame->frame.mipmap;
-							_viv_frames[0].delay = first_frame->frame.delay;
-							os_copy_memory(_viv_frame_fd,_viv_load_fd,sizeof(WIN32_FIND_DATA));
+							_viv_slot_current.frames = (_viv_frame_t *)mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_slot_current.frame_count));
+							_viv_slot_current.frames[0].hbitmap = first_frame->frame.hbitmap;
+							_viv_slot_current.frames[0].mipmap = first_frame->frame.mipmap;
+							_viv_slot_current.frames[0].delay = first_frame->frame.delay;
+							os_copy_memory(&_viv_slot_current.fd,_viv_load_fd,sizeof(WIN32_FIND_DATA));
 
 							first_frame->frame.hbitmap = 0;
 							first_frame->frame.mipmap = NULL;
-							_viv_frame_loaded_count = 1;
+							_viv_slot_current.frame_loaded_count = 1;
 							
 							_viv_start_first_frame();
 							
@@ -903,7 +903,7 @@ debug_printf("FIRST FRAME TERMINATE\n");
 					
 					additional_frame = (_viv_frame_t *)(e + 1);
 					
-					debug_printf("_VIV_REPLY_LOAD_IMAGE_ADDITIONAL_FRAME %d preload %d activate %d\n",_viv_load_is_preload ? _viv_preload_frame_loaded_count : _viv_frame_loaded_count,_viv_load_is_preload,_viv_should_activate_preload_on_load);
+					debug_printf("_VIV_REPLY_LOAD_IMAGE_ADDITIONAL_FRAME %d preload %d activate %d\n",_viv_load_is_preload ? _viv_slot_preload.frame_loaded_count : _viv_slot_current.frame_loaded_count,_viv_load_is_preload,_viv_should_activate_preload_on_load);
 					
 					if ((_viv_load_image_terminate) && (!_viv_load_image_allow_draw) && (!((_viv_load_is_preload) && (_viv_should_activate_preload_on_load))))
 					{
@@ -936,17 +936,17 @@ debug_printf("ADDITIONAL FRAME TERMINATE\n");
 						if (_viv_load_is_preload)
 						{
 							// we could have been cleared.
-							if (_viv_preload_frames)
+							if (_viv_slot_preload.frames)
 							{
 								// make sure we check the frame count too
 								// incase we get an event from an old load.
-								if (_viv_preload_frame_loaded_count < _viv_preload_frame_count)
+								if (_viv_slot_preload.frame_loaded_count < _viv_slot_preload.frame_count)
 								{
-									_viv_preload_frames[_viv_preload_frame_loaded_count].hbitmap = additional_frame->hbitmap;
-									_viv_preload_frames[_viv_preload_frame_loaded_count].mipmap = additional_frame->mipmap;
-									_viv_preload_frames[_viv_preload_frame_loaded_count].delay = additional_frame->delay;
+									_viv_slot_preload.frames[_viv_slot_preload.frame_loaded_count].hbitmap = additional_frame->hbitmap;
+									_viv_slot_preload.frames[_viv_slot_preload.frame_loaded_count].mipmap = additional_frame->mipmap;
+									_viv_slot_preload.frames[_viv_slot_preload.frame_loaded_count].delay = additional_frame->delay;
 									
-									_viv_preload_frame_loaded_count++;
+									_viv_slot_preload.frame_loaded_count++;
 									
 									additional_frame->hbitmap = 0;
 									additional_frame->mipmap = 0;
@@ -973,17 +973,17 @@ debug_printf("ADDITIONAL FRAME TERMINATE\n");
 						else
 						{
 							// we could have been cleared.
-							if (_viv_frames)
+							if (_viv_slot_current.frames)
 							{
 								// make sure we check the frame count too
 								// incase we get an event from an old load.
-								if (_viv_frame_loaded_count < _viv_frame_count)
+								if (_viv_slot_current.frame_loaded_count < _viv_slot_current.frame_count)
 								{
-									_viv_frames[_viv_frame_loaded_count].hbitmap = additional_frame->hbitmap;
-									_viv_frames[_viv_frame_loaded_count].mipmap = additional_frame->mipmap;
-									_viv_frames[_viv_frame_loaded_count].delay = additional_frame->delay;
+									_viv_slot_current.frames[_viv_slot_current.frame_loaded_count].hbitmap = additional_frame->hbitmap;
+									_viv_slot_current.frames[_viv_slot_current.frame_loaded_count].mipmap = additional_frame->mipmap;
+									_viv_slot_current.frames[_viv_slot_current.frame_loaded_count].delay = additional_frame->delay;
 									
-									_viv_frame_loaded_count++;
+									_viv_slot_current.frame_loaded_count++;
 									
 									((_viv_frame_t *)(e + 1))->hbitmap = 0;
 									((_viv_frame_t *)(e + 1))->mipmap = 0;
@@ -1082,7 +1082,7 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			{
 				if (config_loop_animations_once)
 				{
-					if (_viv_frame_count > 1)
+					if (_viv_slot_current.frame_count > 1)
 					{
 						if (!_viv_frame_looped)
 						{
@@ -1110,7 +1110,7 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			
 		case VIV_ID_ANIMATION_TIMER:
 		{
-			if ((_viv_is_animation_timer) && (_viv_frame_count))
+			if ((_viv_is_animation_timer) && (_viv_slot_current.frame_count))
 			{
 				VIV_UINT64 elapsed;
 				VIV_UINT64 tick;
@@ -1146,7 +1146,7 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 						DWORD delay;
 						VIV_UINT64 performance_counter_delay;
 
-						delay = _viv_frames[_viv_frame_position].delay * (1.0f/_viv_animation_rates[_viv_animation_rate_pos]);
+						delay = _viv_slot_current.frames[_viv_frame_position].delay * (1.0f/_viv_animation_rates[_viv_animation_rate_pos]);
 						
 						if (!delay)
 						{
@@ -1161,9 +1161,9 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 						{
 							//debug_printf("%d %d error %d %d\n",(DWORD)_viv_timer_tick,(DWORD)freq,(DWORD)(_viv_timer_tick - performance_counter_delay),(DWORD)(((_viv_timer_tick - performance_counter_delay) * 1000) / freq));
 							
-							if (_viv_frame_loaded_count != _viv_frame_count)
+							if (_viv_slot_current.frame_loaded_count != _viv_slot_current.frame_count)
 							{
-								if (_viv_frame_position + 1 >= _viv_frame_loaded_count)
+								if (_viv_frame_position + 1 >= _viv_slot_current.frame_loaded_count)
 								{	
 									// ignore this tick
 									frames_skipped++;
@@ -1173,7 +1173,7 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 							}
 						
 							_viv_frame_position++;
-							if (_viv_frame_position == _viv_frame_count)
+							if (_viv_frame_position == _viv_slot_current.frame_count)
 							{
 								_viv_frame_looped = 1;
 								_viv_frame_position = 0;
@@ -2503,12 +2503,12 @@ static int _viv_hw_render_frame(HWND hwnd,HDC hdc,int dst_x,int dst_y,int dst_wi
 {
 	if (config_renderer == CONFIG_RENDERER_OPENGL)
 	{
-		return _viv_hwgl_render(hwnd,hdc,_viv_frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
+		return _viv_hwgl_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
 	}
 
 	if (config_renderer == CONFIG_RENDERER_DIRECT3D)
 	{
-		return _viv_hwd3d_render(hwnd,hdc,_viv_frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
+		return _viv_hwd3d_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
 	}
 
 	return 0;
@@ -2618,7 +2618,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			// present. any refusal (no dll, no context, an oversized
 			// canvas) leaves the gdi path painting this frame - the sticky
 			// flags keep the answer stable for the session.
-			if (_viv_frame_count)
+			if (_viv_slot_current.frame_count)
 			{
 				_viv_get_render_size(&rw,&rh);
 				
@@ -2672,7 +2672,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			rh = 0;
 
 			// controls.
-			if (_viv_frame_count)
+			if (_viv_slot_current.frame_count)
 			{
 				HDC mem_hdc;
 				
@@ -2694,7 +2694,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 					int mip_high;
 					
 debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
-					mip_hbitmap = _viv_get_mipmap(_viv_frames[_viv_frame_position].hbitmap,_viv_image_wide,_viv_image_high,rw,rh,&mip_wide,&mip_high,&_viv_frames[_viv_frame_position].mipmap);
+					mip_hbitmap = _viv_get_mipmap(_viv_slot_current.frames[_viv_frame_position].hbitmap,_viv_slot_current.image_wide,_viv_slot_current.image_high,rw,rh,&mip_wide,&mip_high,&_viv_slot_current.frames[_viv_frame_position].mipmap);
 					
 					if (mip_hbitmap)
 					{

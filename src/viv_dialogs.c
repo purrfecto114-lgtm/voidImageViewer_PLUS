@@ -1874,7 +1874,7 @@ void _viv_set_zoom_dialog(void)
 	HWND hwnd;
 	int wide;
 	
-	if (!_viv_image_wide)
+	if (!_viv_slot_current.image_wide)
 	{
 		return;
 	}

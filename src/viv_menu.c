@@ -237,7 +237,7 @@ void _viv_check_menus(HMENU hmenu)
 	EnableMenuItem(hmenu,VIV_ID_VIEW_REFRESH,is_image_enabled);
 
 	// the animation family needs an animated image, not just any image.
-	is_animation_enabled = ((_viv_frame_count > 1) && (is_image_enabled == MF_ENABLED)) ? MF_ENABLED : MF_DISABLED;
+	is_animation_enabled = ((_viv_slot_current.frame_count > 1) && (is_image_enabled == MF_ENABLED)) ? MF_ENABLED : MF_DISABLED;
 	EnableMenuItem(hmenu,VIV_ID_ANIMATION_PLAY_PAUSE,is_animation_enabled);
 	EnableMenuItem(hmenu,VIV_ID_ANIMATION_JUMP_FORWARD_MEDIUM,is_animation_enabled);
 	EnableMenuItem(hmenu,VIV_ID_ANIMATION_JUMP_BACKWARD_MEDIUM,is_animation_enabled);
@@ -271,7 +271,7 @@ void _viv_check_menus(HMENU hmenu)
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ALLOW_SHRINKING,config_allow_shrinking ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_KEEP_ASPECT_RATIO,config_keep_aspect_ratio ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_FILL_WINDOW,fill_window ? MF_CHECKED : MF_UNCHECKED);
-	CheckMenuItem(hmenu,VIV_ID_VIEW_1TO1,((rw == _viv_image_wide) && (rh == _viv_image_high)) ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_1TO1,((rw == _viv_slot_current.image_wide) && (rh == _viv_slot_current.image_high)) ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_FULLSCREEN,_viv_is_fullscreen ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_SLIDESHOW,is_slideshow ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ONTOP_ALWAYS,config_ontop == 1 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));

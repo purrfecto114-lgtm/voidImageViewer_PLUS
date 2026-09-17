@@ -442,8 +442,8 @@ void _viv_on_size(void)
 
 			_viv_get_render_size(&rw,&rh);
 		
-			new_view_x = (int)(((_viv_view_ix * rw) / _viv_image_wide) + 0.5) + (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (wide / 2) - (rw / 2);
-			new_view_y = (int)(((_viv_view_iy * rh) / _viv_image_high) + 0.5) + (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (high / 2) - (rh / 2);
+			new_view_x = (int)(((_viv_view_ix * rw) / _viv_slot_current.image_wide) + 0.5) + (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (wide / 2) - (rw / 2);
+			new_view_y = (int)(((_viv_view_iy * rh) / _viv_slot_current.image_high) + 0.5) + (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (high / 2) - (rh / 2);
 	
 	debug_printf("RESTORE VIEW x %d y %d ix %d iy %d rw %d rh %d wide %d high %d\n",(int)(new_view_x),(int)(new_view_y),(int)_viv_view_ix,(int)_viv_view_iy,rw,rh,wide,high)		;
 			_viv_view_set((int)new_view_x,(int)new_view_y,1);
@@ -1053,7 +1053,7 @@ void _viv_update_ontop(void)
 			break;
 			
 		case 2:
-			is_top_most = (_viv_is_slideshow) || ((_viv_frame_count > 1) && (_viv_animation_play));
+			is_top_most = (_viv_is_slideshow) || ((_viv_slot_current.frame_count > 1) && (_viv_animation_play));
 			break;
 	}
 
@@ -1157,10 +1157,16 @@ void _viv_controls_show(int show)
 	_viv_on_size();
 }
 // the playlist position of the loaded file, for the index pane. the walk
-// is cached on the fd pointer, so a steady image costs one compare.
+// is cached on the file name, so a steady image costs one compare.
+// the round-109 slot refactor is where the old cache key was caught:
+// it compared the frame fd's address, but the fd has lived at one
+// stable address since the split era (and the slot embeds it), so the
+// pointer key could never tell one file from the next - the index pane
+// froze on the first file the walk ever saw. the name is the identity.
 static int _viv_status_nav_index(void)
 {
-	static const WIN32_FIND_DATA *last_fd;
+	static wchar_t last_filename[STRING_SIZE];
+	static BYTE last_filename_valid;
 	static int last_index;
 	_viv_playlist_t *item;
 	int index;
@@ -1170,7 +1176,7 @@ static int _viv_status_nav_index(void)
 		return 0;
 	}
 
-	if ((last_fd == _viv_frame_fd) && (last_index))
+	if ((last_filename_valid) && (last_index) && (string_compare(last_filename,_viv_slot_current.fd.cFileName) == 0))
 	{
 		return last_index;
 	}
@@ -1179,16 +1185,17 @@ static int _viv_status_nav_index(void)
 
 	for(item=_viv_playlist_start;item;item=item->next,index++)
 	{
-		if ((&item->fd == _viv_frame_fd) || (string_compare(item->fd.cFileName,_viv_frame_fd->cFileName) == 0))
+		if (string_compare(item->fd.cFileName,_viv_slot_current.fd.cFileName) == 0)
 		{
-			last_fd = _viv_frame_fd;
+			string_copy(last_filename,_viv_slot_current.fd.cFileName);
+			last_filename_valid = 1;
 			last_index = index;
 
 			return index;
 		}
 	}
 
-	last_fd = _viv_frame_fd;
+	last_filename_valid = 0;
 	last_index = 0;
 
 	return 0;
@@ -1226,10 +1233,10 @@ void _viv_status_update(void)
 		*pixel_pos_buf = 0;
 		*pixel_rgb_buf = 0;
 		
-		if ((_viv_image_wide) && (_viv_image_high))
+		if ((_viv_slot_current.image_wide) && (_viv_slot_current.image_high))
 		{
-			string_format_number(widebuf,_viv_image_wide);
-			string_format_number(highbuf,_viv_image_high);
+			string_format_number(widebuf,_viv_slot_current.image_wide);
+			string_format_number(highbuf,_viv_slot_current.image_high);
 		
 			string_copy(dimension_buf,widebuf);
 			string_cat_utf8(dimension_buf,(const utf8_t *)" x ");
@@ -1241,17 +1248,17 @@ void _viv_status_update(void)
 		}
 
 		// the zoom pane text. shown whenever an image is loaded.
-		if ((_viv_image_wide) && (_viv_image_high))
+		if ((_viv_slot_current.image_wide) && (_viv_slot_current.image_high))
 		{
 			string_printf(zoom_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),_viv_zoom_percent());
 		}
 
-		if (*_viv_frame_fd->cFileName)
+		if (*_viv_slot_current.fd.cFileName)
 		{
 			LARGE_INTEGER size;
 			
-			size.HighPart = _viv_frame_fd->nFileSizeHigh;
-			size.LowPart = _viv_frame_fd->nFileSizeLow;
+			size.HighPart = _viv_slot_current.fd.nFileSizeHigh;
+			size.LowPart = _viv_slot_current.fd.nFileSizeLow;
 			
 			if (size.QuadPart)
 			{
@@ -1318,16 +1325,16 @@ void _viv_status_update(void)
 			}
 		}
 		
-		if (_viv_frame_count > 1)
+		if (_viv_slot_current.frame_count > 1)
 		{
 			int frame_pos;
-			string_format_number(highbuf,_viv_frame_count);
+			string_format_number(highbuf,_viv_slot_current.frame_count);
 
 			string_copy_utf8_string(frame_buf,(const utf8_t *)"");
 			
 			if (config_frame_minus)
 			{
-				frame_pos = _viv_frame_count - (_viv_frame_position);
+				frame_pos = _viv_slot_current.frame_count - (_viv_frame_position);
 				string_cat_utf8(frame_buf,(const utf8_t *)"- ");
 			}
 			else
@@ -1348,7 +1355,7 @@ void _viv_status_update(void)
 		
 		// this is just noise..
 		
-		if ((_viv_load_is_preload) && (_viv_preload_state == 0) && (!_viv_should_activate_preload_on_load) && (!_viv_load_image_terminate) && (!_viv_preload_frame_loaded_count))
+		if ((_viv_load_is_preload) && (_viv_slot_preload.state == 0) && (!_viv_should_activate_preload_on_load) && (!_viv_load_image_terminate) && (!_viv_slot_preload.frame_loaded_count))
 		{
 			string_copy_utf8_string(preload_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PRELOAD));
 		}
@@ -1357,12 +1364,12 @@ void _viv_status_update(void)
 		// file (the remake status row: rgb and the date at the right edge).
 		*date_buf = 0;
 
-		if (*_viv_frame_fd->cFileName)
+		if (*_viv_slot_current.fd.cFileName)
 		{
 			FILETIME local_filetime;
 			SYSTEMTIME systemtime;
 
-			if (FileTimeToLocalFileTime(&_viv_frame_fd->ftLastWriteTime,&local_filetime) &&
+			if (FileTimeToLocalFileTime(&_viv_slot_current.fd.ftLastWriteTime,&local_filetime) &&
 			    FileTimeToSystemTime(&local_filetime,&systemtime))
 			{
 				wchar_t time_buf[64];
@@ -1668,7 +1675,7 @@ else
 				text = text_buf;
 			}
 			else
-			if (*_viv_frame_fd->cFileName)
+			if (*_viv_slot_current.fd.cFileName)
 			{
 				int nav_index;
 
@@ -1678,11 +1685,11 @@ else
 				{
 					string_printf(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT),nav_index,_viv_playlist_count);
 					string_cat_utf8(text_buf,(const utf8_t *)"  ");
-					string_cat(text_buf,_viv_frame_fd->cFileName);
+					string_cat(text_buf,_viv_slot_current.fd.cFileName);
 				}
 				else
 				{
-					string_copy(text_buf,_viv_frame_fd->cFileName);
+					string_copy(text_buf,_viv_slot_current.fd.cFileName);
 				}
 
 				// the renderer's honesty line rides the position text: a

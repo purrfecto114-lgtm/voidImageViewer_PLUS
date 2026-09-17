@@ -22,6 +22,12 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
+**1.1.15-rc.1 — the image slot architecture round (the current release candidate):**
+
+- **The typed slot** — the three physically separated frame-set families (the current image, the last-image cache, the preload slot — nineteen loose globals with three hand-written field-by-field moves between them) become one `_viv_image_slot_t` and three instances. The moves are two primitives now (`_viv_slot_take` moves a whole slot, `_viv_slot_clear_frames` empties one), the cache-set ceiling prices the three slots through one helper, and the back-navigation's five-local ping-pong is one local slot plus two takes — a field added to a held image can no longer be forgotten in one of the moves.
+- **The nav-index cache** — the playlist position pane cached its walk on the frame fd's address, but that address has been stable since the file split: the pane froze on the first file the walk ever saw. The cache keys on the file name now.
+- Full narrative: `Changes.txt`.
+
 **1.1.14 — the stable promotion round (the current stable):**
 
 - **The cache-set ceiling** — the memory budget priced one image at a time while the viewer holds up to three (the current image, the last-image cache, the preload slot). Every fill point now prices the whole set against the working-set ceiling: a preload that would overflow is abandoned silently (it is the one load nobody asked for), and the settle point after every load drops the cache — never the image on screen. The clipboard paste path trims the same way.

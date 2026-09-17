@@ -342,10 +342,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.14.79 stable (the stable promotion round)",
-          (major, minor, rev, build) == ("1", "1", "14", "79") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.14 stable tag)",
-          vstr == "1.1.14")
+    check("version.h = 1.1.15-rc.1.80 (the image slot architecture round)",
+          (major, minor, rev, build) == ("1", "1", "15", "80") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.15-rc.1 tag)",
+          vstr == "1.1.15-rc.1")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -537,7 +537,7 @@ def t_ladder_shape():
           "HBRUSH _viv_background_hbrush = 0;" in viv
           and "CreateSolidBrush(brush_color)" in viv)
     check("render capped at 16x native in double space (rc.7)",
-          "max_w = 16.0 * (double)_viv_image_wide;" in viv)
+          "max_w = 16.0 * (double)_viv_slot_current.image_wide;" in viv)
     check("int overflow guard for extreme panoramas",
           "_viv_clamp_double" in viv)
 
@@ -867,7 +867,7 @@ def t_paste_wiring():
     check("the pasted frame starts the normal first frame path",
           "_viv_start_first_frame();" in viv)
     check("the mipmap is built lazily (NULL is a supported frame state)",
-          "_viv_frames[0].mipmap = 0; // built lazily on the first paint." in viv)
+          "_viv_slot_current.frames[0].mipmap = 0; // built lazily on the first paint." in viv)
     check("the paste helpers have prototypes",
           re.search(r"(?:static\s+)?void _viv_paste_clipboard_image\(void\);", viv) is not None)
     check("only 40 byte dib headers take the dib path",
@@ -909,7 +909,7 @@ def t_zoom_percent_wiring():
     check("buttons no longer delegate to the wheel action",
           "_viv_do_mousewheel_action" not in body)
     check("percent steps are skipped without an image",
-          "if (!_viv_image_wide)" in body)
+          "if (!_viv_slot_current.image_wide)" in body)
 
     # the percent -> ladder position search
     m = re.search(r"(?:static\s+)?void _viv_zoom_set_percent\(int percent,int screen_x,int screen_y,int force\)\s*\{(.*?)\n\}",
@@ -1046,7 +1046,7 @@ def t_review_fixes():
 
     # M1: zero delay frames can not stall the frame skip loop
     check("frame skip guards zero delay frames",
-          viv.count("(_viv_frames[_viv_frame_position].delay > 0) ?") == 2)
+          viv.count("(_viv_slot_current.frames[_viv_frame_position].delay > 0) ?") == 2)
 
     # M2: webp frames composite over the backdrop like the gdi+ path
     check("webp frame is drawn into a dib section",
@@ -1087,7 +1087,7 @@ def t_review_fixes():
 
     # preload OOB: the additional frame write is bounds checked
     check("preload additional frame write is bounds checked",
-          "if (_viv_preload_frame_loaded_count < _viv_preload_frame_count)" in viv)
+          "if (_viv_slot_preload.frame_loaded_count < _viv_slot_preload.frame_count)" in viv)
 
     # save as refuses to save the progressive preview thumbnail
     check("save as refuses the low res preview",
@@ -1251,12 +1251,12 @@ def t_release_engineering_round5():
     # wrench from safe_size.h; a 32 bit sizeof*count could wrap before
     # reaching the allocator even with the clamped count).
     check("preload frame array allocation uses safe_size_mul",
-          "mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_preload_frame_count));" in viv)
+          "mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_slot_preload.frame_count));" in viv)
     check("frame array allocation uses safe_size_mul",
-          "mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_frame_count));" in viv)
+          "mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_slot_current.frame_count));" in viv)
     check("the raw frame array multiplications are gone",
-          "sizeof(_viv_frame_t) * _viv_preload_frame_count" not in viv and
-          "sizeof(_viv_frame_t) * _viv_frame_count" not in viv)
+          "sizeof(_viv_frame_t) * _viv_slot_preload.frame_count" not in viv and
+          "sizeof(_viv_frame_t) * _viv_slot_current.frame_count" not in viv)
 
     # the everything FILE_SIZE-indexed branch requests SIZE only; date
     # modified is requested by its own indexed check right below (the
@@ -1596,13 +1596,13 @@ def t_round7():
 
     # the ceiling: 16x native in BOTH copies of the cap math.
     check("render size cap = 16x native",
-          "max_w = 16.0 * (double)_viv_image_wide;" in viv)
+          "max_w = 16.0 * (double)_viv_slot_current.image_wide;" in viv)
     check("pos_max cap mirrors the render size cap",
-          viv.count("max_w = 16.0 * (double)_viv_image_wide;") == 2)
+          viv.count("max_w = 16.0 * (double)_viv_slot_current.image_wide;") == 2)
     check("the cap floors at the pos 0 fit (fill window)",
           viv.count("if (max_w < (double)rw)") == 2)
     check("the old 16x-the-LARGER rule is gone",
-          "16.0 * (double)((rw > _viv_image_wide)" not in viv)
+          "16.0 * (double)((rw > _viv_slot_current.image_wide)" not in viv)
 
     # the menu restoration.
     check("File > Options row exists (before the Exit separator)",
@@ -2010,8 +2010,8 @@ def t_audit_round14():
 
     # issue 2: save-as must save the frame on screen
     check("save-as saves the current frame",
-          "os_save_hbitmap(_viv_frames[_viv_frame_position].hbitmap,tobuf,format)" in viv and
-          "os_save_hbitmap(_viv_frames[0].hbitmap" not in viv)
+          "os_save_hbitmap(_viv_slot_current.frames[_viv_frame_position].hbitmap,tobuf,format)" in viv and
+          "os_save_hbitmap(_viv_slot_current.frames[0].hbitmap" not in viv)
 
     # issue 3: the uninstall suffix is reserved
     check("uninstall copy reserves the suffix",
@@ -3094,7 +3094,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the pixel oracle round sweeps the pin)",
-          "#define VERSION_BUILD 79" in version)
+          "#define VERSION_BUILD 80" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3165,8 +3165,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 79" in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+          "#define VERSION_BUILD 80" in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3216,7 +3216,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 31300)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129)
+          viv_lines >= 21130 and viv_lines <= 31300)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3277,7 +3277,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 31300, f"({total})")  # round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129)
+          21130 <= total <= 31300, f"({total})")  # round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138)
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3439,9 +3439,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3505,8 +3505,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 79" in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+          "#define VERSION_BUILD 80" in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3657,7 +3657,7 @@ def t_field_repair_round78():
 
     # the play face: the animation clock only counts when frames exist.
     check("the play face gates the animation clock on the frame count",
-          b"((_viv_frame_count > 1) && (_viv_animation_play))" in toolbar)
+          b"((_viv_slot_current.frame_count > 1) && (_viv_animation_play))" in toolbar)
     check("the animation clock changes notify the toolbar and the ontop",
           anim.count(b"_viv_toolbar_update_buttons();") >= 3 and
           anim.count(b"_viv_update_ontop();") >= 3)
@@ -4068,9 +4068,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4238,9 +4238,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4341,9 +4341,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4420,9 +4420,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4519,9 +4519,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4636,9 +4636,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4849,9 +4849,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14 build 79 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4899,7 +4899,7 @@ def t_field_sweep_round93():
     # 2. the cold-start fix: the play slot gates its animation branch on
     #    frames (the rc.13 face rule reaches the dispatch).
     check("the toolbar play dispatch carries the frame gate",
-          toolbar.count("else if ((_viv_frame_count > 1) && (_viv_animation_play))") == 1)
+          toolbar.count("else if ((_viv_slot_current.frame_count > 1) && (_viv_animation_play))") == 1)
 
     # 3. the widened no-image gate.
     check("the animation gate variable exists",
@@ -4989,9 +4989,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5217,9 +5217,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.14 build 79 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5293,9 +5293,9 @@ def t_navigation_visibility_round99():
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.3** \u2014" in readme)
-    check("the version is 1.1.14 build 79 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
 
 
 def t_audit_response_round101():
@@ -5412,9 +5412,9 @@ def t_audit_response_round101():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.4** \u2014" in readme and
           "**1.1.14-rc.3** \u2014" in readme)
@@ -5526,10 +5526,10 @@ def t_pixel_oracle_round102():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Stable: Version 1.1.14 (the stable promotion round)", top)
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.1 (the image slot architecture round)", top)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.4** \u2014" in readme)
@@ -5848,10 +5848,10 @@ def t_input_ceiling_round104():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Stable: Version 1.1.14 (the stable promotion round)", top)
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.1 (the image slot architecture round)", top)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
@@ -6022,10 +6022,10 @@ def t_renderer_parity_round105():
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Stable: Version 1.1.14 (the stable promotion round)", top)
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.1 (the image slot architecture round)", top)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
@@ -6117,9 +6117,9 @@ def t_navigation_faces_round106():
     check("the plain open resets the fact when it swaps the current fd",
           _reset_near("os_copy_memory(_viv_current_fd,fd,sizeof(WIN32_FIND_DATA));"))
     check("the last-cache activation resets the fact",
-          _reset_near("os_copy_memory(_viv_current_fd,_viv_last_fd,sizeof(WIN32_FIND_DATA));"))
+          _reset_near("os_copy_memory(_viv_current_fd,&_viv_slot_last.fd,sizeof(WIN32_FIND_DATA));"))
     check("the preload activation resets the fact",
-          _reset_near("os_copy_memory(_viv_current_fd,_viv_preload_fd,sizeof(WIN32_FIND_DATA));"))
+          _reset_near("os_copy_memory(_viv_current_fd,&_viv_slot_preload.fd,sizeof(WIN32_FIND_DATA));"))
 
     # 5. the dialog cache stays the dialog's own: the jump-to listing
     #    still populates from its WM_INITDIALOG scan and the shutdown
@@ -6135,10 +6135,10 @@ def t_navigation_faces_round106():
     # 6. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Stable: Version 1.1.14 (the stable promotion round)", top)
-    check("the version is 1.1.14 build 79",
-          '#define VERSION_BUILD 79' in version and
-          '#define VERSION_STRING "1.1.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.1 (the image slot architecture round)", top)
+    check("the version is 1.1.15-rc.1 build 80",
+          '#define VERSION_BUILD 80' in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.8** \u2014" in readme)
@@ -6345,9 +6345,9 @@ def t_stable_promotion_round108():
 
     # 1. the version marks the stable promotion (the rc phase suffix
     #    is gone; the plain tag form is the stable release form).
-    check("version.h = 1.1.14.79 stable (the stable promotion round)",
-          "#define VERSION_BUILD 79" in version and
-          '#define VERSION_STRING "1.1.14"' in version and
+    check("version.h = 1.1.15-rc.1.80 (the stable promotion round pins ride the slot architecture round)",
+          "#define VERSION_BUILD 80" in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the defaults the promotion promises, pinned as facts: both
@@ -6374,9 +6374,9 @@ def t_stable_promotion_round108():
           "if (bytes == SIZE_MAX)" in vivload and
           "return bytes / 3;" in vivload)
     check("the ceiling prices current, last and preload together",
-          "_viv_frame_set_bytes(_viv_image_wide,_viv_image_high,_viv_frame_count)" in vivload and
-          "_viv_frame_set_bytes(_viv_last_image_wide,_viv_last_image_high,_viv_last_frame_count)" in vivload and
-          "_viv_frame_set_bytes(_viv_preload_image_wide,_viv_preload_image_high,_viv_preload_frame_count)" in vivload)
+          "_viv_slot_bytes(&_viv_slot_current)" in vivload and
+          "safe_size_add(total,_viv_slot_bytes(&_viv_slot_last))" in vivload and
+          "safe_size_add(total,_viv_slot_bytes(&_viv_slot_preload))" in vivload)
     check("the ceiling answers against the working-set number",
           "return total > VIV_MAX_IMAGE_BYTES;" in vivload)
     check("the pending-clear slot stays out of the sum by construction",
@@ -6393,12 +6393,12 @@ def t_stable_promotion_round108():
           gate != -1)
     check("the abandoned preload unwinds the slot and routes the decode to the discard path",
           gate != -1 and
-          "_viv_preload_state = 2;" in wnd[gate:gate + 2500] and
-          "_viv_preload_fd->cFileName[0] = 0;" in wnd[gate:gate + 2500] and
+          "_viv_slot_preload.state = 2;" in wnd[gate:gate + 2500] and
+          "_viv_slot_preload.fd.cFileName[0] = 0;" in wnd[gate:gate + 2500] and
           "_viv_load_image_terminate = 1;" in wnd[gate:gate + 2500] and
           "DeleteObject(first_frame->frame.hbitmap);" in wnd[gate:gate + 2500])
     check("the frame array allocation still goes through safe_size_mul",
-          "mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_preload_frame_count));" in wnd)
+          "mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_slot_preload.frame_count));" in wnd)
 
     # 5. the settle-point trim: over the ceiling the cache goes and
     #    the current image stays.
@@ -6444,15 +6444,163 @@ def t_stable_promotion_round108():
           "three switch rows" in settings)
 
     # 8. the changelog, the readme and the demotion ride the promotion
-    check("the changelog tops with the stable promotion",
-          changes.lstrip("\ufeff").startswith("Stable: Version 1.1.14 (the stable promotion round)"))
+    check("the changelog tops with the slot architecture round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.1 (the image slot architecture round)"))
     check("the readme current-stable line says 1.1.14",
           "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
     check("the 1.1.13 full section demotes to the one-line list",
           "**1.1.13 \u2014" not in readme and "**1.1.13** \u2014" in readme)
-    check("the rc.10 candidate section demotes to the one-line list",
-          "(the current release candidate):**" not in readme and
-          "**1.1.14-rc.10** \u2014" in readme)
+    check("the rc.10 candidate section demotes to the one-line list (rc.1 is the candidate now)",
+          "**1.1.14-rc.10** \u2014" in readme and
+          "**1.1.15-rc.1 \u2014" in readme and
+          readme.count("(the current release candidate):**") == 1)
+
+
+def t_slot_architecture_round109():
+    """Guards for the image slot architecture round (1.1.15-rc.1: the
+    physical separation becomes an architecture. the three parallel
+    frame-set families - the current image, the last-image cache and
+    the preload slot, each a set of loose globals with its own
+    hand-written field-by-field moves - collapse into one typed slot
+    and three instances. the lifecycle is two primitives now
+    (_viv_slot_take moves a whole slot, _viv_slot_clear_frames empties
+    one), the cache-set ceiling prices the three slots through one
+    _viv_slot_bytes helper, and the five-local ping-pong behind the
+    back-navigation is one local slot plus two takes. the walk past
+    the status code also catches the nav-index cache: its key compared
+    the frame fd's address, but the fd has lived at one stable address
+    since the split era - the index pane froze on the first file the
+    walk ever saw. the file name is the identity now)."""
+    viv = read("src/viv.c").decode("latin-1")
+    state = read("src/viv_state.h").decode("latin-1")
+    vivload = read("src/viv_load.c").decode("latin-1")
+    wnd = read("src/viv_wndproc.c").decode("latin-1")
+    chrome = read("src/viv_chrome.c").decode("latin-1")
+    version = read("src/version.h").decode()
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+
+    # 1. the version mark
+    check("version.h = 1.1.15-rc.1.80 (the image slot architecture round)",
+          "#define VERSION_BUILD 80" in version and
+          '#define VERSION_STRING "1.1.15-rc.1"' in version)
+
+    # 2. the type: one held image - the file identity, the frames,
+    #    both counts, the dimensions and the preload role's state -
+    #    declared once in the state layer.
+    check("the slot type carries the seven members",
+          "typedef struct _viv_image_slot_s" in state and
+          "WIN32_FIND_DATA fd;" in state and
+          "_viv_frame_t *frames;" in state and
+          "int frame_count;" in state and
+          "int frame_loaded_count;" in state and
+          "int image_wide;" in state and
+          "int image_high;" in state and
+          "BYTE state;" in state)
+    check("the three slots are declared (current, last, preload)",
+          "extern _viv_image_slot_t _viv_slot_current;" in state and
+          "extern _viv_image_slot_t _viv_slot_last;" in state and
+          "extern _viv_image_slot_t _viv_slot_preload;" in state)
+
+    # 3. the retirement: the nineteen loose globals of the physical
+    #    separation are gone from the spliced code (the splice covers
+    #    every viv_*.c and appends the state layer, so this is the
+    #    whole tree).
+    retired = ["_viv_frames", "_viv_frame_count", "_viv_frame_loaded_count",
+               "_viv_image_wide", "_viv_image_high", "_viv_frame_fd",
+               "_viv_last_frames", "_viv_last_frame_count", "_viv_last_fd",
+               "_viv_last_image_wide", "_viv_last_image_high",
+               "_viv_preload_frames", "_viv_preload_frame_count",
+               "_viv_preload_frame_loaded_count", "_viv_preload_image_wide",
+               "_viv_preload_image_high", "_viv_preload_fd",
+               "_viv_preload_state", "_viv_preload_is_prev"]
+    leaked = [n for n in retired if re.search(r"\b" + re.escape(n) + r"\b", viv)]
+    check("no loose slot global survives anywhere in the spliced code",
+          not leaked, f"leaked: {leaked}")
+
+    # 4. the take: one primitive moves the whole slot - the fd, the
+    #    frames, both counts and the dimensions - and empties the
+    #    source. the state member is role metadata, not content: the
+    #    take must never move it.
+    check("the take primitive moves the whole slot and empties the source",
+          "static void _viv_slot_take(_viv_image_slot_t *dst,_viv_image_slot_t *src)" in vivload and
+          "os_copy_memory(&dst->fd,&src->fd,sizeof(WIN32_FIND_DATA));" in vivload and
+          "src->fd.cFileName[0] = 0;" in vivload and
+          "src->frames = NULL;" in vivload and
+          "src->image_high = 0;" in vivload)
+    check("the take never touches the state member",
+          "src->state" not in vivload and "dst->state" not in vivload)
+
+    # 5. the clear: frees by the loaded count (a partial animation only
+    #    allocated the frames that arrived) and zeroes the counts and
+    #    dimensions unconditionally - the preload family's old shape,
+    #    now the one clear for every slot.
+    check("the clear primitive frees by the loaded count",
+          "static void _viv_slot_clear_frames(_viv_image_slot_t *slot)" in vivload and
+          "_viv_clear_frames(slot->frames,slot->frame_loaded_count);" in vivload)
+
+    # 6. the three hand-written family clears route through the one
+    #    primitive; the extern surface keeps its names.
+    check("the family clears route through the primitive",
+          vivload.count("_viv_slot_clear_frames") == 4 and
+          "void _viv_clear_last(void)\r\n{\r\n\t_viv_slot_clear_frames(&_viv_slot_last);\r\n}\r\n" in vivload and
+          "void _viv_clear_preload_frames(void)\r\n{\r\n\t_viv_slot_clear_frames(&_viv_slot_preload);\r\n}\r\n" in vivload)
+
+    # 7. the moves: every slot-to-slot transition is a take - the
+    #    preload activation, the last-cache fill and the back-navigation
+    #    ping-pong. three takes, no hand-rolled field moves left.
+    check("every slot transition is one take (three in the file)",
+          vivload.count("_viv_slot_take(&_viv_slot") == 3 and
+          "_viv_slot_take(&_viv_slot_current,&_viv_slot_preload);" in vivload and
+          "_viv_slot_take(&_viv_slot_last,&_viv_slot_current);" in vivload and
+          "_viv_slot_take(&_viv_slot_current,&_viv_slot_last);" in vivload)
+    check("the five-local ping-pong is one local slot plus a restore",
+          "_viv_image_slot_t old_slot;" in vivload and
+          "_viv_slot_last = old_slot;" in vivload and
+          "WIN32_FIND_DATA old_fd;" not in vivload and
+          "_viv_frame_t *old_frames;" not in vivload)
+
+    # 8. the ceiling prices the slots through the one helper (the
+    #    round-108 pins above carry the three-line sum; this pins the
+    #    wrapper that makes a fourth slot a one-line change).
+    check("the slot-bytes helper prices one slot",
+          "static SIZE_T _viv_slot_bytes(const _viv_image_slot_t *slot)" in vivload and
+          "return _viv_frame_set_bytes(slot->image_wide,slot->image_high,slot->frame_count);" in vivload)
+
+    # 9. the nav-index cache: the pointer key could never invalidate
+    #    (the frame fd has one stable address), so the index pane froze
+    #    on the first file the walk ever saw. the name is the identity.
+    check("the nav-index cache keys on the file name, not the address",
+          "static wchar_t last_filename[STRING_SIZE];" in chrome and
+          "string_compare(last_filename,_viv_slot_current.fd.cFileName) == 0" in chrome and
+          "last_fd ==" not in chrome and
+          "string_copy(last_filename,_viv_slot_current.fd.cFileName);" in chrome)
+
+    # 10. the fd heap blocks: the three slot fds are embedded members
+    #     now; only the navigation fd and the load fd stay allocated.
+    check("only the navigation, load and dispatch-queue fds allocate",
+          viv.count("mem_alloc(sizeof(WIN32_FIND_DATA))") == 3 and
+          "mem_free(_viv_frame_fd);" not in viv and
+          "mem_free(_viv_last_fd);" not in viv and
+          "mem_free(_viv_preload_fd);" not in viv)
+    check("the kill path releases the last cache through the slot",
+          "_viv_clear_frames(_viv_slot_last.frames,_viv_slot_last.frame_count);" in viv)
+
+    # 11. the reply handlers fill the slots
+    check("the first-frame reply fills the preload slot",
+          "_viv_slot_preload.frames[0].hbitmap = first_frame->frame.hbitmap;" in wnd)
+    check("the first-frame reply fills the current slot",
+          "_viv_slot_current.frames[0].hbitmap = first_frame->frame.hbitmap;" in wnd and
+          "os_copy_memory(&_viv_slot_current.fd,_viv_load_fd,sizeof(WIN32_FIND_DATA));" in wnd)
+
+    # 12. the changelog, the readme and the candidate block
+    check("the changelog tops with the slot architecture round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.1 (the image slot architecture round)"))
+    check("the readme carries the new candidate block",
+          "**1.1.15-rc.1 \u2014" in readme and
+          readme.count("(the current release candidate):**") == 1)
+    check("the readme stable block survives the candidate",
+          "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
 
 
 if __name__ == "__main__":
@@ -6530,6 +6678,7 @@ if __name__ == "__main__":
     t_navigation_faces_round106()
     t_corrections_round107()
     t_stable_promotion_round108()
+    t_slot_architecture_round109()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

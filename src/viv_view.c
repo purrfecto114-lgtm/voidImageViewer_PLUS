@@ -381,7 +381,7 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				_viv_animation_play = 0;
 			}
 
-			if (_viv_frame_count > 1)			
+			if (_viv_slot_current.frame_count > 1)
 			{
 				_viv_frame_position = 0;
 				_viv_animation_timer_tick_start = os_get_tick_count();
@@ -410,9 +410,9 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				_viv_animation_play = 0;
 			}
 
-			if (_viv_frame_count > 1)
+			if (_viv_slot_current.frame_count > 1)
 			{
-				_viv_frame_position = _viv_frame_loaded_count - 1;
+				_viv_frame_position = _viv_slot_current.frame_loaded_count - 1;
 				_viv_animation_timer_tick_start = os_get_tick_count();
 				_viv_timer_tick = 0;
 
@@ -667,7 +667,7 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				ShowWindow(_viv_hwnd,SW_RESTORE);
 			}
 		
-			if (((_viv_image_wide) && (_viv_image_high)) || (command_id == VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT))
+			if (((_viv_slot_current.image_wide) && (_viv_slot_current.image_high)) || (command_id == VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT))
 			{
 				RECT rect;
 				int wide;
@@ -691,18 +691,18 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				switch(command_id)
 				{
 					case VIV_ID_VIEW_WINDOW_SIZE_50:
-						rect.right = _viv_image_wide / 2;
-						rect.bottom = _viv_image_high / 2;
+						rect.right = _viv_slot_current.image_wide / 2;
+						rect.bottom = _viv_slot_current.image_high / 2;
 						break;
 						
 					case VIV_ID_VIEW_WINDOW_SIZE_100:
-						rect.right = _viv_image_wide;
-						rect.bottom = _viv_image_high;
+						rect.right = _viv_slot_current.image_wide;
+						rect.bottom = _viv_slot_current.image_high;
 						break;
 						
 					case VIV_ID_VIEW_WINDOW_SIZE_200:
-						rect.right = _viv_image_wide * 2;
-						rect.bottom = _viv_image_high * 2;
+						rect.right = _viv_slot_current.image_wide * 2;
+						rect.bottom = _viv_slot_current.image_high * 2;
 						break;
 						
 					case VIV_ID_VIEW_WINDOW_SIZE_AUTO_FIT:
@@ -1699,7 +1699,7 @@ void _viv_view_set(int view_x,int view_y,int invalidate)
 		rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - view_x;
 
 		// make sure the multiple is done as __int64 to avoid overflows
-		_viv_view_ix = (((wide / 2) - rx) * (__int64)_viv_image_wide) / (double)rw;
+		_viv_view_ix = (((wide / 2) - rx) * (__int64)_viv_slot_current.image_wide) / (double)rw;
 	}
 	else
 	{
@@ -1713,7 +1713,7 @@ void _viv_view_set(int view_x,int view_y,int invalidate)
 		ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - view_y;
 		
 		// make sure the multiple is done as __int64 to avoid overflows
-		_viv_view_iy = (((high / 2) - ry) * (__int64)_viv_image_high) / (double)rh;
+		_viv_view_iy = (((high / 2) - ry) * (__int64)_viv_slot_current.image_high) / (double)rh;
 	}
 	else
 	{
@@ -2062,7 +2062,7 @@ static void _viv_edit_rotate(int counterclockwise)
 {
 	if (*_viv_current_fd->cFileName)
 	{
-		if (_viv_frame_loaded_count == _viv_frame_count)
+		if (_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count)
 		{
 			if (os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,1,counterclockwise ? "rotate270" : "rotate90",0))
 			{
@@ -2071,32 +2071,32 @@ static void _viv_edit_rotate(int counterclockwise)
 
 				// rotate images in memory too
 				
-				for(i=0;i<_viv_frame_count;i++)
+				for(i=0;i<_viv_slot_current.frame_count;i++)
 				{
 					HBITMAP new_hbitmap;
 					
 					// i do the reverse to reverse the orientation.
-					new_hbitmap = _viv_orientate_hbitmap(_viv_frames[i].hbitmap,counterclockwise ? 8 : 6);
+					new_hbitmap = _viv_orientate_hbitmap(_viv_slot_current.frames[i].hbitmap,counterclockwise ? 8 : 6);
 					
 					if (new_hbitmap)
 					{
-						DeleteObject(_viv_frames[i].hbitmap);
+						DeleteObject(_viv_slot_current.frames[i].hbitmap);
 						
-						_viv_frames[i].hbitmap = new_hbitmap;
+						_viv_slot_current.frames[i].hbitmap = new_hbitmap;
 					}
 					
 					// delete mipmaps
-					if (_viv_frames[i].mipmap)
+					if (_viv_slot_current.frames[i].mipmap)
 					{
-						_viv_mipmap_free(_viv_frames[i].mipmap);
+						_viv_mipmap_free(_viv_slot_current.frames[i].mipmap);
 						
-						_viv_frames[i].mipmap = NULL;
+						_viv_slot_current.frames[i].mipmap = NULL;
 					}
 				}
 				
-				temp = _viv_image_wide;
-				_viv_image_wide = _viv_image_high;
-				_viv_image_high = temp;
+				temp = _viv_slot_current.image_wide;
+				_viv_slot_current.image_wide = _viv_slot_current.image_high;
+				_viv_slot_current.image_high = temp;
 				
 				_viv_view_set(_viv_view_x,_viv_view_y,1);
 				
@@ -2381,7 +2381,7 @@ void _viv_zoom_in(int out,int have_xy,int x,int y)
 	int percent;
 	int target;
 	
-	if (!_viv_image_wide)
+	if (!_viv_slot_current.image_wide)
 	{
 		return;
 	}

@@ -65,29 +65,63 @@ int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *d
 
 
 static GUID _viv_FrameDimensionTime = {0x6aedbd6d,0x3fb5,0x418a,{0x83,0xa6,0x7f,0x45,0x22,0x9d,0xc8,0x72}};
-static BYTE _viv_preload_is_prev = 0; // preload next or previous?
 static _viv_frame_t *_viv_pending_clear_frames = NULL;
 static int _viv_pending_clear_frame_loaded_count = 0;
-static int _viv_last_image_wide = 0; // last image width
-static int _viv_last_image_high = 0; // last image height
+// the slot primitives: the lifecycle of a held image in two moves.
+// the clear releases a slot's frames and empties it; the take moves a
+// whole slot into another slot. every transition the three slots know
+// - the preload activation, the last-cache fill, the ping-pong behind
+// the back-navigation - is one of these two, so a field added to a
+// held image is moved and cleared everywhere or nowhere. the state
+// member is not content: it is the preload role's dispatch lifecycle
+// and stays with its slot through every take.
+static void _viv_slot_clear_frames(_viv_image_slot_t *slot)
+{
+	if (slot->frames)
+	{
+		_viv_clear_frames(slot->frames,slot->frame_loaded_count);
+
+		slot->frames = NULL;
+	}
+
+	slot->frame_count = 0;
+	slot->frame_loaded_count = 0;
+	slot->image_wide = 0;
+	slot->image_high = 0;
+}
+static void _viv_slot_take(_viv_image_slot_t *dst,_viv_image_slot_t *src)
+{
+	os_copy_memory(&dst->fd,&src->fd,sizeof(WIN32_FIND_DATA));
+	dst->frames = src->frames;
+	dst->frame_count = src->frame_count;
+	dst->frame_loaded_count = src->frame_loaded_count;
+	dst->image_wide = src->image_wide;
+	dst->image_high = src->image_high;
+	src->fd.cFileName[0] = 0;
+	src->frames = NULL;
+	src->frame_count = 0;
+	src->frame_loaded_count = 0;
+	src->image_wide = 0;
+	src->image_high = 0;
+}
 // clearing is really slow.
 // delay this until after the new image is shown.
 // we add the clear to a queue which is cleared with _viv_process_pending_clear.
 // _viv_process_pending_clear should be called after the new frame is shown.
 void _viv_clear(void)
 {
-	_viv_pending_clear_frames = _viv_frames;
-	_viv_pending_clear_frame_loaded_count = _viv_frame_loaded_count;
-	_viv_frames = NULL;
-	_viv_frame_fd->cFileName[0] = 0;
+	_viv_pending_clear_frames = _viv_slot_current.frames;
+	_viv_pending_clear_frame_loaded_count = _viv_slot_current.frame_loaded_count;
+	_viv_slot_current.frames = NULL;
+	_viv_slot_current.fd.cFileName[0] = 0;
 
 	_viv_timer_stop();	
 
 	_viv_frame_position = 0;
 	_viv_frame_looped = 0;
 	_viv_is_slideshow_timeup = 0;
-	_viv_frame_count = 0;
-	_viv_frame_loaded_count = 0;
+	_viv_slot_current.frame_count = 0;
+	_viv_slot_current.frame_loaded_count = 0;
 	_viv_zoom_pos = 0;
 	_viv_view_x = 0;
 	_viv_view_y = 0;
@@ -96,8 +130,8 @@ void _viv_clear(void)
 	_viv_1to1 = 0;
 	_viv_have_old_zoom = 0;
 	_viv_image_is_low_res = 0;
-	_viv_image_wide = 0;
-	_viv_image_high = 0;
+	_viv_slot_current.image_wide = 0;
+	_viv_slot_current.image_high = 0;
 	_viv_animation_play = 1;
 }
 void _viv_process_pending_clear(void)
@@ -121,25 +155,19 @@ void _viv_clear_loading_preload(void)
 		}
 	}
 }
+// the preload slot's frames clear through the one slot primitive -
+// this used to be the family's own hand-written clear and is now a
+// one-line routing, so the extern surface (the kill path, the
+// activation unwind) keeps its name.
 void _viv_clear_preload_frames(void)
 {
-	if (_viv_preload_frames)
-	{
-		_viv_clear_frames(_viv_preload_frames,_viv_preload_frame_loaded_count);
-		
-		_viv_preload_frames = NULL;
-	}
-
-	_viv_preload_frame_count = 0;
-	_viv_preload_frame_loaded_count = 0;
-	_viv_preload_image_wide = 0;
-	_viv_preload_image_high = 0;
+	_viv_slot_clear_frames(&_viv_slot_preload);
 }
 void _viv_clear_preload(void)
 {
 	_viv_clear_preload_frames();
 	
-	_viv_preload_fd->cFileName[0] = 0;
+	_viv_slot_preload.fd.cFileName[0] = 0;
 }
 BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy)
 {
@@ -233,7 +261,7 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 // _viv_load_image_thread will be NULL if is_preload is 1.
 void _viv_open(WIN32_FIND_DATA *fd,int is_preload)
 {
-debug_printf("open: %S last %S frame %S is_preload %d\n",fd->cFileName,_viv_last_fd->cFileName,_viv_frame_fd->cFileName,is_preload);
+debug_printf("open: %S last %S frame %S is_preload %d\n",fd->cFileName,_viv_slot_last.fd.cFileName,_viv_slot_current.fd.cFileName,is_preload);
 
 if ((_viv_load_image_thread) && (_viv_load_image_filename))
 {
@@ -261,14 +289,14 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		}
 	}
 
-	if ((is_preload) && (_viv_last_frames) && (string_compare(_viv_last_fd->cFileName,fd->cFileName) == 0))
+	if ((is_preload) && (_viv_slot_last.frames) && (string_compare(_viv_slot_last.fd.cFileName,fd->cFileName) == 0))
 	{
 		// don't preload if its the same as last cache.
 		// this can occur if you have a playlist or folder with only 2 items.
 		return;
 	}
 	else
-	if ((!is_preload) && (_viv_last_frames) && (string_compare(_viv_last_fd->cFileName,fd->cFileName) == 0))
+	if ((!is_preload) && (_viv_slot_last.frames) && (string_compare(_viv_slot_last.fd.cFileName,fd->cFileName) == 0))
 	{
 		// activate last cache
 		// don't activate preload.
@@ -286,7 +314,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 			_viv_load_image_next_fd = NULL;
 		}
 
-		_viv_preload_fd->cFileName[0] = 0;
+		_viv_slot_preload.fd.cFileName[0] = 0;
 		
 		_viv_status_update();
 
@@ -297,7 +325,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		return;
 	}
 	else
-	if ((!is_preload) && (_viv_load_is_preload) && (*_viv_preload_fd->cFileName) && (string_compare(_viv_preload_fd->cFileName,fd->cFileName) == 0))
+	if ((!is_preload) && (_viv_load_is_preload) && (*_viv_slot_preload.fd.cFileName) && (string_compare(_viv_slot_preload.fd.cFileName,fd->cFileName) == 0))
 	{
 		_viv_open_preload();
 
@@ -355,9 +383,8 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		}
 		
 		_viv_load_image_filename = string_alloc(fd->cFileName);
-		_viv_load_is_preload = is_preload;
-		_viv_preload_is_prev = _viv_last_is_prev;
-		_viv_preload_state = 0;
+			_viv_load_is_preload = is_preload;
+			_viv_slot_preload.state = 0;
 		_viv_should_activate_preload_on_load = 0;
 		_viv_load_render_wide = rect.right - rect.left;
 		_viv_load_render_high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
@@ -366,7 +393,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		
 		if (is_preload)
 		{
-			os_copy_memory(_viv_preload_fd,fd,sizeof(WIN32_FIND_DATA));
+			os_copy_memory(&_viv_slot_preload.fd,fd,sizeof(WIN32_FIND_DATA));
 		}
 		
 debug_printf("LOAD %S is_preload %d\n",_viv_load_image_filename,is_preload);
@@ -396,7 +423,7 @@ debug_printf("LOAD %S is_preload %d\n",_viv_load_image_filename,is_preload);
 			// is not the user's failure.
 			if (is_preload)
 			{
-				_viv_preload_state = 2;
+				_viv_slot_preload.state = 2;
 			}
 			else
 			{
@@ -419,9 +446,9 @@ debug_printf("LOAD %S is_preload %d\n",_viv_load_image_filename,is_preload);
 }
 void _viv_set_clipboard_image(void)
 {
-	if (_viv_frame_count)
+	if (_viv_slot_current.frame_count)
 	{
-		if (_viv_frames[_viv_frame_position].hbitmap)
+		if (_viv_slot_current.frames[_viv_frame_position].hbitmap)
 		{
 			HDC screen_hdc;
 			
@@ -440,16 +467,16 @@ void _viv_set_clipboard_image(void)
 					{
 						HBITMAP mem1_hbitmap;
 
-						mem1_hbitmap = CreateCompatibleBitmap(screen_hdc,_viv_image_wide,_viv_image_high);
+						mem1_hbitmap = CreateCompatibleBitmap(screen_hdc,_viv_slot_current.image_wide,_viv_slot_current.image_high);
 						if (mem1_hbitmap)
 						{
 							HGDIOBJ last_mem1_hbitmap;
 							HGDIOBJ last_mem2_hbitmap;
 							
 							last_mem1_hbitmap = SelectObject(mem1_hdc,mem1_hbitmap);
-							last_mem2_hbitmap = SelectObject(mem2_hdc,_viv_frames[_viv_frame_position].hbitmap);
+							last_mem2_hbitmap = SelectObject(mem2_hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap);
 							
-							BitBlt(mem1_hdc,0,0,_viv_image_wide,_viv_image_high,mem2_hdc,0,0,SRCCOPY);
+							BitBlt(mem1_hdc,0,0,_viv_slot_current.image_wide,_viv_slot_current.image_high,mem2_hdc,0,0,SRCCOPY);
 
 							SelectObject(mem2_hdc,last_mem2_hbitmap);
 							SelectObject(mem1_hdc,last_mem1_hbitmap);
@@ -489,15 +516,15 @@ static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high)
 	
 	_viv_clear();
 	
-	_viv_image_wide = wide;
-	_viv_image_high = high;
-	_viv_frame_count = 1;
-	_viv_frame_loaded_count = 1;
-	_viv_frames = (_viv_frame_t *)mem_alloc(sizeof(_viv_frame_t));
+	_viv_slot_current.image_wide = wide;
+	_viv_slot_current.image_high = high;
+	_viv_slot_current.frame_count = 1;
+	_viv_slot_current.frame_loaded_count = 1;
+	_viv_slot_current.frames = (_viv_frame_t *)mem_alloc(sizeof(_viv_frame_t));
 	
-	_viv_frames[0].hbitmap = hbitmap;
-	_viv_frames[0].mipmap = 0; // built lazily on the first paint.
-	_viv_frames[0].delay = 0;
+	_viv_slot_current.frames[0].hbitmap = hbitmap;
+	_viv_slot_current.frames[0].mipmap = 0; // built lazily on the first paint.
+	_viv_slot_current.frames[0].delay = 0;
 	
 	// a clipboard image has no filename.
 	_viv_current_fd->cFileName[0] = 0;
@@ -690,7 +717,7 @@ void _viv_save_image_as(void)
 {
 	if (*_viv_current_fd->cFileName)
 	{
-		if (_viv_frame_count)
+		if (_viv_slot_current.frame_count)
 		{
 			// do not save while the progressive preview is on screen:
 			// frames[0] is still the low resolution thumbnail until the
@@ -792,7 +819,7 @@ void _viv_save_image_as(void)
 				}
 				
 				// save the frame on screen, not frame 0.
-				if (!os_save_hbitmap(_viv_frames[_viv_frame_position].hbitmap,tobuf,format))
+				if (!os_save_hbitmap(_viv_slot_current.frames[_viv_frame_position].hbitmap,tobuf,format))
 				{
 					wchar_t message_wbuf[STRING_SIZE];
 					wchar_t caption_wbuf[STRING_SIZE];
@@ -1778,6 +1805,13 @@ static SIZE_T _viv_frame_set_bytes(int wide,int high,int frame_count)
 
 	return bytes / 3;
 }
+// one slot's held bytes: the estimator above is the arithmetic, this
+// is the slot-domain wrapper the ceiling prices through - the three
+// slots, and any fourth the future adds, all price the same way.
+static SIZE_T _viv_slot_bytes(const _viv_image_slot_t *slot)
+{
+	return _viv_frame_set_bytes(slot->image_wide,slot->image_high,slot->frame_count);
+}
 // the cache-set ceiling: the budget gates price one image at a time
 // while the viewer holds up to three - the current image, the
 // last-image cache and the preload slot. the sum answers against
@@ -1789,9 +1823,9 @@ static int _viv_cache_set_over_ceiling(SIZE_T incoming_bytes)
 {
 	SIZE_T total;
 
-	total = _viv_frame_set_bytes(_viv_image_wide,_viv_image_high,_viv_frame_count);
-	total = safe_size_add(total,_viv_frame_set_bytes(_viv_last_image_wide,_viv_last_image_high,_viv_last_frame_count));
-	total = safe_size_add(total,_viv_frame_set_bytes(_viv_preload_image_wide,_viv_preload_image_high,_viv_preload_frame_count));
+	total = _viv_slot_bytes(&_viv_slot_current);
+	total = safe_size_add(total,_viv_slot_bytes(&_viv_slot_last));
+	total = safe_size_add(total,_viv_slot_bytes(&_viv_slot_preload));
 	total = safe_size_add(total,incoming_bytes);
 
 	if (total == SIZE_MAX)
@@ -1844,102 +1878,75 @@ void _viv_activate_preload(void)
 debug_printf("activate preload\n");
 
 	_viv_clear();
-	
-	_viv_frames = _viv_preload_frames;
-	_viv_preload_frames = NULL;
-	
-	_viv_frame_loaded_count = _viv_preload_frame_loaded_count;
-	_viv_preload_frame_loaded_count = 0;
-	
-	_viv_frame_count = _viv_preload_frame_count;
-	_viv_preload_frame_count = 0;
-	
-	_viv_image_wide = _viv_preload_image_wide;
-	_viv_preload_image_wide = 0;
-	
-	_viv_image_high = _viv_preload_image_high;
-	_viv_preload_image_high = 0;
+
+	// the whole slot moves in one take: the file identity, the frames,
+	// both counts and the dimensions, and the source is left empty.
+	// the take moves the fd with the frames, one status update
+	// earlier than the hand-written path did - the empty-name flash
+	// between the clear and the late fd copy is gone.
+	_viv_slot_take(&_viv_slot_current,&_viv_slot_preload);
 
 	_viv_start_first_frame();
 
 	_viv_process_pending_clear();
-	
-	os_copy_memory(_viv_frame_fd,_viv_preload_fd,sizeof(WIN32_FIND_DATA));
-
-	_viv_clear_preload_frames();
-	
-	*_viv_preload_fd->cFileName = 0;
 }
 // copy the current image to the last image.
 void viv_copy_current_image_to_last_image(void)
 {
-	if (_viv_last_frames)
-	{
-		_viv_clear_frames(_viv_last_frames,_viv_last_frame_count);
-		
-		_viv_last_frames = NULL;
-		_viv_last_frame_count = 0;
-	}
+	_viv_slot_clear_frames(&_viv_slot_last);
 
-debug_printf("*** Cache LAST : %S\n",_viv_frame_fd->cFileName);
+debug_printf("*** Cache LAST : %S\n",_viv_slot_current.fd.cFileName);
 
 	// only copy if the whole image was loaded.
 	// Otherwise we need to reload the whole image again..
 	if (config_cache_last)
 	{
-		if (_viv_frame_count == _viv_frame_loaded_count)
+		if (_viv_slot_current.frame_count == _viv_slot_current.frame_loaded_count)
 		{
-			os_copy_memory(_viv_last_fd,_viv_frame_fd,sizeof(WIN32_FIND_DATA));
-			
-			_viv_last_image_wide = _viv_image_wide; // last image width
-			_viv_last_image_high = _viv_image_high ; // last image width
-			_viv_last_frame_count = _viv_frame_count; // last image frame count, 1 for static image, > 1 for animation (all frames are loaded)
-			_viv_last_frames = _viv_frames;
-			
-			_viv_image_wide = 0;
-			_viv_image_high = 0;
-			_viv_frame_count = 0;
-			_viv_frames = NULL;
-			_viv_frame_fd->cFileName[0] = 0;
+			// the whole current slot moves into the last cache in one
+			// take: the file identity, the frames, both counts and the
+			// dimensions. the source is left empty for the incoming
+			// image.
+			_viv_slot_take(&_viv_slot_last,&_viv_slot_current);
 		}
 	}
 }
 static void _viv_activate_last(void)
 {
-	WIN32_FIND_DATA old_fd;
-	int old_image_wide;
-	int old_image_high;
-	int old_frame_count;
-	_viv_frame_t *old_frames;
-	
+	_viv_image_slot_t old_slot;
+	BYTE old_valid;
+
 debug_printf("activate last\n");
 
-	old_frames = NULL;
+	old_valid = 0;
 
 	// save current image so we can store it in last image later.
 	// we can't do it now because we are setting the last image to the current image.
+	// the five hand-rolled old_* locals (the fd, the dimensions, the
+	// count and the frames) are one slot now: the whole current image
+	// is saved in one copy and restored in one assignment.
 	if (config_cache_last)
 	{
-		if (_viv_frame_count == _viv_frame_loaded_count)
+		if (_viv_slot_current.frame_count == _viv_slot_current.frame_loaded_count)
 		{
-debug_printf("*** Cache LAST2 : %S\n",_viv_frame_fd->cFileName);
-		
-			os_copy_memory(&old_fd,_viv_frame_fd,sizeof(WIN32_FIND_DATA));
-			
-			old_image_wide = _viv_image_wide; // last image width
-			old_image_high = _viv_image_high ; // last image width
-			old_frame_count = _viv_frame_count; // last image frame count, 1 for static image, > 1 for animation (all frames are loaded)
-			old_frames = _viv_frames;
-			
-			_viv_image_wide = 0;
-			_viv_image_high = 0;
-			_viv_frame_count = 0;
-			_viv_frames = NULL;
-			_viv_frame_fd->cFileName[0] = 0;
+debug_printf("*** Cache LAST2 : %S\n",_viv_slot_current.fd.cFileName);
+
+			old_slot = _viv_slot_current;
+			old_valid = 1;
+
+			// the frames belong to the save now: detach them before
+			// _viv_clear runs, or its pending-clear mailbox would stash
+			// (and later free) the very frames being saved.
+			_viv_slot_current.frames = NULL;
+			_viv_slot_current.frame_count = 0;
+			_viv_slot_current.frame_loaded_count = 0;
+			_viv_slot_current.image_wide = 0;
+			_viv_slot_current.image_high = 0;
+			_viv_slot_current.fd.cFileName[0] = 0;
 		}
 	}
 	
-	os_copy_memory(_viv_current_fd,_viv_last_fd,sizeof(WIN32_FIND_DATA));
+	os_copy_memory(_viv_current_fd,&_viv_slot_last.fd,sizeof(WIN32_FIND_DATA));
 	
 	// the folder fact belongs to the position being left.
 	_viv_nav_folder_neighbor = -1;
@@ -1948,44 +1955,28 @@ debug_printf("*** Cache LAST2 : %S\n",_viv_frame_fd->cFileName);
 	_viv_status_update();
 	
 	_viv_clear();
-	
-	_viv_frames = _viv_last_frames;
-	os_copy_memory(_viv_frame_fd,_viv_last_fd,sizeof(WIN32_FIND_DATA));
-	_viv_last_frames = NULL;
-	
-	_viv_frame_loaded_count = _viv_last_frame_count;
-	_viv_frame_count = _viv_last_frame_count;
-	_viv_last_frame_count = 0;
-	
-	_viv_image_wide = _viv_last_image_wide;
-	_viv_last_image_wide = 0;
-	
-	_viv_image_high = _viv_last_image_high;
-	_viv_last_image_high = 0;
+
+	// the whole last slot moves into the current slot in one take.
+	_viv_slot_take(&_viv_slot_current,&_viv_slot_last);
 
 	_viv_start_first_frame();
 
 	_viv_process_pending_clear();
-	
-	if (old_frames)
+
+	if (old_valid)
 	{
-		os_copy_memory(_viv_last_fd,&old_fd,sizeof(WIN32_FIND_DATA));
-		
-		_viv_last_image_wide = old_image_wide;
-		_viv_last_image_high = old_image_high;
-		_viv_last_frame_count = old_frame_count;
-		_viv_last_frames = old_frames;
+		// the saved image becomes the new last cache: the ping-pong
+		// the two takes spell.
+		_viv_slot_last = old_slot;
 	}
 }
+// the last cache clears through the same slot primitive the preload
+// slot uses. the old family-gated clear left the dimensions behind
+// when the frames were already gone - harmless under the readers'
+// non-empty gates, and the unified clear zeroes them anyway.
 void _viv_clear_last(void)
 {
-	if (_viv_last_frames)
-	{
-		_viv_clear_frames(_viv_last_frames,_viv_last_frame_count);
-		
-		_viv_last_frames = NULL;
-		_viv_last_frame_count = 0;
-	}
+	_viv_slot_clear_frames(&_viv_slot_last);
 }
 void _viv_refresh(void)
 {
@@ -2035,18 +2026,18 @@ void _viv_refresh(void)
 }
 void _viv_open_preload(void)
 {
-	os_copy_memory(_viv_current_fd,_viv_preload_fd,sizeof(WIN32_FIND_DATA));
+	os_copy_memory(_viv_current_fd,&_viv_slot_preload.fd,sizeof(WIN32_FIND_DATA));
 	
 	// the folder fact belongs to the position being left.
 	_viv_nav_folder_neighbor = -1;
 	
 	_viv_update_title();
 	
-	if (_viv_preload_state == 0)
+	if (_viv_slot_preload.state == 0)
 	{
 		// loading...
 		// do we have the first frame?
-		if (_viv_preload_frame_loaded_count)
+		if (_viv_slot_preload.frame_loaded_count)
 		{
 			// save current image to last image.
 			viv_copy_current_image_to_last_image();
@@ -2072,7 +2063,7 @@ void _viv_open_preload(void)
 		}
 	}
 	else
-	if (_viv_preload_state == 1)
+	if (_viv_slot_preload.state == 1)
 	{
 		// save current image to last image.
 		viv_copy_current_image_to_last_image();

@@ -197,6 +197,46 @@ typedef struct _viv_frame_s
 	
 }_viv_frame_t;
 
+// one held image: the file identity, the decoded frames and the
+// frame-set's dimensions. the current image, the last-image cache and
+// the preload slot are three instances of this one type - what the
+// physical split era carried as three parallel families of loose
+// globals (every move between them a hand-written field list, every
+// gate naming each family's variables one by one) is one type with
+// one set of lifecycle primitives. see _viv_slot_take and
+// _viv_slot_clear_frames in viv_load.c: the take moves a whole slot
+// in one call, so the next field added to a held image can no longer
+// be forgotten in one of the hand-written moves.
+typedef struct _viv_image_slot_s
+{
+	// the file this slot holds. cFileName[0] == 0: no file.
+	WIN32_FIND_DATA fd;
+
+	// the decoded frames. NULL when the slot is empty.
+	_viv_frame_t *frames;
+
+	// declared frame count, 1 for a static image, > 1 for an animation.
+	int frame_count;
+
+	// frames decoded so far; equals frame_count when the set is complete.
+	// the last cache only ever fills complete sets, so its two counts
+	// always agree; the preload slot and the current image can hold a
+	// partial animation while the decode is still arriving.
+	int frame_loaded_count;
+
+	// the frame-set width in pixels.
+	int image_wide;
+
+	// the frame-set height in pixels.
+	int image_high;
+
+	// the preload role's dispatch lifecycle: 0 filling, 1 complete,
+	// 2 failed. this is role metadata, not slot content - the current
+	// and last roles leave it zero, and _viv_slot_take never moves it.
+	BYTE state;
+
+}_viv_image_slot_t;
+
 typedef struct _viv_reply_load_image_first_frame_s
 {
 	UINT wide;
@@ -285,7 +325,6 @@ extern BYTE _viv_animation_play;
 extern BYTE _viv_1to1;
 extern BYTE _viv_have_old_zoom;
 extern WIN32_FIND_DATA *_viv_current_fd;
-extern WIN32_FIND_DATA *_viv_preload_fd;
 extern int _viv_view_x;
 extern int _viv_view_y;
 extern double _viv_view_ix;
@@ -293,14 +332,17 @@ extern double _viv_view_iy;
 extern int _viv_zoom_pos;
 extern float _viv_zoom_scales[_VIV_ZOOM_MAX];
 extern BYTE _viv_image_is_low_res;
-extern int _viv_image_wide;
-extern int _viv_image_high;
-extern int _viv_frame_count;
-extern int _viv_frame_loaded_count;
+// the three image slots: the image on screen, the last-image cache
+// and the background preload slot. the definitions live in viv.c;
+// every lifecycle move between them lives in viv_load.c behind the
+// slot primitives, and the cache-set ceiling prices all three
+// through the one _viv_slot_bytes helper.
+extern _viv_image_slot_t _viv_slot_current;
+extern _viv_image_slot_t _viv_slot_last;
+extern _viv_image_slot_t _viv_slot_preload;
 extern int _viv_frame_position;
 extern BYTE _viv_frame_looped;
 extern BYTE _viv_is_slideshow_timeup;
-extern _viv_frame_t *_viv_frames;
 extern VIV_UINT64 _viv_timer_tick;
 extern BYTE _viv_is_animation_timer;
 extern VIV_UINT64 _viv_animation_timer_tick_start;
@@ -354,21 +396,11 @@ extern int _viv_nav_folder_neighbor;
 extern wchar_t *_viv_random;
 extern DWORD _viv_random_tot_results;
 extern BYTE _viv_is_animation_timer_event;
-extern BYTE _viv_preload_state;
-extern int _viv_preload_image_wide;
-extern int _viv_preload_image_high;
-extern int _viv_preload_frame_count;
-extern int _viv_preload_frame_loaded_count;
-extern _viv_frame_t *_viv_preload_frames;
 extern BYTE _viv_last_is_prev;
 extern BYTE _viv_should_activate_preload_on_load;
 extern int _viv_load_render_wide;
 extern int _viv_load_render_high;
-extern WIN32_FIND_DATA *_viv_last_fd;
-extern WIN32_FIND_DATA *_viv_frame_fd;
 extern WIN32_FIND_DATA *_viv_load_fd;
-extern int _viv_last_frame_count;
-extern _viv_frame_t *_viv_last_frames;
 extern BYTE _viv_load_image_allow_draw;
 extern BYTE _viv_file_not_found;
 extern BYTE _viv_load_failed;
