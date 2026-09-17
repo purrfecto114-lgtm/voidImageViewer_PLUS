@@ -28,6 +28,7 @@
 #include "viv_chrome.h"
 #include "viv_recent.h"
 #include "viv_render.h"
+#include "viv_view.h"
 
 // forward declarations (order preserved from viv.c)
 void _viv_check_menus(HMENU hmenu);
@@ -170,6 +171,7 @@ void _viv_check_menus(HMENU hmenu)
 	int slideshow_rate_id;
 	UINT is_image_enabled;
 	UINT is_animation_enabled;	// rc.7: the animation family needs frames, not just an image.
+	UINT is_nav_enabled;	// the fourth audit: the navigation pair asks the neighbor question, not the image question.
 	
 	is_slideshow = 0;
 
@@ -194,6 +196,16 @@ void _viv_check_menus(HMENU hmenu)
 	
 	is_image_enabled = ((*_viv_current_fd->cFileName) && (!_viv_file_not_found) && (!_viv_load_failed)) ? MF_ENABLED : MF_DISABLED;
 
+	// the fourth audit's consistency finding: the navigation pair
+	// gates on "is there anywhere to go" - the same predicate the
+	// toolbar's step faces carry (the navigation domain's own helper)
+	// - instead of the bare has-an-image rule: a lone image in an
+	// empty folder lit the menu's next while the toolbar face sat
+	// gray, and the click did nothing. home and end keep the image
+	// rule: they re-scan and re-open unconditionally, so there is
+	// always an action to take.
+	is_nav_enabled = _viv_nav_neighbor_available() ? MF_ENABLED : MF_DISABLED;
+
 	EnableMenuItem(hmenu,VIV_ID_FILE_CLOSE,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_EDIT_COPY,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_EDIT_COPY_FILENAME,is_image_enabled);
@@ -213,11 +225,13 @@ void _viv_check_menus(HMENU hmenu)
 
 	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_270,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_90,is_image_enabled);
-	// rc.7: the no-image gate widens - navigation, zoom, window sizing,
-	// refresh, the slideshow family and the animation family all act on
-	// an image (the toolbar and the pill already carried this per button).
-	EnableMenuItem(hmenu,VIV_ID_NAV_PREV,is_image_enabled);
-	EnableMenuItem(hmenu,VIV_ID_NAV_NEXT,is_image_enabled);
+	// rc.7: the no-image gate widens - zoom, window sizing, refresh,
+	// the slideshow family and the animation family all act on an
+	// image (the toolbar and the pill already carried this per button).
+	// the navigation pair rides the neighbor rule instead (the fourth
+	// audit's consistency finding - see is_nav_enabled above).
+	EnableMenuItem(hmenu,VIV_ID_NAV_PREV,is_nav_enabled);
+	EnableMenuItem(hmenu,VIV_ID_NAV_NEXT,is_nav_enabled);
 	EnableMenuItem(hmenu,VIV_ID_NAV_HOME,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_NAV_END,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_VIEW_SLIDESHOW,is_image_enabled);

@@ -45,7 +45,7 @@ def main():
     # 1. the harness script exists and carries the golden set.
     check("the golden harness script exists",
           os.path.exists("tests/render_golden.ps1"))
-    check("the golden set is the pinned twelve (the real imagery and the shape dimension)",
+    check("the golden set is the pinned thirteen (the real imagery, the shape dimension and the discrimination texture)",
           ps1.count('"28_control_png_100x100.png"') == 1 and
           ps1.count('"29_control_png_4000x3000.png"') == 1 and
           ps1.count('"fx_still_qoi_rgba.qoi"') == 1 and
@@ -54,7 +54,8 @@ def main():
           ps1.count('"fx_still_24bpp.bmp"') == 1 and
           ps1.count('"fx_still_photo.jpg"') == 1 and
           ps1.count('"fx_still_webp_odd.webp"') == 1 and
-          ps1.count('"fx_still_qoi_sliver.qoi"') == 1)
+          ps1.count('"fx_still_qoi_sliver.qoi"') == 1 and
+          ps1.count('"fx_still_textured.png"') == 1)
     check("the truncated anomaly stubs stay out of the golden set",
           '"30_control_gif_single_frame.gif"' not in ps1 and
           '"31_control_gif_anim_normal.gif"' not in ps1 and
@@ -64,8 +65,8 @@ def main():
     ps1_normalized = ps1.replace("\r\n", "\n")
     check("the golden sample count is pinned",
           re.search(r"\$goldenSamples = @\(", ps1_normalized) is not None and
-          len(re.findall(r'^\s+"[0-9a-z_.]+",?$', ps1_normalized, re.M)) == 12)
-    check("the shape dimension rides the golden set (the non power of two webp and the sliver)",
+          len(re.findall(r'^\s+"[0-9a-z_.]+",?$', ps1_normalized, re.M)) == 13)
+    check("the shape dimension rides the golden set (the non power of two webp and the sliver, the texture beside them)",
           '"fx_still_webp_odd.webp"' in ps1 and
           '"fx_still_qoi_sliver.qoi"' in ps1 and
           "two defects can" in ps1)
@@ -138,9 +139,17 @@ def main():
             check("the golden manifest is valid json", False, str(e))
             manifest = {}
         samples = [s for s in re.findall(r'"([^"]+)":\s*\{', raw)]
+        # the bootstrap window is explicit: the manifest is either the
+        # full set or exactly the pre-textured twelve (the hashes land
+        # by the ci bootstrap dispatch, never by hand). any other
+        # divergence - a missing fixture, an extra entry - fails both
+        # forms and goes red.
+        ps1_samples = sorted(re.findall(r'"([0-9a-z_.]+.png|[0-9a-z_.]+.gif|[0-9a-z_.]+.bmp|[0-9a-z_.]+.jpg|[0-9a-z_.]+.qoi|[0-9a-z_.]+.webp)"',
+                                        ps1))
+        window_form = sorted(s for s in ps1_samples
+                             if s != "fx_still_textured.png")
         check("the golden manifest covers exactly the golden set",
-              sorted(samples) == sorted(re.findall(r'"([0-9a-z_.]+.png|[0-9a-z_.]+.gif|[0-9a-z_.]+.bmp|[0-9a-z_.]+.jpg|[0-9a-z_.]+.qoi|[0-9a-z_.]+.webp)"',
-                                                   ps1)) or len(samples) == 12,
+              sorted(samples) == ps1_samples or sorted(samples) == window_form,
               "(%d entries)" % len(samples))
         bad_hashes = []
         for s, entry in manifest.items():
@@ -167,6 +176,25 @@ def main():
               all(manifest[s].get(leg) for s in manifest
                   for leg in ("gdi", "gl", "d3d")
                   if (s, leg) not in parity_exempt) if manifest else False)
+        # the fourth audit's discrimination finding: the two control
+        # pngs are single solid fills - their role is the scaling
+        # extremes, not filter discrimination, and a solid fill can
+        # legitimately answer identically under halftone and linear
+        # sampling (28's gl hash does differ; the solid pair's d3d
+        # agreement is the coincidence the audit could not rule out
+        # from linux). every textured sample is held to the stronger
+        # contract: the three legs must disagree somewhere, because an
+        # identical d3d hash on real imagery is the fake-green
+        # signature - a leg that never drew, reading the gdi result
+        # back. the textured png is the adjudicator: its hashes land by
+        # the bootstrap, and this check arms itself the moment they do.
+        solid_exempt = {"28_control_png_100x100.png",
+                        "29_control_png_4000x3000.png"}
+        check("every textured golden sample answers three-way distinct (the identical-d3d fake green the fourth audit flagged)",
+              all(len({manifest[s].get(leg) for leg in ("gdi", "gl", "d3d")}) == 3
+                  for s in manifest
+                  if s not in solid_exempt)
+              if manifest else False)
     else:
         if in_git_checkout:
             check("the golden manifest is absent only before the bootstrap",

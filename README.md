@@ -22,10 +22,10 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.1 — the image slot architecture round (the current release candidate):**
+**1.1.15-rc.2 — the fourth audit response round (the current release candidate):**
 
-- **The typed slot** — the three physically separated frame-set families (the current image, the last-image cache, the preload slot — nineteen loose globals with three hand-written field-by-field moves between them) become one `_viv_image_slot_t` and three instances. The moves are two primitives now (`_viv_slot_take` moves a whole slot, `_viv_slot_clear_frames` empties one), the cache-set ceiling prices the three slots through one helper, and the back-navigation's five-local ping-pong is one local slot plus two takes — a field added to a held image can no longer be forgotten in one of the moves.
-- **The nav-index cache** — the playlist position pane cached its walk on the frame fd's address, but that address has been stable since the file split: the pane froze on the first file the walk ever saw. The cache keys on the file name now.
+- **The golden set learns to discriminate** — its two control pngs are single solid fills, and one answers bit-identically on gdi and d3d — the fourth audit could not rule out, from linux, whether that was the integer-aligned solid coincidence or a d3d leg that never drew reading the gdi result back. The textured png (130×97, ramps + a 2-px checkerboard + hard marker bands, thousands of distinct pixel values self-checked in its generator) adjudicates: every textured sample is held to the three-way-distinct contract, and a pinned hash that regresses to a renderer refusal now goes red instead of note-only.
+- **The nav pair unifies** — the menu's previous/next gate on the same neighbor predicate the toolbar's step faces carry (the navigation domain's own helper) instead of the bare has-an-image rule; the cache-set ceiling's comment prices its two unit prices honestly (12 B/px working set vs 16/3 B/px held frames, one shared byte ceiling).
 - Full narrative: `Changes.txt`.
 
 **1.1.14 — the stable promotion round (the current stable):**
@@ -38,6 +38,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.15-rc.1** — the image slot architecture round: the three physically separated frame-set families (19 loose globals, three hand-written field-by-field moves) become one typed slot and three instances; the lifecycle is two primitives; the nav-index cache keys on the file name.
 - **1.1.14-rc.10** — the corrections round: the byte-invariant class gates (`.editorconfig`, the byte suite, the pushed-range whitespace check), the re-runnable split conservation proof (290/290), the QOI fuzz smoke (36 deterministic mutants), the ARM64 compile leg, the renderer fallback naming itself on the status line.
 - **1.1.14-rc.9** — the navigation faces round: the toolbar's previous/next enable rule reads the navigation's own two paths (the playlist items, the folder fact the preload scan records) instead of a cache only the Jump-To dialog ever fills.
 - **1.1.14-rc.8** — the renderer parity round: the GDI+ frames answer as DIB sections so the hardware renderers actually render every decoder family, the shape dimension reaches the pixel oracle (two non-power-of-two fixtures), the ceiling gate proves the refusal through the export oracle.

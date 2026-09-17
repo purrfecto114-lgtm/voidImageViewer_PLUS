@@ -32,6 +32,17 @@ version:
                         aspect: pot_high carries 27 rows of replicated
                         last row, pot_wide 24 columns of replicated
                         last column - the pad replication on both axes)
+  fx_still_textured.png
+                        130x97 truecolor discrimination fixture (the
+                        fourth audit's finding: the golden set's two
+                        controls are single solid fills - their role is
+                        the scaling extremes, not filter discrimination,
+                        and a solid fill can legitimately answer
+                        identically under halftone and linear sampling.
+                        this one carries structure at several scales: a
+                        smooth double ramp, a 2px checkerboard on blue,
+                        and hard marker bands - content that no scaling
+                        or filter pass can answer identically on)
 
 the gif lzw is a real variable-width compressor (dictionary growth, the
 code-width lockstep the format owns); the self check decodes every frame
@@ -60,7 +71,7 @@ import zlib
 
 PNG_SIG = b'\x89PNG\r\n\x1a\n'
 
-FIXTURE_COUNT = 8
+FIXTURE_COUNT = 9
 
 
 # ---------------------------------------------------------------- png tools
@@ -88,6 +99,34 @@ def make_rgba_png(width, height):
 
 
 # ---------------------------------------------------------------- bmp tools
+
+def make_textured_png(width, height):
+    """the discrimination fixture: a ramp on x, a ramp on y, a 2px
+    checkerboard on blue and hard marker bands - real structure at
+    several scales, so the golden set's three renderers have something
+    to disagree about (a filter or resample pass that changes anything
+    changes the bitmap)."""
+    comp = zlib.compressobj(9)
+    body = bytearray()
+    band_x = width // 3
+    band_y = height // 2
+    for y in range(height):
+        row = bytearray(b'\x00')
+        for x in range(width):
+            r = (x * 255) // max(width - 1, 1)
+            g = (y * 255) // max(height - 1, 1)
+            b = 0x40 if (((x >> 1) + (y >> 1)) & 1) else 0xc0
+            if x == band_x or x == band_x + 1:
+                r, g, b = 255, 255, 0
+            if y == band_y:
+                r, g, b = 0, 255, 255
+            row += bytes((r, g, b))
+        body += comp.compress(bytes(row))
+    body += comp.flush()
+    ihdr = struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0)
+    return (PNG_SIG + png_chunk(b'IHDR', ihdr) +
+            png_chunk(b'IDAT', bytes(body)) + png_chunk(b'IEND', b''))
+
 
 def make_24bpp_bmp(width, height):
     """an uncompressed 24-bit classic with a two-tone weave - real pixel
@@ -673,6 +712,11 @@ def build(out_dir):
 
     emit('fx_still_qoi_sliver.qoi', make_qoi(1000, 37, 3, sliver_pixel))
 
+    # the discrimination fixture: the fourth audit asked for content
+    # the golden set's filters could not answer identically on. see
+    # the set docstring.
+    emit('fx_still_textured.png', make_textured_png(130, 97))
+
     return files, (bounce_frames, fade_frames)
 
 
@@ -865,6 +909,40 @@ def self_check(files, frames_data):
     want = [sliver_pixel(x, y) for y in range(h) for x in range(w)]
     expect(pixels == want, 'sliver decode mismatch (%d pixels)' %
            sum(1 for a, b in zip(pixels, want) if a != b))
+
+    # the textured png: truecolor rgb, dims, the idat inflates to exactly
+    # height rows of (1 + width * 3), and - the whole point - the decoded
+    # content carries thousands of distinct pixel values (the solid-fill
+    # controls the fourth audit flagged carry one). a fixture that
+    # regresses into a solid fill fails here, not in a green golden run.
+    data = by_name['fx_still_textured.png']
+    expect(data[:8] == PNG_SIG, 'textured png signature missing')
+    w, h = struct.unpack('>II', data[16:24])
+    expect((w, h) == (130, 97), 'textured png dims %r' % ((w, h),))
+    depth, ctype = data[24], data[25]
+    expect((depth, ctype) == (8, 2), 'textured png depth/type %r' % ((depth, ctype),))
+    idat = bytearray()
+    p = 8
+    while p < len(data) - 8:
+        size = struct.unpack('>I', data[p:p + 4])[0]
+        tag = data[p + 4:p + 8]
+        if tag == b'IDAT':
+            idat += data[p + 8:p + 8 + size]
+        p += 8 + size + 4
+    raw = zlib.decompress(bytes(idat))
+    expect(len(raw) == h * (1 + w * 3),
+           'textured png pixel stream length %d' % len(raw))
+    distinct = set()
+    band_y = h // 2
+    for y in range(h):
+        row = raw[y * (1 + w * 3):(y + 1) * (1 + w * 3)]
+        for x in range(w):
+            distinct.add(tuple(row[1 + x * 3:4 + x * 3]))
+    expect(len(distinct) >= 5000,
+           'textured png carries only %d distinct pixels (a solid fill '
+           'has one - the discrimination contract died)' % len(distinct))
+    expect(tuple(raw[band_y * (1 + w * 3) + 1:band_y * (1 + w * 3) + 4]) == (0, 255, 255),
+           'textured png marker band missing')
 
     # size hygiene: fixtures stay small (the repo carries them now).
     for name, data in files:

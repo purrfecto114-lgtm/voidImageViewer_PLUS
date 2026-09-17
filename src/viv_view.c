@@ -1088,6 +1088,38 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 		}
 	}
 }
+// is there anywhere to step to from here? the toolbar's step faces and
+// the menu's navigation pair ask the same question, and the answer is
+// the navigation's own: the playlist branch counts items that differ
+// from the current file (a one entry playlist still steps when the
+// entry is not the current file itself - the same inequality the walk
+// tests), the single file branch reads the folder scan fact _viv_next
+// records (unknown counts as a yes until a scan answers), and the
+// random everything mode always has another image to fetch. the keys
+// and the pill stay live regardless - the navigation itself is safe
+// on an empty folder (the open guard refuses to reopen the same file).
+// the fourth audit's consistency finding put it here: the predicate
+// belongs to the navigation domain, not to whichever surface asked
+// first.
+int _viv_nav_neighbor_available(void)
+{
+	if (!((*_viv_current_fd->cFileName) && (!_viv_file_not_found) && (!_viv_load_failed)))
+	{
+		return 0;
+	}
+
+	if (_viv_playlist_start)
+	{
+		if (_viv_playlist_count > 1)
+		{
+			return 1;
+		}
+
+		return (_viv_fd_compare(&_viv_playlist_start->fd,_viv_current_fd) != 0) ? 1 : 0;
+	}
+
+	return ((_viv_nav_folder_neighbor != 0) || (_viv_random)) ? 1 : 0;
+}
 int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int wait_for_current_load)
 {
 	int ret;

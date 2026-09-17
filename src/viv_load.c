@@ -1815,7 +1815,17 @@ static SIZE_T _viv_slot_bytes(const _viv_image_slot_t *slot)
 // the cache-set ceiling: the budget gates price one image at a time
 // while the viewer holds up to three - the current image, the
 // last-image cache and the preload slot. the sum answers against
-// the same working-set number the per-image gates use. the
+// the same byte ceiling the per-image gates use, but at a different
+// unit price, and the fourth audit is right that the old comment
+// papered over the difference: the working-set gate prices a whole
+// image's residency at 12 bytes per pixel (the decode canvas, the
+// display bitmap, the render scratch), while this sum prices only
+// the held frames at 32bpp plus the mipmap chain's extra third
+// (16/3 bytes per pixel) - so three slots of held frames compete
+// against the same ceiling one image's whole working set does, and
+// the gdi+ path's 24bpp frames make the estimate a third heavy
+// besides (the conservative side is the safe side for a gate whose
+// whole job is to refuse). the
 // pending-clear slot never joins the sum: every handler that fills
 // it frees it before returning, so it is empty wherever these gates
 // run.

@@ -1,4 +1,86 @@
-﻿Pre-release: Version 1.1.15-rc.1 (the image slot architecture round)
+﻿Pre-release: Version 1.1.15-rc.2 (the fourth audit response round)
+
+	the fourth external audit landed against the stable and opened
+	with the retraction its author earned the hard way: the round-3
+	core finding (the gl upload loop overflow) never existed - a
+	mechanical bracket-stack reparse of the same code shows the
+	offending line at depth 2 where it always was, in build 72, 74
+	and 79 alike. the lesson is recorded here because it deserves
+	to be: a plausible number built on an unverified premise is
+	more dangerous than no number at all, and the audit's own
+	correction (structure before arithmetic) is the method this
+	repo's guard suites run on. the three live findings land below.
+
+	the golden set learns to discriminate. its two control pngs
+	are single solid fills - the audit measured 3 and 4 byte
+	values where the truth is starker still: each image is one
+	flat color, zero internal structure (the bars the audit saw
+	were the bgr byte stream read as a grid). a solid fill can
+	legitimately answer identically under halftone and linear
+	sampling, so a sixth of the golden set carried no power to
+	tell the renderers apart. worse, one of the two answers
+	bit-identically on gdi and d3d, and from a linux sandbox
+	nobody could rule out the ugly reading: a d3d leg that never
+	drew, reading the gdi result back, pinned into the manifest
+	as a green. the textured png adjudicates: 130x97 truecolor,
+	built from a double ramp, a 2px checkerboard and hard marker
+	bands (12,290 distinct pixel values, floor-pinned at 5,000
+	inside its own generator so the fixture cannot quietly
+	regress into a solid fill), hand-encoded with the standard
+	library only like every fixture before it. its hashes land
+	by the ci bootstrap, and the moment they do the new contract
+	arms: every textured golden sample must answer three-way
+	distinct - an identical d3d hash on real imagery is the
+	fake-green signature, and it goes red. the one-way ratchet
+	closes with it: a leg whose hash the manifest pinned must
+	not quietly regress to a renderer refusal either - the
+	pinned answer is the contract, and "the renderer went
+	missing" is a drift the same way a changed hash is.
+
+	the menu's navigation pair gates on the neighbor rule now.
+	the audit caught the inconsistency the rc.9 fix left behind:
+	the toolbar's step faces answer "is there anywhere to go"
+	(the playlist's own items, the folder scan fact, the random
+	mode) while the menu carried the bare has-an-image rule - a
+	lone image in an empty folder lit the menu's next and left
+	the face gray, and the click did nothing. the predicate
+	moves into the navigation domain (the question is the
+	navigation's own) and both surfaces ask it through one
+	helper; home and end keep the image rule, because they
+	re-scan and re-open unconditionally and always have an
+	action to take.
+
+	the cache-set ceiling's comment tells the unit-price truth
+	the audit asked for: the sum answers against the same byte
+	ceiling the per-image gates use, but the working-set gate
+	prices 12 bytes per pixel of residency while the cache sum
+	prices 16/3 bytes per pixel of held frames - three slots of
+	held frames compete against the same ceiling one image's
+	whole working set does, and the gdi+ 24bpp path makes the
+	estimate a third heavy besides. the design was sound; the
+	comment now says what the design actually does.
+
+	the ledger items carry with their reasons restated: code
+	signing stays the four-round p0 it is (no certificate
+	exists in this sandbox - attestation proves provenance, not
+	publisher identity, and a self-signed cert trades a smart
+	screen warning for a worse one); the 21 long-path sites
+	against the longpathaware manifest want their own round;
+	and the concurrency documentation the audit asked for is
+	mostly the slot architecture round's own work - the worker
+	protocol boundary is mapped, owned and documented in the
+	state layer and the load domain, though a dedicated
+	architecture note remains open.
+
+	verified: the five suites pass (menu with the round-110
+	section, the version pins swept to 1.1.15-rc.2 build 81, the
+	fixture census at 51 files, the golden count at thirteen),
+	the zig line links a 491,008-byte x64 exe and a 371,200-byte
+	aarch64 exe, link_scan audits 309 externs against 309
+	definitions with zero missing, update_libwebp --check
+	reports no drift, and the warning census holds the 756-line
+	baseline with no new class.
+Pre-release: Version 1.1.15-rc.1 (the image slot architecture round)
 
 	the split era moved the code into files without ever asking what
 	the moved code was made of, and nowhere did that show more than

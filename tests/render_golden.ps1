@@ -58,18 +58,24 @@ if (-not (Test-Path $SamplesDir)) {
 # physically impossible byte counts (a 96x64 24bpp bmp in 246 bytes) -
 # the decode refuses them, which the gui smoke tolerated as a survivable
 # refused load but the pixel oracle correctly reports as a failure. the
-# twelve below cover every decoder family
+# thirteen below cover every decoder family
 # (png, gif, bmp, jpeg, qoi, webp), the alpha paths (rgba png, rgba qoi,
 # the fade's sub-rectangle disposal), both ends of the scaling range
 # (the 100x100 magnify, the 4000x3000 mipmap shrink), the animation
-# first-frame contract, and - since the renderer parity round - the
-# shape dimension: a non power of two width on a 24bpp dib frame (the
-# 101x101 webp, the exact figure the hardware upload paths' gutter
-# logic exists for) and the extreme aspect (the 1000x37 sliver, gutters
-# on both axes). the shape lines exist because the first ten only ever
-# sent power-of-two widths down the hardware paths - two defects can
-# cover for each other when every sample that reaches the code is the
-# one shape it cannot break.
+# first-frame contract, the shape dimension - a non power of two width
+# on a 24bpp dib frame (the 101x101 webp, the exact figure the hardware
+# upload paths' gutter logic exists for) and the extreme aspect (the
+# 1000x37 sliver, gutters on both axes) - and, since the fourth audit
+# response round, the discrimination dimension: the two control pngs
+# are single solid fills (their role is the scaling extremes, not
+# filter discrimination - a solid fill can legitimately answer
+# identically under halftone and linear sampling), so the textured png
+# carries the structure the filters cannot agree on. the shape lines
+# exist because the first ten only ever sent power-of-two widths down
+# the hardware paths - two defects can cover for each other when every
+# sample that reaches the code is the one shape it cannot break; the
+# texture line exists because a golden set that cannot tell its
+# renderers apart is a green that proves nothing.
 $goldenSamples = @(
     "28_control_png_100x100.png",
     "29_control_png_4000x3000.png",
@@ -82,7 +88,8 @@ $goldenSamples = @(
     "fx_still_rgba.png",
     "fx_anim_pulse.webp",
     "fx_still_webp_odd.webp",
-    "fx_still_qoi_sliver.qoi"
+    "fx_still_qoi_sliver.qoi",
+    "fx_still_textured.png"
 )
 
 foreach ($s in $goldenSamples) {
@@ -170,9 +177,10 @@ try {
                 # the renderer refused: legitimate only when the machine
                 # carries no working instance of it (the ci vm has no gpu -
                 # the gl software fallback or the d3d hal may both be gone).
-                # a refusal on a machine where the renderer DID answer for
-                # another sample is an inconsistency the comparison below
-                # catches; here the leg just records null.
+                # the leg records null here; whether that is acceptable is
+                # the comparison below's question - a leg the manifest
+                # pinned must not quietly regress to a refusal (the fourth
+                # audit response round closed that one-way ratchet).
                 $results[$s][$r.Name] = $null
             }
             else {
@@ -233,6 +241,15 @@ try {
             }
             elseif ($actual -and (-not $expected)) {
                 Write-Host ("note: {0} / {1}: rendered but the manifest has no hash (re-bootstrap to pin it)" -f $r, $s)
+            }
+            elseif ($expected -and (-not $actual)) {
+                # the one-way ratchet, closed: a leg whose hash the manifest
+                # pinned must not quietly regress to a refusal. the pinned
+                # answer is the contract - "the renderer went missing" is a
+                # drift the same way a changed hash is, and the old note-only
+                # skip let a whole renderer vanish behind a green run.
+                Write-Host ("FAIL: {0} / {1}: the pinned hash regressed to a renderer refusal" -f $r, $s)
+                $mismatched++
             }
         }
     }
