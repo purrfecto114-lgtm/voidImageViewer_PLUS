@@ -1,7 +1,7 @@
 # viv.c 拆分规格（架构级设计文档）
 
 > 生成：R69（2026-09-10）· 方法论：superpowers-zh brainstorming（架构级路径）
-> + writing-plans（配套计划：`viv-split-plan.md`）
+> + writing-plans（配套计划 `viv-split-plan.md` 已随施工完成退役，git 历史可考）
 > 状态：用户已授权自主分配（"辩证讨论自主分配，进行架构拆分和优化"）；
 > 每片执行仍走 experience.md 四道门 + 用户验收门。
 
@@ -121,5 +121,5 @@ menu_structure_test.py 有 125 处 `viv.c` 引用、zoom_math 16 处、simulatio
 playlist，新增 install 与 menu 两域（spec 原把它们留在残余，实测成体
 系）。§2.3 的过渡态按"最小导出面"收紧（110/159 extern 化，52 个单域
 变量随域搬家并保留 static）。§2.4 拼接策略升级为含 viv_state.h 的完
-整拼接。性能与体积由既有 /GL 全程序优化兜底，详见
-viv-split-plan.md 的《R70 校准增补》。
+整拼接。性能与体积由既有 /GL 全程序优化兜底（校准增补原文随计划文档
+退役，git 历史与守卫套件的 R70 段可考）。

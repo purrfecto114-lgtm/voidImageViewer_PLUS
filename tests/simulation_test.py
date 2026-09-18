@@ -705,26 +705,27 @@ def t_sim_version_117():
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     check("the readme current-stable line says 1.1.14",
-          "**1.1.14 —" in readme and "(the current stable):**" in readme)
+          "**1.1.14 — the current stable**" in readme)
     check("the candidate slot rotates to the command picker round (rc.3 joins the one-liners)",
-          "**1.1.14-rc.10** —" in readme and
-          "**1.1.13** —" in readme and
-          "**1.1.14-rc.9** —" in readme and
-          "**1.1.14-rc.8** —" in readme and
-          "**1.1.14-rc.3** —" in readme and
+          "**1.1.14-rc.10** —" in experience and
+          "**1.1.13** —" in experience and
+          "**1.1.14-rc.9** —" in experience and
+          "**1.1.14-rc.8** —" in experience and
+          "**1.1.14-rc.3** —" in experience and
           "**1.1.15-rc.6 —" in readme and
-          "**1.1.15-rc.5** —" in readme and
-          "**1.1.15-rc.3** —" in readme and
-          "**1.1.15-rc.2** —" in readme and
-          "**1.1.15-rc.1** —" in readme and
+          "### 1.1.15-rc.5 —" in experience and
+          "### 1.1.15-rc.3 —" in experience and
+          "### 1.1.15-rc.2 —" in experience and
+          "### 1.1.15-rc.1 —" in experience and
           readme.count("(the current release candidate):**") == 1 and
-          "**1.1.14-rc.2** —" in readme and
-          "**1.1.14-rc.1** —" in readme and
-          "**1.1.13-rc.7** —" in readme and
+          "**1.1.14-rc.2** —" in experience and
+          "**1.1.14-rc.1** —" in experience and
+          "**1.1.13-rc.7** —" in experience and
           "**1.1.13-rc.7 —" not in readme)
     check("the readme news is on the diet (the retired rounds ride one line each)",
-          "**1.1.13-rc.1** —" in readme and "**1.1.12-rc.16 —" not in readme)
+          "**1.1.13-rc.1** —" in experience and "**1.1.12-rc.16 —" not in readme)
 
 
 # ---------------------------------------------------------------------------

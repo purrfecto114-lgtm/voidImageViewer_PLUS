@@ -20,6 +20,7 @@ Which of these ran, and on what platform (CI leg, local Windows, the zig build)?
 - [ ] `python3 tests/menu_structure_test.py`
 - [ ] `python3 tests/simulation_test.py`
 - [ ] `python3 tests/pixel_golden_test.py`
+- [ ] `python3 tests/byte_invariant_test.py`
 - [ ] `tests\smoke_test.ps1` — the real-machine anomaly sweep (Windows)
 - [ ] `tests\render_golden.ps1` — the pixel golden comparison (Windows)
 

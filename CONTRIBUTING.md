@@ -47,7 +47,7 @@ auto-detects the Visual Studio version; the sources compile with
 
 ## The test matrix
 
-Four Python suites — all stdlib-only, no pip installs, runnable directly
+Five Python suites — all stdlib-only, no pip installs, runnable directly
 on any platform:
 
 ```
@@ -55,6 +55,7 @@ python3 tests/zoom_math_test.py       # the zoom/fit math
 python3 tests/menu_structure_test.py  # menu table, dark-mode wiring, localization, version consistency
 python3 tests/simulation_test.py      # the second-rework simulation (the 1.1.07 check)
 python3 tests/pixel_golden_test.py    # the pixel-golden harness structure
+python3 tests/byte_invariant_test.py  # line endings, BOMs and final newlines per class
 ```
 
 On Windows (PowerShell 5.1+), two real-machine scripts:
@@ -67,7 +68,7 @@ powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath build\
 `smoke_test.ps1` opens the whole anomaly sample set through the exe and
 watches for crashes (the samples generate inline with pure-stdlib Python
 when the directory is missing); `render_golden.ps1` runs the pixel
-oracle described below. CI (`.github/workflows/tests.yml`) runs the four
+oracle described below. CI (`.github/workflows/tests.yml`) runs the five
 Python suites on every push, pull request and tag, and compiles both
 platforms on the pinned `windows-2022` (v143) and `windows-2025` (v145)
 images, with the smoke and golden legs riding the windows-2022 one.
@@ -88,7 +89,7 @@ images, with the smoke and golden legs riding the windows-2022 one.
   pre-release to stable wording on its own.
 - The release pipeline is `.github/workflows/release.yml`, gated
   validate → tests → build → publish: the tag is validated against
-  `VERSION_STRING` and the tag whitelist, all four suites run on the
+  `VERSION_STRING` and the tag whitelist, all five suites run on the
   tagged commit, the shipping binaries pass the smoke test and the
   strict pixel-golden comparison before anything is packaged, and publish
   re-verifies every asset SHA-256 after artifact transport and refuses to

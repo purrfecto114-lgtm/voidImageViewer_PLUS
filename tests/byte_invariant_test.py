@@ -150,7 +150,7 @@ def main():
           (len(c_files), len(py_files), len(ps_files), len(md_files),
            len(yml_files)),
           len(c_files) > 80 and len(py_files) >= 6 and len(ps_files) >= 3
-          and len(md_files) >= 7 and len(yml_files) == 3)
+          and len(md_files) >= 6 and len(yml_files) == 3)
 
     print()
     if failures:

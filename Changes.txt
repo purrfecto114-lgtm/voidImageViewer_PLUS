@@ -285,6 +285,39 @@
 	493,056-byte x64 exe and a 373,248-byte aarch64 exe (1,024 bytes a
 	leg - the init answers, the ime dissociation, the wakeup duty and
 	the offset validator), imm32 in both link lines.
+	the documentation round rides the same release - no version bump, no
+	code, one commit after the tag. the readme halves (159 lines to 103,
+	22.6 kb to 8.7): the news section keeps the current candidate's short
+	form and a one-line stable, and the forty-two-entry one-line history
+	moves out to a new experience.md - the engineering logbook, born this
+	round: the round descriptions merge into it at every rc's end from
+	here on, the lessons that outlived their rounds sit in seven sections
+	(from the audit house rule - every claim re-verified against the tree
+	- to the baseline-tree warning diff method), the full 1.1.15 arc
+	lives as archive sections, and the earlier arcs one line each. the
+	construction documents retire with the construction they scheduled:
+	the gui-remake-2 work order (zero references anywhere in the tree)
+	and the viv split plan (the per-task checkbox order; the spec - the
+	argument - stays, its plan references updated to point at the
+	history). the guard pins move with their subjects: the round-69 and
+	round-70 plan checks retire, the byte population floor follows the
+	tree (md 7 to 6 - two construction documents out, the logbook in),
+	and thirty-six readme-shape pins across the menu and simulation
+	suites follow the one-line list to its new home or take the new
+	single-stable-line form. the contributing guide and the pr template
+	catch up with the fifth suite (the byte invariants were missing from
+	both test lists since rc.10). and the fifth byte-mangling encounter
+	happened in the act: the editor between the maintainer's hands
+	flattened three tab-aligned pin strings inside the menu suite, the
+	suite went red on its own guard, and the bytes were restored before
+	anything shipped - the four encounters on the ledger were each caught
+	by accident of another suite pinning the damaged shape; this one was
+	caught by the guard it damaged, in the same round, which is the whole
+	reason the byte suite exists. verified: the five suites pass (menu
+	and simulation with the migrated pins), the readme carries the
+	current candidate and stable only, and the release pipeline's
+	round-name derivation still reads the unchanged changelog head.
+
 
 Pre-release: Version 1.1.15-rc.4 (the command picker round)
 

@@ -3160,13 +3160,13 @@ def t_white_band_round67():
 
 
 def t_split_architecture_round69():
-    """Guards for the viv.c split architecture decision (the spec and the
-    plan documents exist, the discipline is stated, the monolith baseline
-    is pinned so the split can only shrink it)."""
+    """Guards for the viv.c split architecture decision (the spec carries
+    the argument, the discipline is stated, the monolith baseline is
+    pinned so the split can only shrink it; the construction plan retired
+    with the split it scheduled - git history keeps it)."""
     print("the viv split architecture round (r69)")
 
     spec = read("docs/architecture/viv-split-spec.md").decode()
-    plan = read("docs/architecture/viv-split-plan.md").decode()
     viv = read("src/viv.c").decode("utf-8", errors="replace")
 
     # 1. the decision is on file: the dialectic, the slice table and the
@@ -3181,16 +3181,7 @@ def t_split_architecture_round69():
     check("the spec pins the monolith baseline",
           "21,129" in spec and "536" in spec and "159" in spec)
 
-    # 2. the plan exists in the writing-plans shape: task checkboxes,
-    #    the state-layer task A and the first-domain task B.
-    check("the split plan exists with the checkbox tasks",
-          "- [ ] A1." in plan and "- [ ] B1." in plan)
-    check("the plan states the guard splicing strategy",
-          "拼接" in plan)
-    check("the plan pins the done definition",
-          "5,000" in plan)
-
-    # 3. the monolith baseline, recalibrated in R70 when the one-shot split
+    # 2. the monolith baseline, recalibrated in R70 when the one-shot split
     #    landed: the guards read viv.c spliced with the domain modules, so
     #    this now pins the TOTAL code size (the pure move may only add
     #    declarations, never code).
@@ -3198,7 +3189,7 @@ def t_split_architecture_round69():
     check("the spliced code stays inside the growth window",
           viv_lines >= 21130 and viv_lines <= 30700)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523)
 
-    # 4. recalibrated in R70: the state layer and the domain modules now
+    # 3. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
     import os
     check("the state layer landed",
@@ -3211,7 +3202,7 @@ def t_split_architecture_round70():
     """Guards for the one-shot viv.c split landing (R70): the monolith is
     gone, every domain module exists under its size cap, the state layer
     carries the transition externs, the props register every new compile
-    unit exactly once and the plan documents the recalibration."""
+    unit exactly once."""
     print("the viv one-shot split landing round (r70)")
     import os
     raw_viv = open("src/viv.c", "rb").read().decode("utf-8", errors="replace")
@@ -3259,12 +3250,7 @@ def t_split_architecture_round70():
     check("the spliced total stays in the growth window",
           21130 <= total <= 30700, f"({total})")  # round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523)
 
-    # 6. the plan carries the R70 one-shot recalibration
-    plan = read("docs/architecture/viv-split-plan.md").decode()
-    check("the plan documents the R70 recalibration",
-          "R70" in plan and ("一次性" in plan or "one-shot" in plan))
-
-    # 7. the fourth CI catch stays guarded: a measurement macro expanded
+    # 6. the fourth CI catch stays guarded: a measurement macro expanded
     #    inside a struct body must see both its #define and the extern it
     #    measures earlier in the header, and the three late exports stay
     #    exported (the one-shot split initially left them static in the
@@ -4065,6 +4051,7 @@ def t_stable_promotion_round83():
     version = read("src/version.h").decode()
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
 
     # the tree has moved on to the 1.1.13 rc train: the promotion
     # identity now rides the central version guard (t_version), and
@@ -4076,9 +4063,9 @@ def t_stable_promotion_round83():
           "carries no code" in flat and
           "the verdict on the whole rc arc" in flat)
     check("the readme current line is the stable (the 1.1.14 promotion moved it)",
-          "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme)
     check("the rc.17 entry rides the one-line list (the 1.1.13 candidate took the slot)",
-          "**1.1.12-rc.17** \u2014" in readme and
+          "**1.1.12-rc.17** \u2014" in experience and
           "(the previous release candidate):**" not in readme)
 
 
@@ -4088,19 +4075,19 @@ def t_readme_diet_round85():
     stable and the current candidate; the changelog is the archive of
     record)."""
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
 
     check("the rc.1 entry rides the one-line list (the rc.2 candidate took the slot)",
-          "**1.1.13-rc.1** \u2014" in readme and
+          "**1.1.13-rc.1** \u2014" in experience and
           "**1.1.13-rc.1 \u2014" not in readme)
     check("the stable line keeps its house form (the 1.1.14 stable now)",
-          "**1.1.14 \u2014" in readme and
-          "(the current stable):**" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme)
     # the diet itself: the retired rounds carry no full sections. the
     # full form is "**<tag> \u2014 ...**" (bold spans the dash); the
     # one-line form is "**<tag>** \u2014 ..." (bold closes before the dash).
     check("the rc.17 entry rides the one-line list",
-          "**1.1.12-rc.17** \u2014" in readme and
+          "**1.1.12-rc.17** \u2014" in experience and
           "**1.1.12-rc.17 \u2014" not in readme)
     check("the retired rounds carry no full sections",
           all(f"**{tag} \u2014" not in readme for tag in (
@@ -4108,9 +4095,9 @@ def t_readme_diet_round85():
               "1.1.12-rc.12", "1.1.12-rc.11", "1.1.12-rc.10", "1.1.12-rc.9",
               "1.1.12-rc.7")))
     check("the one-line list reaches back through the early arc",
-          "**1.1.11** \u2014" in readme and "**1.1.02\u20131.1.10**" in readme)
+          "**1.1.11** \u2014" in experience and "**1.1.02\u20131.1.10**" in experience)
     check("the archive pointer stays",
-          "full per-round detail in [Changes.txt](Changes.txt)" in readme)
+          "lives in [experience.md](experience.md)" in readme)
     flat = " ".join(changes.split())
     check("the changelog states the diet rule",
           "full treatment goes to the" in flat and
@@ -4128,6 +4115,7 @@ def t_association_guard_round86():
     install = read("src/viv_install.c").decode("latin-1")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
 
     at = install.index("static int _viv_is_foreign_association(const char *association,const wchar_t *class_name)\r\n{")
     body = install[at:install.index("void _viv_install_association_by_extension(", at)]
@@ -4163,7 +4151,7 @@ def t_association_guard_round86():
           'debug_printf("association .%s left alone (a foreign viewer owns it)' in assoc)
     # 5. the readme candidate slot hands over.
     check("the rc.2 entry rides the one-line list (the rc.3 candidate took the slot)",
-          "**1.1.13-rc.2** \u2014" in readme and
+          "**1.1.13-rc.2** \u2014" in experience and
           "**1.1.13-rc.2 \u2014" not in readme)
     # 6. the changelog carries the round.
     flat = " ".join(changes.split())
@@ -4183,6 +4171,7 @@ def t_halftone_palette_round89():
     osc = read("src/os.c").decode("latin-1")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     version = read("src/version.h").decode("latin-1")
 
     # 1. the os layer: the gdiplus flat api behind the todo's call.
@@ -4217,7 +4206,7 @@ def t_halftone_palette_round89():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
-          "**1.1.13-rc.3** \u2014" in readme and
+          "**1.1.13-rc.3** \u2014" in experience and
           "**1.1.13-rc.3 \u2014" not in readme)
     # 5. the changelog carries the round.
     flat = " ".join(changes.split())
@@ -4273,6 +4262,7 @@ def t_high_dpi_icons_round90():
     ico = read("res/voidImageViewer.ico")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     version = read("src/version.h").decode("latin-1")
 
     # 1. the resource ladder: ten frames, the dpi sizes, the legacy
@@ -4320,7 +4310,7 @@ def t_high_dpi_icons_round90():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
-          "**1.1.13-rc.4** \u2014" in readme and
+          "**1.1.13-rc.4** \u2014" in experience and
           "**1.1.13-rc.4 \u2014" not in readme)
     # 5. the changelog carries the round.
     flat = " ".join(changes.split())
@@ -4397,8 +4387,7 @@ def t_dead_residue_round91():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the current line is the stable promotion stable",
-          "**1.1.14 \u2014" in readme and
-          "(the current stable):**" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme)
     # 6. the changelog carries the round.
     flat = " ".join(changes.split())
     check("the changelog states the sweep",
@@ -4496,8 +4485,7 @@ def t_peripheral_residue_round92():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the current line is the stable promotion stable",
-          "**1.1.14 \u2014" in readme and
-          "(the current stable):**" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme)
     # 7. the changelog carries the round.
     flat = " ".join(changes.split())
     check("the changelog states the closing sweep",
@@ -4525,6 +4513,7 @@ def t_format_horizons_round94():
     stateh = read("src/viv_state.h").decode("latin-1")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     version = read("src/version.h").decode("latin-1")
 
     # 1. the wic layer.
@@ -4594,12 +4583,12 @@ def t_format_horizons_round94():
 
     # 7. the readme slot handover.
     check("the stable slot is the stable promotion round",
-          "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme)
     check("the rc.7 entry rides the one-line list",
-          "**1.1.13-rc.7** \u2014" in readme and
+          "**1.1.13-rc.7** \u2014" in experience and
           "**1.1.13-rc.7 \u2014" not in readme)
     check("the 1.1.12 full block demotes to the one-line list",
-          "**1.1.12** \u2014" in readme and
+          "**1.1.12** \u2014" in experience and
           "**1.1.12 \u2014" not in readme)
     check("the rc.6 orphaned bullets retire (the r93 handover leftovers)",
           "- **The closing sweep** \u2014 the round-91 static scan rebuilt" not in readme)
@@ -4645,6 +4634,7 @@ def t_todo_closure_round96():
     version = read("src/version.h").decode("latin-1")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
 
     # 1. the todo pile is closed.
     check("viv.c carries the closure marker",
@@ -4821,7 +4811,7 @@ def t_todo_closure_round96():
     check("the changelog carries the todo closure pre-release (below the fixture round)",
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
-          "**1.1.14-rc.1** \u2014" in readme)
+          "**1.1.14-rc.1** \u2014" in experience)
     check("the version is 1.1.15-rc.6 build 85 (the navigation visibility round pins ride it)",
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
@@ -4843,6 +4833,7 @@ def t_field_sweep_round93():
     dialogs = read("src/viv_dialogs.c").decode("latin-1")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     version = read("src/version.h").decode("latin-1")
 
     # 1. the startup shortcut retires everywhere it lived.
@@ -4965,10 +4956,9 @@ def t_field_sweep_round93():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the current line is the stable promotion stable",
-          "**1.1.14 \u2014" in readme and
-          "(the current stable):**" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme)
     check("the rc.6 entry rides the one-line list",
-          "**1.1.13-rc.6** \u2014" in readme and
+          "**1.1.13-rc.6** \u2014" in experience and
           "**1.1.13-rc.6 \u2014" not in readme)
 
     # 8. the changelog carries the round.
@@ -4996,6 +4986,7 @@ def t_fixture_round98():
     version = read("src/version.h").decode("latin-1")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     gitignore = read(".gitignore").decode("latin-1")
     files_txt = read("build-zig/files.txt").decode("latin-1")
     props = read("voidImageViewer.files.props").decode("latin-1")
@@ -5186,9 +5177,9 @@ def t_fixture_round98():
     check("the changelog carries the fixture round pre-release (below the navigation visibility round)",
           "Pre-release: Version 1.1.14-rc.2 (the fixture round)" in changes)
     check("the readme carries the fixture round as a one-liner (demoted from the candidate slot)",
-          "**1.1.14-rc.2** \u2014" in readme)
+          "**1.1.14-rc.2** \u2014" in experience)
     check("the readme one-liner carries the todo closure round (demoted)",
-          "**1.1.14-rc.1** \u2014" in readme)
+          "**1.1.14-rc.1** \u2014" in experience)
     check("the version is 1.1.15-rc.6 build 85 (the navigation visibility round pins ride it)",
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
@@ -5211,6 +5202,7 @@ def t_navigation_visibility_round99():
     version = read("src/version.h").decode("latin-1")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
 
     # 1. the supported-extension table exists beside the association table
     #    (the association set stays eleven - it is the installer contract;
@@ -5264,7 +5256,7 @@ def t_navigation_visibility_round99():
     check("the changelog carries the navigation visibility round pre-release (below the corner and audit response round)",
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
-          "**1.1.14-rc.3** \u2014" in readme)
+          "**1.1.14-rc.3** \u2014" in experience)
     check("the version is 1.1.15-rc.6 build 85 (the corner and audit response round pins ride it)",
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
@@ -5295,6 +5287,7 @@ def t_audit_response_round101():
     version = read("src/version.h").decode("latin-1")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
 
     # 1. the corner optimization: the custom chrome set completes (the
     #    caption text follows the palette's own token) and the fullscreen
@@ -5388,8 +5381,8 @@ def t_audit_response_round101():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
-          "**1.1.14-rc.4** \u2014" in readme and
-          "**1.1.14-rc.3** \u2014" in readme)
+          "**1.1.14-rc.4** \u2014" in experience and
+          "**1.1.14-rc.3** \u2014" in experience)
     check("the readme discloses the unsigned binaries",
           "binaries are unsigned" in readme)
     check("the readme's format line conditions the store-backed codecs",
@@ -5413,6 +5406,7 @@ def t_pixel_oracle_round102():
     version = read("src/version.h").decode()
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
 
     # 1. the gl context rebuild: the wglMakeCurrent contract (the dc must
     #    answer the same device and the same pixel format the rc was
@@ -5503,8 +5497,8 @@ def t_pixel_oracle_round102():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme candidate slot holds the navigation faces round",
-          "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
-          "**1.1.14-rc.4** \u2014" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme and
+          "**1.1.14-rc.4** \u2014" in experience)
     flat_changes = " ".join(changes.split())
     check("the changelog states the wglmakecurrent contract wording",
           "the same device and the same pixel format" in flat_changes)
@@ -5747,6 +5741,7 @@ def t_input_ceiling_round104():
     version = read("src/version.h").decode()
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     codeql_yml = read(".github/workflows/codeql.yml").decode()
     codeql_full = read(".github/codeql/config-full.yml").decode()
     tests_yml = read(".github/workflows/tests.yml").decode()
@@ -5829,8 +5824,8 @@ def t_input_ceiling_round104():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme candidate slot holds the navigation faces round",
-          "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
-          "**1.1.14-rc.7** \u2014" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme and
+          "**1.1.14-rc.7** \u2014" in experience)
     flat_changes = " ".join(changes.split())
     check("the changelog states the 32-bit size read's blind spot",
           "answers the low dword there" in flat_changes)
@@ -5855,6 +5850,7 @@ def t_renderer_parity_round105():
     version = read("src/version.h").decode()
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     smoke = read("tests/smoke_test.ps1").decode("latin-1")
     golden_ps1 = read("tests/render_golden.ps1").decode("latin-1")
     golden_pg = read("tests/pixel_golden_test.py").decode()
@@ -6003,8 +5999,8 @@ def t_renderer_parity_round105():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme candidate slot holds the navigation faces round",
-          "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
-          "**1.1.14-rc.7** \u2014" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme and
+          "**1.1.14-rc.7** \u2014" in experience)
     flat_changes = " ".join(changes.split())
     check("the changelog states the brace-stack verdict",
           "the claim does not survive verification" in flat_changes and
@@ -6037,6 +6033,7 @@ def t_navigation_faces_round106():
     version = read("src/version.h").decode()
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
 
     # 1. the root cause retires: the toolbar must not read the jump-to
     #    dialog's cache - a variable only _viv_jumpto_proc's
@@ -6121,8 +6118,8 @@ def t_navigation_faces_round106():
           '#define VERSION_BUILD 85' in version and
           '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme candidate slot holds the navigation faces round",
-          "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
-          "**1.1.14-rc.8** \u2014" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme and
+          "**1.1.14-rc.8** \u2014" in experience)
     flat_changes = " ".join(changes.split())
     check("the changelog tells the cache-versus-paths story",
           "only the jump-to dialog ever fills" in flat_changes and
@@ -6188,7 +6185,7 @@ def t_corrections_round107():
           "has_bom" in byte_test and "ends_with_newline" in byte_test and
           "Changes.txt carries its UTF-8 BOM" in byte_test)
     check("the byte suite was born from real stragglers (the population floor)",
-          "len(c_files) > 80" in byte_test and "len(md_files) >= 7" in byte_test)
+          "len(c_files) > 80" in byte_test and "len(md_files) >= 6" in byte_test)
     check("the byte suite cross-checks the editorconfig it audits beside",
           "the editorconfig exists beside the invariants it describes" in byte_test)
     check("the workflows run the byte suite on both pipelines",
@@ -6323,6 +6320,7 @@ def t_stable_promotion_round108():
     version = read("src/version.h").decode()
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
 
     # 1. the version marks the stable promotion (the rc phase suffix
     #    is gone; the plain tag form is the stable release form).
@@ -6428,11 +6426,11 @@ def t_stable_promotion_round108():
     check("the changelog tops with the slot architecture round",
           changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)"))
     check("the readme current-stable line says 1.1.14",
-          "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme)
     check("the 1.1.13 full section demotes to the one-line list",
-          "**1.1.13 \u2014" not in readme and "**1.1.13** \u2014" in readme)
+          "**1.1.13 \u2014" not in readme and "**1.1.13** \u2014" in experience)
     check("the rc.10 candidate section demotes to the one-line list (rc.3 is the candidate now)",
-          "**1.1.14-rc.10** \u2014" in readme and
+          "**1.1.14-rc.10** \u2014" in experience and
           "**1.1.15-rc.6 \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
 
@@ -6581,7 +6579,7 @@ def t_slot_architecture_round109():
           "**1.1.15-rc.6 \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
     check("the readme stable block survives the candidate",
-          "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
+          "**1.1.14 \u2014 the current stable**" in readme)
 
 
 def t_audit_response_round110():
@@ -6610,6 +6608,7 @@ def t_audit_response_round110():
     version = read("src/version.h").decode()
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.6.85 (the fourth audit response round)",
@@ -6678,8 +6677,8 @@ def t_audit_response_round110():
           changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)"))
     check("the readme carries the new candidate block and the rc.1 one-liner",
           "**1.1.15-rc.6 \u2014" in readme and
-          "**1.1.15-rc.1** \u2014" in readme and
-          "**1.1.15-rc.2** —" in readme and
+          "### 1.1.15-rc.1 \u2014" in experience and
+          "### 1.1.15-rc.2 —" in experience and
           readme.count("(the current release candidate):**") == 1)
 
 
@@ -6716,6 +6715,7 @@ def t_audit_response_round111():
     stringc = read("src/string.c").decode("latin-1")
     viv = read("src/viv.c").decode("latin-1")
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     version = read("src/version.h").decode()
     tests_yml = read(".github/workflows/tests.yml").decode()
@@ -6836,7 +6836,7 @@ def t_audit_response_round111():
           "a deleted manifest fails the push gate" in changes)
     check("the readme candidate block and the rc.2 one-liner",
           "**1.1.15-rc.6 \u2014" in readme and
-          "**1.1.15-rc.2** \u2014" in readme and
+          "### 1.1.15-rc.2 \u2014" in experience and
           readme.count("(the current release candidate):**") == 1)
 
 
@@ -7176,6 +7176,7 @@ def t_command_picker_round112():
     viv = read("src/viv.c").decode("latin-1")
     version = read("src/version.h").decode()
     readme = read("README.md").decode("utf-8", errors="replace")
+    experience = read("experience.md").decode("utf-8", errors="replace")
     changes = read("Changes.txt").decode("utf-8", errors="replace")
 
     # 1. the version mark
@@ -7248,7 +7249,7 @@ def t_command_picker_round112():
           "walked, every surface verified against the dispatcher" in changes)
     check("the readme candidate block and the rc.3 one-liner",
           "**1.1.15-rc.6 \u2014" in readme and
-          "**1.1.15-rc.3** \u2014" in readme and
+          "### 1.1.15-rc.3 \u2014" in experience and
           readme.count("(the current release candidate):**") == 1)
 
 
