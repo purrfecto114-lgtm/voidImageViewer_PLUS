@@ -22,10 +22,11 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.4 — the command picker round (the current release candidate):**
+**1.1.15-rc.5 — the sixth audit response round (the current release candidate):**
 
-- **The shortcut editor unlocked** — the settings window's command dropdown capped at the popup store's thirty-two rows while the command table holds 118 pickable commands: eighty-six commands were unreachable, and no shortcut could be added to them by any path the interface offers. The dropdown opens the real menu tree now — the same walk the frame menu runs — every leaf owner drawn with its live shortcut and the current command radio checked, each page one menu's own row set so no page outgrows the screen.
-- **The entry-point census** — every surface walked: all 118 command rows dispatch, all 63 default keys install onto real commands, every toolbar button and context row routes through the same WM_COMMAND, all thirty settings control ids answer, and the ini round-trip carries all 118 command names, each unique.
+- **The IME and the hotkeys** — the report asked whether the shortcuts could fight the system's own keys (they cannot: the app registers no global hotkeys, no hooks and no accelerator tables, and every key match happens window-locally, consumed only on a hit). The real fight was with the input method editor: an open Chinese IME rewrites letter keys into `VK_PROCESSKEY`, so bindings went dead on the canvas and the key-capture dialogs could store keys that can never be pressed again. The windows that never compose text — the canvas, the zoom pill and its digits-only editor, the settings window, the edit-key capture — now run dissociated from the IME; the text-input dialogs (rename, jump-to, the Everything search) keep theirs, Chinese filenames are real input there.
+- **The initialization and the reply queue** — a refused window-class registration used to vanish into a void return: the app would sit windowless forever, no error, no exit. Every init step answers now — class, menu, window — each failure a message box with the last error and a clean teardown. The loader's completion notice used to post exactly once and never retry: one refused `PostMessage` and the queue stalled until the exit timeout. The wakeup is a duty flag now — a refused post hands the duty back, and the drain re-posts for entries that arrived mid-loop.
+- **The security and hygiene batch** — the copydata validators take offsets instead of pre-built pointers (the range is proven before any pointer forms), the uninstaller's second stage runs from an unpredictable fresh directory instead of a fixed `%TEMP%` name (a pre-planted file could ride the elevated re-run), the cancel flag rides interlocked forms (plain `volatile` carries no barrier on the ARM legs), COM and GDI+ teardown pairs with startup success, the webp delay write matches the read side's null guard, and the license set ships complete: QOI's MIT attribution joins the notices and both license files install alongside the binary.
 - Full narrative: `Changes.txt`.
 
 **1.1.14 — the stable promotion round (the current stable):**
@@ -37,6 +38,7 @@ What's new
 - Full narrative: `Changes.txt`.
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
+- **1.1.15-rc.4** — the command picker round: the shortcut editor's cascade (118 of 118 commands bindable, the thirty-two-row caps retired), the six-surface entry-point census.
 
 - **1.1.15-rc.3** — the fifth audit response round: the navigation trio (the sort pollution at all three scan sites, the random-first gate order, the playlist file-name identity), the ten one-liners, the guard blind spots, the golden bootstrap refusing the fake green at the source.
 - **1.1.15-rc.2** — the fourth audit response round: the golden set learns to discriminate (the textured png, the three-way-distinct contract, the one-way ratchet), the nav pair unifies on the neighbor predicate.

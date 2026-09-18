@@ -1355,7 +1355,7 @@ void _viv_status_update(void)
 		
 		// this is just noise..
 		
-		if ((_viv_load_is_preload) && (_viv_slot_preload.state == 0) && (!_viv_should_activate_preload_on_load) && (!_viv_load_image_terminate) && (!_viv_slot_preload.frame_loaded_count))
+		if ((_viv_load_is_preload) && (_viv_slot_preload.state == 0) && (!_viv_should_activate_preload_on_load) && (!_VIV_LOAD_TERMINATED()) && (!_viv_slot_preload.frame_loaded_count))
 		{
 			string_copy_utf8_string(preload_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PRELOAD));
 		}

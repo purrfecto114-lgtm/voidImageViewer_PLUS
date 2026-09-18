@@ -22,6 +22,7 @@
 // Operating System calls
 
 #include "viv.h"
+#include <imm.h>
 
 #define _OS_QSORT_CUTOFF	8            /* testing shows that this is good value */
 #define _OS_QSORT_STKSIZ	((8*sizeof(void*)) - 2)
@@ -776,7 +777,7 @@ HWND os_CreateWindowEx(DWORD dwExStyle,const utf8_t *lpClassName,const utf8_t *l
 		hWndParent,hMenu,hInstance,lpParam);
 }
 
-void os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCursor,HBRUSH hbrBackground,const utf8_t *name,HICON hIconSm)
+int os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCursor,HBRUSH hbrBackground,const utf8_t *name,HICON hIconSm)
 {
 	WNDCLASSEXW wcex;
 	wchar_t name_wbuf[STRING_SIZE];
@@ -802,7 +803,29 @@ void os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCurs
 	wcex.lpszClassName = name_wbuf;
 	wcex.hIconSm = hIconSm;
 	
-	RegisterClassExW(&wcex);
+	// the atom is the caller's only failure signal: a refused class
+	// registration used to disappear here, and the init that follows
+	// would build the rest of the app on a class that never existed.
+	return RegisterClassExW(&wcex) ? 1 : 0;
+}
+
+// ime dissociation for the windows that must never compose text: the
+// viewer canvas (the hotkey surface - an open ime rewrites letter keys
+// into vk_processkey and the key table never sees them), the zoom pill
+// and its percent editor (digits only), the settings window and the
+// edit-key capture (a processkey there would bind a key that cannot be
+// pressed). the text-input dialogs - rename, jump-to, the everything
+// search - keep their contexts: chinese filenames are real input there.
+// dissociating a window from its context is the documented way to
+// disable the ime for that one window; the default context belongs to
+// the thread and outlives the window, so teardown restores nothing.
+#pragma comment(lib,"imm32.lib")
+void os_imm_associate_disable(HWND hwnd)
+{
+	if (hwnd)
+	{
+		ImmAssociateContext(hwnd,NULL);
+	}
 }
 
 int os_is_admin(void)

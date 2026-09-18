@@ -63,6 +63,6 @@ void viv_copy_current_image_to_last_image(void);
 void _viv_clear_last(void);
 void _viv_refresh(void);
 void _viv_open_preload(void);
-int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *dst,SIZE_T dst_size);
+int _viv_safe_copy_data(const void *base,SIZE_T src_size,SIZE_T offset,void *dst,SIZE_T dst_size);
 
 #endif

@@ -58,7 +58,8 @@ void os_SetDlgItemText_localization_id(HWND hwnd,int id,localization_id_t locali
 void os_SetWindowText(HWND hwnd,const utf8_t *s);
 void os_SetWindowText_localization_id(HWND hwnd,localization_id_t localization_id);
 HWND os_CreateWindowEx(DWORD dwExStyle,const utf8_t *lpClassName,const utf8_t *lpWindowName,DWORD dwStyle,int X,int Y,int nWidth,int nHeight,HWND hWndParent,HMENU hMenu,HINSTANCE hInstance,LPVOID lpParam);
-void os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCursor,HBRUSH hbrBackground,const utf8_t *name,HICON hIconSm);
+int os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCursor,HBRUSH hbrBackground,const utf8_t *name,HICON hIconSm);
+void os_imm_associate_disable(HWND hwnd);
 int os_is_admin(void);
 int os_choose_color(HWND parent,COLORREF *colorref);
 void os_init(void);

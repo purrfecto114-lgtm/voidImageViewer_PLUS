@@ -139,6 +139,8 @@ LangString MsgSelectOptionsTitle ${LANG_ENGLISH} "Select Install Options"
 LangString MsgSelectOptionsTitle ${LANG_SIMPCHINESE} "选择安装选项"
 LangString MsgSelectOptionsSub ${LANG_ENGLISH} "Choose any additional install options."
 LangString MsgSelectOptionsSub ${LANG_SIMPCHINESE} "选择其他安装选项。"
+LangString MsgUninstallCopyFailed ${LANG_ENGLISH} "Failed to stage the uninstaller. The uninstall cannot continue."
+LangString MsgUninstallCopyFailed ${LANG_SIMPCHINESE} "无法准备卸载程序副本，卸载无法继续。"
 LangString MsgOsNotX64 ${LANG_ENGLISH} "OS is not x64.$\nInstall anyway?"
 LangString MsgOsNotX64 ${LANG_SIMPCHINESE} "当前操作系统不是 64 位。$\n仍然要安装吗？"
 LangString MsgExecAdminFailed ${LANG_ENGLISH} "Failed to execute admin command"
@@ -470,6 +472,8 @@ skip_wmf_association:
 
         File "${VIV_EXE_DIR}\voidImageViewer.exe"
         File "..\Changes.txt"
+        File "..\LICENSE"
+        File "..\THIRD_PARTY_NOTICES.md"
         WriteUninstaller "$pluginsdir\voidImageViewer\Uninstall.exe"
 
         ; check for command line options that will override the default install options.
@@ -507,19 +511,35 @@ Section "Uninstall"
 
         ; Make sure $InstDir is not the current directory so we can remove it
         SetOutPath $Temp
-            
-        ; copy voidImageViewer.exe to temp folder.      
-        CopyFiles /SILENT $INSTDIR\voidImageViewer.exe $Temp\voidImageViewer.exe
 
-        ; run uninstaller with admin rights
-        ; this will uninstall any localized shortcuts etc..
-        ; this also removes the service if installed
-        ; which is something we can not do easily from the nsis installer.
-        ; do this before we try to terminate the app.
-    ExecWait '"$Temp\voidImageViewer.exe" /uninstall "$INSTDIR"'
+        ; the second stage must never run from a predictable temp path: the
+        ; old fixed product-name path under $Temp let a same-user process
+        ; pre-plant a file at that exact path, let the silent copy fail over
+        ; it, and ride the second stage - which elevates itself for admin
+        ; installs (the /uninstall switch sets the admin-install flag in the
+        ; app's own installer code). the copy now lands under a fresh
+        ; os-generated name no one can pre-create, and the stage only ever
+        ; executes a file this section verified it just copied.
+        GetTempFileName $0 $Temp
+        Delete $0
+        CreateDirectory $0
+        CopyFiles /SILENT $INSTDIR\voidImageViewer.exe $0
 
-        ; delete temp voidImageViewer
-    Delete "$Temp\voidImageViewer.exe"
+        IfFileExists "$0\voidImageViewer.exe" run_second_stage
+
+                MessageBox MB_OK|MB_ICONSTOP "$(MsgUninstallCopyFailed)"
+                Abort
+
+        run_second_stage:
+
+        ; run the second stage: it removes the associations, the shortcuts,
+        ; the add-remove-programs entry, the installed files and the install
+        ; directory (elevating itself through the app's runas path when the
+        ; install was an admin install).
+        ExecWait '"$0\voidImageViewer.exe" /uninstall "$INSTDIR"'
+
+        ; remove the second stage directory
+        RMDir /REBOOTOK $0
 
 SectionEnd
 

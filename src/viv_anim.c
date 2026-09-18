@@ -401,7 +401,7 @@ int _viv_webp_info_proc(_viv_webp_t *viv_webp,DWORD frame_count,DWORD wide,DWORD
 int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 {
 	// always load first frame..
-	if ((viv_webp->frame_index) && (_viv_load_image_terminate))
+	if ((viv_webp->frame_index) && (_VIV_LOAD_TERMINATED()))
 	{
 		return 0;
 	}
@@ -669,9 +669,18 @@ UINT _viv_frame_delay_at(const os_PropertyItem_t *pd,SIZE_T pd_size,DWORD i)
 		return 0;
 	}
 	
-	if (!_viv_safe_copy_data(pd,pd_size,&(((const UINT *)v)[i % count]),&value,sizeof(UINT)))
 	{
-		value = 0;
+		SIZE_T off;
+		
+		// the element's distance into the property buffer: the pointer
+		// into the buffer is formed only inside the validator (the range
+		// check above bounds v; the element read rides the same rule).
+		off = ((SIZE_T)(v - (const BYTE *)pd)) + ((SIZE_T)(i % count) * sizeof(UINT));
+		
+		if (!_viv_safe_copy_data(pd,pd_size,off,&value,sizeof(UINT)))
+		{
+			value = 0;
+		}
 	}
 	
 	return value;

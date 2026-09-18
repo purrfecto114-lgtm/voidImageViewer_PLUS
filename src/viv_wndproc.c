@@ -619,6 +619,9 @@ static LRESULT _viv_on__reply(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	e = _viv_reply_start;
 	_viv_reply_start = 0;
 	_viv_reply_last = 0;
+	// the wakeup duty is free again (see _viv_reply_add): the next
+	// enqueue posts for whatever it appends.
+	_viv_reply_posted = 0;
 	LeaveCriticalSection(&_viv_cs);
 	
 	while(e)
@@ -639,7 +642,7 @@ static LRESULT _viv_on__reply(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 
 					debug_printf((e->type == _VIV_REPLY_LOAD_IMAGE_FAILED) ? "_VIV_REPLY_LOAD_IMAGE_FAILED\n" : "_VIV_REPLY_LOAD_IMAGE_COMPLETE\n");
 					
-					if (_viv_load_image_terminate)
+					if (_VIV_LOAD_TERMINATED())
 					{
 debug_printf("LOADED/FAILED TERMINATE\n");
 						// do nothing.
@@ -768,7 +771,7 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 					// 
 					// make sure we terminate the preload, otherwise it might get shown unexpectedly.
 					
-					if ((_viv_load_image_terminate) && (!_viv_load_image_allow_draw) && (!((_viv_load_is_preload) && (_viv_should_activate_preload_on_load))))
+					if ((_VIV_LOAD_TERMINATED()) && (!_viv_load_image_allow_draw) && (!((_viv_load_is_preload) && (_viv_should_activate_preload_on_load))))
 					{
 debug_printf("FIRST FRAME TERMINATE\n");
 						if (first_frame->frame.hbitmap)
@@ -837,7 +840,7 @@ debug_printf("FIRST FRAME TERMINATE\n");
 								_viv_slot_preload.state = 2;
 								_viv_slot_preload.fd.cFileName[0] = 0;
 
-								_viv_load_image_terminate = 1;
+								InterlockedExchange(&_viv_load_image_terminate,1);
 								_viv_load_image_allow_draw = 0;
 
 								_viv_status_update();
@@ -905,7 +908,7 @@ debug_printf("FIRST FRAME TERMINATE\n");
 					
 					debug_printf("_VIV_REPLY_LOAD_IMAGE_ADDITIONAL_FRAME %d preload %d activate %d\n",_viv_load_is_preload ? _viv_slot_preload.frame_loaded_count : _viv_slot_current.frame_loaded_count,_viv_load_is_preload,_viv_should_activate_preload_on_load);
 					
-					if ((_viv_load_image_terminate) && (!_viv_load_image_allow_draw) && (!((_viv_load_is_preload) && (_viv_should_activate_preload_on_load))))
+					if ((_VIV_LOAD_TERMINATED()) && (!_viv_load_image_allow_draw) && (!((_viv_load_is_preload) && (_viv_should_activate_preload_on_load))))
 					{
 debug_printf("ADDITIONAL FRAME TERMINATE\n");
 						if (additional_frame->hbitmap)
@@ -1001,6 +1004,31 @@ debug_printf("ADDITIONAL FRAME TERMINATE\n");
 		_viv_reply_free(e);
 		
 		e = next_e;
+	}
+	
+	// the tail repost: entries that arrived while the loop above ran
+	// normally wake through their own enqueue's post, but that post can
+	// be refused (the duty hand-back in _viv_reply_add). one more look
+	// under the lock closes that window - a non-empty queue with a free
+	// duty gets its message here.
+	{
+		int need_post;
+		
+		EnterCriticalSection(&_viv_cs);
+		
+		need_post = ((_viv_reply_start) && (!_viv_reply_posted));
+		
+		if (need_post)
+		{
+			_viv_reply_posted = 1;
+		}
+		
+		LeaveCriticalSection(&_viv_cs);
+		
+		if (need_post)
+		{
+			PostMessage(hwnd,_VIV_WM_REPLY,0,0);
+		}
 	}
 	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -1788,6 +1816,14 @@ static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 	{
 		return 0;
 	}
+	
+	if ((!cds->lpData) && (cds->cbData))
+	{
+		// a payload length with no buffer: nothing here can be read, and
+		// every parser below would be forming pointers against a null
+		// base. refuse the message outright.
+		return 0;
+	}
 
 	switch(cds->dwData)
 	{
@@ -1833,7 +1869,7 @@ static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 			
 			// validate the list header before trusting anything in the
 			// reply: WM_COPYDATA arrives from arbitrary processes.
-			if (_viv_safe_copy_data(cds->lpData,cds->cbData,cds->lpData,&list,sizeof(list)))
+			if (_viv_safe_copy_data(cds->lpData,cds->cbData,0,&list,sizeof(list)))
 			{
 				debug_printf("%d / %d results\n",list.numitems,list.totitems);
 				
@@ -1841,7 +1877,7 @@ static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 				{
 					EVERYTHING_IPC_ITEM2 item;
 					
-					if (_viv_safe_copy_data(cds->lpData,cds->cbData,((char *)cds->lpData) + sizeof(EVERYTHING_IPC_LIST2),&item,sizeof(item)))
+					if (_viv_safe_copy_data(cds->lpData,cds->cbData,sizeof(EVERYTHING_IPC_LIST2),&item,sizeof(item)))
 					{
 						if (item.flags & EVERYTHING_IPC_FOLDER)
 						{
@@ -1898,7 +1934,7 @@ static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 			
 			// validate the list header and the item array before
 			// trusting any item offsets from the sender.
-			if (_viv_safe_copy_data(cds->lpData,cds->cbData,cds->lpData,&list,sizeof(list)))
+			if (_viv_safe_copy_data(cds->lpData,cds->cbData,0,&list,sizeof(list)))
 			{
 				DWORD i;
 				DWORD max_items;
@@ -1914,7 +1950,7 @@ static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 				{
 					EVERYTHING_IPC_ITEM2 item;
 					
-					if (_viv_safe_copy_data(cds->lpData,cds->cbData,((char *)cds->lpData) + sizeof(EVERYTHING_IPC_LIST2) + (i * sizeof(EVERYTHING_IPC_ITEM2)),&item,sizeof(item)))
+					if (_viv_safe_copy_data(cds->lpData,cds->cbData,sizeof(EVERYTHING_IPC_LIST2) + (i * sizeof(EVERYTHING_IPC_ITEM2)),&item,sizeof(item)))
 					{
 						if (item.flags & EVERYTHING_IPC_FOLDER)
 						{

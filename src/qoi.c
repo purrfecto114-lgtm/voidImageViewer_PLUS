@@ -172,7 +172,7 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 									// wait out a huge decode. the torn buffer never ships -
 									// decode_ok drops with the break and the delivery below
 									// gates on it.
-									if (_viv_load_image_terminate)
+									if (_VIV_LOAD_TERMINATED())
 									{
 										decode_ok = 0;
 										

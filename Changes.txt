@@ -1,4 +1,154 @@
-﻿Pre-release: Version 1.1.15-rc.4 (the command picker round)
+﻿Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)
+
+	the round opened as a question about the system's own keys - do the
+	viewer's shortcuts fight them? they do not, and cannot: the tree
+	registers no global hotkey, installs no keyboard hook and owns no
+	accelerator table, every binding matches window-locally and a miss
+	falls through to the system untouched (alt+f4, alt+space, f10 and the
+	alt mnemonics all still answer). the real fight was next to the
+	keyboard: the input method editor. an open chinese ime rewrites letter
+	keys into vk_processkey before any window sees them, so every letter
+	binding went dead on the canvas while the ime was on - and the key
+	capture dialogs, the only places a user builds bindings, would store
+	the processkey placeholder as a binding: a key that can never be
+	pressed again. the fix dissociates the ime from exactly the windows
+	that never compose text - the canvas (the hotkey surface), the zoom
+	pill and its digits-only percent editor, the settings window, and the
+	edit-key capture control - while the text-input dialogs (rename,
+	jump-to, the everything search) keep their contexts, because chinese
+	filenames are real input there. the old fixme in the capture proc
+	asked for immgetvirtualkey to restore what the ime hacked; the
+	dissociation answers the same question one step earlier, and the
+	fixme retires.
+
+	the sixth audit itself: nineteen key claims re-verified against the
+	tree before anything landed, the house rule holding one more time.
+	two p0s were real. the init path swallowed its own failures -
+	os_registerclassex returned void (the wrapper dropped the atom), the
+	menu and the window went unchecked, and _viv_init answered success
+	unconditionally - so a refused registration meant a windowless zombie:
+	no window, no quit message, a waitmessage that never wakes. every
+	step answers now: the class, the menu and the window each fail out
+	loud with the win32 last error and walk the same teardown the exit
+	path uses. the reply queue's wakeup posted exactly once, on the
+	empty-to-nonempty transition, and dropped the post's return value -
+	one refused postmessage (a full queue, a vanishing window) and the
+	queue stayed non-empty forever: no later enqueue would post, the
+	settle logic never ran, and the exit path waited its ten seconds and
+	exitprocess(1)'d. the wakeup is a duty flag under the reply lock now:
+	a refused post hands the duty back so the next enqueue posts again,
+	and the drain's tail takes one more look under the lock and re-posts
+	for entries that arrived mid-loop.
+
+	the concurrency hygiene: the cooperative cancel flag rode plain
+	volatile, which carries no barrier on the arm legs (msvc defaults to
+	/volatile:iso on arm - no acquire, no release - and the zig clang
+	legs never had them); the writes answer through interlockedexchange
+	and the reads through a compare-exchange macro, one flag, thirteen
+	sites, no protocol change. com and gdi+ teardown now pairs with
+	startup success - a failed coinitialize (rpc_e_changed_mode: someone
+	else owns the apartment) owes no couninitialize, and a refused
+	gdiplusstartup owes no shutdown, the pairing flags saying so at all
+	four sites. the webp delay write gains the null guard its read side
+	always had (the allocation is fatal in practice - mem_alloc never
+	returns null - but the shape is now symmetric). the pending-clear
+	mailbox keeps its single-slot single-flight invariant and gains a
+	belt: a set onto an occupied slot frees the occupant immediately -
+	a future call-site violation becomes an immediate free, never a
+	leak.
+
+	the security batch: the copydata validator takes an offset where it
+	took a pointer - the range is proven (offset + size inside cbdata,
+	overflow-checked) before the one pointer the function ever forms,
+	and the everything item walk carries distances end to end, the
+	untrusted data_offset never building a pointer outside the validator.
+	the copydata handler also refuses a payload length with no buffer
+	outright. the uninstaller's second stage used to copy itself to a
+	fixed %temp% name and execute it - a same-user process could
+	pre-plant a file at that exact path, let the silent copy fail over
+	it, and ride the elevated /uninstall re-run (the switch sets the
+	admin-install flag, so the second stage elevates itself for admin
+	installs). the stage now lands under a fresh os-generated directory
+	no one can pre-create, the copy is verified to exist before anything
+	executes, and the old lying comments (an admin-rights claim, a
+	service that never existed) tell the truth instead. the pe security
+	check's one soft spot - the cf bit stamped with no load-config table
+	- fails closed with the rest now; a security check must not pass
+	what it could not confirm.
+
+	the licensing batch: the qoi attribution was a source-file note
+	away from complete - the notices file now carries dominic
+	szablewski's mit entry (copyright 2021, phoboslab.org, the opcode
+	semantics port documented as a port, the hostile-input discipline
+	named as this fork's own), the license page names the bundled
+	components in both languages, and the installer ships license and
+	third_party_notices.md into the install directory (the uninstall
+	removes them again). security.md's support table had fallen two
+	generations behind the shipped lines - 1.1.14 is the stable, the
+	1.1.15-rc line is the candidate, and the examples carry current file
+	names.
+
+	the test suite's two real defects, found by the audit's green-light
+	sweep and fixed as found: zoom_math carried five check groups whose
+	truth lived in bare asserts (python -o strips them - the injected-
+	regression experiment proved the groups go green under -o with a
+	regression in place); the conditions ride inside the checks now. and
+	menu_structure carried an assert m or true tautology over a regex
+	that had never matched from its birth commit - the dead extraction
+	pair retires. the sweep's other seven claims did not survive
+	verification: unittest discover answers exit 5 (no tests ran) - a
+	loud red, not a silent green; the ci invokes every suite directly;
+	-o never rides a ci command line; the wrong-cwd runs fail loudly
+	(file-not-found, exit 1); the zoom constants are extracted from the
+	source (round 111), not hand-copied; the simulation suite states its
+	own limits in three places; and the golden hashes pin exact bytes by
+	design, with the three-way-distinct contract and the solid
+	exemptions the fourth audit's fake-green question installed.
+
+	refuted with the evidence recorded: the thread-handle claim (the
+	complete reply closes the handle while the loader still owes its com
+	uninitialize) - the ownership chain is closed: the close nulls the
+	pointer in the same breath, the kill path's wait is guarded on the
+	pointer, and the thread's post-reply tail touches no shared state;
+	the suggested poll-then-close belt was traced to a real regression
+	risk (a rapid open inside the tail window would take the cancel-queue
+	path with no runner for the queued file) and stays out for that
+	reason, not by neglect. the exitprocess(1) linkage claim (a normal
+	completed load, then exit, tripping the hard exit) - no path reaches
+	the wait with a closed handle. the pending-clear overwrite claim -
+	ten call sites, every set paired with its drain, the save path
+	detaching frames before the clear with a comment that shows the
+	author knew the mailbox's rules.
+
+	deferred with reasons, the ledger carried forward: authenticode
+	signing (sixth consecutive round - the attestation proves origin,
+	not publisher identity; a certificate is a purchase decision, not a
+	code change); the ui automation provider for the settings window
+	(feature-scale work); the dark theme on the native color picker
+	(choosing colors means the native dialog; a custom picker is its own
+	project); the traditional-chinese table (a translation project - the
+	mapping is documented best-effort); the sbom; the zig build's
+	hardening parity with the msvc line (stack protector and cf flags
+	want their own round with both legs re-measured and the warning
+	census re-baselined); the deeper windows integration tests; and the
+	load-session lifecycle object the audit proposes as the systematic
+	answer to the concurrency patterns (the slot architecture of round
+	109 was the first step; the session object is a redesign, and it
+	will be judged when it is asked for).
+
+	verified: the five suites pass (menu with the round-113 section and
+	the version pins swept to 1.1.15-rc.5 build 84, the splice window
+	recalibrated at a measured 31613, the wndproc cap at a measured
+	3217), link_scan audits the reply-posted extern into its family
+	(311/311, zero missing), the warning census holds the zero-new-class
+	line on both legs (758 against the 756 baseline - the two extra are
+	the pointer-sign class the whole localization table has always
+	generated, one per new init-failed string), and the zig line links a
+	493,056-byte x64 exe and a 373,248-byte aarch64 exe (1,024 bytes a
+	leg - the init answers, the ime dissociation, the wakeup duty and
+	the offset validator), imm32 in both link lines.
+
+Pre-release: Version 1.1.15-rc.4 (the command picker round)
 
 	the report arrived as a user question that read like a bug report:
 	keyboard shortcuts could not be added - and the tree agreed. the

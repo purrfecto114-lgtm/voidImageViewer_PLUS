@@ -1161,7 +1161,7 @@ debug_printf("_viv_next %d %d\n",prev,is_preload);
 // users expects the next image. Not the one we preloaded ages ago.
 // 99% it will be the preloaded image anyway..
 
-	if ((!is_preload) && (_viv_load_image_thread) && ((_viv_load_frame_count <= 1) || (_viv_load_image_terminate)) && (wait_for_current_load))
+	if ((!is_preload) && (_viv_load_image_thread) && ((_viv_load_frame_count <= 1) || (_VIV_LOAD_TERMINATED())) && (wait_for_current_load))
 	{
 		
 		// still loading.

@@ -365,7 +365,14 @@ extern BYTE _viv_load_is_preload;
 extern wchar_t *_viv_load_image_filename;
 extern WIN32_FIND_DATA *_viv_load_image_next_fd;
 extern BYTE _viv_load_image_next_is_preload;
-extern volatile int _viv_load_image_terminate;
+extern volatile LONG _viv_load_image_terminate;
+// the cooperative cancel flag's read side: one writer (the ui thread)
+// and readers on both threads. the interlocked forms carry the barrier
+// the plain volatile read does not on the arm legs - msvc defaults to
+// /volatile:iso on arm (no acquire, no release) and the zig clang legs
+// never had them. the compare-exchange swaps 0 for 0: it changes
+// nothing, it only reads with a full fence.
+#define _VIV_LOAD_TERMINATED() (InterlockedCompareExchange(&_viv_load_image_terminate,0,0) != 0)
 // the loader's stage marker ("open" / "decode" / "frames" / "webp" /
 // "qoi" / "wic" / "done"): written only by the loader thread, read by the
 // exit timeout so a hard kill can at least report where the thread spent
@@ -385,6 +392,10 @@ extern BYTE _viv_load_refused_input_size;
 extern BYTE _viv_hw_render_fallback;
 extern _viv_reply_t *_viv_reply_start;
 extern _viv_reply_t *_viv_reply_last;
+// the reply queue's wakeup duty flag (see _viv_reply_add / _viv_on__reply):
+// exactly one enqueue per drain cycle owns the postmessage; a refused
+// post hands the duty back so the next enqueue posts again.
+extern int _viv_reply_posted;
 extern wchar_t *_viv_status_temp_text;
 extern HFONT _viv_about_hfont;
 extern wchar_t *_viv_last_open_file;

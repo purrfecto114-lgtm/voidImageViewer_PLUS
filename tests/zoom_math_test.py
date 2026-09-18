@@ -143,6 +143,7 @@ def t_aspect_invariant():
 def t_geometric_ladder():
     """The render ladder must match fit * 1.01^pos within rounding below the
     cap (beta.5 fix retained; the cap only snaps the last step)."""
+    ok = True
     for (iw, ih, cw, ch) in GEOMETRIES:
         fw, fh = fit_size(iw, ih, cw, ch)
         top = pos_max(fw, fh, iw, ih)
@@ -150,9 +151,9 @@ def t_geometric_ladder():
             exact_w = fw * (STEP ** pos)
             exact_h = fh * (STEP ** pos)
             rw, rh = render(fw, fh, pos, iw, ih)
-            assert abs(rw - exact_w) <= 2.0, (iw, ih, pos, rw, exact_w)
-            assert abs(rh - exact_h) <= 2.0, (iw, ih, pos, rh, exact_h)
-    check("geometric ladder = fit * 1.01^pos (+/-2px)", True)
+            if abs(rw - exact_w) > 2.0 or abs(rh - exact_h) > 2.0:
+                ok = False
+    check("geometric ladder = fit * 1.01^pos (+/-2px)", ok)
 
 
 def t_sixteen_x_cap():
@@ -199,29 +200,33 @@ def t_sixteen_x_cap():
           (rw, rh) == (fw, fh), f"top {top} render {rw}x{rh} fit {fw}x{fh}")
 
     # the ladder is long enough for extreme cases
+    ok = True
     for (iw, ih, cw, ch) in GEOMETRIES:
         fw, fh = fit_size(iw, ih, cw, ch)
         top = pos_max(fw, fh, iw, ih)
         rw, rh = render(fw, fh, top, iw, ih)
-        assert rw == max(16 * iw, fw), (iw, ih, top, rw)
-        assert rh == max(16 * ih, fh), (iw, ih, top, rh)
-    check("cap = max(16x native, fit) for every geometry", True)
+        if rw != max(16 * iw, fw) or rh != max(16 * ih, fh):
+            ok = False
+    check("cap = max(16x native, fit) for every geometry", ok)
 
 
 def t_pos_max_no_dead_zone():
     """Positions beyond pos_max render identically; the wheel clamps at
     pos_max instead (a dead zone of identical sizes would eat wheel events)."""
+    ok = True
     for (iw, ih, cw, ch) in GEOMETRIES:
         fw, fh = fit_size(iw, ih, cw, ch)
         top = pos_max(fw, fh, iw, ih)
         r_top = render(fw, fh, top, iw, ih)
         r_beyond = render(fw, fh, top + 5, iw, ih)
-        assert r_top == r_beyond, (iw, ih, r_top, r_beyond)
+        if r_top != r_beyond:
+            ok = False
         # the step below the top is still growing (no dead zone below)
         if top > 0:
             r_below = render(fw, fh, top - 1, iw, ih)
-            assert r_below[0] < r_top[0] or r_below[1] < r_top[1], (iw, ih)
-    check("pos_max = first cap position, no dead wheel below", True)
+            if r_below[0] >= r_top[0] and r_below[1] >= r_top[1]:
+                ok = False
+    check("pos_max = first cap position, no dead wheel below", ok)
 
 
 def t_pinch_steps():
@@ -243,19 +248,22 @@ def t_pinch_steps():
 def t_paint_work_bound():
     """Magnified paint work must be bounded by the client area once the
     destination is (partly) off screen — the beta.6 zoom-lag fix."""
+    ok = True
     for (iw, ih, cw, ch) in GEOMETRIES:
         fw, fh = fit_size(iw, ih, cw, ch)
         top = pos_max(fw, fh, iw, ih)
         for pos in (50, 150, top):
             rw, rh = render(fw, fh, pos, iw, ih)
             work = paint_work_megapixels(rw, rh, cw, ch)
-            assert work <= (cw * ch) / 1e6 + 1e-9, (iw, ih, pos, work)
+            if work > (cw * ch) / 1e6 + 1e-9:
+                ok = False
     # and the worst case really is huge without the fix (sanity of the model):
     iw, ih, cw, ch = 4000, 3000, 1600, 900
     fw, fh = fit_size(iw, ih, cw, ch)
     rw, rh = render(fw, fh, pos_max(fw, fh, iw, ih), iw, ih)
-    assert (rw * rh) / 1e6 > 100
-    check("paint work bounded by client", True,
+    if (rw * rh) / 1e6 <= 100:
+        ok = False
+    check("paint work bounded by client", ok,
           f"deep zoom {rw}x{rh} -> {1600*900/1e6:.2f} MP work")
 
 
@@ -358,6 +366,7 @@ def binary_exit_descending(old_rw, fit_w, fit_h, image_w, image_h, top, counter)
 def t_binary_search_equivalence():
     """beta.8: the binary-search 1:1 exits must return exactly what the beta.7
     linear scans returned, and must measure O(log n) sizes, not O(n)."""
+    ok = True
     worst_calls = 0
     for (iw, ih, cw, ch) in GEOMETRIES:
         fw, fh = fit_size(iw, ih, cw, ch)
@@ -373,13 +382,15 @@ def t_binary_search_equivalence():
             ctr = [0]
             binr = binary_exit_ascending(old_rw, fw, fh, iw, ih, ctr)
             worst_calls = max(worst_calls, ctr[0])
-            assert lin == binr, ("asc", iw, ih, old_rw, lin, binr)
+            if lin != binr:
+                ok = False
             lin = linear_exit_descending(old_rw, fw, fh, iw, ih, top)
             ctr = [0]
             binr = binary_exit_descending(old_rw, fw, fh, iw, ih, top, ctr)
             worst_calls = max(worst_calls, ctr[0])
-            assert lin == binr, ("desc", iw, ih, old_rw, lin, binr)
-    check("1:1 exit binary search == linear scan (all geometries)", True,
+            if lin != binr:
+                ok = False
+    check("1:1 exit binary search == linear scan (all geometries)", ok,
           f"worst {worst_calls} measurements, linear worst is {ZOOM_MAX}")
 
 

@@ -56,7 +56,7 @@ int _viv_playlist_shuffle_index_from_fd(const WIN32_FIND_DATA *fd);
 _viv_playlist_t *_viv_playlist_from_fd(const WIN32_FIND_DATA *fd);
 void _viv_do_initial_shuffle(void);
 void _viv_send_random_everything_search(void);
-static const char *_viv_copydata_read(const COPYDATASTRUCT *cds,const char *p,void *dst,DWORD size);
+static SIZE_T _viv_copydata_read(const COPYDATASTRUCT *cds,SIZE_T offset,void *dst,DWORD size);
 int _viv_everything_item_to_fd(const COPYDATASTRUCT *cds,const EVERYTHING_IPC_ITEM2 *item,WIN32_FIND_DATA *fd);
 
 
@@ -1075,14 +1075,19 @@ void _viv_send_random_everything_search(void)
 // p. returns 0 when the read would leave the message: WM_COPYDATA
 // arrives from arbitrary processes and every offset and length in it
 // must be validated before it is trusted.
-static const char *_viv_copydata_read(const COPYDATASTRUCT *cds,const char *p,void *dst,DWORD size)
+// one validated read at an offset into the copydata buffer: the range
+// is proven inside _viv_safe_copy_data before any pointer forms, and
+// the walk advances by offset - the returned distance, or (SIZE_T)-1
+// when the read would leave the buffer. no pointer into the message
+// is ever built outside the validator.
+static SIZE_T _viv_copydata_read(const COPYDATASTRUCT *cds,SIZE_T offset,void *dst,DWORD size)
 {
-	if (_viv_safe_copy_data(cds->lpData,cds->cbData,p,dst,size))
+	if (_viv_safe_copy_data(cds->lpData,cds->cbData,offset,dst,size))
 	{
-		return p + size;
+		return offset + size;
 	}
 	
-	return 0;
+	return (SIZE_T)-1;
 }
 // parse one Everything IPC item into a find data. the list2 header and
 // the item array are validated by the caller; the per item data walk
@@ -1091,17 +1096,18 @@ static const char *_viv_copydata_read(const COPYDATASTRUCT *cds,const char *p,vo
 // instead of reading whatever the sender pointed at.
 int _viv_everything_item_to_fd(const COPYDATASTRUCT *cds,const EVERYTHING_IPC_ITEM2 *item,WIN32_FIND_DATA *fd)
 {
-	const char *p;
+	SIZE_T off;
 	DWORD filename_len;
 	
 	os_zero_memory(fd,sizeof(WIN32_FIND_DATA));
 	
-	// EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME
-	p = ((const char *)cds->lpData) + item->data_offset;
+	// EVERYTHING_IPC_QUERY2_REQUEST_FULL_PATH_AND_NAME. the item's
+	// data_offset is a fully untrusted dword: it goes straight into the
+	// validator as a distance - the old shape built base + offset first
+	// and asked the validator to forgive the pointer after the fact.
+	off = item->data_offset;
 	
-	p = _viv_copydata_read(cds,p,&filename_len,sizeof(DWORD));
-	
-	if (!p)
+	if ((off = _viv_copydata_read(cds,off,&filename_len,sizeof(DWORD))) == (SIZE_T)-1)
 	{
 		return 0;
 	}
@@ -1111,7 +1117,7 @@ int _viv_everything_item_to_fd(const COPYDATASTRUCT *cds,const EVERYTHING_IPC_IT
 		return 0;
 	}
 	
-	if (!(p = _viv_copydata_read(cds,p,fd->cFileName,filename_len * sizeof(wchar_t))))
+	if ((off = _viv_copydata_read(cds,off,fd->cFileName,filename_len * sizeof(wchar_t))) == (SIZE_T)-1)
 	{
 		return 0;
 	}
@@ -1119,30 +1125,30 @@ int _viv_everything_item_to_fd(const COPYDATASTRUCT *cds,const EVERYTHING_IPC_IT
 	fd->cFileName[filename_len] = 0;
 	
 	// the null terminator after the filename, when present.
-	if ((SIZE_T)(((const char *)cds->lpData) + cds->cbData - p) >= sizeof(wchar_t))
+	if ((cds->cbData - off) >= sizeof(wchar_t))
 	{
-		p += sizeof(wchar_t);
+		off += sizeof(wchar_t);
 	}
 	
 	// EVERYTHING_IPC_QUERY2_REQUEST_SIZE
 	if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_SIZE)
 	{
-		if (!(p = _viv_copydata_read(cds,p,&fd->nFileSizeLow,sizeof(DWORD)))) return 0;
-		if (!(p = _viv_copydata_read(cds,p,&fd->nFileSizeHigh,sizeof(DWORD)))) return 0;
+		if ((off = _viv_copydata_read(cds,off,&fd->nFileSizeLow,sizeof(DWORD))) == (SIZE_T)-1) return 0;
+		if ((off = _viv_copydata_read(cds,off,&fd->nFileSizeHigh,sizeof(DWORD))) == (SIZE_T)-1) return 0;
 	}
 	
 	// EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED
 	if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_CREATED)
 	{
-		if (!(p = _viv_copydata_read(cds,p,&fd->ftCreationTime.dwLowDateTime,sizeof(DWORD)))) return 0;
-		if (!(p = _viv_copydata_read(cds,p,&fd->ftCreationTime.dwHighDateTime,sizeof(DWORD)))) return 0;
+		if ((off = _viv_copydata_read(cds,off,&fd->ftCreationTime.dwLowDateTime,sizeof(DWORD))) == (SIZE_T)-1) return 0;
+		if ((off = _viv_copydata_read(cds,off,&fd->ftCreationTime.dwHighDateTime,sizeof(DWORD))) == (SIZE_T)-1) return 0;
 	}
 	
 	// EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED
 	if (_viv_everything_request_flags & EVERYTHING_IPC_QUERY2_REQUEST_DATE_MODIFIED)
 	{
-		if (!(p = _viv_copydata_read(cds,p,&fd->ftLastWriteTime.dwLowDateTime,sizeof(DWORD)))) return 0;
-		if (!(p = _viv_copydata_read(cds,p,&fd->ftLastWriteTime.dwHighDateTime,sizeof(DWORD)))) return 0;
+		if ((off = _viv_copydata_read(cds,off,&fd->ftLastWriteTime.dwLowDateTime,sizeof(DWORD))) == (SIZE_T)-1) return 0;
+		if ((off = _viv_copydata_read(cds,off,&fd->ftLastWriteTime.dwHighDateTime,sizeof(DWORD))) == (SIZE_T)-1) return 0;
 	}
 	
 	return 1;

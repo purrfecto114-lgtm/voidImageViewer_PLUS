@@ -575,6 +575,13 @@ static INT_PTR CALLBACK _viv_edit_key_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			last_proc = (WNDPROC)SetWindowLongPtr(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT),GWLP_WNDPROC,(LONG_PTR)_viv_edit_key_edit_proc);
 			SetWindowLongPtr(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT),GWLP_USERDATA,(LONG_PTR)last_proc);
 			
+			// the capture edit must see real virtual keys: with an ime open,
+			// a letter press arrives as vk_processkey and the binding would
+			// store a key that can never be pressed again. dissociate the
+			// ime for this one control - the dialog's other controls (the
+			// listbox, the buttons) never compose text either.
+			os_imm_associate_disable(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT));
+			
 			_viv_edit_key_set_key(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT),lParam);
 			_viv_options_edit_key_changed(hwnd);
 			
@@ -1927,6 +1934,11 @@ void _viv_set_zoom_dialog(void)
 	
 	_viv_zoom_edit_hwnd = hwnd;
 	
+	// digits only, never text: dissociate the ime so even a full-width
+	// digit ime mode types plain digits into the field (see
+	// os_imm_associate_disable).
+	os_imm_associate_disable(hwnd);
+	
 	// the subclass stores the old proc in the userdata (the edit key
 	// dialog's own editor idiom).
 	{
@@ -2211,11 +2223,12 @@ static LRESULT CALLBACK _viv_edit_key_edit_proc(HWND hwnd,UINT msg,WPARAM wParam
 				case VK_RWIN:
 					return 0;
 
-	//FIXME:						
-	//					case VK_PROCESSKEY:
-	//						// restore IME hacked key.
-	//						vk = ImmGetVirtualKey(msg->hwnd);
-	//						break;
+			// a vk_processkey never arrives here: the capture windows run
+			// with the ime dissociated (see the initdialog below), so the
+			// ime never rewrites the key into the processkey placeholder and
+			// the binding stores the real virtual key. the old fixme asked
+			// for immgetvirtualkey to restore what the ime hacked; the
+			// dissociation answers the same question one step earlier.
 			}
 
 			_viv_edit_key_set_key(hwnd,key_flags | vk);

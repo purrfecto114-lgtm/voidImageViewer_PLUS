@@ -335,4 +335,5 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"旋转", // LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE
 	"图像信息", // LOCALIZATION_ID_TOOLBAR_GROUP_INFO
 	"显示全部按钮", // LOCALIZATION_ID_TOOLBAR_SHOW_ALL
+	"void Image Viewer 初始化失败，程序即将退出。", // LOCALIZATION_ID_INIT_FAILED
 };

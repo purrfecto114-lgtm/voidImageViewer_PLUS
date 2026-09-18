@@ -20,3 +20,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER 
 DEALINGS IN THE SOFTWARE.
+
+This build also bundles Google's libwebp (BSD-3-Clause) and ports the decode
+semantics of Dominic Szablewski's QOI reference decoder (MIT). The full
+license texts install alongside the application as LICENSE and
+THIRD_PARTY_NOTICES.md.

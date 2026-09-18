@@ -211,7 +211,12 @@ foreach ($p in $ExePath) {
     }
 
     if ($cfg -and -not $pe.LoadConfig) {
-        Write-Host ("      note: GUARD_CF is stamped but no LOAD_CONFIG data " +
+        # the reverse inconsistency fails closed with the rest: the cf bit
+        # without its load-config table is a broken artifact (the guard is
+        # stamped but never consulted), and a security check must not pass
+        # what it could not confirm.
+        $failed++
+        Write-Host ("::error::GUARD_CF is stamped but no LOAD_CONFIG data " +
                     "directory rides the image (the bit without the table)")
     }
 }

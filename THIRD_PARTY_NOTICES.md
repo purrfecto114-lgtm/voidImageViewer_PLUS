@@ -48,3 +48,42 @@ URL, version, tarball SHA-256, import history and the post-import sweep
 `tools/update_libwebp.py` verifies the tree against that record
 (`--check`, offline) and performs version bumps (`--fetch`); refresh the
 vendored copy through that tool, never by hand.
+
+## QOI (the decode semantics ported into src/qoi.c)
+
+- Upstream source: https://github.com/phoboslab/qoi — Dominic Szablewski,
+  https://phoboslab.org
+- License: MIT — Copyright (c) 2021, Dominic Szablewski. Full text below.
+- What is ported: the opcode semantics of the reference `qoi.h` decoder —
+  the index hash, the diff and luma deltas, the run bias of -1, and rgb
+  chunks preserving the running alpha (the reference's exact behavior,
+  not the intuitive one), as documented in the `src/qoi.c` file header.
+  No QOI code is vendored wholesale; the hostile-input discipline around
+  it (every read bounds-checked against the chunk end, the end-marker
+  verification, the pixel budget) is this fork's own.
+- The viewer ships this port in its binary; the MIT text below travels
+  with it as part of this notices file.
+
+```text
+MIT License
+
+Copyright (c) 2021, Dominic Szablewski, https://phoboslab.org
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

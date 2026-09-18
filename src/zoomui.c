@@ -916,6 +916,11 @@ void zoomui_init(HWND parent)
 
 		if (_zoomui_hwnd)
 		{
+			// the pill never composes text (arrows, space, enter): an open
+			// ime would eat the space and rewrite nothing useful - the
+			// keys reach the pill as their real virtual keys instead.
+			os_imm_associate_disable(_zoomui_hwnd);
+			
 			// probe the layered child window support (windows 8+): if
 			// alpha blending is refused the style is removed and the
 			// bar hides without the fade.
@@ -1835,7 +1840,8 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		case WM_GETDLGCODE:
 		{
 			// arrows move between capsules, chars feed space / enter;
-			// tab itself stays free so focus can leave the pill.
+			// tab walks the capsules too (the hot walk below) and escape
+			// is the keyboard way back to the viewer.
 			return DLGC_WANTARROWS | DLGC_WANTCHARS;
 		}
 
@@ -1852,6 +1858,20 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
 			switch ((int)wParam)
 			{
+				case VK_ESCAPE:
+				{
+					// the keyboard way out of the pill: focus returns to the
+					// viewer so the hotkeys own the keyboard again (the hot walk
+					// below owns tab; escape was the missing exit).
+					SetFocus(_zoomui_parent_hwnd);
+					
+					_zoomui_hot_index = -1;
+					
+					_zoomui_invalidate();
+					
+					return 0;
+				}
+				
 				case VK_LEFT:
 				case VK_UP:
 				{

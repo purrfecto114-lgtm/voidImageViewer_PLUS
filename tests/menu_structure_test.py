@@ -302,10 +302,11 @@ def t_localization_alignment():
             "LOCALIZATION_ID_TOOLBAR_GROUP_ZOOM",
             "LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE",
             "LOCALIZATION_ID_TOOLBAR_GROUP_INFO",
-            "LOCALIZATION_ID_TOOLBAR_SHOW_ALL")
-    check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail)", tuple(ids[-56:]) == tail)
-    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(en[-56:]) == tail)
-    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired)", tuple(zh[-56:]) == tail)
+            "LOCALIZATION_ID_TOOLBAR_SHOW_ALL",
+            "LOCALIZATION_ID_INIT_FAILED")
+    check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail; r113: the init-failed id rides the tail)", tuple(ids[-57:]) == tail)
+    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail)", tuple(en[-57:]) == tail)
+    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail)", tuple(zh[-57:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -342,10 +343,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.15-rc.4.83 (the command picker round)",
-          (major, minor, rev, build) == ("1", "1", "15", "83") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.15-rc.4 tag)",
-          vstr == "1.1.15-rc.4")
+    check("version.h = 1.1.15-rc.5.84 (the command picker round)",
+          (major, minor, rev, build) == ("1", "1", "15", "84") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.15-rc.5 tag)",
+          vstr == "1.1.15-rc.5")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -863,7 +864,7 @@ def t_paste_wiring():
           "_viv_current_fd->cFileName[0] = 0;" in viv)
     check("an in flight load can not clobber a paste",
           "_viv_load_image_allow_draw = 0;" in viv and
-          "_viv_load_image_terminate = 1;" in viv)
+          "InterlockedExchange(&_viv_load_image_terminate,1);" in viv)
     check("the pasted frame starts the normal first frame path",
           "_viv_start_first_frame();" in viv)
     check("the mipmap is built lazily (NULL is a supported frame state)",
@@ -943,10 +944,10 @@ def t_zoom_percent_wiring():
           "_viv_zoom_set_percent(target,pt.x,pt.y,out ? -1 : 1);" in viv and
           "_viv_zoom_set_percent(percent,pt.x,pt.y,0);" in viv)
 
-    # the status bar zoom pane (part 0, always visible, clickable)
-    m = re.search(r"static void _viv_status_update\(void\)\s*\{(.*?)\n\t\tif \(_viv_status_hwnd\)",
-                  viv, re.S)
-    assert m or True
+    # the status bar zoom pane (part 0, always visible, clickable). the
+    # checks below query the whole file (the body extraction this slot once
+    # attempted was born dead - its sentinel never matched - and the
+    # always-true assert that carried it retired in round 113).
     check("the parts array rides the state cap",
           "int part_array[_VIV_STATUS_PART_MAX];" in viv)
     check("zoom text is built for the pane",
@@ -1060,10 +1061,10 @@ def t_review_fixes():
 
     # M3: everything ipc replies are validated field by field
     check("copydata helpers exist",
-          re.search(r"(?:static\s+)?const char \*_viv_copydata_read\(const COPYDATASTRUCT \*cds,", viv) is not None and
+          re.search(r"(?:static\s+)?SIZE_T _viv_copydata_read\(const COPYDATASTRUCT \*cds,", viv) is not None and
           re.search(r"(?:static\s+)?int _viv_everything_item_to_fd\(const COPYDATASTRUCT \*cds,", viv) is not None)
     check("both everything cases validate the list header first",
-          viv.count("if (_viv_safe_copy_data(cds->lpData,cds->cbData,cds->lpData,&list,sizeof(list)))") == 2)
+          viv.count("if (_viv_safe_copy_data(cds->lpData,cds->cbData,0,&list,sizeof(list)))") == 2)
     check("no raw trust of sender offsets remains",
           "filename_len = *(DWORD *)p;" not in viv)
 
@@ -3096,7 +3097,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the pixel oracle round sweeps the pin)",
-          "#define VERSION_BUILD 83" in version)
+          "#define VERSION_BUILD 84" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3167,8 +3168,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 83" in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+          "#define VERSION_BUILD 84" in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3218,7 +3219,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 31550)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410)
+          viv_lines >= 21130 and viv_lines <= 31850)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3279,7 +3280,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 31550, f"({total})")  # round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410)
+          21130 <= total <= 31850, f"({total})")  # round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613)
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3372,8 +3373,8 @@ def t_structure_round76():
     # 2. the wndproc domain: exists, sized, registered exactly once.
     wnd = open("src/viv_wndproc.c", "rb").read().decode("utf-8", errors="replace")
     check("the wndproc domain exists", "static LRESULT _viv_on_wm_nchittest(" in wnd)
-    check("the wndproc domain is under the 3,200 line cap",
-          wnd.count("\n") + 1 < 3200, f"({wnd.count(chr(10)) + 1})")  # rc.4: the halftone palette and the dpi icons; rc.10: the renderer-fallback notice joins the paint path
+    check("the wndproc domain is under the 3,300 line cap",
+          wnd.count("\n") + 1 < 3300, f"({wnd.count(chr(10)) + 1})")  # rc.4: the halftone palette and the dpi icons; rc.10: the renderer-fallback notice joins the paint path; round-113: the reply wakeup duty's drain-side repost and the copydata null-buffer belt (measured 3217)
     props = read("voidImageViewer.files.props").decode("utf-8-sig")
     check("viv_wndproc.c is registered in the props",
           props.count('src\\viv_wndproc.c" />') == 1)
@@ -3441,9 +3442,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3507,8 +3508,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 83" in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+          "#define VERSION_BUILD 84" in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4070,9 +4071,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4240,9 +4241,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4343,9 +4344,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4422,9 +4423,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4521,9 +4522,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4638,9 +4639,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4851,9 +4852,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.15-rc.4 build 83 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4991,9 +4992,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5219,9 +5220,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.15-rc.4 build 83 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5295,9 +5296,9 @@ def t_navigation_visibility_round99():
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.3** \u2014" in readme)
-    check("the version is 1.1.15-rc.4 build 83 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
 
 def t_audit_response_round101():
@@ -5414,9 +5415,9 @@ def t_audit_response_round101():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.4** \u2014" in readme and
           "**1.1.14-rc.3** \u2014" in readme)
@@ -5528,10 +5529,10 @@ def t_pixel_oracle_round102():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.4 (the command picker round)", top)
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+          top == "Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)", top)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.4** \u2014" in readme)
@@ -5680,7 +5681,7 @@ def t_audit_hardening_round103():
     check("the exit timeout reports the stage before the hard exit",
           'debug_printf("load thread timeout: exiting at stage %s (%S)\\n"' in viv)
     check("the qoi decode honors the cooperative cancel",
-          "if (_viv_load_image_terminate)" in qoi and
+          "if (_VIV_LOAD_TERMINATED())" in qoi and
           "the torn buffer never ships" in qoi)
 
     # 4. the toolchain baseline: the v145 project matches the v143 hardening
@@ -5850,10 +5851,10 @@ def t_input_ceiling_round104():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.4 (the command picker round)", top)
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+          top == "Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)", top)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
@@ -6024,10 +6025,10 @@ def t_renderer_parity_round105():
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.4 (the command picker round)", top)
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+          top == "Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)", top)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
@@ -6142,10 +6143,10 @@ def t_navigation_faces_round106():
     # 6. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.4 (the command picker round)", top)
-    check("the version is 1.1.15-rc.4 build 83",
-          '#define VERSION_BUILD 83' in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+          top == "Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)", top)
+    check("the version is 1.1.15-rc.5 build 83",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.8** \u2014" in readme)
@@ -6352,9 +6353,9 @@ def t_stable_promotion_round108():
 
     # 1. the version marks the stable promotion (the rc phase suffix
     #    is gone; the plain tag form is the stable release form).
-    check("version.h = 1.1.15-rc.4.83 (the stable promotion round pins ride the slot architecture round)",
-          "#define VERSION_BUILD 83" in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version and
+    check("version.h = 1.1.15-rc.5.84 (the stable promotion round pins ride the slot architecture round)",
+          "#define VERSION_BUILD 84" in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the defaults the promotion promises, pinned as facts: both
@@ -6402,7 +6403,7 @@ def t_stable_promotion_round108():
           gate != -1 and
           "_viv_slot_preload.state = 2;" in wnd[gate:gate + 2500] and
           "_viv_slot_preload.fd.cFileName[0] = 0;" in wnd[gate:gate + 2500] and
-          "_viv_load_image_terminate = 1;" in wnd[gate:gate + 2500] and
+          "InterlockedExchange(&_viv_load_image_terminate,1);" in wnd[gate:gate + 2500] and
           "DeleteObject(first_frame->frame.hbitmap);" in wnd[gate:gate + 2500])
     check("the frame array allocation still goes through safe_size_mul",
           "mem_alloc(safe_size_mul(sizeof(_viv_frame_t),(SIZE_T)_viv_slot_preload.frame_count));" in wnd)
@@ -6452,14 +6453,14 @@ def t_stable_promotion_round108():
 
     # 8. the changelog, the readme and the demotion ride the promotion
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.4 (the command picker round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
     check("the readme current-stable line says 1.1.14",
           "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
     check("the 1.1.13 full section demotes to the one-line list",
           "**1.1.13 \u2014" not in readme and "**1.1.13** \u2014" in readme)
     check("the rc.10 candidate section demotes to the one-line list (rc.3 is the candidate now)",
           "**1.1.14-rc.10** \u2014" in readme and
-          "**1.1.15-rc.4 \u2014" in readme and
+          "**1.1.15-rc.5 \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
 
 
@@ -6488,9 +6489,9 @@ def t_slot_architecture_round109():
     readme = read("README.md").decode("utf-8", errors="replace")
 
     # 1. the version mark
-    check("version.h = 1.1.15-rc.4.83 (the slot architecture round's pins ride the audit response round)",
-          "#define VERSION_BUILD 83" in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("version.h = 1.1.15-rc.5.84 (the slot architecture round's pins ride the audit response round)",
+          "#define VERSION_BUILD 84" in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
     # 2. the type: one held image - the file identity, the frames,
     #    both counts, the dimensions and the preload role's state -
@@ -6602,9 +6603,9 @@ def t_slot_architecture_round109():
 
     # 12. the changelog, the readme and the candidate block
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.4 (the command picker round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
     check("the readme carries the new candidate block",
-          "**1.1.15-rc.4 \u2014" in readme and
+          "**1.1.15-rc.5 \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
     check("the readme stable block survives the candidate",
           "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
@@ -6638,9 +6639,9 @@ def t_audit_response_round110():
     readme = read("README.md").decode("utf-8", errors="replace")
 
     # 1. the version mark
-    check("version.h = 1.1.15-rc.4.83 (the fourth audit response round)",
-          "#define VERSION_BUILD 83" in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("version.h = 1.1.15-rc.5.84 (the fourth audit response round)",
+          "#define VERSION_BUILD 84" in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
     # 2. the neighbor predicate: one helper in the navigation domain,
     #    declared on the navigation's own export face, carrying the
@@ -6701,9 +6702,9 @@ def t_audit_response_round110():
 
     # 6. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fourth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.4 (the command picker round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
     check("the readme carries the new candidate block and the rc.1 one-liner",
-          "**1.1.15-rc.4 \u2014" in readme and
+          "**1.1.15-rc.5 \u2014" in readme and
           "**1.1.15-rc.1** \u2014" in readme and
           "**1.1.15-rc.2** —" in readme and
           readme.count("(the current release candidate):**") == 1)
@@ -6752,9 +6753,9 @@ def t_audit_response_round111():
     zoommath = read("tests/zoom_math_test.py").decode()
 
     # 1. the version mark
-    check("version.h = 1.1.15-rc.4.83 (the fifth audit response round)",
-          "#define VERSION_BUILD 83" in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("version.h = 1.1.15-rc.5.84 (the fifth audit response round)",
+          "#define VERSION_BUILD 84" in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
     # 2. the navigation trio - the sort pollution: the path completes
     #    before the first compare, at all three scan sites, and the six
@@ -6855,21 +6856,179 @@ def t_audit_response_round111():
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fifth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.4 (the command picker round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
     check("the changelog carries the round's own ledger",
           "the navigation trio first, because two of the three are ordering defects" in changes and
           "the ladder step is extracted, not self-written" in changes and
           "a deleted manifest fails the push gate" in changes)
     check("the readme candidate block and the rc.2 one-liner",
-          "**1.1.15-rc.4 \u2014" in readme and
+          "**1.1.15-rc.5 \u2014" in readme and
           "**1.1.15-rc.2** \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
 
 
 
 
+def t_audit_response_round113():
+    """Guards for the sixth audit response round (1.1.15-rc.5: the ime
+    dissociation, the init answers, the reply wakeup duty, the offset
+    validators, the uninstaller staging and the license set - every
+    claim re-verified against the tree before anything landed, two p0s
+    real, seven green-light claims refuted with the evidence recorded)."""
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+    vivload = read("src/viv_load.c").decode("utf-8", errors="replace")
+    wnd = read("src/viv_wndproc.c").decode("utf-8", errors="replace")
+    settings = read("src/viv_settings.c").decode("utf-8", errors="replace")
+    dialogs = read("src/viv_dialogs.c").decode("utf-8", errors="replace")
+    zoomui = read("src/zoomui.c").decode("utf-8", errors="replace")
+    osc = read("src/os.c").decode("utf-8", errors="replace")
+    osh = read("src/os.h").decode("utf-8", errors="replace")
+    state = read("src/viv_state.h").decode("utf-8", errors="replace")
+    webp = read("src/webp.c").decode("utf-8", errors="replace")
+    glyphs = read("src/glyphs.c").decode("utf-8", errors="replace")
+    qoi = read("src/qoi.c").decode("utf-8", errors="replace")
+    install = read("src/viv_install.c").decode("utf-8", errors="replace")
+    nsi = read("nsis/installer.nsi").decode("utf-8-sig")
+    notices = read("THIRD_PARTY_NOTICES.md").decode("utf-8")
+    security = read("SECURITY.md").decode("utf-8")
+    buildsh = read("build-zig/build.sh").decode("utf-8", errors="replace")
+    buildarm = read("build-zig/build-arm64.sh").decode("utf-8", errors="replace")
+    zoommath = read("tests/zoom_math_test.py").decode("utf-8")
+    version = read("src/version.h").decode("utf-8", errors="replace")
+
+    # 1. the ime dissociation: the wrapper, the four window families, the
+    #    link line on both toolchains, and the fixme that asked the same
+    #    question one step later.
+    check("the ime dissociation wrapper exists",
+          "void os_imm_associate_disable(HWND hwnd);" in osh and
+          "void os_imm_associate_disable(HWND hwnd)" in osc and
+          "ImmAssociateContext(hwnd,NULL);" in osc)
+    check("the wrapper links imm32 on both toolchains",
+          "#pragma comment(lib,\"imm32.lib\")" in osc and
+          "#include <imm.h>" in osc and
+          "-limm32" in buildsh and
+          "-limm32" in buildarm)
+    check("the canvas, the pill, the zoom editor, the capture and the settings dissociate",
+          "os_imm_associate_disable(_viv_hwnd);" in viv and
+          "os_imm_associate_disable(_zoomui_hwnd);" in zoomui and
+          "os_imm_associate_disable(hwnd);" in dialogs and
+          "os_imm_associate_disable(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT));" in dialogs and
+          "os_imm_associate_disable(_viv_settings_hwnd);" in settings)
+    check("the processkey fixme retires (the dissociation answers it earlier)",
+          "case VK_PROCESSKEY" not in dialogs and
+          "ImmGetVirtualKey" not in dialogs and
+          "dissociation answers the same question one step earlier" in dialogs)
+
+    # 2. the init answers: the atom escapes the wrapper, the three steps
+    #    fail out loud, and the failure box localizes through the utf-8 bridge.
+    check("the class registration returns its atom",
+          "int os_RegisterClassEx(UINT style,WNDPROC lpfnWndProc,HICON hIcon,HCURSOR hCursor,HBRUSH hbrBackground,const utf8_t *name,HICON hIconSm);" in osh and
+          "return RegisterClassExW(&wcex) ? 1 : 0;" in osc)
+    check("the three init steps fail out loud",
+          viv.count("_viv_init_failed((int)GetLastError());") == 3 and
+          viv.count("_viv_kill();\r\n\t\t\r\n\t\treturn 0;") == 3)
+    check("the init-failure string rides the localization tables",
+          "LOCALIZATION_ID_INIT_FAILED" in read("src/localization.h").decode() and
+          "failed to initialize" in read("src/localization_en_us.h").decode() and
+          "初始化失败" in read("src/localization_zh_cn.h").decode())
+    check("the failure box crosses the utf-8 bridge (the mojibake rule)",
+          "string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_INIT_FAILED));" in viv and
+          "string_copy(title_wbuf,localization_get_string(" not in viv)
+
+    # 3. the reply wakeup duty: the flag, the refused-post hand-back, and
+    #    the drain's tail repost.
+    check("the reply posted flag exists in the state layer",
+          "extern int _viv_reply_posted;" in state)
+    check("a refused post hands the duty back",
+          "if ((is_first) && (!PostMessage(_viv_hwnd,_VIV_WM_REPLY,0,0)))" in vivload and
+          "_viv_reply_posted = 0;" in vivload)
+    check("the drain clears the duty and re-posts for stragglers",
+          "_viv_reply_posted = 0;" in wnd and
+          "need_post = ((_viv_reply_start) && (!_viv_reply_posted));" in wnd)
+
+    # 4. the interlocked cancel: the type, the macro, and the retirement of
+    #    the plain writes (comments excepted).
+    check("the cancel flag rides volatile LONG with the interlocked read macro",
+          "extern volatile LONG _viv_load_image_terminate;" in state and
+          "#define _VIV_LOAD_TERMINATED() (InterlockedCompareExchange(&_viv_load_image_terminate,0,0) != 0)" in state)
+    flat = " ".join(vivload.split())
+    check("no plain cancel write survives in the load domain",
+          "_viv_load_image_terminate = 1" not in " ".join(l for l in vivload.splitlines() if not l.strip().startswith("//")) and
+          "InterlockedExchange(&_viv_load_image_terminate,1);" in vivload and
+          "InterlockedExchange(&_viv_load_image_terminate,0);" in vivload)
+    check("the loader checkpoints read through the macro",
+          "if ((i) && (_VIV_LOAD_TERMINATED()))" in vivload and
+          "if (_VIV_LOAD_TERMINATED())" in qoi)
+
+    # 5. the pairing flags: com on both threads, gdi+ on the viewer and the
+    #    glyphs, and the webp null guard.
+    check("the ui thread pairs its com and gdi+ teardown",
+          "_viv_com_initialized = SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED|COINIT_DISABLE_OLE1DDE));" in viv and
+          "if (_viv_com_initialized)" in viv and
+          "_viv_gdiplus_started = (gdiplus_ret == 0) ? 1 : 0;" in viv and
+          "if ((os_GdiplusShutdown) && (_viv_gdiplus_started))" in viv)
+    check("the loader thread pairs its own com",
+          "com_initialized = SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED|COINIT_DISABLE_OLE1DDE));" in vivload and
+          "if (com_initialized)" in vivload)
+    check("the glyphs startup gates its state",
+          "if (os_GdiplusStartup(&_glyphs_gdiplus_token,&input,0) == 0)" in glyphs)
+    check("the webp delay write matches the read side's null guard",
+          "if ((frame_delays) && (WebPDemuxGetFrame(demux,1,&iter)))" in webp)
+
+    # 6. the pending-clear belt and the offset validators.
+    check("the pending mailbox drains before it takes (the single-flight belt)",
+          "if (_viv_pending_clear_frames)\r\n\t{" in vivload and
+          "the mailbox is single-slot by the single-flight invariant" in vivload)
+    check("the validator takes the offset, never a pre-built pointer",
+          "int _viv_safe_copy_data(const void *base,SIZE_T src_size,SIZE_T offset,void *dst,SIZE_T dst_size)" in vivload and
+          "cds->lpData,cds->cbData,((char *)cds->lpData)" not in wnd and
+          "((const char *)cds->lpData) + item->data_offset" not in read("src/viv_playlist.c").decode("utf-8", errors="replace"))
+    check("the item walk carries distances end to end",
+          "static SIZE_T _viv_copydata_read(const COPYDATASTRUCT *cds,SIZE_T offset,void *dst,DWORD size)" in read("src/viv_playlist.c").decode("utf-8", errors="replace"))
+    check("the copydata handler refuses a length with no buffer",
+          "if ((!cds->lpData) && (cds->cbData))" in wnd)
+
+    # 7. the uninstaller staging and the license set.
+    check("the second stage runs from an unpredictable fresh directory",
+          "GetTempFileName $0 $Temp" in nsi and
+          "CreateDirectory $0" in nsi and
+          'IfFileExists "$0\\voidImageViewer.exe" run_second_stage' in nsi and
+          "RMDir /REBOOTOK $0" in nsi)
+    check("the fixed temp name is gone",
+          "$Temp\\voidImageViewer.exe" not in nsi)
+    check("the license pair rides the payload, the install and the uninstall",
+          'File "..\\LICENSE"' in nsi and
+          'File "..\\THIRD_PARTY_NOTICES.md"' in nsi and
+          '(const utf8_t *)"LICENSE",0);' in install and
+          '(const utf8_t *)"THIRD_PARTY_NOTICES.md",0);' in install and
+          install.count('(const utf8_t *)"THIRD_PARTY_NOTICES.md")') == 1)
+    check("the qoi attribution is complete",
+          "Dominic Szablewski" in notices and
+          "Copyright (c) 2021, Dominic Szablewski" in notices and
+          "phoboslab.org" in notices)
+    check("the security table rides the shipped lines",
+          "| 1.1.14 | latest stable | yes |" in security and
+          "1.1.15-rc.5 at the time of writing" in security)
+
+    # 8. the pill's keyboard exit and the suite's own two defects.
+    check("the pill answers escape with focus back to the viewer",
+          "case VK_ESCAPE:" in zoomui and
+          "SetFocus(_zoomui_parent_hwnd);" in zoomui and
+          "is the keyboard way back to the viewer" in zoomui)
+    check("zoom math carries its conditions inside the checks (no -O blindness)",
+          'check("geometric ladder = fit * 1.01^pos (+/-2px)", ok)' in zoommath and
+          zoommath.count(", True)") == 3)  # the pinch group's guarded aggregate + two 1:1 data tuples
+    check("the born-dead tautology is gone",
+          ("assert m " + "or True") not in read("tests/menu_structure_test.py").decode("latin-1"))
+
+    # 9. the version mark.
+    check("version.h = 1.1.15-rc.5.84 (the sixth audit response round)",
+          '#define VERSION_BUILD 84' in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+
+
 def t_command_picker_round112():
-    """Guards for round 112 (1.1.15-rc.4: the command picker round. the
+    """Guards for round 112 (1.1.15-rc.5: the command picker round. the
     user report: keyboard shortcuts could not be added - because the
     settings window's command dropdown capped at the popup label
     store's thirty-two rows while the command table holds one hundred
@@ -6893,9 +7052,9 @@ def t_command_picker_round112():
     changes = read("Changes.txt").decode("utf-8", errors="replace")
 
     # 1. the version mark
-    check("version.h = 1.1.15-rc.4.83 (the command picker round)",
-          "#define VERSION_BUILD 83" in version and
-          '#define VERSION_STRING "1.1.15-rc.4"' in version)
+    check("version.h = 1.1.15-rc.5.84 (the command picker round)",
+          "#define VERSION_BUILD 84" in version and
+          '#define VERSION_STRING "1.1.15-rc.5"' in version)
 
     # 2. the command dropdown answers through the cascade picker, and
     #    the flat call that used to feed it retired.
@@ -6955,13 +7114,13 @@ def t_command_picker_round112():
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the command picker round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.4 (the command picker round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
     check("the changelog carries the round's own ledger",
           "eighty-six commands\r\n\twere unreachable" in changes and
           "the cascade is the real menu tree" in changes and
           "walked, every surface verified against the dispatcher" in changes)
     check("the readme candidate block and the rc.3 one-liner",
-          "**1.1.15-rc.4 \u2014" in readme and
+          "**1.1.15-rc.5 \u2014" in readme and
           "**1.1.15-rc.3** \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
 
@@ -7045,6 +7204,7 @@ if __name__ == "__main__":
     t_audit_response_round110()
     t_audit_response_round111()
     t_command_picker_round112()
+    t_audit_response_round113()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

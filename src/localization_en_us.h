@@ -361,4 +361,5 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Rotate", // LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE
 	"Image info", // LOCALIZATION_ID_TOOLBAR_GROUP_INFO
 	"Show all buttons", // LOCALIZATION_ID_TOOLBAR_SHOW_ALL
+	"void Image Viewer failed to initialize. The application will now exit.", // LOCALIZATION_ID_INIT_FAILED
 };

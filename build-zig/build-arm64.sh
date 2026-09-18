@@ -50,7 +50,7 @@ if [ "$fail" -ne 0 ]; then
 fi
 
 $ZIG cc $FLAGS $OBJDIR/*.o -o build-zig/viv-arm64.exe -mwindows \
-	-lcomctl32 -lcomdlg32 -lshlwapi -lshell32 -lgdi32 -luser32 \
+	-lcomctl32 -lcomdlg32 -lshlwapi -lshell32 -lgdi32 -luser32 -limm32 \
 	-ladvapi32 -lole32 -loleaut32 -luuid -lwinmm -ldwmapi -lversion
 
 cp res/voidImageViewer.Manifest build-zig/viv-arm64.exe.manifest

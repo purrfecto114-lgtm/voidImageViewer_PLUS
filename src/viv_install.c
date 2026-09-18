@@ -340,6 +340,8 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"voidImageViewer.exe",1);
 		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"Uninstall.exe",0);
 		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"Changes.txt",0);
+		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"LICENSE",0);
+		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"THIRD_PARTY_NOTICES.md",0);
 		
 		// register in add/remove programs so the app shows up in
 		// programs and features.
@@ -375,6 +377,8 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 					
 		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"Uninstall.exe");
 		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"Changes.txt");
+		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"LICENSE");
+		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"THIRD_PARTY_NOTICES.md");
 		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"voidImageViewer.ini");
 		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"voidImageViewer.exe");
 		

@@ -402,10 +402,14 @@ static int _glyphs_load(void)
 		input.SuppressBackgroundThread = 0;
 		input.SuppressExternalCodecs = 0;
 
-		os_GdiplusStartup(&_glyphs_gdiplus_token,&input,0);
+		// the started state pairs the shutdown: a refused startup (no
+		// gdi+ on the machine) leaves the state down and the shutdown
+		// skips, instead of unbalancing a token nobody handed out.
+		if (os_GdiplusStartup(&_glyphs_gdiplus_token,&input,0) == 0)
+		{
+			_glyphs_state = 1;
+		}
 	}
-
-	_glyphs_state = 1;
 
 	return 1;
 }

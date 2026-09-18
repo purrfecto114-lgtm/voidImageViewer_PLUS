@@ -89,6 +89,29 @@ static int _viv_init(int nCmdShow);
 void _viv_kill(void);
 void _viv_exit(void);
 static int _viv_is_msg(MSG *msg);
+
+// the init failure box: what failed is already known to the caller,
+// the win32 last error is the number worth showing. there is no
+// window yet, so this is the only surface the failure will ever have.
+static void _viv_init_failed(int last_error)
+{
+	wchar_t title_wbuf[STRING_SIZE];
+	wchar_t text_wbuf[STRING_SIZE];
+	wchar_t number_wbuf[64];
+	
+	// localization strings are utf-8: the utf-8 bridge is the only way
+	// they cross into a wide buffer (the wide copiers never consume
+	// them - the mojibake rule the suites pin tree-wide).
+	string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_INIT_FAILED));
+	string_cat_utf8(text_wbuf,(const utf8_t *)" (error ");
+	string_format_number(number_wbuf,last_error);
+	string_cat(text_wbuf,number_wbuf);
+	string_cat_utf8(text_wbuf,(const utf8_t *)")");
+	
+	string_copy_utf8_string(title_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
+	
+	MessageBoxW(0,text_wbuf,title_wbuf,MB_OK|MB_ICONERROR);
+}
 CLIPFORMAT _viv_get_CF_PREFERREDDROPEFFECT(void);
 
 static int _viv_main(int nCmdShow);
@@ -127,6 +150,10 @@ int _viv_zoom_pos = 0; // the current zoom level
 float _viv_zoom_scales[_VIV_ZOOM_MAX];
 
 static ULONG_PTR os_GdiplusToken; // gdiplus handle
+// the startup pairing flags: com and gdi+ each owe their teardown
+// exactly when their startup succeeded (see _viv_init / _viv_kill).
+static int _viv_com_initialized = 0;
+static int _viv_gdiplus_started = 0;
 BYTE _viv_image_is_low_res = 0; // 1 = the displayed image is a progressive preview frame
 // the three image slots (see viv_state.h): the image on screen, the
 // last-image cache and the preload slot. zero-initialized static
@@ -162,7 +189,7 @@ BYTE _viv_load_is_preload = 0;
 wchar_t *_viv_load_image_filename = 0;
 WIN32_FIND_DATA *_viv_load_image_next_fd = NULL;
 BYTE _viv_load_image_next_is_preload = 0;
-volatile int _viv_load_image_terminate = 0;
+volatile LONG _viv_load_image_terminate = 0;
 // the loader's stage marker ("open" / "decode" / "frames" / "webp" /
 // "qoi" / "wic" / "done"): written only by the loader thread, read by the
 // exit timeout so a hard kill can at least report where the thread spent
@@ -184,6 +211,7 @@ BYTE _viv_load_refused_input_size = 0;
 // above it.
 BYTE _viv_hw_render_fallback = 0;
 _viv_reply_t *_viv_reply_start = 0;
+int _viv_reply_posted = 0;
 _viv_reply_t *_viv_reply_last = 0;
 wchar_t *_viv_status_temp_text = 0;
 int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS};
@@ -602,7 +630,7 @@ int _viv_recent_save_dirty = 0;
 
 void _viv_exit(void)
 {
-	_viv_load_image_terminate = 1;
+	InterlockedExchange(&_viv_load_image_terminate,1);
 	
 	// the deferred recent-files save folds into the exit write below (the
 	// debounce timer never gets to fire once the quit is posted).
@@ -1154,7 +1182,11 @@ static int _viv_init(int nCmdShow)
 	os_zero_memory(_viv_load_fd,sizeof(WIN32_FIND_DATA));
 	
 	debug_printf("CoInitializeEx\n");
-	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED|COINIT_DISABLE_OLE1DDE);
+	// the pairing flag: a failed init (rpc_e_changed_mode - someone
+	// else owns this thread's apartment) owes no couninitialize, and an
+	// unconditional one would unbalance whoever did own it. s_false
+	// ("already initialized") succeeds and still owes the pairing call.
+	_viv_com_initialized = SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED|COINIT_DISABLE_OLE1DDE));
 	
     // this resolves ATL window thunking problem when Microsoft Layer for Unicode (MSLU) is used
     DefWindowProc(NULL,0,0,0);
@@ -1183,7 +1215,12 @@ static int _viv_init(int nCmdShow)
 		gdiplusStartupInput.SuppressBackgroundThread = FALSE;
 		gdiplusStartupInput.SuppressExternalCodecs = FALSE;
 	
+		// the started flag pairs the kill-path shutdown: a refused
+		// startup leaves the token zero and the shutdown skipped, instead
+		// of an unbalanced shutdown on a token nobody handed out.
 		gdiplus_ret = os_GdiplusStartup(&os_GdiplusToken,&gdiplusStartupInput,NULL);
+		
+		_viv_gdiplus_started = (gdiplus_ret == 0) ? 1 : 0;
 	}
 
 	// load settings
@@ -1286,16 +1323,36 @@ static int _viv_init(int nCmdShow)
 		}
 	}
 	
-	os_RegisterClassEx(
+	if (!os_RegisterClassEx(
 		CS_DBLCLKS | CS_VREDRAW | CS_HREDRAW,
 		_viv_proc,
 		(HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,GetSystemMetrics(SM_CXICON),GetSystemMetrics(SM_CXICON),0),
 		LoadCursor(NULL,IDC_ARROW),
 		(HBRUSH)(COLOR_BTNFACE+1),
 		"VOIDIMAGEVIEWER",
-		(HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),0));
+		(HICON)LoadImage(os_hinstance,MAKEINTRESOURCE(IDI_ICON1),IMAGE_ICON,GetSystemMetrics(SM_CXSMICON),GetSystemMetrics(SM_CYSMICON),0)))
+	{
+		// a refused class registration used to vanish into the void
+		// return: the window creation below would fail on a class that
+		// never existed, and the message loop would wait forever on a
+		// window nobody could close. fail the init out loud instead.
+		_viv_init_failed((int)GetLastError());
+		
+		_viv_kill();
+		
+		return 0;
+	}
 	
 	_viv_hmenu = _viv_create_menu();
+	
+	if (!_viv_hmenu)
+	{
+		_viv_init_failed((int)GetLastError());
+		
+		_viv_kill();
+		
+		return 0;
+	}
 	
 	rect.left = config_x;
 	rect.top = config_y;
@@ -1341,6 +1398,25 @@ static int _viv_init(int nCmdShow)
 		window_style,
 		rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,
 		0,NULL,os_hinstance,NULL);
+	
+	if (!_viv_hwnd)
+	{
+		// same class of refusal as the registration above: a null hwnd
+		// in the loop below is a zombie process - no window, no quit
+		// message, a waitmessage that never wakes.
+		_viv_init_failed((int)GetLastError());
+		
+		_viv_kill();
+		
+		return 0;
+	}
+	
+	// the canvas owns the hotkeys, and the canvas never composes text:
+	// dissociate the ime so letter keys reach the key table as their
+	// real virtual keys (an open chinese ime rewrites them into
+	// vk_processkey, which matches no binding - see
+	// os_imm_associate_disable for the window census).
+	os_imm_associate_disable(_viv_hwnd);
 	
 	if ((!config_show_caption) || (!config_show_thickframe))
 	{
@@ -1461,7 +1537,7 @@ void _viv_kill(void)
 	// stop load_image immediately...
 	if (_viv_load_image_thread)
 	{
-		_viv_load_image_terminate = 1;
+		InterlockedExchange(&_viv_load_image_terminate,1);
 		
 		// it's critical we wait for load image to finish before we kill the main window.
 		// the wait is bounded: a decoder wedged mid-decode must not make exit
@@ -1546,7 +1622,7 @@ void _viv_kill(void)
 	// its shutdown here, before the viewer's own.
 	glyphs_shutdown();
 
-	if (os_GdiplusShutdown)
+	if ((os_GdiplusShutdown) && (_viv_gdiplus_started))
 	{
 		os_GdiplusShutdown(os_GdiplusToken);
 	}
@@ -1556,7 +1632,10 @@ void _viv_kill(void)
 		FreeLibrary(_viv_stobject_hmodule);
 	}
 	
-	CoUninitialize();
+	if (_viv_com_initialized)
+	{
+		CoUninitialize();
+	}
 	
 	DeleteCriticalSection(&_viv_cs);
 

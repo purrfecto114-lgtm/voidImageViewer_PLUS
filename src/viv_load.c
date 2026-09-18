@@ -61,7 +61,7 @@ void _viv_open_preload(void);
 static int _viv_pixel_budget_refused(SIZE_T pixels);
 static void _viv_cache_set_trim(void);
 static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels);
-int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *dst,SIZE_T dst_size);
+int _viv_safe_copy_data(const void *base,SIZE_T src_size,SIZE_T offset,void *dst,SIZE_T dst_size);
 
 
 static GUID _viv_FrameDimensionTime = {0x6aedbd6d,0x3fb5,0x418a,{0x83,0xa6,0x7f,0x45,0x22,0x9d,0xc8,0x72}};
@@ -110,6 +110,21 @@ static void _viv_slot_take(_viv_image_slot_t *dst,_viv_image_slot_t *src)
 // _viv_process_pending_clear should be called after the new frame is shown.
 void _viv_clear(void)
 {
+	// the mailbox is single-slot by the single-flight invariant: every
+	// _viv_clear call site pairs with its drain before the next set (the
+	// ten call pairs the reply paths run, plus the kill path). the belt
+	// below turns a future violation of that pairing from a silent leak
+	// into an immediate free - the frames are ui-owned until the mailbox
+	// takes them, so freeing here is the same thread and the same
+	// allocator the drain would have used.
+	if (_viv_pending_clear_frames)
+	{
+		_viv_clear_frames(_viv_pending_clear_frames,_viv_pending_clear_frame_loaded_count);
+		
+		_viv_pending_clear_frames = NULL;
+		_viv_pending_clear_frame_loaded_count = 0;
+	}
+	
 	_viv_pending_clear_frames = _viv_slot_current.frames;
 	_viv_pending_clear_frame_loaded_count = _viv_slot_current.frame_loaded_count;
 	_viv_slot_current.frames = NULL;
@@ -151,7 +166,7 @@ void _viv_clear_loading_preload(void)
 	{
 		if (_viv_load_is_preload)
 		{
-			_viv_load_image_terminate = 1;
+			InterlockedExchange(&_viv_load_image_terminate,1);
 		}
 	}
 }
@@ -305,7 +320,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		// stop loading
 		debug_printf("SET TERMINATE (LAST)\n");
 		_viv_load_image_allow_draw = 0;
-		_viv_load_image_terminate = 1;
+		InterlockedExchange(&_viv_load_image_terminate,1);
 		
 		if (_viv_load_image_next_fd)
 		{
@@ -351,7 +366,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		// already loading a different image.
 		// add it to the queue and cancel this one.
 		debug_printf("SET TERMINATE (next)\n");
-		_viv_load_image_terminate = 1;
+		InterlockedExchange(&_viv_load_image_terminate,1);
 		
 		if (_viv_load_image_next_fd)
 		{
@@ -372,7 +387,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		GetClientRect(_viv_hwnd,&rect);
 
 		_viv_load_image_allow_draw = 1;
-		_viv_load_image_terminate = 0;
+		InterlockedExchange(&_viv_load_image_terminate,0);
 		_viv_load_refused_budget = 0;
 		_viv_load_refused_input_size = 0;
 		_viv_hw_render_fallback = 0;
@@ -508,7 +523,7 @@ static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high)
 {
 	// stop an in flight file load from clobbering the pasted image.
 	_viv_load_image_allow_draw = 0;
-	_viv_load_image_terminate = 1;
+	InterlockedExchange(&_viv_load_image_terminate,1);
 	
 	// the current image moves to the last image slot, exactly like
 	// navigating to a new image does.
@@ -981,11 +996,14 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	_viv_reply_load_image_first_frame_t first_frame;
 	IStream *stream;
 	int ret;
+	int com_initialized;
 	DWORD tickstart;
 
 	tickstart = GetTickCount();
 	
-	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED|COINIT_DISABLE_OLE1DDE);
+	// the pairing flag, same rule as the ui thread's (see _viv_init):
+	// a failed init owes no couninitialize; s_false succeeds and does.
+	com_initialized = SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED|COINIT_DISABLE_OLE1DDE));
 
 	first_frame.wide = 0;
 	first_frame.high = 0;
@@ -1446,7 +1464,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 												HBITMAP hbitmap;
 												HGDIOBJ last_hbitmap;
 												
-												if ((i) && (_viv_load_image_terminate))
+												if ((i) && (_VIV_LOAD_TERMINATED()))
 												{
 													break;
 												}
@@ -1680,7 +1698,10 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 
 	_viv_reply_add(ret ? _VIV_REPLY_LOAD_IMAGE_COMPLETE : _VIV_REPLY_LOAD_IMAGE_FAILED,0,0);
 	
-	CoUninitialize();
+	if (com_initialized)
+	{
+		CoUninitialize();
+	}
 	
 	debug_printf("loaded in %f seconds\n",(double)(GetTickCount()-tickstart) * 0.001);
 
@@ -1726,8 +1747,6 @@ _viv_reply_t *_viv_reply_add(DWORD type,DWORD size,void *data)
 	_viv_reply_t *e;
 	int is_first;
 	
-	is_first = 0;
-	
 	e = (_viv_reply_t *)mem_alloc(safe_size_add(sizeof(_viv_reply_t),size));
 	
 	e->type = type;
@@ -1744,17 +1763,35 @@ _viv_reply_t *_viv_reply_add(DWORD type,DWORD size,void *data)
 	else
 	{
 		_viv_reply_start = e;
-		is_first = 1;
 	}
 	
 	_viv_reply_last = e;
 	e->next = 0;
 	
+	// the wakeup duty: exactly one enqueue per drain cycle posts. the
+	// old shape posted only on the empty-to-nonempty transition and
+	// dropped the post's return value - one refused post (queue full,
+	// window gone) and the queue stayed non-empty forever: no later
+	// enqueue would post again, the drain never ran, and the exit path
+	// waited its ten seconds and exitprocess(1)'d. the duty flag makes
+	// the retry explicit: a refused post hands the duty back.
+	is_first = !_viv_reply_posted;
+	_viv_reply_posted = 1;
+	
 	LeaveCriticalSection(&_viv_cs);
 	
-	if (is_first)
+	if ((is_first) && (!PostMessage(_viv_hwnd,_VIV_WM_REPLY,0,0)))
 	{
-		PostMessage(_viv_hwnd,_VIV_WM_REPLY,0,0);
+		// the post was refused. give the duty back so the next enqueue
+		// posts again (and the drain's tail repost takes the entries if
+		// one runs first). the reset races no one: the drain only clears
+		// the flag after taking the entries, and a refused post means no
+		// drain ever saw them.
+		EnterCriticalSection(&_viv_cs);
+		
+		_viv_reply_posted = 0;
+		
+		LeaveCriticalSection(&_viv_cs);
 	}
 	
 	return e;
@@ -2174,19 +2211,20 @@ static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
 	
 	return 0;
 }
-int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *dst,SIZE_T dst_size)
+int _viv_safe_copy_data(const void *base,SIZE_T src_size,SIZE_T offset,void *dst,SIZE_T dst_size)
 {
 	const BYTE *p;
 	BYTE *d;
 	SIZE_T run;
 	SIZE_T end;
 	
-	if (((const BYTE *)src) < ((const BYTE *)base))
-	{
-		return 0;
-	}
-	
-	end = safe_size_add(((const BYTE *)src) - ((const BYTE *)base),dst_size);
+	// the caller hands a distance into the buffer, never a pointer it
+	// formed first: the range is proven (offset + dst_size inside
+	// src_size, overflow-checked) before the one pointer this function
+	// ever forms. the old pointer-in signature made every caller build
+	// base + offset before the validation ran - harmless on windows
+	// flat addressing, but the offset is the shape that cannot lie.
+	end = safe_size_add(offset,dst_size);
 	
 	if (end == SIZE_MAX)
 	{
@@ -2198,7 +2236,7 @@ int _viv_safe_copy_data(const void *base,SIZE_T src_size,const void *src,void *d
 		return 0;
 	}
 	
-	p = (const BYTE *)src;
+	p = ((const BYTE *)base) + offset;
 	d = (BYTE *)dst;
 	run = dst_size;
 	

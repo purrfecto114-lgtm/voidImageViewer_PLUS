@@ -4339,6 +4339,13 @@ void _viv_settings_show(void)
 		return;
 	}
 
+	// every control here is custom drawn - dropdowns, checkboxes, the
+	// key capture - and none of them composes text. the key capture in
+	// particular must see real virtual keys (an open ime rewrites
+	// letters into vk_processkey and the binding would store a key that
+	// cannot be pressed). see os_imm_associate_disable.
+	os_imm_associate_disable(_viv_settings_hwnd);
+
 	_viv_settings_dpi = os_window_dpi(_viv_settings_hwnd);
 	vivp_dpi_probe("show-after-create");
 

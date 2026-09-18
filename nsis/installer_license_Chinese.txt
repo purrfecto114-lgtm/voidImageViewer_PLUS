@@ -13,3 +13,7 @@ void Image Viewer
 特定用途的适用性和非侵权性的保证。在任何情况下，作者或版权持有人均不对任何
 索赔、损害或其他责任负责，无论是在合同诉讼、侵权行为或其他方面，由软件或软件
 的使用或其他交易引起、由此产生或与之相关。
+
+本构建同时捆绑 Google libwebp（BSD-3-Clause 许可证）并移植 Dominic
+Szablewski 的 QOI 参考解码器语义（MIT 许可证）。完整许可证文本随程序
+一并安装为 LICENSE 与 THIRD_PARTY_NOTICES.md。

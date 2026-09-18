@@ -172,7 +172,11 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 															}
 													}
 
-											if (WebPDemuxGetFrame(demux,1,&iter))
+											// the write side matches the read side's null guard (the read
+										// at the frame callback checks frame_delays too): a failed
+										// delay allocation skips the demux scan instead of writing
+										// through the null the allocation left behind.
+										if ((frame_delays) && (WebPDemuxGetFrame(demux,1,&iter)))
 											{
 												DWORD delay_index;
 
