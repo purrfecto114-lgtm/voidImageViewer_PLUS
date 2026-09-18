@@ -234,7 +234,6 @@ static int _viv_settings_assoc[_VIV_ASSOCIATION_COUNT];
 // list is replaced only on ok (the options dialog behavior).
 static _viv_key_list_t _viv_settings_keylist;
 static int _viv_settings_command_index = 0;
-static int _viv_settings_command_item_count = 0;
 static int _viv_settings_key_index = -1;
 
 // the key capture mode (the inline replacement for the edit key dialog).
@@ -1029,8 +1028,10 @@ static void _viv_settings_key_index_clamp(void)
 	}
 }
 
-// the command picker: the same filter as the options dialog's command
-// list (no popups, no separators, no deleted entries).
+// the first-command default: the same filter the options dialog's command
+// list always ran (no popups, no separators, no deleted entries). round-112:
+// the picker itself walks the table tree; this answers the opening
+// selection only.
 static int _viv_settings_command_at(int item_index)
 {
 	int i;
@@ -1060,16 +1061,21 @@ static int _viv_settings_command_at(int item_index)
 	return 0;
 }
 
-// the popup item text source.
+// the popup item text source. round-112: the commands kind retired - the
+// command picker outgrew the flat popup when the thirty-two row cap came
+// off, and builds its own cascade from the command table; the kinds left
+// here are the short lists that still fit the flat store.
 #define _VIV_SETTINGS_POPUP_IDS		0
-#define _VIV_SETTINGS_POPUP_COMMANDS	1
-#define _VIV_SETTINGS_POPUP_KEYS	2
+#define _VIV_SETTINGS_POPUP_KEYS		1
 // rc.13: the language list mixes sources (a localization string plus two
 // self-named languages), so it reads by index.
-#define _VIV_SETTINGS_POPUP_LANGUAGE	3
+#define _VIV_SETTINGS_POPUP_LANGUAGE	2
 
 // rc.13: the owner drawn dropdown labels (one pool per open, reclaimed by
 // the row pool reset - the same lifetime rule the recent list follows).
+// round-112: this store serves the flat kinds only (the id lists, the key
+// list, the language list) - the command picker moved to the cascade and
+// its rows derive their labels from the command table itself.
 #define _VIV_SETTINGS_POPUP_MAX		32
 #define _VIV_SETTINGS_POPUP_LABEL_CHARS	96
 static wchar_t _viv_settings_popup_labels[_VIV_SETTINGS_POPUP_MAX][_VIV_SETTINGS_POPUP_LABEL_CHARS];
@@ -1082,10 +1088,6 @@ static void _viv_settings_popup_text(int kind,const void *context,int index,wcha
 	{
 		case _VIV_SETTINGS_POPUP_IDS:
 			string_copy_utf8_string(wbuf,localization_get_string(((const localization_id_t *)context)[index]));
-			break;
-
-		case _VIV_SETTINGS_POPUP_COMMANDS:
-			_viv_get_command_name(wbuf,_viv_settings_command_at(index));
 			break;
 
 		case _VIV_SETTINGS_POPUP_KEYS:
@@ -1186,6 +1188,160 @@ static int _viv_settings_popup(HWND hwnd,const RECT *anchor,int kind,const void 
 	DestroyMenu(menu);
 
 	if ((ret <= 0) || (ret > count))
+	{
+		return -1;
+	}
+
+	return ret - 1;
+}
+
+// round-112: the command picker. the flat dropdown capped at the popup
+// store's thirty-two rows while the command table holds one hundred and
+// eighteen pickable commands - eighty-six of them unreachable from the
+// only shortcut editor the app ships (the fifth audit's deferred b1, and
+// the user report that brought this round). the picker is the real menu
+// tree now: the same walk _viv_create_menu runs, without the recent-files
+// insertion and the hidden delete, every leaf owner drawn with its live
+// shortcut after the label and the current command radio checked. each
+// page is one menu's own row set, so no page can outgrow the screen the
+// way the flat list always would have. the leaf's shortcut column reads
+// the live key list (the pre-ok state); the keys row below the picker
+// carries the in-editor state, and the two agree the moment ok runs.
+static int _viv_settings_command_picker(HWND hwnd,const RECT *anchor)
+{
+	HMENU menu;
+	HMENU menus[_VIV_MENU_COUNT];
+	MENUITEMINFOW mii;
+	POINT pt;
+	int ret;
+	int i;
+
+	menu = CreatePopupMenu();
+
+	if (!menu)
+	{
+		return -1;
+	}
+
+	_viv_menu_row_pool_reset(_VIV_MENU_POOL_SETTINGS);
+
+	for(i=0;i<_VIV_MENU_COUNT;i++)
+	{
+		menus[i] = 0;
+	}
+
+	menus[_VIV_MENU_ROOT] = menu;
+
+	for(i=0;i<_VIV_COMMAND_COUNT;i++)
+	{
+		if (_viv_commands[i].flags & MF_DELETE)
+		{
+			// the hidden plain delete is not a pickable command.
+			continue;
+		}
+
+		if (!menus[_viv_commands[i].menu_id])
+		{
+			// a row before its parent popup exists (or a table edit that
+			// orphaned it): nothing to hang it on.
+			continue;
+		}
+
+		if (_viv_commands[i].flags & MF_SEPARATOR)
+		{
+			void *row;
+
+			row = _viv_menu_row_alloc(_VIV_MENU_POOL_SETTINGS,_VIV_MENU_DRAW_SEPARATOR,0,0,0);
+
+			if (row)
+			{
+				AppendMenuW(menus[_viv_commands[i].menu_id],MF_SEPARATOR | MF_OWNERDRAW,0,(LPCWSTR)row);
+			}
+			else
+			{
+				AppendMenuW(menus[_viv_commands[i].menu_id],MF_SEPARATOR,0,0);
+			}
+		}
+		else
+		if (_viv_commands[i].flags & MF_POPUP)
+		{
+			HMENU submenu;
+
+			submenu = menus[_viv_commands[i].command_id];
+
+			if (!submenu)
+			{
+				submenu = CreatePopupMenu();
+
+				menus[_viv_commands[i].command_id] = submenu;
+			}
+
+			if (submenu)
+			{
+				void *row;
+
+				row = _viv_menu_row_alloc(_VIV_MENU_POOL_SETTINGS,_VIV_MENU_DRAW_POPUP,i,0,0);
+
+				if (row)
+				{
+					AppendMenuW(menus[_viv_commands[i].menu_id],MF_POPUP | MF_OWNERDRAW,(UINT_PTR)submenu,(LPCWSTR)row);
+				}
+				else
+				{
+					wchar_t text_wbuf[STRING_SIZE];
+
+					string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[i].localization_id));
+
+					AppendMenuW(menus[_viv_commands[i].menu_id],MF_POPUP,(UINT_PTR)submenu,text_wbuf);
+				}
+			}
+		}
+		else
+		{
+			// a leaf. the id carries the table index; zero stays the cancel
+			// answer, so the offset is one.
+			void *row;
+
+			row = _viv_menu_row_alloc(_VIV_MENU_POOL_SETTINGS,_VIV_MENU_DRAW_COMMAND,i,0,0);
+
+			os_zero_memory(&mii,sizeof(mii));
+
+			mii.cbSize = sizeof(mii);
+			mii.wID = (UINT)(i + 1);
+			mii.fType = MFT_RADIOCHECK;
+			mii.fState = (i == _viv_settings_command_index) ? MFS_CHECKED : 0;
+
+			if (row)
+			{
+				mii.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STATE | MIIM_DATA;
+				mii.fType |= MFT_OWNERDRAW;
+				mii.dwItemData = (ULONG_PTR)row;
+			}
+			else
+			{
+				// the row pool full: a native row keeps the command pickable.
+				wchar_t text_wbuf[STRING_SIZE];
+
+				string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[i].localization_id));
+
+				mii.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STATE | MIIM_STRING;
+				mii.dwTypeData = text_wbuf;
+			}
+
+			InsertMenuItemW(menus[_viv_commands[i].menu_id],GetMenuItemCount(menus[_viv_commands[i].menu_id]),TRUE,&mii);
+		}
+	}
+
+	pt.x = anchor->left;
+	pt.y = anchor->bottom;
+
+	ClientToScreen(hwnd,&pt);
+
+	ret = TrackPopupMenuEx(menu,TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_RETURNCMD,pt.x,pt.y,hwnd,0);
+
+	DestroyMenu(menu);
+
+	if ((ret <= 0) || (ret > _VIV_COMMAND_COUNT))
 	{
 		return -1;
 	}
@@ -1381,22 +1537,9 @@ static void _viv_settings_snapshot(void)
 	_viv_key_list_init(&_viv_settings_keylist);
 	_viv_key_list_copy(&_viv_settings_keylist,_viv_key_list);
 
+	// the picker's opening command: the first table row the filter accepts
+	// (the flat item count the old dropdown fed retired with it).
 	_viv_settings_command_index = _viv_settings_command_at(0);
-	_viv_settings_command_item_count = 0;
-
-	for(i=0;i<_VIV_COMMAND_COUNT;i++)
-	{
-		if (!(_viv_commands[i].flags & MF_POPUP))
-		{
-			if (!(_viv_commands[i].flags & MF_SEPARATOR))
-			{
-				if (!(_viv_commands[i].flags & MF_DELETE))
-				{
-					_viv_settings_command_item_count++;
-				}
-			}
-		}
-	}
 
 	_viv_settings_key_index = -1;
 	_viv_settings_capture_active = 0;
@@ -1946,13 +2089,15 @@ static void _viv_settings_run_dropdown(HWND hwnd,const _viv_settings_ctl_t *ctl)
 
 		case _VIV_SETTINGS_ID_COMMAND:
 		{
+			// round-112: the cascade replaces the flat popup here - every
+			// command is reachable, not just the first thirty-two.
 			int selected;
 
-			selected = _viv_settings_popup(hwnd,&drop_ctl->value,_VIV_SETTINGS_POPUP_COMMANDS,0,_viv_settings_command_item_count,-1);
+			selected = _viv_settings_command_picker(hwnd,&drop_ctl->value);
 
 			if (selected >= 0)
 			{
-				_viv_settings_command_index = _viv_settings_command_at(selected);
+				_viv_settings_command_index = selected;
 				_viv_settings_key_index = -1;
 
 				_viv_settings_invalidate();

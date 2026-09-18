@@ -66,7 +66,11 @@ static int _viv_recent_draw_count;
 static _viv_menu_draw_t _viv_context_draw_pool[_VIV_COMMAND_COUNT + 16];
 static int _viv_context_draw_count;
 // rc.13: the settings dropdown rows (one popup at a time, reset per open).
-static _viv_menu_draw_t _viv_settings_draw_pool[32];
+// round-112: the command picker joined this pool - its cascade carries one
+// row for every visible table entry (popups, separators and leaves minus
+// the hidden delete), so the pool sizes to the command count the way the
+// frame and context pools always have.
+static _viv_menu_draw_t _viv_settings_draw_pool[_VIV_COMMAND_COUNT];
 static int _viv_settings_draw_count;
 
 // dips at the primary monitor dpi (the menubar uses the same convention).
@@ -119,7 +123,7 @@ void *_viv_menu_row_alloc(int pool,int type,int command_index,int localization_i
 		case _VIV_MENU_POOL_SETTINGS:
 			table = _viv_settings_draw_pool;
 			count = &_viv_settings_draw_count;
-			cap = 32;
+			cap = _VIV_COMMAND_COUNT;
 			break;
 		
 		case _VIV_MENU_POOL_CONTEXT:

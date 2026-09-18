@@ -1,4 +1,83 @@
-﻿Pre-release: Version 1.1.15-rc.3 (the fifth audit response round)
+﻿Pre-release: Version 1.1.15-rc.4 (the command picker round)
+
+	the report arrived as a user question that read like a bug report:
+	keyboard shortcuts could not be added - and the tree agreed. the
+	settings window is the only shortcut editor the app ships (the
+	classic tabbed options dialog retired from the command path in the
+	gui remake round), and its command dropdown opened a flat popup that
+	capped at the label store's thirty-two rows while the command table
+	holds one hundred and eighteen pickable commands. eighty-six commands
+	were unreachable: no shortcut could be added to them, not by any
+	path the interface offers. the fifth audit carried this exact defect
+	on its deferred ledger as b1, with the note that the unlock was
+	"eighty-six commands, not a one-liner's blast radius" - right,
+	because the deeper constraint is the screen: a flat list of 118 rows
+	is taller than any display, so raising the cap alone would only move
+	the wall.
+
+	the cascade is the real menu tree. the command dropdown opens the
+	same walk the frame menu runs - the seven top groups, the nested
+	submenus, the separators, every leaf owner drawn with its label and
+	its live shortcut, the current command radio checked. each page is
+	one menu's own row set, so no page can outgrow the screen the way
+	the flat list always would have. the hidden plain delete stays
+	unpickable (it is not a command the interface offers anywhere else
+	either), the recent-files insertion stays out (it is a list, not a
+	command), and the settings row pool sizes to the command count the
+	way the frame and context pools always have - the thirty-two row
+	pool and the label store that fed the flat popup both retire from
+	the command path, the store keeping only the short lists (the id
+	lists, the key list, the language list) it still serves. the leaf's
+	shortcut column reads the live key list - the pre-ok state - while
+	the keys row below the picker carries the in-editor state; the two
+	agree the moment ok runs.
+
+	the report's second ask was the wider question: check every feature
+	entry point and whether the code behind it can be used. every entry
+	point walked, every surface verified against the dispatcher:
+
+	- the command table: all one hundred and eighteen pickable rows
+	  have a dispatch case; the extra dispatched ids are the timers,
+	  the recent slots and the internal-only commands, each by design.
+	- the default keys: all sixty-three rows install at init and every
+	  command they name is a real table command.
+	- the toolbar: every button routes through wm_command with ids
+	  the dispatcher owns.
+	- the context menu and the menubar: the same table, the same
+	  dispatcher, the same enable walk.
+	- the settings window: all thirty control ids answer (the type
+	  switch, the id switches, the if-chains - the accent picker, the
+	  color pickers, the nav pages, the ok and cancel pair, the
+	  select-all sweep, the association checkboxes).
+	- the ini round-trip: all one hundred and eighteen command names
+	  generate, each unique, so a saved binding reloads onto the
+	  command it was saved for.
+
+	the round's guard section pins the whole shape: the cascade walk,
+	the leaf id contract (table index plus one, zero stays the cancel
+	answer), the radio on the current command, the hidden-delete skip,
+	the pool sized to the command count, the flat kind's retirement,
+	and the opening default's filter. the entry-point census itself is
+	recorded here rather than pinned - it is a walk, not a shape, and
+	the next table edit answers to the dispatcher guards that already
+	exist.
+
+	deferred with reasons: the ledger's remaining batches carry
+	unchanged (the pill's animation awareness, the refused-flag
+	channel, the dib validation order, the smoke hang detection, the
+	x86 golden leg, the slideshow toggle, the warning census script,
+	the batch c structure items, and the code signing p0 that no
+	certificate in this sandbox can answer).
+
+	verified: the five suites pass (menu with the round-112 section,
+	the version pins swept to 1.1.15-rc.4 build 83), the zig line
+	links a 492,032-byte x64 exe and a 372,224-byte aarch64 exe (the
+	cascade's two hundred lines, priced at 512 bytes a leg), the
+	warning censuses hold the 756-line baseline on both legs with no
+	new class, and link_scan audits 310 externs against 310 definitions
+	with zero missing.
+
+Pre-release: Version 1.1.15-rc.3 (the fifth audit response round)
 
 	the fifth external audit arrived as a fusion report: a first pass that
 	claimed a delivered nav-and-golden fix package no tree ever received, and

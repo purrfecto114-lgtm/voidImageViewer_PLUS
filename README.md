@@ -22,11 +22,10 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.3 — the fifth audit response round (the current release candidate):**
+**1.1.15-rc.4 — the command picker round (the current release candidate):**
 
-- **The navigation trio** — the full-path sort mode compared the directory scans' bare names against the current file's full path (a mixed key whose order is noise; the path is completed before the first compare, at all three scan sites); the neighbor predicate now asks the random question in the walk's own order (random sessions no longer gray the step faces while the keys still fetch); and the playlist matches its entries by file name instead of the reserved id pair — an external fd carried (0,0), the first entry's exact id.
-- **Ten one-liners, each verified** — the mipmap node is born complete before the dc dance (a recursive free walks a null next, not garbage, when gdi runs out); the blank state updates the toolbar faces; the rename mirrors into both name sources (title bar and status strip); the theme change re-pins the status font and the in-place zoom editor beside the dpi path; the attestation command's repo name spells the repo again; the utf-8 allocation terminates before the conversion; the copydata handler declines a null pointer; the glyphs' GDI+ token pairs its shutdown; the pixel probe initializes its color; the test-side litter (a dead branch, a wrong setup exit code, a dead env, a dead icon tool) retires.
-- **The guard blind spots close** — the zoom ladder's growth constant is extracted from the init walk and cross-checked against the shrink range it must span (a drift to 1.02 passed every suite untouched); a deleted golden manifest fails the push gate (deletion is a downgrade, not a bootstrap window); the bootstrap itself now refuses to write a textured sample where two legs answered the same hash — the fake-green signature, refused at the source.
+- **The shortcut editor unlocked** — the settings window's command dropdown capped at the popup store's thirty-two rows while the command table holds 118 pickable commands: eighty-six commands were unreachable, and no shortcut could be added to them by any path the interface offers. The dropdown opens the real menu tree now — the same walk the frame menu runs — every leaf owner drawn with its live shortcut and the current command radio checked, each page one menu's own row set so no page outgrows the screen.
+- **The entry-point census** — every surface walked: all 118 command rows dispatch, all 63 default keys install onto real commands, every toolbar button and context row routes through the same WM_COMMAND, all thirty settings control ids answer, and the ini round-trip carries all 118 command names, each unique.
 - Full narrative: `Changes.txt`.
 
 **1.1.14 — the stable promotion round (the current stable):**
@@ -39,6 +38,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.15-rc.3** — the fifth audit response round: the navigation trio (the sort pollution at all three scan sites, the random-first gate order, the playlist file-name identity), the ten one-liners, the guard blind spots, the golden bootstrap refusing the fake green at the source.
 - **1.1.15-rc.2** — the fourth audit response round: the golden set learns to discriminate (the textured png, the three-way-distinct contract, the one-way ratchet), the nav pair unifies on the neighbor predicate.
 - **1.1.15-rc.1** — the image slot architecture round: the three physically separated frame-set families (19 loose globals, three hand-written field-by-field moves) become one typed slot and three instances; the lifecycle is two primitives; the nav-index cache keys on the file name.
 - **1.1.14-rc.10** — the corrections round: the byte-invariant class gates (`.editorconfig`, the byte suite, the pushed-range whitespace check), the re-runnable split conservation proof (290/290), the QOI fuzz smoke (36 deterministic mutants), the ARM64 compile leg, the renderer fallback naming itself on the status line.
