@@ -29,7 +29,6 @@
 // exported to other domains / the viv.c core
 void _viv_dialog_apply_font(HWND hwnd);
 void _viv_rename(void);
-void _viv_options(void);
 INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 // opens the in place zoom editor on the status bar pane (the name

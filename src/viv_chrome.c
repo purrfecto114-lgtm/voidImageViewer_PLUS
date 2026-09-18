@@ -175,11 +175,15 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 					// the box with the dark face and dot it ourselves, only when
 
-					// the native one is up (the parent is resizable and not
+					// a grip is actually served: the native one under a thick
 
-					// maximized - the control suppresses it otherwise).
+					// frame, or our own corner answer in the borderless layout
 
-					if (((GetWindowLong(_viv_hwnd,GWL_STYLE)) & WS_THICKFRAME) && (!IsZoomed(_viv_hwnd)) && (!_viv_is_fullscreen))
+					// (the wm_nchittest handoff above - the control suppresses
+
+					// its own grip there, so the dark repaint draws ours).
+
+					if ((((GetWindowLong(_viv_hwnd,GWL_STYLE)) & WS_THICKFRAME) || (!config_show_thickframe)) && (!IsZoomed(_viv_hwnd)) && (!_viv_is_fullscreen))
 
 					{
 
@@ -304,6 +308,58 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 			
 			return (LRESULT)viv_theme_brush(VIV_TK_CHROME);
 			
+		case WM_NCHITTEST:
+		{
+			LRESULT result;
+			
+			result = CallWindowProc(_viv_old_status_proc,hwnd,msg,wParam,lParam);
+			
+			// the native grip is suppressed when the parent carries no thick
+			// frame (the control paints nothing and answers nothing there),
+			// so the borderless layout lost the corner entirely: the strip
+			// covers the bottom of the client area and the parent's own thin
+			// edge band never sees a hit test. answer the grip box for the
+			// manual resize instead - the corner is a corner again, mouse
+			// and touch alike (the same box the dark repaint draws).
+			if ((result == HTCLIENT) && (!config_show_thickframe) && (!_viv_is_fullscreen) && (!IsZoomed(_viv_hwnd)))
+			{
+				POINT pt;
+				RECT rect;
+				int grip_wide;
+				int grip_high;
+				
+				pt.x = GET_X_LPARAM(lParam);
+				pt.y = GET_Y_LPARAM(lParam);
+				
+				ScreenToClient(hwnd,&pt);
+				
+				GetClientRect(hwnd,&rect);
+				
+				grip_wide = GetSystemMetrics(SM_CXVSCROLL);
+				grip_high = GetSystemMetrics(SM_CYVSCROLL);
+				
+				if ((grip_wide > 0) && (grip_high > 0) && (grip_wide < rect.right - rect.left) && (grip_high < rect.bottom - rect.top) && (pt.x >= rect.right - grip_wide) && (pt.y >= rect.bottom - grip_high))
+				{
+					return HTBOTTOMRIGHT;
+				}
+			}
+			
+			return result;
+		}
+		
+		case WM_NCLBUTTONDOWN:
+			// the corner answer above arrives here: hand the size loop to
+			// the parent, the same post the parent's own manual-band resize
+			// sends (the comctl grip does the same forward under a thick
+			// frame).
+			if ((wParam == HTBOTTOMRIGHT) && (!config_show_thickframe) && (!_viv_is_fullscreen))
+		{
+				PostMessage(GetParent(hwnd),WM_SYSCOMMAND,(SC_SIZE | WMSZ_BOTTOMRIGHT),lParam);
+				
+				return 0;
+		}
+			
+			break;
 
 
 	}
@@ -614,29 +670,78 @@ void _viv_toggle_fullscreen(void)
 	DWORD style;
 	int old_rw;
 	int old_rh;
-	int zoom_wide_array[_VIV_ZOOM_MAX];
-	int zoom_high_array[_VIV_ZOOM_MAX];
 	
 	_viv_get_render_size(&old_rw,&old_rh);
 
-	// precalculate all zoom levels for comparison later to find the zoom offset.
+	// the old code precomputed the whole 1024-entry ladder here, in the
+	// windowed geometry with the 1:1 flag as the user left it, then threw
+	// most of it away: the restore path never read the table, and the
+	// fullscreen-fill search below needs exactly one boundary in it. the
+	// render size is monotonic in the ladder position (the beta.8 ladder
+	// walks and the wheel's own binary searches already rely on this), so
+	// a binary search finds the same boundary with ~10 measurements
+	// instead of 1024 - measured here, before anything changes, because
+	// the answer is defined in the windowed geometry (the fill-window
+	// offset after the resize is measured in the fullscreen geometry
+	// instead, where it always was).
+	if ((!_viv_is_fullscreen) && (config_fullscreen_fill_window))
 	{
-		int backup_zoom;
-
-		backup_zoom = _viv_zoom_pos;
+		RECT monitor_rect;
+		int mon_wide;
+		int mon_high;
+		int backup_zoom_pos;
+		int lo;
+		int hi;
 		
-		for(_viv_zoom_pos=0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)
+		os_MonitorRectFromWindow(_viv_hwnd,1,&monitor_rect);
+		mon_wide = monitor_rect.right - monitor_rect.left;
+		mon_high = monitor_rect.bottom - monitor_rect.top;
+		
+		backup_zoom_pos = _viv_zoom_pos;
+		
+		// find the first ladder position that outgrows the monitor.
+		lo = 0;
+		hi = _VIV_ZOOM_MAX; // exclusive
+		
+		while (lo < hi)
 		{
+			int mid;
 			int rw;
 			int rh;
 			
+			mid = lo + ((hi - lo) / 2);
+			
+			_viv_zoom_pos = mid;
+			
 			_viv_get_render_size(&rw,&rh);
 			
-			zoom_wide_array[_viv_zoom_pos] = rw;
-			zoom_high_array[_viv_zoom_pos] = rh;
+			if ((rw > mon_wide) || (rh > mon_high))
+			{
+				hi = mid;
+			}
+			else
+			{
+				lo = mid + 1;
+			}
 		}
 		
-		_viv_zoom_pos = backup_zoom;
+		_viv_zoom_pos = backup_zoom_pos;
+		
+		// the old scan kept the last position that fit (zero when not
+		// even the first one did).
+		_viv_fullscreen_zoom_offset = (lo > 0) ? (lo - 1) : 0;
+		
+		if (_viv_fullscreen_zoom_offset > _viv_zoom_pos)
+		{
+			_viv_fullscreen_zoom_offset = _viv_zoom_pos;
+		}
+	}
+	else
+	if (!_viv_is_fullscreen)
+	{
+		// entering fullscreen with the fill answer off: the offset starts
+		// at zero (the fill-window search below may set it negative).
+		_viv_fullscreen_zoom_offset = 0;
 	}
 				
 	_viv_prevent_on_size = 1;
@@ -757,65 +862,61 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 			DestroyWindow(fullscreen_hwnd);
 		}
 
-		// find zoom offset.
+		// find zoom offset (the fill-window half; the fullscreen-fill half
+		// answered before the resize, in the windowed geometry it is defined
+		// in). the window has already resized, so the measurements here see
+		// the fullscreen state - the same state the old post-resize scan
+		// saw. binary search: the render size is monotonic in the ladder
+		// position, so ~10 measurements find the boundary the 1024-entry
+		// walk found.
+		if ((!config_fullscreen_fill_window) && (config_fill_window))
 		{
-			int zoom_index;
+			int backup_zoom_pos;
+			int lo;
+			int hi;
 			
-			_viv_fullscreen_zoom_offset = 0;
+			backup_zoom_pos = _viv_zoom_pos;
 			
-			if (config_fullscreen_fill_window)
+			// find the first ladder position that outgrows the render size
+			// the user was looking at.
+			lo = 0;
+			hi = _VIV_ZOOM_MAX; // exclusive
+			
+			while (lo < hi)
 			{
-				for(zoom_index=0;zoom_index<_VIV_ZOOM_MAX;zoom_index++)
-				{
-					// debug_printf("%d %d\n",zoom_wide_array[zoom_index] , monitor_rect.right - monitor_rect.left);
+				int mid;
+				int rw;
+				int rh;
 				
-					if ((zoom_wide_array[zoom_index] > monitor_rect.right - monitor_rect.left) || (zoom_high_array[zoom_index] > monitor_rect.bottom - monitor_rect.top))
-					{
-						break;
-					}
-							
-					_viv_fullscreen_zoom_offset = zoom_index;
-				}	
+				mid = lo + ((hi - lo) / 2);
 				
-				if (_viv_fullscreen_zoom_offset > _viv_zoom_pos)
+				_viv_zoom_pos = mid;
+				
+				_viv_get_render_size(&rw,&rh);
+				
+				if ((rw > old_rw) || (rh > old_rh))
 				{
-					_viv_fullscreen_zoom_offset = _viv_zoom_pos;
+					hi = mid;
 				}
-			}
-			else
-			if (config_fill_window)
-			{
-				int backup_zoom_pos;
-				
-				backup_zoom_pos = _viv_zoom_pos;
-				
-				for(_viv_zoom_pos=0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)
+				else
 				{
-					int rw;
-					int rh;
-					
-					_viv_get_render_size(&rw,&rh);
-					
-					// debug_printf("%d %d\n",zoom_wide_array[zoom_index] , monitor_rect.right - monitor_rect.left);
-				
-					if ((rw > old_rw) || (rh > old_rh))
-					{
-						break;
-					}
-							
-					_viv_fullscreen_zoom_offset = -_viv_zoom_pos;
-				}
-
-				_viv_zoom_pos = backup_zoom_pos;
-				
-				if (_viv_fullscreen_zoom_offset < -(_VIV_ZOOM_MAX-1-_viv_zoom_pos))
-				{
-					_viv_fullscreen_zoom_offset = -(_VIV_ZOOM_MAX-1-_viv_zoom_pos);
+					lo = mid + 1;
 				}
 			}
 			
-//			debug_printf("ZOOM OFFSET %d\n",_viv_fullscreen_zoom_offset);
+			_viv_zoom_pos = backup_zoom_pos;
+			
+			// the old scan kept the last position that fit (zero when not
+			// even the first one did).
+			_viv_fullscreen_zoom_offset = (lo > 0) ? -(lo - 1) : 0;
+			
+			if (_viv_fullscreen_zoom_offset < -(_VIV_ZOOM_MAX-1-_viv_zoom_pos))
+			{
+				_viv_fullscreen_zoom_offset = -(_VIV_ZOOM_MAX-1-_viv_zoom_pos);
+			}
 		}
+		
+//			debug_printf("ZOOM OFFSET %d\n",_viv_fullscreen_zoom_offset);
 	
 		_viv_zoom_pos -= _viv_fullscreen_zoom_offset;
 		_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos);
@@ -1651,12 +1752,12 @@ void _viv_status_update(void)
 			{
 				// the budget refusals carry their own line: "failed to load"
 // hides the one failure the user can actually act on.
-if (_viv_load_refused_input_size)
+if (_VIV_LOAD_REFUSED_READ(_viv_load_refused_input_size))
 {
 	string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_INPUT_OVER_LIMIT));
 }
 else
-if (_viv_load_refused_budget)
+if (_VIV_LOAD_REFUSED_READ(_viv_load_refused_budget))
 {
 	string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET));
 }

@@ -51,7 +51,7 @@ static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
 	{
 		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(ceiling / 1000000));
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}
@@ -63,7 +63,7 @@ static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
 	{
 		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}

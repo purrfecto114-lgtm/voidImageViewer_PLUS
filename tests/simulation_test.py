@@ -598,59 +598,14 @@ def t_sim_blank_flags():
 #    last association checkbox in half).
 # ---------------------------------------------------------------------------
 def t_sim_options_geometry():
-    print("sim: the options geometry (the 11 association checkboxes)")
+    print("sim: the options geometry (the classic dialogs retired)")
 
-    def dialog_block(name):
-        m = re.search(re.escape(name) + r"\s+DIALOGEX\s+(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(.*?)\bEND\b",
-                      RC, re.S)
-        if not m:
-            return None, None
-        height = int(m.group(4))
-        return height, m.group(5)
-
-    gen_h, gen_body = dialog_block("IDD_GENERAL")
-    if not check("the general page template is parseable", gen_body is not None):
-        return
-    check("the general page grew to 242 (the 11th checkbox fits)", gen_h == 242, str(gen_h))
-
-    # every association checkbox inside the group box: y + height <= page.
-    boxes = re.findall(r'CONTROL\s+"([^"]*)",\s*(IDC_[A-Z0-9_]+),\s*"Button",\s*BS_AUTOCHECKBOX[^,]*,\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)',
-                       gen_body)
-    assoc = [b for b in boxes if b[0].replace("&", "") in
-             ("BMP", "GIF", "ICO", "JPEG", "JPG", "PNG", "TIF", "TIFF", "WEBP", "EMF", "WMF")]
-    check("the general page carries eleven association checkboxes", len(assoc) == 11,
-          str([b[0] for b in assoc]))
-    for label, cid, x, y, w, h in assoc:
-        bottom = int(y) + int(h)
-        check("checkbox %s (y=%s h=%s) fits inside the page" % (cid, y, h),
-              bottom <= gen_h, "bottom %d > page %d" % (bottom, gen_h))
-    max_bottom = max(int(y) + int(h) for _, _, _, y, _, h in assoc)
-    check("the lowest checkbox (WMF, bottom %d) is fully visible" % max_bottom,
-          max_bottom == 232 and max_bottom <= gen_h - 10)
-
-    # the group box encloses all of them.
-    gbox = re.search(r'GROUPBOX\s+"Associations",IDC_ASSOCIATIONS_GROUPBOX,(\d+),(\d+),(\d+),(\d+)', gen_body)
-    if check("the associations group box is parseable", gbox is not None):
-        gy, gh = int(gbox.group(2)), int(gbox.group(4))
-        check("the group box bottom encloses the lowest checkbox",
-              gy + gh >= max_bottom, "group bottom %d vs box bottom %d" % (gy + gh, max_bottom))
-
-    # the container: the page fits inside the tab, the buttons clear it.
-    opt_h, opt_body = dialog_block("IDD_OPTIONS")
-    if check("the options container template is parseable", opt_body is not None):
-        check("the options container grew to 295", opt_h == 295, str(opt_h))
-        tab = re.search(r'CONTROL\s+"",IDC_TAB1,"SysTabControl32",[^,]*,(\d+),(\d+),(\d+),(\d+)', opt_body)
-        page_y = 26                            # the page child sits at y=26 dlu inside the tab
-        if tab:
-            tab_bottom = int(tab.group(2)) + int(tab.group(4))
-            page_bottom = page_y + gen_h
-            check("the 242-tall page fits inside the 264-tall tab",
-                  page_bottom <= tab_bottom, "page %d vs tab %d" % (page_bottom, tab_bottom))
-        ok_btn = re.search(r'DEFPUSHBUTTON\s+"OK",IDOK,(\d+),(\d+),(\d+),(\d+)', opt_body)
-        if ok_btn:
-            ok_bottom = int(ok_btn.group(2)) + int(ok_btn.group(4))
-            check("the OK button clears the page (5 dlu bottom margin)",
-                  opt_h - ok_bottom == 5, "margin %d" % (opt_h - ok_bottom))
+    # r114: the classic options templates (idd_general / idd_options)
+    # left the rc with the dialogs that opened them - the geometry
+    # simulation retired with them. the settings window owns the
+    # associations surface now (its own row grid, its own guards).
+    check("the classic options templates are gone",
+          "IDD_GENERAL" not in RC and "IDD_OPTIONS" not in RC)
 
 
 # ---------------------------------------------------------------------------
@@ -734,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.5.84",
-          (major, minor, rev, build) == (1, 1, 15, 84), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.5",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.5", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.6.85",
+          (major, minor, rev, build) == (1, 1, 15, 85), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.6",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.6", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -758,8 +713,8 @@ def t_sim_version_117():
           "**1.1.14-rc.9** —" in readme and
           "**1.1.14-rc.8** —" in readme and
           "**1.1.14-rc.3** —" in readme and
-          "**1.1.15-rc.5 —" in readme and
-          "**1.1.15-rc.4** —" in readme and
+          "**1.1.15-rc.6 —" in readme and
+          "**1.1.15-rc.5** —" in readme and
           "**1.1.15-rc.3** —" in readme and
           "**1.1.15-rc.2** —" in readme and
           "**1.1.15-rc.1** —" in readme and
@@ -929,7 +884,7 @@ def t_sim_field_round47():
     #    size, one charset - the two-charset drift that broke the page
     #    metrics is structurally impossible now).
     statements = re.findall(r'^FONT\s+([^\r\n]+)', RC, re.M)
-    check("ten font statements exist (rc.79: the zoom dialog template retired)", len(statements) == 10, str(len(statements)))
+    check("five font statements exist (rc.79 + r114: the classic options templates retired)", len(statements) == 5, str(len(statements)))
     uniform = all(s == '9, "Segoe UI", 400, 0, 0' for s in statements)
     check("every statement is the identical Segoe UI 9pt declaration",
           uniform, "; ".join(sorted(set(statements))))
@@ -939,14 +894,7 @@ def t_sim_field_round47():
     # 2. the dlu geometry the font change must preserve: the pages keep
     #    their template sizes (the dialog manager rederives the unit grid
     #    from the new font - the dlu numbers themselves are the layout).
-    m = re.search(r"^IDD_GENERAL\s+DIALOGEX\s+(\d+),\s*(\d+),\s*(\d+),\s*(\d+)", RC, re.M)
-    check("the general page keeps its 194x242 dlu template",
-          m is not None and (int(m.group(3)), int(m.group(4))) == (194, 242),
-          m.group(0) if m else None)
-    m = re.search(r"^IDD_OPTIONS\s+DIALOGEX\s+(\d+),\s*(\d+),\s*(\d+),\s*(\d+)", RC, re.M)
-    check("the options container keeps its 310x295 dlu template",
-          m is not None and (int(m.group(3)), int(m.group(4))) == (310, 295),
-          m.group(0) if m else None)
+    # r114: the classic pages keep no dlu template - they are gone.
 
     # 3. the pixel grid: the dlu numbers follow the dialog font, so the
     #    same template renders 15-23 percent larger on the segoe ui 9pt
@@ -988,8 +936,8 @@ def t_sim_field_round47():
             total += 1
             if (c["x"] + c["w"]) * bx > cx * bx + 0.001 or (c["y"] + c["h"]) * by > cy * by + 0.001:
                 overflow.append("%s/%s" % (name, c["id"]))
-    check("the pixel walk covered every control of the eleven templates",
-          total >= 80, str(total))
+    check("the pixel walk covered every control of the five templates",
+          total >= 25, str(total))  # r114: the classic options family retired (29 controls stay)
     check("every control fits its dialog on the pixel grid",
           not overflow, "overflow: %s" % " ".join(overflow[:8]))
 
@@ -1043,7 +991,7 @@ def t_sim_field_round47():
             need = label_px(c["label"]) + glyph_px + gap_px
             if need > avail:
                 fit_fail.append("%s/%s needs %.0f has %.0f" % (name, c["id"], need, avail))
-    check("the label fit walks the template checkboxes", boxes_seen >= 16, str(boxes_seen))
+    check("the label fit walks the template checkboxes", boxes_seen >= 1, str(boxes_seen))  # r114: the everything random row is the one live checkbox
     check("every checkbox label + glyph fits its control on the pixel grid",
           not fit_fail, "; ".join(fit_fail[:6]))
 
@@ -1108,10 +1056,10 @@ def t_sim_field_round47():
     # 5. the state machine: the reads stay live and no manual toggle
     #    compensation exists (the withdrawn build needed one and had
     #    none - that was the p0).
-    check("the check reads stay live (isdlgbuttonchecked x14, no bm_setcheck in the legacy dialog)",
-          VIV.count("IsDlgButtonChecked") == 14 and
+    check("the check reads stay live (the everything random row, no bm_setcheck)",
+          VIV.count("IsDlgButtonChecked") == 1 and
           "BM_SETCHECK" not in VIV and
-          open("src/viv_dialogs.c", "rb").read().decode("utf-8", errors="replace").count("BN_CLICKED") == 0)  # rc.8: the remake domains post BN_CLICKED on purpose (5 sites)
+          open("src/viv_dialogs.c", "rb").read().decode("utf-8", errors="replace").count("BN_CLICKED") == 0)  # rc.8: the remake domains post BN_CLICKED on purpose (5 sites); r114: the classic pages retired
     check("the flip never touches the glyph control styles",
           "((type == BS_PUSHBUTTON) || (type == BS_DEFPUSHBUTTON)))" in VIV and
           "|| (type == BS_AUTOCHECKBOX) || (type == BS_AUTORADIOBUTTON)))" not in VIV)
@@ -1256,8 +1204,8 @@ def t_sim_field_round46():
           op == 1)
 
     # --- both theme broadcasts schedule the settle re-check ---
-    check("the broadcasts, the options combo and the settings combo schedule the re-check",
-          VIV.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 4)  # rc.8: the settings theme row joins
+    check("the broadcasts and the settings combo schedule the re-check",
+          VIV.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 3)  # rc.8: the settings theme row joins; r114: the options combo left with the classic dialogs
 
     # --- the view menu canvas picker and the backdrop rename ---
     check("the menu picker shares the options apply chain",
@@ -1314,7 +1262,7 @@ def t_sim_field_round49():
           OSC.count("*lf = ncm.lfMessageFont;") == 2)
     check("no hard coded face name joins the runtime path",
           "lfMessageFont" in OSC and
-          RCD.count('FONT 9, "Segoe UI"') == 10)   # the template keeps the skeleton job (rc.79: the zoom dialog retired)
+          RCD.count('FONT 9, "Segoe UI"') == 5)   # the template keeps the skeleton job (rc.79 + r114: the classic options templates retired)
 
     # 2. the vertical budget, per template: the dlu grid keeps the segoe
     #    skeleton (the layout does not move), the rendering face may run
@@ -1329,8 +1277,8 @@ def t_sim_field_round49():
         r'^[ \t]*(CONTROL|LTEXT|RTEXT|CTEXT|PUSHBUTTON|DEFPUSHBUTTON|EDITTEXT|COMBOBOX|LISTBOX|GROUPBOX)\b[^\n]*?,(-?\d+),(-?\d+),(-?\d+),(-?\d+)(?:[,\s][^\n]*)?$',
         rc_joined, re.M):
         rows.append((m.group(1), int(m.group(5)), m.group(0)))
-    check("the template rows parse (the eleven dialogs carry controls)",
-          len(rows) >= 50, len(rows))
+    check("the template rows parse (the five dialogs carry controls)",
+          len(rows) >= 25, len(rows))  # r114: the classic options family retired (29 rows stay)
 
     tall_ok = [r for r in rows if r[0] in ("CONTROL", "PUSHBUTTON", "DEFPUSHBUTTON", "COMBOBOX", "LISTBOX", "GROUPBOX", "EDITTEXT")]
     # the blank label rows (the b42 template round's band chrome controls:
@@ -1413,9 +1361,9 @@ def t_sim_field_round49():
     draw_pos = proc_body.find("\t\tcase WM_DRAWITEM:")
     check("the font apply case leads the shared proc switch",
           apply_pos != -1 and draw_pos != -1 and apply_pos - proc_pos < draw_pos)
-    check("the shared proc fronts every dialog ahead of its own switch (rc.79: ten dialogs)",
-          VIVD.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 10 and
-          VIVD.count("if (dark_dialog_reply != -1)\r\n\t\t{\r\n\t\t\treturn dark_dialog_reply;") == 10)
+    check("the shared proc fronts every dialog ahead of its own switch (rc.79 + r114: five dialogs)",
+          VIVD.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 5 and
+          VIVD.count("if (dark_dialog_reply != -1)\r\n\t\t{\r\n\t\t\treturn dark_dialog_reply;") == 5)
     check("a dialog crossing monitors re-applies (wm_dpichanged)",
           VIVD.count("case WM_DPICHANGED:\r\n\t\t{\r\n\t\t\t// a dialog dragged across monitors") == 1)
     check("the settings broadcast touches no font (the faces live with their dialogs)",

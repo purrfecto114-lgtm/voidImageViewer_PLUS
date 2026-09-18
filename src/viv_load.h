@@ -49,7 +49,7 @@ void _viv_clear_preload(void);
 BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy);
 void _viv_open(WIN32_FIND_DATA *fd,int is_preload);
 void _viv_set_clipboard_image(void);
-void _viv_paste_clipboard_image(void);
+BOOL _viv_paste_clipboard_image(void);
 void _viv_save_image_as(void);
 void _viv_doing_cancel(void);
 void _viv_blank(void);

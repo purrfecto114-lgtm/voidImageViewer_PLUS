@@ -362,4 +362,6 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Image info", // LOCALIZATION_ID_TOOLBAR_GROUP_INFO
 	"Show all buttons", // LOCALIZATION_ID_TOOLBAR_SHOW_ALL
 	"void Image Viewer failed to initialize. The application will now exit.", // LOCALIZATION_ID_INIT_FAILED
+	"Icons only", // LOCALIZATION_ID_TOOLBAR_ICON_ONLY
+	"Toolbar icons only", // LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY
 };

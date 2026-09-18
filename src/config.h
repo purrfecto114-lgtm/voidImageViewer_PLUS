@@ -79,6 +79,7 @@ extern BYTE config_ui_accent; // ui accent color index: 0..4 (azure, teal, viole
 #define CONFIG_BACKDROP_MODE_CHECKERBOARD       4
 extern int config_renderer; // render back end: CONFIG_RENDERER_* (gdi default).
 extern int config_toolbar_groups; // toolbar visibility mask: bit per group (0x3f = every group).
+extern BYTE config_toolbar_icon_only; // toolbar without labels: the strip draws icons alone, so the narrow default window fits every group.
 
 extern BYTE config_backdrop_mode;
 extern BYTE config_backdrop_color_r;

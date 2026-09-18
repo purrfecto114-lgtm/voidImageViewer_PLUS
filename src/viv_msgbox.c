@@ -71,16 +71,31 @@ static int _viv_msgbox_button_count(void)
 
 static const wchar_t *_viv_msgbox_button_text(int index)
 {
+	// the localization table answers in utf-8; the button face draws with
+	// DrawTextW. the two never met: the raw bytes went to the wide api and
+	// the user saw one cjk ideograph per two ascii letters ("OK" answered
+	// u+4b4f, and the length read one byte past the terminator). the bridge
+	// is the same string_copy_utf8_string every other face uses; the static
+	// buffer follows the message text's own pattern (one face per draw
+	// call, ui thread only).
+	static wchar_t text[STRING_SIZE];
+
 	switch (_viv_msgbox_type & 0x0f)
 	{
 		case MB_YESNO:
-			return localization_get_string(index == 0 ? LOCALIZATION_ID_MSGBOX_NO : LOCALIZATION_ID_MSGBOX_YES);
+			string_copy_utf8_string(text,localization_get_string(index == 0 ? LOCALIZATION_ID_MSGBOX_NO : LOCALIZATION_ID_MSGBOX_YES));
+
+			return text;
 
 		case MB_OKCANCEL:
-			return localization_get_string(index == 0 ? LOCALIZATION_ID_CANCEL_BUTTON : LOCALIZATION_ID_OK_BUTTON);
+			string_copy_utf8_string(text,localization_get_string(index == 0 ? LOCALIZATION_ID_CANCEL_BUTTON : LOCALIZATION_ID_OK_BUTTON));
+
+			return text;
 	}
 
-	return localization_get_string(LOCALIZATION_ID_OK_BUTTON);
+	string_copy_utf8_string(text,localization_get_string(LOCALIZATION_ID_OK_BUTTON));
+
+	return text;
 }
 
 // the primary answers with the affirmative id, the secondary with its

@@ -212,6 +212,13 @@ WORD _viv_context_menu_items[] =
 
 #define _VIV_CONTEXT_MENU_ITEM_COUNT	(sizeof(_viv_context_menu_items) / sizeof(WORD))
 
+// the padded border metric. (not defined in the sdk headers at the
+// 0x0501 level this tree builds against - the same gap class as the
+// settings window's own edge band and the gesture fallback defines.)
+#ifndef SM_CXPADDEDBORDER
+#define SM_CXPADDEDBORDER 92
+#endif
+
 
 static LRESULT _viv_on_wm_nchittest(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
@@ -225,19 +232,29 @@ static LRESULT _viv_on_wm_nchittest(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 				int x;
 				int y;
 				RECT rect;
+				int band_x;
+				int band_y;
+				
+				// the manual edge band: the system resize border plus its
+				// padding, the same width the settings window's own borderless
+				// band uses. the bare size frame metric is 4 pixels at 96 dpi
+				// - a target a touch press cannot reliably land in; the padded
+				// metric doubles it without eating the canvas.
+				band_x = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+				band_y = GetSystemMetrics(SM_CYSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
 				
 				GetWindowRect(hwnd,&rect);
 
 				x = GET_X_LPARAM(lParam); 
 				y = GET_Y_LPARAM(lParam); 				
 				
-				if (x < rect.left + GetSystemMetrics(SM_CXSIZEFRAME))
+				if (x < rect.left + band_x)
 				{
-					if (y < rect.top + GetSystemMetrics(SM_CYSIZEFRAME))
+					if (y < rect.top + band_y)
 					{
 						return HTTOPLEFT;
 					}
-					if (y > rect.bottom - GetSystemMetrics(SM_CYSIZEFRAME))
+					if (y > rect.bottom - band_y)
 					{
 						return HTBOTTOMLEFT;
 					}
@@ -245,13 +262,13 @@ static LRESULT _viv_on_wm_nchittest(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 					return HTLEFT;
 				}
 				else
-				if (x > rect.right - GetSystemMetrics(SM_CXSIZEFRAME))
+				if (x > rect.right - band_x)
 				{
-					if (y < rect.top + GetSystemMetrics(SM_CYSIZEFRAME))
+					if (y < rect.top + band_y)
 					{
 						return HTTOPRIGHT;
 					}
-					if (y > rect.bottom - GetSystemMetrics(SM_CYSIZEFRAME))
+					if (y > rect.bottom - band_y)
 					{
 						return HTBOTTOMRIGHT;
 					}
@@ -259,26 +276,26 @@ static LRESULT _viv_on_wm_nchittest(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 					return HTRIGHT;
 				}
 				else
-				if (y < rect.top + GetSystemMetrics(SM_CYSIZEFRAME))
+				if (y < rect.top + band_y)
 				{
-					if (x < rect.left + GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXSIZEFRAME))
+					if (x < rect.left + band_x + band_x)
 					{
 						return HTTOPLEFT;
 					}
-					if (x > rect.right - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXSIZEFRAME))
+					if (x > rect.right - band_x - band_x)
 					{
 						return HTTOPRIGHT;
 					}
 					
 					return HTTOP;
 				}
-				if (y > rect.bottom - GetSystemMetrics(SM_CYSIZEFRAME))
+				if (y > rect.bottom - band_y)
 				{
-					if (x < rect.left + GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXSIZEFRAME))
+					if (x < rect.left + band_x + band_x)
 					{
 						return HTBOTTOMLEFT;
 					}
-					if (x > rect.right - GetSystemMetrics(SM_CXSIZEFRAME) - GetSystemMetrics(SM_CXSIZEFRAME))
+					if (x > rect.right - band_x - band_x)
 					{
 						return HTBOTTOMRIGHT;
 					}
@@ -2492,7 +2509,7 @@ static LRESULT _viv_on_wm_command(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 		return 0;
 	}
 
-	if ((command_id >= _VIV_TOOLBAR_CONTEXT_ID_FIRST) && (command_id < _VIV_TOOLBAR_CONTEXT_ID_FIRST + 8))
+	if ((command_id >= _VIV_TOOLBAR_CONTEXT_ID_FIRST) && (command_id < _VIV_TOOLBAR_CONTEXT_ID_FIRST + 9))
 	{
 		_viv_toolbar_context_command(command_id);
 
@@ -2533,10 +2550,98 @@ debug_printf("paste\n");
 		}
 		else
 		{
-			// no filenames on the clipboard: show an image copied from
-			// another application instead (paint, a browser, a screenshot
-			// tool, ...).
-			_viv_paste_clipboard_image();
+			// no filenames on the clipboard: an image copied from another
+			// application (paint, a browser, a screenshot tool, ...), or a
+			// path written as text.
+			if (!_viv_paste_clipboard_image())
+			{
+				// the text fallback: this app's own copy-filename answers
+				// cf_unicodetext, and so do the shell's copy-as-path and
+				// most file managers - any of them pasted here was a silent
+				// dead end while the paste read images only. accept a bare
+				// path: trim the whitespace and the quotes, then open it
+				// when it names a real, supported file.
+				hglobal = GetClipboardData(CF_UNICODETEXT);
+				
+				if (hglobal)
+				{
+					wchar_t *text;
+					
+					text = (wchar_t *)GlobalLock(hglobal);
+					
+					if (text)
+					{
+						wchar_t wbuf[STRING_SIZE];
+						SIZE_T text_count;
+						wchar_t *path_start;
+						uintptr_t path_len;
+						
+						// copy bounded by what the clipboard actually holds
+						// (the global's size, not the string's claim).
+						text_count = GlobalSize(hglobal) / sizeof(wchar_t);
+						
+						if (text_count > STRING_SIZE - 1)
+						{
+							text_count = STRING_SIZE - 1;
+						}
+						
+						os_copy_memory(wbuf,text,text_count * sizeof(wchar_t));
+						wbuf[text_count] = 0;
+						
+						GlobalUnlock(hglobal);
+						
+						// trim: leading and trailing whitespace, and the quotes
+						// a copy-as-path wraps the path in.
+						path_start = wbuf;
+						
+						while ((*path_start) && ((wchar_is_ws(*path_start)) || (*path_start == '"')))
+						{
+							path_start++;
+						}
+						
+						path_len = string_get_length(path_start);
+						
+						while ((path_len) && ((wchar_is_ws(path_start[path_len - 1])) || (path_start[path_len - 1] == '"')))
+						{
+							path_len--;
+							
+							path_start[path_len] = 0;
+						}
+						
+						if (*path_start)
+						{
+							wchar_t *extension;
+							
+							extension = string_get_extension(path_start);
+							
+							if (*extension)
+							{
+								int exti;
+								
+								for(exti=0;exti<_VIV_SUPPORTED_EXTENSION_COUNT;exti++)
+								{
+									if (string_icompare_lowercase_ascii(extension,_viv_supported_extensions[exti]) == 0)
+									{
+										WIN32_FIND_DATA find_data;
+										
+										// the supported-extension gate keeps random text
+										// from hitting the disk; the attribute check
+										// answers existence and file-ness (a folder with
+										// a .png name stays a folder). a miss is the
+										// same silence the image miss already answers.
+										if ((os_GetFileAttributesExW) && (os_GetFileAttributesExW(path_start,GetFileExInfoStandard,&find_data)) && (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)))
+										{
+											_viv_open_from_filename(path_start,VIV_OPEN_RECENT);
+										}
+										
+										break;
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 
 		CloseClipboard();

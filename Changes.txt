@@ -1,4 +1,142 @@
-﻿Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)
+﻿Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)
+
+	the round took the user's own judged fix list - three things worth
+	doing, one concurrency gap of the same class rc.5 had just closed,
+	and two field-reported interface defects - plus the one audit line
+	the user kept from the previous round's self-corrections (paste and
+	the clipboard features never matched). every fix landed exactly as
+	judged, with the evidence re-verified before each one moved.
+
+	the message box buttons. the p0, and the only unfixed one left: the
+	box's own button faces drew their labels as raw utf-8 bytes fed
+	directly to drawtextw - "ok" answered u+4b4f (one cjk ideograph per
+	two ascii letters) and the length read one byte past the terminator,
+	the chinese "确定" answered u+a1e7. the caption and body were
+	already bridged; the button path is the same three lines now - a
+	static wide buffer filled through string_copy_utf8_string, the same
+	bridge forty other faces use. a tree-wide census confirms this was
+	the last raw-utf8-to-wide-api point: every other path converts at the
+	os layer or the string bridge.
+
+	the fullscreen toggle. the old code precomputed the entire 1024-entry
+	zoom ladder on every toggle - two 4kb stack arrays, 1024 render-size
+	measurements in the windowed geometry before anything changed, then
+	up to 1024 more after the resize - and the restore path never read a
+	word of the table it had just built (2049 measurements of waste on
+	the way out of fullscreen). the fork built the answer in beta.8: the
+	ladder is monotonic in the position (the wheel's own binary searches
+	and the pos-max cache have relied on it since), so both boundaries -
+	the fullscreen-fill offset (the last position that fits the monitor,
+	measured in the windowed geometry the old table saw, 1:1 flag
+	included) and the fill-window offset (the last position that fits the
+	old render size, measured in the fullscreen geometry after the
+	resize, exactly where the old scan ran) - answer in ~10 measurements
+	each. the else-if relation between the two fill modes survives (both
+	on: the fullscreen-fill answer stands, as before); the clamps ride
+	untouched; the boundary arithmetic keeps the old scans' exact
+	edge semantics (a first position that already fails answers zero, a
+	ladder that never fails answers 1023).
+
+	the refusal flags. the audit's frame-set claim was re-verified first
+	and did not survive: the loader thread never touches the slot -
+	every frame crosses the reply queue by value (memcpy into the node
+	under the reply lock, published and drained release/acquire), so
+	there is no half-written frames window to close and no lock to add
+	where the ownership protocol already serializes (the same conclusion
+	the thread-handle claim reached in rc.5, recorded here for the same
+	reason). the two refusal flags were real, though, and they were the
+	last bare cross-thread writes in the tree: the budget flag (raised at
+	en refusal sites across webp, qoi, wic and the loader's own budget
+	checks) and the input-ceiling flag (raised once, at the whole-file
+	read) were plain bytes the loader thread wrote and the ui thread read
+	and cleared. they ride the same interlocked forms the cancel flag
+	took in rc.5 now - volatile long, interlockedexchange writes, the
+	0-for-0 compare-exchange read - through a read/set/clear macro trio
+	mirroring _viv_load_terminated.
+
+	the classic options dialogs. the audit ledger said ~800 lines; the
+	real number was 1404 in viv_dialogs.c alone (sixteen procedures, four
+	tables, sixteen forward declarations), plus five dialog templates in
+	the rc (idd_general, idd_options, idd_view, idd_controls,
+	idd_edit_key - 99 lines), seventy-eight dead resource names, the
+	viv.c page-id array and its state-layer export. _viv_options itself
+	was a six-line redirect to the settings window that nothing called;
+	the settings window has been the only options surface since the gui
+	remake round. two guard pins recorded a deliberate keep (round-91's
+	"rollback anchor until the settings window regains list browsing") -
+	the rc.4 command picker's cascade is exactly that list browsing, so
+	the recorded condition is met and the anchor retires with the code.
+	the deleted id names share their numeric values with live constants
+	by design (the count asserts pin the tables, never the numbers) -
+	names leave, numbers stay, nothing renumbers. the localization
+	table lost nothing: all sixty-one strings the dead family referenced
+	stay live through the settings window and the menus. the options-page
+	count define stays too - the settings window's own three pages ride
+	it.
+
+	the borderless corner. the field report: with the window not
+	maximized, the bottom-right corner could not resize the window, touch
+	reproduced. the root cause is structural: in the borderless layout
+	(view-layout-border off, and the minimal/compact presets) the status
+	bar covers the whole client bottom and the comctl grip suppresses
+	itself when the parent has no thick frame - so the corner had no
+	hit-test answer at all, and the parent's own 4-pixel manual band sat
+	under the strip where no pointer ever reached it. the strip answers
+	its own grip box now (htbottomright, the same box the dark repaint
+	draws, gated on the borderless state and not-maximized and
+	not-fullscreen) and forwards the press to the parent's size loop -
+	the same post the parent's own manual-band resize sends, so touch
+	rides the identical pipeline. the dark grip repaint joins the manual
+	mode (the visible corner tells the user it drags), and the manual
+	edge band widens from the bare size-frame metric to the padded-border
+	metric - the same width the settings window's own borderless band
+	uses, 4 to 8 pixels at 96 dpi, a target a touch press can land in
+	without eating the canvas.
+
+	the toolbar. the other field report: icons "swallowed" on the top
+	strip - open, zoom in, that toolbar - windowed and maximized alike.
+	the mechanism is the overflow contract: the strip hides whole groups
+	from the right until it fits, no wrapping, no chevron - and the full
+	strip with labels measures ~900 px in chinese, ~1147 in english,
+	against a default window of ~804 px client at 96 dpi. the zoom group
+	was the first to vanish; on a 1280-wide screen even the info group
+	went, maximized. the fix is the switch the user asked for: a new
+	settings row (view page, beside the title-bar format row) and a
+	toolbar right-click row both toggle icon-only mode - the buttons
+	measure pad+icon+pad (~44 px), the glyphs center, the strip fits every
+	group at ~505 px. the ini key (toolbar_icon_only) persists the
+	choice, the settings snapshot/restore rewinds it, and the toggle
+	runs the size sweep so the strip re-lays immediately. default off -
+	the labeled strip stays the look for everyone who never asked.
+
+	paste and the clipboard. the kept audit line: paste and the new
+	clipboard features never matched. copy filename answers
+	cf_unicodetext; paste read hdrop, then dib, then bitmap - never text.
+	pasting a filename the app itself had copied was a silent dead end.
+	the image reader returns its verdict now (bool, not void), and when
+	everything it reads is absent the paste takes the text: bounded by
+	the global's actual size, trimmed of whitespace and the quotes a
+	copy-as-path wraps, gated on a supported extension (the disk only
+	sees paths the viewer could open) and the file's existence, then
+	opened as a recent file. no new command - the one paste key now does
+	what its name says for every format the clipboard features write.
+
+	refuted with the evidence recorded, as the house rule asks: the
+	frame-set claim (the loader never touches the slot; the reply queue
+	is the protocol), and the audit's own corrections stood - the zoom
+	cache signature already covers the dpi, the rotation and the status
+	bar height (all folded into the view and image sizes), the thirteen
+	hidden commands are the upstream convention (down from twenty, a net
+	improvement), and the qoi and config round trips were already
+	field-verified.
+
+	verified: the five suites pass (the version pins swept to
+	1.1.15-rc.6 build 85), the splice window recalibrated for the
+	forty-two-hundred-line dialog retirement, the wndproc cap raised for
+	the paste fallback's hundred, the zig line links both legs, and the
+	warning census holds the zero-new-class line against the rc.5
+	baseline.
+
 
 	the round opened as a question about the system's own keys - do the
 	viewer's shortcuts fight them? they do not, and cannot: the tree

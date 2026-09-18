@@ -22,7 +22,18 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.5 — the sixth audit response round (the current release candidate):**
+**1.1.15-rc.6 — the judged-fixes round (the current release candidate):**
+
+- **The message box buttons, readable at last** — the box's own button faces drew their labels as raw UTF-8 bytes fed to the wide-char API: "OK" rendered as one CJK ideograph (U+4B4F) and read a byte past the terminator, the Chinese "确定" as U+A1E7. The three lines that bridge the localization table through the same UTF-8-to-wide conversion every other face uses close the last raw-bytes-to-DrawTextW path in the tree.
+- **The corner resize is back in the borderless layout** — with the window frame off (the View→Layout toggle and the minimal/compact presets), the bottom-right corner went dead: the status bar covers the client bottom and the native grip suppresses itself without a thick frame, so no hit-test ever reached the corner. The strip now answers the grip box itself and hands the size loop to the parent — mouse and touch — and the manual edge band widens to the padded-border metric a touch press can actually land in.
+- **Icon-only toolbar** — the full strip (icons plus labels) is wider than a default window at 96 dpi, so the overflow contract hid whole groups from the right — the zoom pair first, on plenty of screens even maximized. A new switch (Settings→View, and the toolbar's right-click menu) draws the strip as icons alone: every group fits, the buttons center their glyphs, and the ini remembers the choice.
+- **The fullscreen toggle, measured not brute-forced** — entering and leaving fullscreen precomputed the whole 1024-entry zoom ladder (two 4 KB stack arrays, up to 2049 render-size measurements per toggle, even on the restore path that never read a word of it). The same monotonic-ladder binary searches the wheel has used since beta.8 find both boundaries in ~10 measurements each, measured in the same geometry the old scans saw.
+- **Paste understands a copied path** — Copy Filename answers `CF_UNICODETEXT`, and pasting it back was a silent dead end (the paste read images only). The text fallback trims the whitespace and quotes, checks the extension against the viewer's supported set and the file's existence, and opens it — no new command, the one Paste key does what its name says.
+- **The refusal flags join the interlocked forms** — the budget and input-ceiling refusals were the loader thread raising plain flags the UI thread read and cleared; they ride the same interlocked exchange the rc.5 cancel flag took, closing the last bare cross-thread writes. The frames themselves were re-verified first: the loader never touches the slot (every frame crosses the reply queue by value), so no lock was added where the ownership protocol already serializes.
+- **The classic Options dialogs retire for real** — sixteen procedures, four dialog templates and seventy-eight resource ids that nothing could open anymore (the remake settings window is the options surface since the gui round) leave the tree, the resource file and the build: the "one entry point for configuration" the fork kept claiming is now the only thing the binary contains.
+- Full narrative: `Changes.txt`.
+
+**1.1.15-rc.5 — the sixth audit response round:**
 
 - **The IME and the hotkeys** — the report asked whether the shortcuts could fight the system's own keys (they cannot: the app registers no global hotkeys, no hooks and no accelerator tables, and every key match happens window-locally, consumed only on a hit). The real fight was with the input method editor: an open Chinese IME rewrites letter keys into `VK_PROCESSKEY`, so bindings went dead on the canvas and the key-capture dialogs could store keys that can never be pressed again. The windows that never compose text — the canvas, the zoom pill and its digits-only editor, the settings window, the edit-key capture — now run dissociated from the IME; the text-input dialogs (rename, jump-to, the Everything search) keep theirs, Chinese filenames are real input there.
 - **The initialization and the reply queue** — a refused window-class registration used to vanish into a void return: the app would sit windowless forever, no error, no exit. Every init step answers now — class, menu, window — each failure a message box with the last error and a clean teardown. The loader's completion notice used to post exactly once and never retry: one refused `PostMessage` and the queue stalled until the exit timeout. The wakeup is a duty flag now — a refused post hands the duty back, and the drain re-posts for entries that arrived mid-loop.
@@ -38,6 +49,7 @@ What's new
 - Full narrative: `Changes.txt`.
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
+- **1.1.15-rc.5** — the sixth audit response round: the IME dissociation (letter bindings alive under a Chinese input method), the init failures answering out loud, the reply-queue wakeup duty, the security and license batch.
 - **1.1.15-rc.4** — the command picker round: the shortcut editor's cascade (118 of 118 commands bindable, the thirty-two-row caps retired), the six-surface entry-point census.
 
 - **1.1.15-rc.3** — the fifth audit response round: the navigation trio (the sort pollution at all three scan sites, the random-first gate order, the playlist file-name identity), the ten one-liners, the guard blind spots, the golden bootstrap refusing the fake green at the source.

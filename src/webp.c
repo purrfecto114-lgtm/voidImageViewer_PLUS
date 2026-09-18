@@ -36,7 +36,7 @@ static int _animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
 	{
 		debug_printf("animation budget: refusing %u frames (ceiling %u)\r\n",(unsigned int)frame_count,(unsigned int)VIV_MAX_ANIMATION_FRAMES);
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}
@@ -45,7 +45,7 @@ static int _animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
 	{
 		debug_printf("animation budget: refusing %u frames of a %u mp canvas (%u mb of frames, ceiling %u mb)\r\n",(unsigned int)frame_count,(unsigned int)(canvas_pixels / 1000000),(unsigned int)(((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4) / 1000000),(unsigned int)(VIV_MAX_ANIMATION_TOTAL_BYTES / 1000000));
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}
@@ -59,7 +59,7 @@ static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
 	{
 		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(ceiling / 1000000));
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}
@@ -71,7 +71,7 @@ static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
 	{
 		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}

@@ -198,11 +198,11 @@ const char *volatile _viv_load_stage = "";
 // set by the budget refusals (canvas / working set / animation) and read
 // by the status line: the user sees why a file was refused, not just that
 // it failed. cleared when the next load dispatches.
-BYTE _viv_load_refused_budget = 0;
+volatile LONG _viv_load_refused_budget = 0;
 // set by the input ceiling refusal (the whole-file read happens
 // before any pixel budget can see the file) and read by the status
 // line: like the budget flag, cleared when the next load dispatches.
-BYTE _viv_load_refused_input_size = 0;
+volatile LONG _viv_load_refused_input_size = 0;
 // set when a hardware renderer the user picked refuses the current
 // image (no context on the machine, a canvas past the texture
 // ceiling, a frame the upload paths do not take) and the gdi path
@@ -214,7 +214,6 @@ _viv_reply_t *_viv_reply_start = 0;
 int _viv_reply_posted = 0;
 _viv_reply_t *_viv_reply_last = 0;
 wchar_t *_viv_status_temp_text = 0;
-int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS};
 HFONT _viv_about_hfont = 0;
 wchar_t *_viv_last_open_file = 0;
 wchar_t *_viv_last_open_folder = 0;

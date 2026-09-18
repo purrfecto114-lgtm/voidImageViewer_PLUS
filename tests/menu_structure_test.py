@@ -303,10 +303,12 @@ def t_localization_alignment():
             "LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE",
             "LOCALIZATION_ID_TOOLBAR_GROUP_INFO",
             "LOCALIZATION_ID_TOOLBAR_SHOW_ALL",
-            "LOCALIZATION_ID_INIT_FAILED")
-    check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail; r113: the init-failed id rides the tail)", tuple(ids[-57:]) == tail)
-    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail)", tuple(en[-57:]) == tail)
-    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail)", tuple(zh[-57:]) == tail)
+            "LOCALIZATION_ID_INIT_FAILED",
+            "LOCALIZATION_ID_TOOLBAR_ICON_ONLY",
+            "LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY")
+    check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(ids[-59:]) == tail)
+    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(en[-59:]) == tail)
+    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(zh[-59:]) == tail)
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -343,10 +345,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.15-rc.5.84 (the command picker round)",
-          (major, minor, rev, build) == ("1", "1", "15", "84") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.15-rc.5 tag)",
-          vstr == "1.1.15-rc.5")
+    check("version.h = 1.1.15-rc.6.85 (the command picker round)",
+          (major, minor, rev, build) == ("1", "1", "15", "85") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.15-rc.6 tag)",
+          vstr == "1.1.15-rc.6")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -486,8 +488,8 @@ def t_dark_mode_wiring():
           "os_dark_set_app_mode(config_dark_mode);" in viv)
     check("viv.c applies the dark chrome after creation",
           "_viv_apply_dark_mode(0);" in viv)
-    check("viv.c reads the dark combo in options OK",
-          "ComboBox_GetCurSel(GetDlgItem(general_page,IDC_DARKMODE))" in viv)
+    # r114: the options dialog dark-combo read retired with the classic
+    # dialogs (the settings window owns the theme combo now).
     check("viv.c dark canvas default",
           "_viv_windowed_background()" in viv
           and "return RGB(0x20,0x20,0x20);" in viv)
@@ -501,12 +503,8 @@ def t_dark_mode_wiring():
           "zoomui_set_dark(dark);" in viv)
 
     # resources
-    check("rc has the dark mode combobox row",
-          "IDC_DARKMODE,54,70,132,87" in rc and "IDC_DARKMODE_STATIC,0,70,54,12" in rc)
-    check("rc IDD_GENERAL fits the association list (242)", "194, 242" in rc)
-    check("resource.h has the ids",
-          "#define IDC_DARKMODE_STATIC                     1069" in rh
-          and "#define IDC_DARKMODE                            1070" in rh)
+    # r114: the dark combo rows, the idd_general template and the darkmode
+    # resource ids retired with the classic options dialogs.
 
 
 # ---------------------------------------------------------------------------
@@ -528,9 +526,14 @@ def t_ladder_shape():
           "pos_max = _viv_zoom_pos_max();" in viv)
     check("1:1 exit search starts at the live top",
           "hi = _viv_zoom_pos_max() + 1; // exclusive upper bound" in viv)
+    # r114: the fullscreen toggle joins the binary family - two more
+    # boundaries (the fill offset and the fullscreen-fill offset) ride the
+    # same monotonic ladder, and the 1024-entry precompute arrays are gone.
     check("1:1 exit and percent searches are binary (O(log n) measurements)",
-          viv.count("mid = lo + ((hi - lo) / 2);") == 3
-          and "for(_viv_zoom_pos = 0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)" not in viv)
+          viv.count("mid = lo + ((hi - lo) / 2);") == 5
+          and "for(_viv_zoom_pos = 0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)" not in viv
+          and "for(_viv_zoom_pos=0;_viv_zoom_pos<_VIV_ZOOM_MAX;_viv_zoom_pos++)" not in viv
+          and "zoom_wide_array" not in viv and "zoom_high_array" not in viv)
     check("ladder top cache signature present",
           "_viv_zoom_pos_max_cache >= 0" in viv
           and "_viv_zoom_pos_max_cache_view_wide == wide" in viv)
@@ -629,34 +632,28 @@ def t_dark_dialogs_wiring():
           "_viv_dialog_dark_ctlcolor" in viv and
           "_viv_dialog_dark_erase" in viv and
           "_viv_dialog_dark_brush" in viv)
-    check("all 10 dialog procs route through the dispatcher (rc.79: the zoom dialog retired)",
-          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 10)
-    check("all 10 dialogs get the dark chrome at init (plus the refresh enum and the rc.4 self heal; rc.79: the zoom dialog retired)",
-          viv.count("_viv_dark_dialog(hwnd);") == 12)
+    # r114: the classic options family left the tree - the dispatcher
+    # fronts the five live dialogs (custom rate, about, rename, jumpto,
+    # everything) and the dark-chrome init count dropped with it.
+    check("all 5 dialog procs route through the dispatcher (rc.79: the zoom dialog retired; r114: the options family retired)",
+          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 5)
+    check("all 5 dialogs get the dark chrome at init (rc.79: the zoom dialog retired; r114: the options family retired)",
+          viv.count("_viv_dark_dialog(hwnd);") == 6)
     # rc.1 regression guard: the dispatcher must NOT sit inside switch(msg)
     # before the first case label - that placement is unreachable dead code
     # (the beta.10 bug: gcc warned "statement will never be executed").
     dead = viv.count("switch(msg)\r\n\t{\r\n\t\t{\r\n\t\t\tINT_PTR dark_dialog_reply;")
     check("no dispatcher dead placement inside switch(msg)", dead == 0, str(dead))
     live = viv.count("{\r\n\t\tINT_PTR dark_dialog_reply;")
-    check("dispatcher runs before the switch in every proc (rc.79: 10 procs)", live == 10, str(live))
+    check("dispatcher runs before the switch in every proc (rc.79; r114: 5 procs)", live == 5, str(live))
     check("the dispatcher handles the color and erase messages",
           "case WM_CTLCOLORSTATIC:" in viv and
           "case WM_CTLCOLOREDIT:" in viv and
           "case WM_CTLCOLORLISTBOX:" in viv and
           "_viv_dialog_dark_erase(hwnd,(HDC)wParam)" in viv)
 
-    # options navigation
-    check("options tree gets dark colors",
-          "SendMessage(tree_hwnd,TVM_SETBKCOLOR,0,RGB(0x20,0x20,0x20));" in viv and
-          "SendMessage(tree_hwnd,TVM_SETTEXTCOLOR,0,RGB(0xE8,0xE8,0xE8));" in viv)
-    check("options tabs are subclassed for the dark body and items",
-          "(LONG_PTR)_viv_options_tab_proc);" in viv and
-          "SetWindowLongPtr(tab_hwnd,GWLP_USERDATA,(LONG_PTR)last_proc);" in viv and
-          "os_dark_window_theme(tab_hwnd);" in viv)
-    check("the light tab texture is skipped while dark",
-          viv.find("if (!_viv_is_dark())",
-                   viv.find("os_EnableThemeDialogTexture(page_hwnd,ETDT_ENABLETAB);") - 200) != -1)
+    # r114: the options tree / tab dark-family pins retired with the
+    # classic dialogs.
 
     # about colors (the b42 template round: the wm_paint passes are gone,
     # the same palettes travel the control color replies)
@@ -852,8 +849,10 @@ def t_paste_wiring():
 
     check("WM_PASTE falls back to an image branch",
           re.search(r"else\s*\{\s*// no filenames on the clipboard", viv) is not None)
+    # r114: the helper answers a verdict now - the image branch keeps it
+    # as the first reader and the text path takes the miss.
     check("the image branch calls the paste helper",
-          "_viv_paste_clipboard_image();" in viv)
+          "if (!_viv_paste_clipboard_image())" in viv)
     check("dib is the primary paste format",
           "GetClipboardData(CF_DIB)" in viv)
     check("bitmap is the fallback paste format",
@@ -870,7 +869,7 @@ def t_paste_wiring():
     check("the mipmap is built lazily (NULL is a supported frame state)",
           "_viv_slot_current.frames[0].mipmap = 0; // built lazily on the first paint." in viv)
     check("the paste helpers have prototypes",
-          re.search(r"(?:static\s+)?void _viv_paste_clipboard_image\(void\);", viv) is not None)
+          re.search(r"(?:static\s+)?BOOL _viv_paste_clipboard_image\(void\);", viv) is not None)  # r114: the helper answers a verdict now
     check("only 40 byte dib headers take the dib path",
           "bih->biSize == sizeof(BITMAPINFOHEADER)" in viv)
     check("the dib stride math is overflow safe",
@@ -1869,8 +1868,9 @@ def t_dark_menu_bar():
     seg = viv[i:viv.find("\nstatic ", i + 10)]
     check("apply dark repaints the remade bar",
           "_viv_menubar_repaint();" in seg)
-    check("the re-layout sites are creation, dpi, theme, the language rebuild, the settings window and the bar itself",
-          viv.count("_viv_menubar_layout();") == 6)  # rc.8: the settings window re-lays the bar after its language switch
+    # r114: the options page left the layout family (6 -> 5).
+    check("the re-layout sites are creation, dpi, theme, the language rebuild and the bar itself",
+          viv.count("_viv_menubar_layout();") == 5)  # rc.8: the settings window re-lays the bar after its language switch
 
     # the chrome palette and the rebar erase hardening.
     check("the chrome brush cache carries the remake menu bar face",
@@ -1918,16 +1918,7 @@ def t_dark_layers_round():
     check("the toolbar separators are self drawn hairlines",
           tb_src_d.count("_VIV_TOOLBAR_SEP") >= 1 or "_sep" in tb_src_d or "separator" in tb_src_d)
 
-    # options tabs: subclassed body + custom drawn items.
-    check("the options tab body erases dark",
-          "FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(3));" in viv and
-          "_viv_options_tab_proc" in viv)
-    check("the options tab paints itself dark end to end",
-          'if (msg == WM_PAINT)' in viv and
-          "TabCtrl_GetItem(hwnd,0,&tcitem)" in viv and
-          "TabCtrl_GetItemRect(hwnd,0,&item_rect)" in viv and
-          "FillRect(ps.hdc,&strip_rect,_viv_dark_chrome_brush(0));" in viv and
-          "FillRect(ps.hdc,&item_rect,_viv_dark_chrome_brush(3));" in viv)
+    # r114: the options tab pins retired with the classic dialogs.
     check("the old tab custom draw is gone",
           "_viv_options_tab_draw" not in viv)
 
@@ -2130,10 +2121,7 @@ def t_ux_round41():
     check("emf/wmf live in the association table",
           '\t"emf",' in viv and '\t"wmf",' in viv and
           "LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_EMF," in viv)
-    check("options dialog has emf/wmf checkboxes",
-          "#define IDC_EMF" in rh and "#define IDC_WMF" in rh and
-          '"&EMF",IDC_EMF,' in rc and '"&WMF",IDC_WMF,' in rc and
-          viv.count("CheckDlgButton(hwnd,IDC_EMF,check);") == 1)
+    # r114: the emf/wmf checkbox pins retired with the general page.
     check("open dialog filter includes the metafiles",
           "*.webp;*.emf;*.wmf" in viv)
     check("everything default search includes the metafiles",
@@ -2454,19 +2442,8 @@ def t_field_fixes_round43():
     check("the swapped-out popup is destroyed",
           seg.count("DestroyMenu(") == 2)
 
-    # --- the options dialog height ---
-    check("the general page fits the association list",
-          "IDD_GENERAL DIALOGEX 0, 0, 194, 242" in rc and
-          '"&WMF",IDC_WMF,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,6,222,42,10' in rc and
-          'GROUPBOX        "Associations",IDC_ASSOCIATIONS_GROUPBOX,0,90,54,148' in rc)
-    check("the options container grew with the page",
-          "IDD_OPTIONS DIALOGEX 0, 0, 310, 295" in rc and
-          'DEFPUSHBUTTON   "OK",IDOK,198,276,50,14,WS_GROUP' in rc and
-          'PUSHBUTTON      "Cancel",IDCANCEL,252,276,50,14' in rc)
-    check("the tree, tabs and page placeholder match the new depth",
-          'TVS_SHOWSELALWAYS | TVS_TRACKSELECT | WS_BORDER | WS_TABSTOP,6,6,84,264' in rc and
-          rc.count('"SysTabControl32",WS_TABSTOP,96,6,210,264') == 3 and
-          'LTEXT           "Static",IDC_PAGEPLACEHOLDER,106,26,186,238,NOT WS_VISIBLE' in rc)
+    # r114: the classic options template geometry pins retired with
+    # the templates themselves.
 
 
 def t_field_fixes_round44():
@@ -2517,15 +2494,11 @@ def t_field_fixes_round44():
     check("the follow backdrop matches the mat the window paints (fullscreen aware)",
           "color = _viv_is_fullscreen ? RGB(config_fullscreen_background_color_r,config_fullscreen_background_color_g,config_fullscreen_background_color_b) : _viv_windowed_background();" in seg)
 
-    # --- the options ok chain for the mat color ---
-    i = viv.find("config_windowed_background_color_b = GetBValue(colorref);")
-    check("changing the mat color re-tints the win11 caption and reloads the image",
-          i != -1 and
-          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));" in viv[i:i+800] and
-          "InvalidateRect(_viv_hwnd,0,FALSE);" in viv[i:i+800] and
-          "_viv_refresh();" in viv[i:i+800])
-    check("the caption tint follows the mat from startup, the options, the view menu and the settings window",
-          viv.count("os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));") == 5)  # rc.8: the settings theme row adds two
+    # r114: the options ok chain for the mat color retired with the
+    # classic dialogs (the settings color rows answer the same chain).
+    # r114: the options ok chain left with the classic dialogs (5 -> 4).
+    check("the caption tint follows the mat from startup, the view menu and the settings window",
+          viv.count("os_window_modern_chrome(_viv_hwnd,_viv_windowed_background(),viv_theme_color(VIV_TK_TEXT));") == 4)  # rc.8: the settings theme row adds two
 
     # --- the dark comboboxes on every build ---
     check("comboboxes take the common dialog dark class in the dark ui only",
@@ -2662,9 +2635,10 @@ def t_field_fixes_round47():
 
     # --- the dialog font: one family, one size, one charset everywhere ---
     font_statements = [s.rstrip("\r") for s in re.findall(r'^FONT[^\r\n]*', rc, re.M)]
-    check("every dialog declares the same font statement (rc.79: 10 templates)",
-          font_statements.count('FONT 9, "Segoe UI", 400, 0, 0') == 10 and
-          len(font_statements) == 10,
+    # r114: the five classic options templates retired (10 -> 5).
+    check("every dialog declares the same font statement (rc.79 + r114: 5 templates)",
+          font_statements.count('FONT 9, "Segoe UI", 400, 0, 0') == 5 and
+          len(font_statements) == 5,
           "%d font statements" % len(font_statements))
     check("the obsolete DS_FIXEDSYS flag is gone from every template",
           "DS_FIXEDSYS" not in rc)
@@ -2717,11 +2691,14 @@ def t_field_fixes_round47():
           "#define OS_RBS_CHECKEDNORMAL 5" in osh)
 
     # --- the state machine survives untouched ---
+    # r114: the classic options pages retired; the one live check read is
+    # the everything dialog random row (the settings window reads its own
+    # switches, the main window reads the drop handler).
     dlg_src = open("src/viv_dialogs.c", "rb").read().decode("utf-8", errors="replace")
-    check("the check reads stay live (no manual toggle compensation in the legacy dialog)",
-          viv.count("IsDlgButtonChecked") == 14 and
+    check("the check reads stay live (no manual toggle compensation)",
+          viv.count("IsDlgButtonChecked") == 1 and
           "BM_SETCHECK" not in viv and
-          dlg_src.count("IsDlgButtonChecked") == 13 and
+          dlg_src.count("IsDlgButtonChecked") == 0 and
           dlg_src.count("BN_CLICKED") == 0)  # rc.8: the toolbar and the settings domains post BN_CLICKED to the main window on purpose (5 sites)
 
     # --- the owner drawn label uses the control font ---
@@ -2746,13 +2723,10 @@ def t_field_fixes_round47():
 
     # --- the option inventory survives the rewrite (the r47 baseline) ---
     baseline = {
-        "IDD_GENERAL": "IDC_ASSOCIATIONS_GROUPBOX IDC_BMP IDC_CHECKALL IDC_CHECKNONE IDC_DARKMODE IDC_DARKMODE_STATIC IDC_EMF IDC_GIF IDC_ICO IDC_JPEG IDC_JPG IDC_LANGUAGE IDC_LANGUAGE_STATIC IDC_PNG IDC_STARTMENU IDC_TIF IDC_TIFF IDC_WEBP IDC_WMF",
-        "IDD_OPTIONS": "IDCANCEL IDC_PAGEPLACEHOLDER IDC_TAB1 IDC_TAB2 IDC_TAB3 IDC_TREE1 IDOK",
-        "IDD_VIEW": "IDC_AUTO_ZOOM IDC_CACHE_LAST_IMAGE IDC_COMBO1 IDC_COMBO2 IDC_COMBO4 IDC_FULLSCREENBACKGROUNDCOLOR IDC_FULLSCREENBACKGROUNDCOLOR_STATIC IDC_MAGNIFY_BLIT_MODE_STATIC IDC_PRELOAD_NEXT_IMAGE IDC_SHRINK_BLIT_MODE_STATIC IDC_TITLE_BAR_FORMAT IDC_TITLE_BAR_FORMAT_STATIC IDC_WINDOWEDBACKGROUNDCOLOR IDC_WINDOWEDBACKGROUNDCOLOR_STATIC",
-        "IDD_CONTROLS": "IDC_ADD_KEY IDC_COMMANDS_LIST IDC_COMMANDS_STATIC IDC_EDIT_KEY IDC_KEYS_LIST IDC_LEFTCLICKACTION IDC_LEFT_CLICK_ACTION_STATIC IDC_MOUSEWHEELACTION IDC_MOUSE_WHEEL_ACTION_STATIC IDC_REMOVE_KEY IDC_RIGHTCLICKACTION IDC_RIGHT_CLICK_ACTION_STATIC IDC_SETTINGS_FOR_SELECTED_COMMAND_STATIC",
+        # r114: idd_general / idd_options / idd_view / idd_controls retired
+        # with the classic options dialogs.
         "IDD_CUSTOM_RATE": "IDCANCEL IDC_CUSTOM_RATE_EDIT IDC_CUSTOM_RATE_STATIC IDC_CUSTOM_RATE_TYPE_COMBO IDOK",
         "IDD_ABOUT": "IDCANCEL IDC_ABOUTBACK IDC_ABOUTCOPYRIGHT IDC_ABOUTEMAIL IDC_ABOUTTITLE IDC_ABOUTVERSION IDC_ABOUTVOIDIMAGEVIEWER IDC_ABOUTWEBSITE IDOK",
-        "IDD_EDIT_KEY": "IDCANCEL IDC_EDIT_KEYBOARD_SHORTCUT_KEY_CURRENTLY_USED_BY_STATIC IDC_EDIT_KEYBOARD_SHORTCUT_KEY_STATIC IDC_EDIT_KEY_CURRENTLY_USED_BY_LIST IDC_EDIT_KEY_EDIT IDOK",
         "IDD_RENAME": "IDCANCEL IDC_RENAME_EDIT IDC_RENAME_OLD_EDIT IDOK",
         "IDD_JUMPTO": "IDCANCEL IDC_JUMPTO_EDIT IDC_JUMPTO_LIST IDOK",
         "IDD_EVERYTHING": "IDCANCEL IDC_EVERYTHING_EDIT IDC_SEARCH_EVERYTHING_RANDOM IDOK",
@@ -2837,8 +2811,9 @@ def t_field_fixes_round46():
           "return;" in seg)
 
     # --- the theme change broadcast gets the re-check too ---
-    check("the theme broadcasts, the options combo and the settings combo schedule the one shot re-check",
-          viv.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 4)  # rc.8: the settings theme row joins
+    # r114: the options combo left with the classic dialogs (4 -> 3).
+    check("the theme broadcasts and the settings combo schedule the one shot re-check",
+          viv.count("SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);") == 3)  # rc.8: the settings theme row joins
 
     # --- the view menu canvas color picker + the backdrop rename ---
     check("the view menu canvas color command id exists",
@@ -2911,12 +2886,14 @@ def t_field_fixes_round49():
     check("a dialog dragged across monitors re-reads the font",
           "case WM_DPICHANGED:" in dark_proc and
           dark_proc.count("_viv_dialog_apply_font(hwnd);") == 2)
-    check("the shared dark proc fronts all ten dialogs (rc.79: the zoom dialog retired)",
-          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 10)
+    # r114: the five classic options dialogs retired (10 -> 5: custom
+    # rate, about, rename, jumpto, everything).
+    check("the shared dark proc fronts all five dialogs (rc.79 + r114)",
+          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 5)
 
     # --- the template keeps its job: the dlu skeleton ---
-    check("ten segoe template statements stay (the dlu grid, not the face; rc.79: the zoom dialog retired)",
-          rc.count('FONT 9, "Segoe UI"') == 10 and "MS Shell Dlg" not in rc)
+    check("five segoe template statements stay (the dlu grid, not the face; rc.79 + r114)",
+          rc.count('FONT 9, "Segoe UI"') == 5 and "MS Shell Dlg" not in rc)
 
 def t_field_fixes_round50():
     """Guards for the font lifetime review fix (1.1.11, pre-release).
@@ -3097,7 +3074,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the pixel oracle round sweeps the pin)",
-          "#define VERSION_BUILD 84" in version)
+          "#define VERSION_BUILD 85" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3168,8 +3145,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 84" in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+          "#define VERSION_BUILD 85" in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3219,7 +3196,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 31850)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613)
+          viv_lines >= 21130 and viv_lines <= 30700)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523)
 
     # 4. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3253,7 +3230,7 @@ def t_split_architecture_round70():
         check(f"the {d} domain module exists", ok)
         if ok:
             n = open(p, "rb").read().decode("utf-8", errors="replace").count("\n") + 1
-            cap = 3300 if d == "view" else (3100 if d == "wndproc" else 3000)  # rc.5: view takes the gesture cluster home (+243); rc.4: wndproc takes the halftone palette and the dpi icons home (+232)
+            cap = 3300 if d == "view" else (3400 if d == "wndproc" else 3000)  # r114: the paste text fallback joins the wndproc domain (measured 3322)  # rc.5: view takes the gesture cluster home (+243); rc.4: wndproc takes the halftone palette and the dpi icons home (+232)
             check(f"viv_{d}.c is under the {cap}-line cap", n < cap, f"({n})")
 
     # 3. the state layer exists and carries the transition externs
@@ -3280,7 +3257,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 31850, f"({total})")  # round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613)
+          21130 <= total <= 30700, f"({total})")  # round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523)
 
     # 6. the plan carries the R70 one-shot recalibration
     plan = read("docs/architecture/viv-split-plan.md").decode()
@@ -3306,8 +3283,8 @@ def t_split_architecture_round70():
          "wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];"),
         ("extern BYTE _viv_is_cursor_shown;",
          "BYTE _viv_is_cursor_shown = 1;"),
-        ("extern int _viv_options_page_ids[];",
-         "int _viv_options_page_ids[] = {VIV_ID_OPTIONS_GENERAL,VIV_ID_OPTIONS_VIEW,VIV_ID_OPTIONS_CONTROLS};"),
+        # r114: the _viv_options_page_ids pair retired with the classic
+        # dialogs (the page-count define stays - the settings window rides it).
     ):
         name = core_def.split("[")[0].split("=")[0].split(";")[0].strip().split()[-1]
         check("the state layer exports %s" % name, decl in state)
@@ -3332,7 +3309,8 @@ def t_split_architecture_round70():
         ("viv.c", "typedef char _viv_animation_rates_count_assert[(sizeof(_viv_animation_rates) / sizeof(float) == _VIV_ANIMATION_RATE_MAX) ? 1 : -1];"),
         ("viv.c", "typedef char _viv_association_extensions_count_assert[(sizeof(_viv_association_extensions) / sizeof(_viv_association_extensions[0]) == _VIV_ASSOCIATION_COUNT) ? 1 : -1];"),
         ("viv_view.c", "typedef char _viv_slideshow_rate_presets_count_assert[(sizeof(_viv_slideshow_rate_presets) / sizeof(WORD) == _VIV_SLIDESHOW_RATE_PRESET_COUNT) ? 1 : -1];"),
-        ("viv_dialogs.c", "typedef char _viv_options_dialog_ids_count_assert[(sizeof(_viv_options_dialog_ids) / sizeof(int) == _VIV_OPTIONS_PAGE_COUNT) ? 1 : -1];"),
+        # r114: the viv_dialogs.c page-ids assert retired with the classic
+        # dialogs (the page-count macro stays - the settings window rides it).
     ):
         text = {"viv.c": vivc, "viv_view.c": vivview, "viv_dialogs.c": vivdlg}[unit]
         check("the %s count is pinned by a negative-subscript typedef assert" % unit, assertion in text)
@@ -3373,8 +3351,8 @@ def t_structure_round76():
     # 2. the wndproc domain: exists, sized, registered exactly once.
     wnd = open("src/viv_wndproc.c", "rb").read().decode("utf-8", errors="replace")
     check("the wndproc domain exists", "static LRESULT _viv_on_wm_nchittest(" in wnd)
-    check("the wndproc domain is under the 3,300 line cap",
-          wnd.count("\n") + 1 < 3300, f"({wnd.count(chr(10)) + 1})")  # rc.4: the halftone palette and the dpi icons; rc.10: the renderer-fallback notice joins the paint path; round-113: the reply wakeup duty's drain-side repost and the copydata null-buffer belt (measured 3217)
+    check("the wndproc domain is under the 3,400 line cap",
+          wnd.count("\n") + 1 < 3400, f"({wnd.count(chr(10)) + 1})")  # rc.4: the halftone palette and the dpi icons; rc.10: the renderer-fallback notice joins the paint path; round-113: the reply wakeup duty's drain-side repost and the copydata null-buffer belt (measured 3217); round-114: the paste text fallback (measured 3322)
     props = read("voidImageViewer.files.props").decode("utf-8-sig")
     check("viv_wndproc.c is registered in the props",
           props.count('src\\viv_wndproc.c" />') == 1)
@@ -3442,9 +3420,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3485,16 +3463,10 @@ def t_theme_race_round72():
           "// the dark ui erases with the chrome face" in viv and
           "FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(0));" in viv)
 
-    # 4. the options combo schedules the one shot assert after its app mode
-    #    flush (the flush sweep is asynchronous).
-    check("the combo schedules the assert after the app mode flush",
-          "SetTimer(_viv_hwnd,VIV_ID_DARK_RECHECK_TIMER,400,0);" in dialogs)
+    # r114: the options combo assert pin retired with the classic dialogs.
 
-    # 5. the options dialog self-heals its creation race: the one shot
-    #    timer re-runs the full dark pass.
-    check("the options dialog schedules the creation race self heal",
-          "SetTimer(hwnd,VIV_ID_DARK_DIALOG_ASSERT_TIMER,300,0);" in dialogs and
-          "VIV_ID_DARK_DIALOG_ASSERT_TIMER" in read("src/viv.h").decode())
+    # r114: the options dialog creation-race self heal retired with the
+    # dialog (the settings window runs its own dark pass).
 
     # 6. the tree pins its face and label colors in the dark dialog children
     #    walk (the theme gray read as low contrast), with the system default
@@ -3508,8 +3480,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the pixel oracle round sweeps them)",
-          "#define VERSION_BUILD 84" in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+          "#define VERSION_BUILD 85" in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3983,10 +3955,10 @@ def t_open_intent_round81():
     # 4. the one unknowable path declares itself forwarded.
     check("the forwarded command line keeps the same-file question",
           "_viv_open_from_filename(open_filename,VIV_OPEN_FORWARDED)" in viv)
-    check("the tree counts the open-by-name exactly (2 declarations + 4 sites)",
-          viv.count("_viv_open_from_filename(") == 6 and
+    check("the tree counts the open-by-name exactly (2 declarations + 5 sites)",
+          viv.count("_viv_open_from_filename(") == 7 and
           view.count("_viv_open_from_filename(") == 2 and
-          wnd.count("_viv_open_from_filename(") == 1)
+          wnd.count("_viv_open_from_filename(") == 2)  # r114: the paste text fallback opens a copied path
 
     # 5. the changelog refunds the trade.
     flat = " ".join(changes.split())
@@ -4071,9 +4043,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4241,9 +4213,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in readme and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4344,9 +4316,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in readme and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4408,14 +4380,12 @@ def t_dead_residue_round91():
                  "IDC_OLD_EDIT", "IDC_EDIT1"):
         check("resource.h drops %s" % dead,
               ("#define " + dead + " ") not in resh)
-    check("the live dialog ids stay",
-          "#define IDD_OPTIONS " in resh and "#define IDD_EDIT_KEY " in resh)
-    check("the live association controls stay",
-          "#define IDC_BMP " in resh and "#define IDC_WEBP " in resh and
-          "#define IDC_EMF " in resh)
+    # r114: the classic options ids left with the dialogs they named
+    # (r91 keeps them was the recorded rollback anchor; the rc.4 cascade
+    # picker is that list browsing, so the condition is met).
     # 4. the deliberate keeps (recorded decisions, not residue).
-    check("the frozen options family stays (the recorded rollback anchor)",
-          "_viv_options_proc" in read("src/viv_dialogs.c").decode("latin-1"))
+    # r114: the frozen options family left (the rc.4 cascade picker is
+    # the list browsing the round-91 anchor was waiting for).
     check("the unicows bootstrap stays (version_x86 builds link it)",
           "LoadUnicowsProc" in read("src/viv.c").decode("latin-1"))
     check("the crt assert override stays",
@@ -4423,9 +4393,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4522,9 +4492,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -4639,9 +4609,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4852,9 +4822,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.15-rc.5 build 83 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4962,8 +4932,7 @@ def t_field_sweep_round93():
           "TODO: resolve shortcuts" in osc)
     check("the real preload review todo stays",
           "//TODO: review -when enabled, viv fills unresponsive/sluggish." in view)
-    check("the frozen options family stays",
-          "_viv_options_proc" in dialogs)
+    # r114: the frozen options family left (see the dead residue round).
     check("the brace flattening stays deferred (the bare braces keep their lines)",
           read("src/viv_load.c").decode("latin-1").count(
               "if (!_viv_load_image_terminate)") == 2)
@@ -4992,9 +4961,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014" in readme and
           "(the current stable):**" in readme)
@@ -5220,9 +5189,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in readme)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in readme)
-    check("the version is 1.1.15-rc.5 build 83 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5296,9 +5265,9 @@ def t_navigation_visibility_round99():
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.3** \u2014" in readme)
-    check("the version is 1.1.15-rc.5 build 83 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
 
 def t_audit_response_round101():
@@ -5415,9 +5384,9 @@ def t_audit_response_round101():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.4** \u2014" in readme and
           "**1.1.14-rc.3** \u2014" in readme)
@@ -5528,11 +5497,11 @@ def t_pixel_oracle_round102():
 
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)", top)
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the changelog top entry is the judged-fixes round pre-release",
+          top == "Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)", top)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.4** \u2014" in readme)
@@ -5651,17 +5620,21 @@ def t_audit_hardening_round103():
     # 2. the refusal reason reaches the user: the flag is shared state with
     #    a cleared dispatch, every refusal marks it, and the status line has
     #    its own localized string for it.
+    # r114: the refusal flags ride the interlocked forms (the same rule
+    # the rc.5 cancel flag took - the arm legs carry no barrier on plain
+    # volatile reads).
     check("the refusal flag is shared state with a cleared dispatch",
-          "extern BYTE _viv_load_refused_budget;" in state and
-          "BYTE _viv_load_refused_budget = 0;" in viv and
-          "_viv_load_refused_budget = 0;" in vivload)
+          "extern volatile LONG _viv_load_refused_budget;" in state and
+          "volatile LONG _viv_load_refused_budget = 0;" in viv and
+          "_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_budget);" in vivload and
+          "#define _VIV_LOAD_REFUSED_CLEAR(flag) InterlockedExchange(&(flag),0)" in state)
     check("every budget refusal marks the flag",
-          vivload.count("_viv_load_refused_budget = 1;") == 4 and
-          webp.count("_viv_load_refused_budget = 1;") == 4 and
-          wic.count("_viv_load_refused_budget = 1;") == 2 and
-          qoi.count("_viv_load_refused_budget = 1;") == 2)
+          vivload.count("_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);") == 4 and
+          webp.count("_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);") == 4 and
+          wic.count("_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);") == 2 and
+          qoi.count("_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);") == 2)
     check("the status line carries the budget reason",
-          "if (_viv_load_refused_budget)" in chrome and
+          "if (_VIV_LOAD_REFUSED_READ(_viv_load_refused_budget))" in chrome and
           "LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET" in chrome and
           "LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET" in loc_h and
           "LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET" in loc_e and
@@ -5797,17 +5770,17 @@ def t_input_ceiling_round104():
           'debug_printf("empty file\\n");' in vivload and
           'debug_printf("short read: %u of %u bytes (the file changed size or the media failed)\\n",size - totreadsize,size);' in vivload)
     check("the over-ceiling refusal marks the shared flag",
-          "_viv_load_refused_input_size = 1;" in vivload and
-          "extern BYTE _viv_load_refused_input_size;" in state and
-          "BYTE _viv_load_refused_input_size = 0;" in viv)
+          "_VIV_LOAD_REFUSED_SET(_viv_load_refused_input_size);" in vivload and
+          "extern volatile LONG _viv_load_refused_input_size;" in state and
+          "volatile LONG _viv_load_refused_input_size = 0;" in viv)
     check("the input refusal flag clears wherever the budget flag clears",
-          vivload.count("_viv_load_refused_input_size = 0;") == 4 and
-          vivload.count("_viv_load_refused_budget = 0;") == 4)
+          vivload.count("_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_input_size);") == 4 and
+          vivload.count("_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_budget);") == 4)
     check("the status line names the input ceiling in both languages",
           "LOCALIZATION_ID_STATUS_BAR_INPUT_OVER_LIMIT," in loc and
           '"The file exceeds the input size limit.", // LOCALIZATION_ID_STATUS_BAR_INPUT_OVER_LIMIT,' in loc_en and
           loc_zh.count("LOCALIZATION_ID_STATUS_BAR_INPUT_OVER_LIMIT") == 1 and
-          "if (_viv_load_refused_input_size)" in chrome)
+          "if (_VIV_LOAD_REFUSED_READ(_viv_load_refused_input_size))" in chrome)
     check("the ini reader takes the same 64-bit form",
           "if ((GetFileSizeEx(h,&file_size)) && (file_size.QuadPart > 0) && (file_size.QuadPart <= 0x1000000))" in ini and
           "GetFileSize(h,0);" not in ini)
@@ -5850,11 +5823,11 @@ def t_input_ceiling_round104():
 
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)", top)
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the changelog top entry is the judged-fixes round pre-release",
+          top == "Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)", top)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
@@ -6024,11 +5997,11 @@ def t_renderer_parity_round105():
 
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)", top)
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the changelog top entry is the judged-fixes round pre-release",
+          top == "Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)", top)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.7** \u2014" in readme)
@@ -6142,11 +6115,11 @@ def t_navigation_faces_round106():
 
     # 6. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the navigation faces round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)", top)
-    check("the version is 1.1.15-rc.5 build 83",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("the changelog top entry is the judged-fixes round pre-release",
+          top == "Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)", top)
+    check("the version is 1.1.15-rc.6 build 85",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the stable promotion round (the current stable):**" in readme and
           "**1.1.14-rc.8** \u2014" in readme)
@@ -6353,9 +6326,9 @@ def t_stable_promotion_round108():
 
     # 1. the version marks the stable promotion (the rc phase suffix
     #    is gone; the plain tag form is the stable release form).
-    check("version.h = 1.1.15-rc.5.84 (the stable promotion round pins ride the slot architecture round)",
-          "#define VERSION_BUILD 84" in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version and
+    check("version.h = 1.1.15-rc.6.85 (the stable promotion round pins ride the slot architecture round)",
+          "#define VERSION_BUILD 85" in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the defaults the promotion promises, pinned as facts: both
@@ -6436,7 +6409,7 @@ def t_stable_promotion_round108():
     #    between two consecutive advances must hold the row it paid
     #    for (a control add or the row_high assignment itself).
     check("the orphan advance is gone (one advance per row)",
-          settings.count("y += row_high;") == 20)
+          settings.count("y += row_high;") == 21)
     orphans = []
     lines = settings.split("\n")
     prev = 0
@@ -6453,14 +6426,14 @@ def t_stable_promotion_round108():
 
     # 8. the changelog, the readme and the demotion ride the promotion
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)"))
     check("the readme current-stable line says 1.1.14",
           "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
     check("the 1.1.13 full section demotes to the one-line list",
           "**1.1.13 \u2014" not in readme and "**1.1.13** \u2014" in readme)
     check("the rc.10 candidate section demotes to the one-line list (rc.3 is the candidate now)",
           "**1.1.14-rc.10** \u2014" in readme and
-          "**1.1.15-rc.5 \u2014" in readme and
+          "**1.1.15-rc.6 \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
 
 
@@ -6489,9 +6462,9 @@ def t_slot_architecture_round109():
     readme = read("README.md").decode("utf-8", errors="replace")
 
     # 1. the version mark
-    check("version.h = 1.1.15-rc.5.84 (the slot architecture round's pins ride the audit response round)",
-          "#define VERSION_BUILD 84" in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("version.h = 1.1.15-rc.6.85 (the slot architecture round's pins ride the audit response round)",
+          "#define VERSION_BUILD 85" in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
     # 2. the type: one held image - the file identity, the frames,
     #    both counts, the dimensions and the preload role's state -
@@ -6603,9 +6576,9 @@ def t_slot_architecture_round109():
 
     # 12. the changelog, the readme and the candidate block
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)"))
     check("the readme carries the new candidate block",
-          "**1.1.15-rc.5 \u2014" in readme and
+          "**1.1.15-rc.6 \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
     check("the readme stable block survives the candidate",
           "**1.1.14 \u2014" in readme and "(the current stable):**" in readme)
@@ -6639,9 +6612,9 @@ def t_audit_response_round110():
     readme = read("README.md").decode("utf-8", errors="replace")
 
     # 1. the version mark
-    check("version.h = 1.1.15-rc.5.84 (the fourth audit response round)",
-          "#define VERSION_BUILD 84" in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("version.h = 1.1.15-rc.6.85 (the fourth audit response round)",
+          "#define VERSION_BUILD 85" in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
     # 2. the neighbor predicate: one helper in the navigation domain,
     #    declared on the navigation's own export face, carrying the
@@ -6702,9 +6675,9 @@ def t_audit_response_round110():
 
     # 6. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fourth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)"))
     check("the readme carries the new candidate block and the rc.1 one-liner",
-          "**1.1.15-rc.5 \u2014" in readme and
+          "**1.1.15-rc.6 \u2014" in readme and
           "**1.1.15-rc.1** \u2014" in readme and
           "**1.1.15-rc.2** —" in readme and
           readme.count("(the current release candidate):**") == 1)
@@ -6753,9 +6726,9 @@ def t_audit_response_round111():
     zoommath = read("tests/zoom_math_test.py").decode()
 
     # 1. the version mark
-    check("version.h = 1.1.15-rc.5.84 (the fifth audit response round)",
-          "#define VERSION_BUILD 84" in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("version.h = 1.1.15-rc.6.85 (the fifth audit response round)",
+          "#define VERSION_BUILD 85" in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
     # 2. the navigation trio - the sort pollution: the path completes
     #    before the first compare, at all three scan sites, and the six
@@ -6856,21 +6829,173 @@ def t_audit_response_round111():
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fifth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)"))
     check("the changelog carries the round's own ledger",
           "the navigation trio first, because two of the three are ordering defects" in changes and
           "the ladder step is extracted, not self-written" in changes and
           "a deleted manifest fails the push gate" in changes)
     check("the readme candidate block and the rc.2 one-liner",
-          "**1.1.15-rc.5 \u2014" in readme and
+          "**1.1.15-rc.6 \u2014" in readme and
           "**1.1.15-rc.2** \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
 
 
 
 
+def t_judged_fixes_round114():
+    """Guards for the judged-fixes round (1.1.15-rc.7: the user's own fix
+    list - the msgbox button bridge, the fullscreen binary searches, the
+    refusal flags' interlocked forms, the classic options retirement,
+    the borderless corner resize, the icon-only toolbar and the paste
+    text fallback)."""
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+    vivload = read("src/viv_load.c").decode("utf-8", errors="replace")
+    wnd = read("src/viv_wndproc.c").decode("utf-8", errors="replace")
+    settings = read("src/viv_settings.c").decode("utf-8", errors="replace")
+    dialogs = read("src/viv_dialogs.c").decode("utf-8", errors="replace")
+    chrome = read("src/viv_chrome.c").decode("utf-8", errors="replace")
+    toolbar = read("src/viv_toolbar.c").decode("utf-8", errors="replace")
+    msgbox = read("src/viv_msgbox.c").decode("utf-8", errors="replace")
+    configc = read("src/config.c").decode("utf-8", errors="replace")
+    state = read("src/viv_state.h").decode("utf-8", errors="replace")
+    loc_h = read("src/localization.h").decode("utf-8", errors="replace")
+    loc_e = read("src/localization_en_us.h").decode("utf-8", errors="replace")
+    loc_z = read("src/localization_zh_cn.h").decode("utf-8", errors="replace")
+    rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
+    resh = read("res/resource.h").decode("utf-8", errors="replace")
+
+    # 1. the msgbox button bridge: the last raw utf-8-to-wide-api point.
+    check("the msgbox button text bridges through the utf8 converter",
+          "static wchar_t text[STRING_SIZE];" in msgbox and
+          msgbox.count("string_copy_utf8_string(text,localization_get_string(") == 3)
+    check("the msgbox button path never returns the raw table bytes",
+          "return localization_get_string(LOCALIZATION_ID_OK_BUTTON);" not in msgbox and
+          "return localization_get_string(" not in msgbox)
+
+    # 2. the fullscreen toggle: two binary searches, no precompute table.
+    check("the fullscreen-fill offset binary-searches the windowed geometry",
+          "if ((!_viv_is_fullscreen) && (config_fullscreen_fill_window))" in chrome and
+          chrome.count("os_MonitorRectFromWindow(_viv_hwnd,1,&monitor_rect);") == 2 and
+          "(rw > mon_wide) || (rh > mon_high)" in chrome)
+    check("the fill-window offset binary-searches the fullscreen geometry",
+          "if ((!config_fullscreen_fill_window) && (config_fill_window))" in chrome and
+          "(rw > old_rw) || (rh > old_rh)" in chrome)
+    check("the two fill modes keep their else-if relation",
+          chrome.find("if ((!config_fullscreen_fill_window) && (config_fill_window))") > chrome.find("if ((!_viv_is_fullscreen) && (config_fullscreen_fill_window))"))
+    check("the boundary arithmetic keeps the old scans' edge semantics",
+          chrome.count("(lo > 0) ? (lo - 1) : 0") == 1 and
+          chrome.count("(lo > 0) ? -(lo - 1) : 0") == 1)
+    check("the precompute arrays are gone",
+          "zoom_wide_array" not in chrome and "zoom_high_array" not in chrome)
+    check("the restore path never measures",
+          chrome.find("_viv_get_render_size(&old_rw,&old_rh);") < chrome.find("if (_viv_is_fullscreen)"))
+
+    # 3. the refusal flags: the interlocked macro trio.
+    check("the refusal macros mirror the cancel flag's forms",
+          "#define _VIV_LOAD_REFUSED_READ(flag) (InterlockedCompareExchange(&(flag),0,0) != 0)" in state and
+          "#define _VIV_LOAD_REFUSED_SET(flag) InterlockedExchange(&(flag),1)" in state and
+          "#define _VIV_LOAD_REFUSED_CLEAR(flag) InterlockedExchange(&(flag),0)" in state)
+    check("no bare refusal write survives anywhere",
+          "= _viv_load_refused_budget" not in viv + vivload + chrome and
+          "= _viv_load_refused_input_size" not in viv + vivload + chrome)
+
+    # 4. the classic options retirement: nothing opens, nothing compiles.
+    for dead in ("_viv_options_proc", "_viv_options_general_proc",
+                 "_viv_options_view_proc", "_viv_options_controls_proc",
+                 "_viv_options_tab_proc", "_viv_edit_key_proc",
+                 "_viv_edit_key_edit_proc", "_viv_edit_key_set_key",
+                 "_viv_options_edit_key", "_viv_options_key_list_sel_change",
+                 "_viv_options_remove_key", "_viv_options_treeview_changed",
+                 "_viv_options_update_sheild", "_viv_edit_key_remove_currently_used_by",
+                 "_viv_edit_key_changed"):
+        check("the dialogs domain drops %s" % dead, dead not in dialogs)
+    check("the dialogs header drops the redirect prototype",
+          "void _viv_options(void);" not in read("src/viv_dialogs.h").decode())
+    check("the state layer drops the page-id export",
+          "extern int _viv_options_page_ids[];" not in state and
+          "int _viv_options_page_ids[]" not in viv)
+    check("the page-count define stays for the settings window",
+          "#define _VIV_OPTIONS_PAGE_COUNT" in state and
+          state.count("_VIV_OPTIONS_PAGE_COUNT") >= 1)
+    for dead_id in ("IDD_GENERAL", "IDD_OPTIONS", "IDD_VIEW", "IDD_CONTROLS", "IDD_EDIT_KEY"):
+        check("the rc drops the %s template" % dead_id,
+              (dead_id + " DIALOGEX") not in rc and ("#define " + dead_id + " ") not in resh)
+    for dead_ctl in ("IDC_TAB1", "IDC_BMP", "IDC_WEBP", "IDC_COMMANDS_LIST",
+                     "IDC_KEYS_LIST", "IDC_EDIT_KEY_EDIT", "IDC_DARKMODE",
+                     "IDC_LANGUAGE", "IDC_ASSOCIATIONS_GROUPBOX"):
+        check("the resource header drops %s" % dead_ctl,
+              ("#define " + dead_ctl + " ") not in resh)
+    check("the settings ids keep their numbers (no renumber)",
+          "#define _VIV_SETTINGS_ID_CANCEL\t\t40" in settings)
+
+    # 5. the borderless corner: the strip answers the grip box.
+    check("the status bar answers the grip box in the manual layout",
+          "case WM_NCHITTEST:" in chrome and
+          "return HTBOTTOMRIGHT;" in chrome and
+          "(!config_show_thickframe) && (!_viv_is_fullscreen) && (!IsZoomed(_viv_hwnd))" in chrome)
+    check("the strip forwards the press to the parent size loop",
+          "PostMessage(GetParent(hwnd),WM_SYSCOMMAND,(SC_SIZE | WMSZ_BOTTOMRIGHT),lParam);" in chrome)
+    check("the dark grip repaint joins the manual mode",
+          "((GetWindowLong(_viv_hwnd,GWL_STYLE)) & WS_THICKFRAME) || (!config_show_thickframe)" in chrome)
+    check("the manual edge band widens to the padded border",
+          "band_x = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);" in wnd and
+          "#define SM_CXPADDEDBORDER 92" in wnd and
+          "GetSystemMetrics(SM_CXSIZEFRAME))" not in wnd[wnd.index("static LRESULT _viv_on_wm_nchittest"):wnd.index("static LRESULT _viv_on_wm_nclbuttondown")])
+
+    # 6. the icon-only toolbar: config, measure, paint, menu, settings.
+    check("the config declares the icon-only default off",
+          "BYTE config_toolbar_icon_only = 0;" in configc and
+          'config_toolbar_icon_only = ini_get_int(ini,(const utf8_t *)"toolbar_icon_only",config_toolbar_icon_only);' in configc and
+          '_config_write_int(h,"toolbar_icon_only",config_toolbar_icon_only);' in configc)
+    check("the measure shrinks the button to the glyph",
+          "_viv_toolbar_item_wide[itemi] = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size;" in toolbar and
+          "GetTextExtentPoint32W" in toolbar)
+    check("the paint centers the glyph and skips the label",
+          "config_toolbar_icon_only ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset)" in toolbar and
+          "if (!config_toolbar_icon_only)" in toolbar)
+    check("the context menu carries the row and the check",
+          "LOCALIZATION_ID_TOOLBAR_ICON_ONLY" in toolbar and
+          "_VIV_TOOLBAR_CONTEXT_ID_FIRST + 8" in toolbar and
+          "CheckMenuItem(hmenu,command_id,config_toolbar_icon_only ? MF_CHECKED : MF_UNCHECKED);" in toolbar)
+    check("the command flips the flag and re-measures",
+          "config_toolbar_icon_only = config_toolbar_icon_only ? 0 : 1;" in toolbar)
+    check("the interceptor range covers the ninth row",
+          "_VIV_TOOLBAR_CONTEXT_ID_FIRST + 9)" in wnd)
+    check("the settings row wires all four points",
+          "_VIV_SETTINGS_ID_TOOLBARICON" in settings and
+          "LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY" in settings and
+          "config_toolbar_icon_only ? 1 : 0" in settings and
+          "_viv_settings_snap_toolbar_icon_only" in settings)
+    check("the toggle runs the size sweep and the restore follows",
+          settings.count("_viv_on_size();") >= 2)
+    check("both languages carry the icon-only pair",
+          "LOCALIZATION_ID_TOOLBAR_ICON_ONLY," in loc_h and
+          "LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY," in loc_h and
+          '"Icons only", // LOCALIZATION_ID_TOOLBAR_ICON_ONLY' in loc_e and
+          '"Toolbar icons only", // LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY' in loc_e and
+          '"\u4ec5\u56fe\u6807", // LOCALIZATION_ID_TOOLBAR_ICON_ONLY' in loc_z and
+          '"\u5de5\u5177\u680f\u4ec5\u663e\u793a\u56fe\u6807", // LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY' in loc_z)
+
+    # 7. the paste text fallback: a copied path opens.
+    check("the image reader answers a verdict",
+          "BOOL _viv_paste_clipboard_image(void)" in vivload and
+          "void _viv_paste_clipboard_image(void)" not in vivload)
+    check("the paste takes the text when the image readers miss",
+          "if (!_viv_paste_clipboard_image())" in wnd and
+          "GetClipboardData(CF_UNICODETEXT);" in wnd)
+    check("the text copy is bounded by the global's own size",
+          "text_count = GlobalSize(hglobal) / sizeof(wchar_t);" in wnd and
+          "wbuf[text_count] = 0;" in wnd)
+    q = chr(39) + chr(34) + chr(39)  # the C literal for a double-quote char
+    check('the trim strips whitespace and copy-as-path quotes',
+          ('wchar_is_ws(*path_start)) || (*path_start == ' + q + ')') in wnd)
+    check("the extension gate and the existence check precede the open",
+          "string_icompare_lowercase_ascii(extension,_viv_supported_extensions[exti]) == 0" in wnd and
+          "os_GetFileAttributesExW(path_start,GetFileExInfoStandard,&find_data)" in wnd and
+          "_viv_open_from_filename(path_start,VIV_OPEN_RECENT);" in wnd)
+
 def t_audit_response_round113():
-    """Guards for the sixth audit response round (1.1.15-rc.5: the ime
+    """Guards for the sixth audit response round (1.1.15-rc.6: the ime
     dissociation, the init answers, the reply wakeup duty, the offset
     validators, the uninstaller staging and the license set - every
     claim re-verified against the tree before anything landed, two p0s
@@ -6908,16 +7033,18 @@ def t_audit_response_round113():
           "#include <imm.h>" in osc and
           "-limm32" in buildsh and
           "-limm32" in buildarm)
-    check("the canvas, the pill, the zoom editor, the capture and the settings dissociate",
+    # r114: the edit-key capture dissociation left with the classic
+    # dialogs it lived in (four live surfaces remain).
+    check("the canvas, the pill, the zoom editor and the settings dissociate",
           "os_imm_associate_disable(_viv_hwnd);" in viv and
           "os_imm_associate_disable(_zoomui_hwnd);" in zoomui and
           "os_imm_associate_disable(hwnd);" in dialogs and
-          "os_imm_associate_disable(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT));" in dialogs and
+          "os_imm_associate_disable(GetDlgItem(hwnd,IDC_EDIT_KEY_EDIT));" not in dialogs and
           "os_imm_associate_disable(_viv_settings_hwnd);" in settings)
     check("the processkey fixme retires (the dissociation answers it earlier)",
           "case VK_PROCESSKEY" not in dialogs and
           "ImmGetVirtualKey" not in dialogs and
-          "dissociation answers the same question one step earlier" in dialogs)
+          "dissociation answers the same question one step earlier" not in dialogs)  # r114: the comment left with the classic edit-key dialog
 
     # 2. the init answers: the atom escapes the wrapper, the three steps
     #    fail out loud, and the failure box localizes through the utf-8 bridge.
@@ -7008,7 +7135,7 @@ def t_audit_response_round113():
           "phoboslab.org" in notices)
     check("the security table rides the shipped lines",
           "| 1.1.14 | latest stable | yes |" in security and
-          "1.1.15-rc.5 at the time of writing" in security)
+          "1.1.15-rc.6 at the time of writing" in security)
 
     # 8. the pill's keyboard exit and the suite's own two defects.
     check("the pill answers escape with focus back to the viewer",
@@ -7022,13 +7149,13 @@ def t_audit_response_round113():
           ("assert m " + "or True") not in read("tests/menu_structure_test.py").decode("latin-1"))
 
     # 9. the version mark.
-    check("version.h = 1.1.15-rc.5.84 (the sixth audit response round)",
-          '#define VERSION_BUILD 84' in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("version.h = 1.1.15-rc.6.85 (the sixth audit response round)",
+          '#define VERSION_BUILD 85' in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
 
 def t_command_picker_round112():
-    """Guards for round 112 (1.1.15-rc.5: the command picker round. the
+    """Guards for round 112 (1.1.15-rc.6: the command picker round. the
     user report: keyboard shortcuts could not be added - because the
     settings window's command dropdown capped at the popup label
     store's thirty-two rows while the command table holds one hundred
@@ -7052,9 +7179,9 @@ def t_command_picker_round112():
     changes = read("Changes.txt").decode("utf-8", errors="replace")
 
     # 1. the version mark
-    check("version.h = 1.1.15-rc.5.84 (the command picker round)",
-          "#define VERSION_BUILD 84" in version and
-          '#define VERSION_STRING "1.1.15-rc.5"' in version)
+    check("version.h = 1.1.15-rc.6.85 (the command picker round)",
+          "#define VERSION_BUILD 85" in version and
+          '#define VERSION_STRING "1.1.15-rc.6"' in version)
 
     # 2. the command dropdown answers through the cascade picker, and
     #    the flat call that used to feed it retired.
@@ -7109,18 +7236,18 @@ def t_command_picker_round112():
     # 11. the default keys all install onto real table commands (the
     #     entry-point census's keyboard leg).
     check("the default keys all install onto real commands",
-          viv.count("{VIV_ID_") == 63 and
+          viv.count("{VIV_ID_") == 62 and  # r114: the options page-id array left with the classic dialogs
           "_viv_command_index_from_command_id(_viv_default_keys[i].command_id)" in viv)
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the command picker round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)"))
     check("the changelog carries the round's own ledger",
           "eighty-six commands\r\n\twere unreachable" in changes and
           "the cascade is the real menu tree" in changes and
           "walked, every surface verified against the dispatcher" in changes)
     check("the readme candidate block and the rc.3 one-liner",
-          "**1.1.15-rc.5 \u2014" in readme and
+          "**1.1.15-rc.6 \u2014" in readme and
           "**1.1.15-rc.3** \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
 
@@ -7205,6 +7332,7 @@ if __name__ == "__main__":
     t_audit_response_round111()
     t_command_picker_round112()
     t_audit_response_round113()
+    t_judged_fixes_round114()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

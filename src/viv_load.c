@@ -42,7 +42,7 @@ BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy);
 void _viv_open(WIN32_FIND_DATA *fd,int is_preload);
 void _viv_set_clipboard_image(void);
 static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high);
-void _viv_paste_clipboard_image(void);
+BOOL _viv_paste_clipboard_image(void);
 static int _viv_get_extension_format(const wchar_t *filename);
 void _viv_save_image_as(void);
 void _viv_doing_cancel(void);
@@ -296,8 +296,8 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		if (_viv_load_failed)
 		{
 			_viv_load_failed = 0;
-			_viv_load_refused_budget = 0;
-			_viv_load_refused_input_size = 0;
+			_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_budget);
+			_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_input_size);
 			_viv_hw_render_fallback = 0;
 
 			_viv_status_update();
@@ -388,8 +388,8 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 
 		_viv_load_image_allow_draw = 1;
 		InterlockedExchange(&_viv_load_image_terminate,0);
-		_viv_load_refused_budget = 0;
-		_viv_load_refused_input_size = 0;
+		_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_budget);
+		_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_input_size);
 		_viv_hw_render_fallback = 0;
 		
 		if (_viv_load_image_filename)
@@ -559,7 +559,7 @@ static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high)
 // the clipboard must already be open by the caller.
 // dib first: the system synthesizes a CF_DIB for nearly every image
 // source. a plain bitmap handle is the fallback.
-void _viv_paste_clipboard_image(void)
+BOOL _viv_paste_clipboard_image(void)
 {
 	HGLOBAL hglobal;
 	
@@ -639,7 +639,7 @@ void _viv_paste_clipboard_image(void)
 							ReleaseDC(0,screen_hdc);
 							GlobalUnlock(hglobal);
 							
-							return;
+							return TRUE;
 						}
 						
 						DeleteObject(hbitmap);
@@ -673,13 +673,17 @@ void _viv_paste_clipboard_image(void)
 				{
 					_viv_show_clipboard_image(hbitmap_copy,bm.bmWidth,bm.bmHeight);
 					
-					return;
+					return TRUE;
 				}
 				
 				DeleteObject(hbitmap_copy);
 			}
 		}
 	}
+	
+	// nothing the paste path reads was on the clipboard (the caller
+	// offers the text fallback when it wants it).
+	return FALSE;
 }
 // get the save format for a filename extension. (0 = png, 1 = jpeg, 2 = bmp, -1 = unknown)
 static int _viv_get_extension_format(const wchar_t *filename)
@@ -889,8 +893,8 @@ void _viv_blank(void)
 	if (_viv_load_failed)
 	{
 		_viv_load_failed = 0;
-		_viv_load_refused_budget = 0;
-		_viv_load_refused_input_size = 0;
+		_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_budget);
+		_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_input_size);
 		_viv_hw_render_fallback = 0;
 	}
 
@@ -951,7 +955,7 @@ static int _viv_input_size_refused(HANDLE h,LARGE_INTEGER *file_size)
 	{
 		debug_printf("input ceiling: refusing a %u mb file (ceiling %u mb)\n",(unsigned int)((VIV_UINT64)file_size->QuadPart / 1000000),(unsigned int)(VIV_MAX_INPUT_FILE_BYTES / 1000000));
 		
-		_viv_load_refused_input_size = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_input_size);
 		
 		return 1;
 	}
@@ -2066,8 +2070,8 @@ void _viv_refresh(void)
 		if (_viv_load_failed)
 		{
 			_viv_load_failed = 0;
-			_viv_load_refused_budget = 0;
-			_viv_load_refused_input_size = 0;
+			_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_budget);
+			_VIV_LOAD_REFUSED_CLEAR(_viv_load_refused_input_size);
 			_viv_hw_render_fallback = 0;
 			
 			_viv_status_update();
@@ -2162,7 +2166,7 @@ static int _viv_pixel_budget_refused(SIZE_T pixels)
 	{
 		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(VIV_MAX_IMAGE_PIXELS / 1000000));
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}
@@ -2176,7 +2180,7 @@ static int _viv_pixel_budget_refused(SIZE_T pixels)
 	{
 		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}
@@ -2195,7 +2199,7 @@ static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
 	{
 		debug_printf("animation budget: refusing %u frames (ceiling %u)\r\n",(unsigned int)frame_count,(unsigned int)VIV_MAX_ANIMATION_FRAMES);
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}
@@ -2204,7 +2208,7 @@ static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
 	{
 		debug_printf("animation budget: refusing %u frames of a %u mp canvas (%u mb of frames, ceiling %u mb)\r\n",(unsigned int)frame_count,(unsigned int)(canvas_pixels / 1000000),(unsigned int)(((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4) / 1000000),(unsigned int)(VIV_MAX_ANIMATION_TOTAL_BYTES / 1000000));
 		
-		_viv_load_refused_budget = 1;
+		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}

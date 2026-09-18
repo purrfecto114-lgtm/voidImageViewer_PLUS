@@ -257,11 +257,22 @@ static void _viv_toolbar_measure(void)
 			size.cx = 0;
 			size.cy = 0;
 			
-			string_copy_utf8_string(_viv_toolbar_item_text[itemi],localization_get_string((localization_id_t)_viv_toolbar_item_label_id(itemi)));
-			
-			GetTextExtentPoint32W(hdc,_viv_toolbar_item_text[itemi],(int)string_get_length(_viv_toolbar_item_text[itemi]),&size);
-			
-			_viv_toolbar_item_wide[itemi] = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size + _viv_toolbar_icon_text_gap + size.cx;
+			if (config_toolbar_icon_only)
+			{
+				// icon-only: the strip draws the glyph alone, centered, so a
+				// narrow window fits every group (the full strip outgrows a
+				// default 3/5 window at 96 dpi and the overflow contract hid
+				// whole groups - the zoom pair first).
+				_viv_toolbar_item_wide[itemi] = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size;
+			}
+			else
+			{
+				string_copy_utf8_string(_viv_toolbar_item_text[itemi],localization_get_string((localization_id_t)_viv_toolbar_item_label_id(itemi)));
+				
+				GetTextExtentPoint32W(hdc,_viv_toolbar_item_text[itemi],(int)string_get_length(_viv_toolbar_item_text[itemi]),&size);
+				
+				_viv_toolbar_item_wide[itemi] = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size + _viv_toolbar_icon_text_gap + size.cx;
+			}
 		}
 		
 				_viv_toolbar_item_glyph[itemi] = _viv_toolbar_item_glyph_id(itemi);
@@ -486,7 +497,9 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					int icon_x;
 					int icon_y;
 					
-					icon_x = _viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + offset;
+					// the icon rides at the pad in the full strip and centered
+					// in the icon-only strip (the label never enters the box).
+					icon_x = config_toolbar_icon_only ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset) : (_viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + offset);
 					icon_y = ((_viv_toolbar_bar_high - _viv_toolbar_icon_size) / 2) + offset;
 					
 					if (!_viv_toolbar_item_enabled[itemi])
@@ -502,16 +515,19 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					}
 				}
 				
-				text_left = _viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + _viv_toolbar_icon_size + _viv_toolbar_icon_text_gap + offset;
-				
-				text_rect.left = text_left;
-				text_rect.top = 0;
-				text_rect.right = _viv_toolbar_item_x[itemi] + _viv_toolbar_item_wide[itemi] - _viv_toolbar_button_pad;
-				text_rect.bottom = _viv_toolbar_bar_high;
-				
-				SetTextColor(hdc,_viv_toolbar_item_enabled[itemi] ? text_color : disabled_color);
-				
-				DrawTextW(hdc,_viv_toolbar_item_text[itemi],-1,&text_rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+				if (!config_toolbar_icon_only)
+				{
+					text_left = _viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + _viv_toolbar_icon_size + _viv_toolbar_icon_text_gap + offset;
+					
+					text_rect.left = text_left;
+					text_rect.top = 0;
+					text_rect.right = _viv_toolbar_item_x[itemi] + _viv_toolbar_item_wide[itemi] - _viv_toolbar_button_pad;
+					text_rect.bottom = _viv_toolbar_bar_high;
+					
+					SetTextColor(hdc,_viv_toolbar_item_enabled[itemi] ? text_color : disabled_color);
+					
+					DrawTextW(hdc,_viv_toolbar_item_text[itemi],-1,&text_rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+				}
 			}
 			
 			SelectObject(hdc,old_pen);
@@ -788,6 +804,30 @@ static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_
 			}
 		}
 
+		// the icon-only row: labels off, the strip shrinks to the glyphs.
+		{
+			wchar_t text_wbuf[STRING_SIZE];
+			void *row;
+			UINT command_id;
+
+			command_id = (UINT)(_VIV_TOOLBAR_CONTEXT_ID_FIRST + 8);
+
+			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_TOOLBAR_ICON_ONLY));
+
+			row = _viv_menu_row_alloc(_VIV_MENU_POOL_CONTEXT,_VIV_MENU_DRAW_LOCALIZED,0,LOCALIZATION_ID_TOOLBAR_ICON_ONLY,0);
+
+			if (row)
+			{
+				AppendMenuW(hmenu,MF_STRING | MF_OWNERDRAW,command_id,(LPCWSTR)row);
+			}
+			else
+			{
+				AppendMenuW(hmenu,MF_STRING,command_id,text_wbuf);
+			}
+
+			CheckMenuItem(hmenu,command_id,config_toolbar_icon_only ? MF_CHECKED : MF_UNCHECKED);
+		}
+
 		_viv_show_cursor();
 
 		TrackPopupMenu(hmenu,TPM_RIGHTBUTTON,screen_x,screen_y,0,_viv_hwnd,0);
@@ -819,6 +859,13 @@ void _viv_toolbar_context_command(int command_id)
 	if ((index >= 1) && (index <= _VIV_TOOLBAR_GROUP_MAX + 1))
 	{
 		config_toolbar_groups ^= (1 << (index - 1));
+	}
+	else
+	if (index == 8)
+	{
+		// icon-only: the toggle re-measures with the labels gone (the
+		// overflow walk below sees the shorter strip).
+		config_toolbar_icon_only = config_toolbar_icon_only ? 0 : 1;
 	}
 
 	// relayout and repaint: the strip re-measures with the new mask

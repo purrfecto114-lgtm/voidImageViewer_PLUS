@@ -139,6 +139,7 @@
 #define _VIV_SETTINGS_ID_KEY_ADD	35
 #define _VIV_SETTINGS_ID_KEY_EDIT	36
 #define _VIV_SETTINGS_ID_KEY_REMOVE	37
+#define _VIV_SETTINGS_ID_TOOLBARICON	38
 #define _VIV_SETTINGS_ID_CANCEL		40
 #define _VIV_SETTINGS_ID_OK			41
 
@@ -214,6 +215,7 @@ static int _viv_settings_snap_auto_type;
 static int _viv_settings_snap_loop;
 static int _viv_settings_snap_preload;
 static int _viv_settings_snap_cache;
+static int _viv_settings_snap_toolbar_icon_only;
 static int _viv_settings_snap_left;
 static int _viv_settings_snap_right;
 static int _viv_settings_snap_wheel;
@@ -697,6 +699,14 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH)) / 2;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
+			y += row_high;
+
+			// toolbar icons only.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_TOOLBARICON,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
 
 			y += _viv_settings_dip(10);
@@ -1517,6 +1527,7 @@ static void _viv_settings_snapshot(void)
 	_viv_settings_snap_loop = config_loop_animations_once;
 	_viv_settings_snap_preload = config_preload_next;
 	_viv_settings_snap_cache = config_cache_last;
+	_viv_settings_snap_toolbar_icon_only = config_toolbar_icon_only;
 	_viv_settings_snap_left = config_left_click_action;
 	_viv_settings_snap_right = config_right_click_action;
 	_viv_settings_snap_wheel = config_mouse_wheel_action;
@@ -1642,6 +1653,15 @@ static void _viv_settings_restore(void)
 	if (config_cache_last != (BYTE)_viv_settings_snap_cache)
 	{
 		config_cache_last = (BYTE)_viv_settings_snap_cache;
+	}
+
+	// toolbar icons only: a rewind re-measures the strip (the toggle's
+	// own click does the same sweep).
+	if (config_toolbar_icon_only != (BYTE)_viv_settings_snap_toolbar_icon_only)
+	{
+		config_toolbar_icon_only = (BYTE)_viv_settings_snap_toolbar_icon_only;
+
+		_viv_on_size();
 	}
 
 	// windowed background color: re-tint the frame and reload.
@@ -2199,6 +2219,16 @@ static void _viv_settings_activate(int index,int x,int y)
 
 				case _VIV_SETTINGS_ID_CACHE:
 					config_cache_last = config_cache_last ? 0 : 1;
+					break;
+
+				case _VIV_SETTINGS_ID_TOOLBARICON:
+					// the strip re-measures with the labels gone: run the size
+					// sweep so the toolbar re-lays and the canvas retakes the
+					// freed width (the row height is theme fixed, not content
+					// driven, so only the strip itself changes).
+					config_toolbar_icon_only = config_toolbar_icon_only ? 0 : 1;
+
+					_viv_on_size();
 					break;
 
 				default:
@@ -3483,6 +3513,10 @@ static void _viv_settings_paint(HWND hwnd)
 					case _VIV_SETTINGS_ID_CACHE:
 						label_id = LOCALIZATION_ID_CACHE_LAST_IMAGE_STATIC;
 						break;
+
+					case _VIV_SETTINGS_ID_TOOLBARICON:
+						label_id = LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY;
+						break;
 				}
 
 				label_rect.left = ctl->rect.left;
@@ -3534,6 +3568,10 @@ static void _viv_settings_paint(HWND hwnd)
 
 					case _VIV_SETTINGS_ID_CACHE:
 						_viv_settings_draw_switch(mem,ctl,config_cache_last ? 1 : 0,hot,focus);
+						break;
+
+					case _VIV_SETTINGS_ID_TOOLBARICON:
+						_viv_settings_draw_switch(mem,ctl,config_toolbar_icon_only ? 1 : 0,hot,focus);
 						break;
 				}
 

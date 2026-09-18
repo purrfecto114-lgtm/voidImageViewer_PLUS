@@ -380,12 +380,17 @@ extern volatile LONG _viv_load_image_terminate;
 extern const char *volatile _viv_load_stage;
 // set by the budget refusals (canvas / working set / animation) and read
 // by the status line: the user sees why a file was refused, not just that
-// it failed. cleared when the next load dispatches.
-extern BYTE _viv_load_refused_budget;
-// set by the input ceiling refusal (the whole-file read happens
-// before any pixel budget can see the file) and read by the status
-// line: like the budget flag, cleared when the next load dispatches.
-extern BYTE _viv_load_refused_input_size;
+// it failed. cleared when the next load dispatches. the loader thread
+// raises these and the ui thread reads and clears them, so they ride the
+// same interlocked forms as the cancel flag: plain volatile carries no
+// barrier on the arm legs, the writes answer interlockedexchange and the
+// reads answer the 0-for-0 compare-exchange (the refusal's value is a
+// flag, never a counter - the exchanged constants are only 0 and 1).
+extern volatile LONG _viv_load_refused_budget;
+extern volatile LONG _viv_load_refused_input_size;
+#define _VIV_LOAD_REFUSED_READ(flag) (InterlockedCompareExchange(&(flag),0,0) != 0)
+#define _VIV_LOAD_REFUSED_SET(flag) InterlockedExchange(&(flag),1)
+#define _VIV_LOAD_REFUSED_CLEAR(flag) InterlockedExchange(&(flag),0)
 // set when a hardware renderer the user picked refuses the current
 // image and the gdi path paints it - read by the status line so the
 // fallback names itself. cleared when the next load dispatches.
@@ -429,7 +434,6 @@ extern BYTE _viv_src_pixel_b;
 // caught the undeclared identifiers in chrome and dialogs).
 extern wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];
 extern BYTE _viv_is_cursor_shown;
-extern int _viv_options_page_ids[];
 
 extern _viv_key_list_t *_viv_key_list;
 extern const char *_viv_association_extensions[];
