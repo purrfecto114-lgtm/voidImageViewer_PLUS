@@ -351,7 +351,6 @@ jobs:
       VERSION: ${{ needs.validate.outputs.version }}
       PHASE: ${{ needs.validate.outputs.phase }}
       COMMIT: ${{ needs.validate.outputs.commit }}
-      ARTIFACT: ${{ needs.build.outputs.artifact }}
       SHA256_X64_SETUP: ${{ needs.build.outputs.sha256_x64_setup }}
       SHA256_X86_SETUP: ${{ needs.build.outputs.sha256_x86_setup }}
       SHA256_X64_ZIP: ${{ needs.build.outputs.sha256_x64_zip }}

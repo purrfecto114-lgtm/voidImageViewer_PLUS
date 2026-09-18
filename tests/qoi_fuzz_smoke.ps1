@@ -9,6 +9,9 @@ param(
 # QOI fuzz smoke: deterministic mutation corpus against the shipped
 # decoder, through the export oracle's exit-code contract.
 #
+# exit codes: 0 pass, 1 fail, 2 setup error (the smoke twins'
+# convention - a missing exe or seed is not a mutant's verdict).
+#
 # The corrections review's finding: the QOI decoder is the only format
 # in the tree with no system codec behind it - every boundary it gets
 # wrong is ours alone - and it carried no adversarial input testing at
@@ -33,7 +36,7 @@ $ErrorActionPreference = "Stop"
 
 if (-not (Test-Path $ExePath)) {
     Write-Host "FAIL: exe not found: $ExePath"
-    exit 1
+    exit 2
 }
 
 $seeds = @(
@@ -44,7 +47,7 @@ $seeds = @(
 foreach ($s in $seeds) {
     if (-not (Test-Path (Join-Path $SamplesDir $s))) {
         Write-Host "FAIL: seed fixture missing: $s (in $SamplesDir)"
-        exit 1
+        exit 2
     }
 }
 

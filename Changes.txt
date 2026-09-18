@@ -1,4 +1,130 @@
-﻿Pre-release: Version 1.1.15-rc.2 (the fourth audit response round)
+﻿Pre-release: Version 1.1.15-rc.3 (the fifth audit response round)
+
+	the fifth external audit arrived as a fusion report: a first pass that
+	claimed a delivered nav-and-golden fix package no tree ever received, and
+	a second pass of eight parallel sweeps over the whole tree. the house rule
+	for external reports did not change - every claim re-verified against the
+	tree itself, nothing applied on trust - and the re-verification confirmed
+	all three first-pass navigation defects real, all ten one-liner findings
+	real, and both guard blind spots real. this round lands batch a in full,
+	the navigation trio, and the two guard fixes; the audit's own batches b
+	and c carry forward in the ledger with their reasons restated.
+
+	the navigation trio first, because two of the three are ordering defects
+	the eye cannot see:
+
+	- the sort pollution: in full-path sort mode, the directory scans that
+	  answer next and previous compared the bare findfirstfile name against
+	  the current fd's full path - a mixed key whose order is noise. the
+	  walk then legitimately believes a wrapped jump is the nearest
+	  neighbor: on a twelve-image folder the harness re-verified the stuck
+	  path, five stuck on image one with ten images unreachable. the fix
+	  completes the path into the scan fd before the first compare, at all
+	  three scan sites (the step scan, the wrap rescan, the home scan); the
+	  four storage blocks that used to build the path late retire with it.
+	- the random gate order: the neighbor predicate asked the file gate
+	  before the random fallback, while the walk itself answers random
+	  first - so a random-mode session with no current image grayed the
+	  menu's step faces while the keys still fetched images. the predicate
+	  now asks random first, in the walk's own order; the unreachable
+	  fallback clause at its tail retires.
+	- the playlist identity: the playlist matched its entries to the
+	  current fd by the reserved id pair, but an fd from outside the
+	  playlist (the directory scan, an external open) carries (0,0) - the
+	  first entry's exact id. a stranger paired with the first entry, and
+	  the walk skipped it. the identity is the file name now, the same
+	  case-folded compare the recent list has always used; the id pair
+	  stays where it belongs, as the sort tiebreak.
+
+	the golden discrimination, at the source: the committed manifest
+	already holds the three-way-distinct contract (the structure lock), and
+	the verification pass deliberately records cross-renderer agreement as
+	notes - equal hashes are not the contract, stable hashes are, and a
+	live equality check would false-red on any legitimately identity-scaled
+	answer. but the bootstrap path pinned whatever it rendered, and a
+	hardware leg that never drew - reading the gdi result back into its own
+	export - would have entered the manifest as a green. the bootstrap now
+	refuses to write a textured sample where two legs answered the same
+	hash: the two solid controls keep their exemption (a solid fill
+	legitimately agrees under any sampling), and the refusal lands before
+	the manifest is written, not in the review after.
+
+	batch a, the ten one-liners, each verified before landing:
+
+	- the mipmap node is born complete: the allocation is followed
+	  immediately by the null next and the null bitmap, so a dc creation
+	  failure on a gdi-exhausted machine leaves a node whose recursive free
+	  walks a null pointer instead of whatever the allocator handed back.
+	- the blank state updates the toolbar faces: close, deleting the last
+	  image and the empty-folder home all arrive at the same blank, and the
+	  rotate, 1:1, best-fit and info faces staying enabled after the last
+	  image left was the same face-state lie the navigation sweep kept
+	  finding.
+	- the rename mirrors into both sources: the title bar reads the
+	  current fd, the status strip reads the slot's - the new name now
+	  lands in both, with the status update, or the two faces disagreed
+	  until the next load.
+	- the theme change re-pins the status font: the dpi path drops and
+	  re-pins; the theme path dropped and left the strip (and the zoom
+	  editor that copies its handle) drawing on a freed font. both paths
+	  now re-pin the strip and the in-place zoom editor.
+	- the attestation command's repo name: one missing r, a verify command
+	  that fails for every user who trusts it, and a typo-squat's open
+	  invitation.
+	- the utf-8 allocation terminates before the conversion: an invalid
+	  sequence answers an empty string, not an unallocated block scanned
+	  as text - the sibling buffer's rule, extended to the allocating twin.
+	- the copydata handler declines a null pointer: the cross-process
+	  contract supplies one, the same message from an in-process sender
+	  may not.
+	- the glyphs' gdi+ token pairs its startup with a shutdown on the
+	  kill path, next to the viewer's own token.
+	- the pixel probe initializes its color: the out-of-image branch read
+	  an uninitialized stack slot into three channels nobody displayed.
+	- the test-side litter: the dead branch in the zoom math's percent
+	  helper that referenced names it never defined, the fuzz smoke's
+	  setup failures answering the test-failure code instead of the
+	  setup-error code, the release pipeline's artifact env nobody
+	  consumed, and the zoom icon generator that wrote two icons the tree
+	  has not carried since the glyphs took over.
+
+	the guard blind spots, both real, both closed:
+
+	- the ladder step is extracted, not self-written: the two suites that
+	  model the zoom ladder each hand-copied 1.01 while extracting 278 and
+	  1024 from the source - a drift to 1.02 passed every suite and every
+	  golden hash untouched. the step is now read from the init walk
+	  itself, pinned to the documented value, and cross-checked against
+	  the shrink range it must span (the ~16x cap at 278 steps).
+	- a deleted manifest fails the push gate: the tracked check used to
+	  soft-pass an untracked manifest as "not bootstrapped yet" - a
+	  deletion was indistinguishable from the pre-bootstrap era, and the
+	  comments claimed otherwise. the manifest is committed now; an
+	  untracked manifest is a downgrade, and the gate answers red. the
+	  tests pipeline also learns its least-privilege token (read for the
+	  tree, write for the artifact upload) and a six-hour ceiling per
+	  job, replacing the hosted default nobody sane wants.
+
+	deferred with reasons: the hotkey dropdown cap wants its own round
+	(the unlock is eighty-six commands, not a one-liner's blast radius);
+	the pill's animation awareness and the slideshow toggle are ux faces;
+	the refused-flag channel, the dib validation order and the smoke's
+	hang detection touch the concurrency and security ledgers; the x86
+	golden leg wants its own ci contract; the warning census wants either
+	a script or silence. the full ledger lives in the audit response
+	sections below this one.
+
+	verified: the five suites pass (menu with the round-111 section, the
+	version pins swept to 1.1.15-rc.3 build 82), link_scan audits 310
+	externs against 310 definitions with zero missing (the zoom editor's
+	refont joins the scanned family; the glyphs shutdown lives in
+	glyphs.h, outside the scan's header scope), update_libwebp --check
+	reports no drift, and the zig line links a 491,520-byte x64 exe and
+	a 371,712-byte aarch64 exe (five hundred and twelve bytes of init
+	and re-pin on each leg, both warning censuses holding the 756-line
+	baseline with no new class).
+
+Pre-release: Version 1.1.15-rc.2 (the fourth audit response round)
 
 	the fourth external audit landed against the stable and opened
 	with the retraction its author earned the hard way: the round-3

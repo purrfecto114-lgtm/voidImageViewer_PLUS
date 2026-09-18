@@ -643,7 +643,9 @@ void _viv_update_src_pixel(int force,int update_statusbar)
 
 		if ((force) || (src_pixel_pt.x != _viv_src_pixel_x) || (src_pixel_pt.y != _viv_src_pixel_y))
 		{
-			COLORREF src_pixel_rgb;
+			// born zeroed: the out-of-image branch never asks the getter, and
+			// the channels must not read an uninitialized stack slot.
+			COLORREF src_pixel_rgb = 0;
 			
 			_viv_src_pixel_x = src_pixel_pt.x;
 			_viv_src_pixel_y = src_pixel_pt.y;
@@ -1055,7 +1057,14 @@ HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int render
 			debug_printf("GETMIPMAP %d: %d %d\n",depth,mip_wide,mip_high);
 			
 			// create mipmap..
+			// the node is born complete before the dc dance: a creation
+			// failure below leaves a node whose recursive free walks a
+			// null next, not whatever the allocator handed back (the gdi
+			// handle ceiling makes the failure reachable - a ten thousand
+			// frame small-canvas gif can exhaust it).
 			*pmip = mem_alloc(sizeof(_viv_mipmap_t));
+			(*pmip)->mipmap = NULL;
+			(*pmip)->hbitmap = 0;
 			
 			screen_hdc = GetDC(0);
 			if (screen_hdc)
@@ -1066,7 +1075,6 @@ HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int render
 					mem2_hdc = CreateCompatibleDC(screen_hdc);
 					if (mem2_hdc)
 					{
-						(*pmip)->mipmap = NULL;
 						(*pmip)->hbitmap = CreateCompatibleBitmap(screen_hdc,mip_wide,mip_high);
 						
 						last_hbitmap = SelectObject(mem_hdc,(*pmip)->hbitmap);

@@ -892,6 +892,13 @@ void _viv_blank(void)
 	_viv_status_update();
 	_viv_update_title();
 
+	// the toolbar's faces answer the blank state too: close, deleting
+	// the last image and the empty-folder home all arrive here, and the
+	// rotate, 1:1, best-fit and info faces staying enabled after the
+	// last image left is the same face-state lie the navigation
+	// sweeps kept finding.
+	_viv_toolbar_update_buttons();
+
 	// free all dropfiles
 	_viv_playlist_clearall();
 

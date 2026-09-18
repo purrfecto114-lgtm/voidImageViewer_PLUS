@@ -26,10 +26,21 @@ on:
         default: false
         type: boolean
 
+# Least privilege for the pipeline's token: the tree only needs to be
+# read, and the golden bootstrap's artifact upload answers to
+# actions:write (the audit's depth finding - the default token rides
+# with whatever the repository grants, which is not this pipeline's
+# to assume).
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   tests:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    # a ceiling the hosted default is not: nothing here needs six hours.
+    timeout-minutes: 20
     steps:
       # full history: the whitespace gate diffs the pushed range
       # (before-sha to head), which a depth-1 checkout cannot see.
@@ -128,6 +139,7 @@ jobs:
             toolset: v145
     runs-on: ${{ matrix.runner }}
     name: compile (${{ matrix.name }})
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -188,11 +200,13 @@ jobs:
       # the pixel oracle: the hidden render export walks the real pipeline
       # and the golden hashes pin the exact pixels (the decode, the fit
       # math, the backdrop, the alpha flattening and each renderer's own
-      # sampling). the strict comparison only runs once the manifest is
-      # tracked - before the bootstrap it stays soft so the pre-golden
-      # pushes stay green (the dispatch input regenerates the manifest
-      # for a maintainer to commit; a deleted manifest cannot silently
-      # downgrade the gate, the ls-files check answers the tracked state).
+      # sampling). the strict comparison runs whenever the manifest is
+      # tracked - and tracked is the resting state: the manifest is
+      # committed, so an untracked manifest is a deletion, and a
+      # deletion fails the gate (the dispatch bootstrap is the only
+      # path that may regenerate it; the old soft branch let a
+      # deletion wear the pre-bootstrap era's clothes - the fifth
+      # audit caught the comments claiming otherwise).
       - name: Pixel golden test (the bitmap hash oracle)
         if: matrix.runner == 'windows-2022'
         shell: powershell
@@ -205,7 +219,8 @@ jobs:
           } elseif ($tracked) {
             powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
           } else {
-            Write-Host "golden manifest not bootstrapped yet - the strict pixel comparison waits for the dispatch bootstrap (see the workflow inputs)"
+            Write-Host "::error::golden manifest is not tracked - a deletion is a downgrade, not a bootstrap window (the manifest is committed; only the dispatch bootstrap may regenerate it)"
+            exit 1
           }
 
       - name: Upload the bootstrapped golden manifest

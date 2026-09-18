@@ -1542,6 +1542,10 @@ void _viv_kill(void)
 	_viv_playlist_clearall();
 	_viv_reply_clear_all();
 
+	// the glyphs module started gdi+ on its own token: it pairs
+	// its shutdown here, before the viewer's own.
+	glyphs_shutdown();
+
 	if (os_GdiplusShutdown)
 	{
 		os_GdiplusShutdown(os_GdiplusToken);

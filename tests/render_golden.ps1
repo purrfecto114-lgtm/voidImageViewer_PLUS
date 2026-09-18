@@ -199,6 +199,29 @@ try {
     }
 
     if ($UpdateGolden) {
+        # the discrimination gate, at the source: a textured sample
+        # that answers identically on two legs is the fake-green
+        # signature - a hardware leg that never drew, reading the gdi
+        # result back into its own export. the two solid controls are
+        # exempt (a solid fill legitimately agrees under any
+        # sampling), and the verification pass below keeps its
+        # deliberate notes-only stance: the bootstrap is where a fake
+        # green would enter the manifest, so the bootstrap is where it
+        # is refused - before anything is written.
+        $solidControls = @("28_control_png_100x100.png", "29_control_png_4000x3000.png")
+        foreach ($s in $goldenSamples) {
+            if ($solidControls -contains $s) { continue }
+            $answered = @()
+            foreach ($r in @("gdi", "gl", "d3d")) {
+                if ($results[$s].ContainsKey($r) -and $results[$s][$r]) { $answered += $results[$s][$r] }
+            }
+            $unique = @($answered | Select-Object -Unique)
+            if ($answered.Count -gt $unique.Count) {
+                Write-Host ("FAIL: {0}: two legs answered the same hash on a textured sample - the fake-green signature the discrimination gate exists to refuse (re-check the renderer before pinning this manifest)" -f $s)
+                exit 1
+            }
+        }
+
         # write the manifest: every gdi hash, every hardware hash that
         # answered (the unavailable renderer rides as null and the
         # comparison below skips it).

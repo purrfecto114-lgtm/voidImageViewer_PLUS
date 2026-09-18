@@ -61,6 +61,13 @@ wchar_t *string_alloc_utf8(const utf8_t *s)
 	
 	p = (wchar_t *)mem_alloc(safe_size_mul_sizeof_wchar(safe_size_add_one(wlen)));
 	
+	// the conversion may fail (invalid utf-8, the ini path knows
+	// them): terminate before the second attempt - the sibling
+	// buffer's always-a-string rule, extended to the allocating
+	// twin. an unallocated block scanned as text is worse than an
+	// empty string.
+	p[0] = 0;
+	
 	MultiByteToWideChar(CP_UTF8,0,s,-1,p,wlen+1);
 		
 	return p;

@@ -1103,6 +1103,17 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 // first.
 int _viv_nav_neighbor_available(void)
 {
+	// the random everything mode comes first, in the walk's own
+	// order: _viv_next answers random before it ever looks at the
+	// current file (a random fetch needs no starting image), so a
+	// predicate asking the file gate first would gray the step faces
+	// while the keys still navigated - the same divergence the
+	// faces rounds kept closing, caught here at the ordering layer.
+	if (_viv_random)
+	{
+		return 1;
+	}
+
 	if (!((*_viv_current_fd->cFileName) && (!_viv_file_not_found) && (!_viv_load_failed)))
 	{
 		return 0;
@@ -1118,7 +1129,9 @@ int _viv_nav_neighbor_available(void)
 		return (_viv_fd_compare(&_viv_playlist_start->fd,_viv_current_fd) != 0) ? 1 : 0;
 	}
 
-	return ((_viv_nav_folder_neighbor != 0) || (_viv_random)) ? 1 : 0;
+	// (the random fallback that used to live here retired with the
+	// hoist above - random answers before the file gate now.)
+	return (_viv_nav_folder_neighbor != 0) ? 1 : 0;
 }
 int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int wait_for_current_load)
 {
@@ -1336,6 +1349,14 @@ debug_printf("FIND next\n");
 							fd.dwReserved0 = 0;
 							fd.dwReserved1 = 0;
 							
+							// the full-path sort mode compares whole paths: the scan's fd
+							// is a bare name while the current fd is a full path - complete
+							// the path before the first compare or the sort orders against
+							// a mixed key (the wrap rescan and the home scan below hoist
+							// the same pair).
+							string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+							string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
+							
 							compare_ret = _viv_fd_compare(&fd,_viv_current_fd);
 
 							if (compare_ret != 0)
@@ -1346,8 +1367,6 @@ debug_printf("FIND next\n");
 									{
 										if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) > 0))
 										{
-											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-											string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 											os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
 											got_best = 1;
 										}
@@ -1359,8 +1378,6 @@ debug_printf("FIND next\n");
 									{
 										if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) < 0))
 										{
-											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-											string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 											os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
 											got_best = 1;
 										}
@@ -1392,12 +1409,15 @@ debug_printf("FIND next\n");
 							{
 								if (_viv_is_valid_filename(&fd))
 								{
+									// same hoist as the step scan above: the wrap candidates
+									// order against the same full-path key the walk uses.
+									string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+									string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
+									
 									if (prev)
 									{
 										if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) > 0))
 										{
-											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-											string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 											os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
 											
 											got_start = 1;
@@ -1407,8 +1427,6 @@ debug_printf("FIND next\n");
 									{
 										if ((!got_start) || (_viv_fd_compare(&fd,&start_fd) < 0))
 										{
-											string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-											string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 											os_copy_memory(&start_fd,&fd,sizeof(WIN32_FIND_DATA));
 											got_start = 1;
 										}
@@ -1588,12 +1606,15 @@ void _viv_home(int end,int is_preload)
 						fd.dwReserved0 = 0;
 						fd.dwReserved1 = 0;
 						
+						// same hoist as the step scan: home and end order against
+						// full paths like every other walk.
+						string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
+						string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
+						
 						if (end)
 						{
 							if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) > 0))
 							{
-								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-								string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 								os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
 								got_best = 1;
 							}
@@ -1602,8 +1623,6 @@ void _viv_home(int end,int is_preload)
 						{
 							if ((!got_best) || (_viv_fd_compare(&fd,&best_fd) < 0))
 							{
-								string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-								string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 								os_copy_memory(&best_fd,&fd,sizeof(WIN32_FIND_DATA));
 								got_best = 1;
 							}		

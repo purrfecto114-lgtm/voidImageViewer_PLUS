@@ -61,6 +61,8 @@ HICON glyphs_icon(int glyph_id,int dark,int size);
 // drop every cached icon. call when the palette or the window dpi
 // changes (both are baked into the cached bitmaps).
 void glyphs_flush_cache(void);
+// pairs the module's own gdi+ token startup on the kill path.
+void glyphs_shutdown(void);
 
 #ifdef __cplusplus
 }

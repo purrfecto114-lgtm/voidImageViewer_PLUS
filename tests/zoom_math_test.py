@@ -14,6 +14,7 @@ position _viv_zoom_pos_max() is the first ladder entry that reaches
 the cap.
 """
 import math
+import re
 import sys
 
 STEP = 1.01            # _VIV_ZOOM_MAX ladder step (viv.c: "each zoom step grows 1.01x")
@@ -464,7 +465,7 @@ def pos_for_percent(target, pm, fit_w, fit_h, image_w, image_h, strict=0):
         lo = pm
     if (lo > 0) and (not strict):
         below = percent_of(fit_w, fit_h, image_w, image_h, lo - 1)
-        at = percent_of(fw, fh, iw, ih, lo) if False else percent_of(fit_w, fit_h, image_w, image_h, lo)
+        at = percent_of(fit_w, fit_h, image_w, image_h, lo)
         if (target - below) < (at - target):
             lo = lo - 1
     return lo
@@ -747,7 +748,28 @@ def t_field_report_first_click():
           npos2 < pos or pos == pos_floor(), f"pos {pos} -> {npos2} at {p}%")
 
 
+def t_ladder_step_extracted():
+    """The growth constant is read from viv.c, not self-written here.
+
+    The fifth audit's unpinned-constant finding: the suites that
+    model the ladder each hand-copied 1.01 while extracting 278 and
+    1024 from the source - a drift to 1.02 passed every suite and
+    every golden hash untouched (the model would follow the drift
+    and its own tests stay green). The literal is pinned here, the
+    relation is pinned in the simulation suite (the ~16x span).
+    """
+    src = open("src/viv.c", "rb").read().decode("utf-8", errors="replace")
+    m = re.search(r"f \*= (\d+)\.(\d+);", src)
+    check("the ladder step literal is extractable from the init walk",
+          m is not None, "f *= 1.nn;")
+    if m:
+        step = int(m.group(1)) + int(m.group(2)) / 100.0
+        check("the ladder step is the documented 1.01x", step == 1.01,
+              f"{step}")
+
+
 if __name__ == "__main__":
+    t_ladder_step_extracted()
     t_aspect_invariant()
     t_geometric_ladder()
     t_sixteen_x_cap()

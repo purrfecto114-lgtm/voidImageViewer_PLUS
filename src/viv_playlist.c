@@ -956,14 +956,16 @@ int _viv_playlist_shuffle_index_from_fd(const WIN32_FIND_DATA *fd)
 
 	if (_viv_playlist_shuffle_indexes)
 	{
+		// the identity is the file name: the reserved pair is a
+		// per-playlist counter, and an fd from outside the playlist
+		// (the directory scan, an external open) carries (0,0) - the
+		// first entry's exact id. matching ids pairs a stranger with
+		// the first entry; matching names cannot.
 		for(index=0;index < _viv_playlist_count;index++)
 		{
-			if (_viv_playlist_shuffle_indexes[index]->fd.dwReserved0 == fd->dwReserved0)
+			if (_viv_icompare_filename(_viv_playlist_shuffle_indexes[index]->fd.cFileName,fd->cFileName) == 0)
 			{
-				if (_viv_playlist_shuffle_indexes[index]->fd.dwReserved1 == fd->dwReserved1)
-				{
-					return index;
-				}
+				return index;
 			}
 		}
 	}
@@ -974,15 +976,15 @@ _viv_playlist_t *_viv_playlist_from_fd(const WIN32_FIND_DATA *fd)
 {
 	_viv_playlist_t *d;
 	
+	// same identity as the shuffle lookup above: the file name,
+	// the same case-folded compare the recent list has always
+	// used.
 	d = _viv_playlist_start;
 	while(d)
 	{
-		if (d->fd.dwReserved0 == fd->dwReserved0)
+		if (_viv_icompare_filename(d->fd.cFileName,fd->cFileName) == 0)
 		{
-			if (d->fd.dwReserved1 == fd->dwReserved1)
-			{
-				return d;
-			}
+			return d;
 		}
 		
 		d = d->next;

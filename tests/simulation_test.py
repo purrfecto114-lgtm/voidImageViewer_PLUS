@@ -450,7 +450,22 @@ def t_sim_zoom_ladder():
     if shrink is None or zmax is None:
         return
 
-    STEP = 1.01
+    # the growth constant is extracted from the init walk itself, not
+    # self-written (the fifth audit's unpinned-constant finding: 278
+    # and 1024 were pinned while the step that walks the ladder was
+    # not - a drift to 1.02 passed every suite and every golden hash
+    # untouched).
+    step_hundredths = extract_int(VIV, r"f \*= 1\.(\d+);", "the ladder step's hundredths")
+    if step_hundredths is None:
+        return
+    STEP = 1 + step_hundredths / 100.0
+    check("the ladder step is the documented 1.01x",
+          step_hundredths == 1, "1.%02d" % step_hundredths)
+    # the relation the shrink range exists under: 1.01^278 is about one
+    # sixteenth of the fit (the state header documents the same pair).
+    check("the shrink ladder spans the ~16x cap the header documents",
+          abs(STEP ** shrink - 16.0) < 0.5,
+          "%.2fx at %d steps" % (STEP ** shrink, shrink))
     table = [STEP ** i for i in range(zmax)]     # the shipped init walk
 
     def scale(pos):
@@ -719,10 +734,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.2.81",
-          (major, minor, rev, build) == (1, 1, 15, 81), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.2",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.2", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.3.82",
+          (major, minor, rev, build) == (1, 1, 15, 82), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.3",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.3", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -737,13 +752,14 @@ def t_sim_version_117():
     readme = read("README.md").decode("utf-8", errors="replace")
     check("the readme current-stable line says 1.1.14",
           "**1.1.14 —" in readme and "(the current stable):**" in readme)
-    check("the candidate slot rotates to the audit response round (rc.1 joins the one-liners)",
+    check("the candidate slot rotates to the fifth audit round (rc.2 joins the one-liners)",
           "**1.1.14-rc.10** —" in readme and
           "**1.1.13** —" in readme and
           "**1.1.14-rc.9** —" in readme and
           "**1.1.14-rc.8** —" in readme and
           "**1.1.14-rc.3** —" in readme and
-          "**1.1.15-rc.2 —" in readme and
+          "**1.1.15-rc.3 —" in readme and
+          "**1.1.15-rc.2** —" in readme and
           "**1.1.15-rc.1** —" in readme and
           readme.count("(the current release candidate):**") == 1 and
           "**1.1.14-rc.2** —" in readme and

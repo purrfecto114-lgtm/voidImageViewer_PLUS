@@ -17,15 +17,16 @@ Stable binaries (setup + zip, x86/x64, SHA-256 checksums):
 https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
 The binaries are unsigned (an open-source signing account is on the roadmap) — verify each download against the release's `sha256.txt` before running.
-Every release artifact also carries a build-provenance attestation: `gh attestation verify <file> --repo purfecto114-lgtm/voidImageViewer_PLUS`
+Every release artifact also carries a build-provenance attestation: `gh attestation verify <file> --repo purrfecto114-lgtm/voidImageViewer_PLUS`
 answers the workflow run and commit each file was built from (signing would still be its own round — attestation proves origin, not publisher identity).
 
 What's new
 --------
-**1.1.15-rc.2 — the fourth audit response round (the current release candidate):**
+**1.1.15-rc.3 — the fifth audit response round (the current release candidate):**
 
-- **The golden set learns to discriminate** — its two control pngs are single solid fills, and one answers bit-identically on gdi and d3d — the fourth audit could not rule out, from linux, whether that was the integer-aligned solid coincidence or a d3d leg that never drew reading the gdi result back. The textured png (130×97, ramps + a 2-px checkerboard + hard marker bands, thousands of distinct pixel values self-checked in its generator) adjudicates: every textured sample is held to the three-way-distinct contract, and a pinned hash that regresses to a renderer refusal now goes red instead of note-only.
-- **The nav pair unifies** — the menu's previous/next gate on the same neighbor predicate the toolbar's step faces carry (the navigation domain's own helper) instead of the bare has-an-image rule; the cache-set ceiling's comment prices its two unit prices honestly (12 B/px working set vs 16/3 B/px held frames, one shared byte ceiling).
+- **The navigation trio** — the full-path sort mode compared the directory scans' bare names against the current file's full path (a mixed key whose order is noise; the path is completed before the first compare, at all three scan sites); the neighbor predicate now asks the random question in the walk's own order (random sessions no longer gray the step faces while the keys still fetch); and the playlist matches its entries by file name instead of the reserved id pair — an external fd carried (0,0), the first entry's exact id.
+- **Ten one-liners, each verified** — the mipmap node is born complete before the dc dance (a recursive free walks a null next, not garbage, when gdi runs out); the blank state updates the toolbar faces; the rename mirrors into both name sources (title bar and status strip); the theme change re-pins the status font and the in-place zoom editor beside the dpi path; the attestation command's repo name spells the repo again; the utf-8 allocation terminates before the conversion; the copydata handler declines a null pointer; the glyphs' GDI+ token pairs its shutdown; the pixel probe initializes its color; the test-side litter (a dead branch, a wrong setup exit code, a dead env, a dead icon tool) retires.
+- **The guard blind spots close** — the zoom ladder's growth constant is extracted from the init walk and cross-checked against the shrink range it must span (a drift to 1.02 passed every suite untouched); a deleted golden manifest fails the push gate (deletion is a downgrade, not a bootstrap window); the bootstrap itself now refuses to write a textured sample where two legs answered the same hash — the fake-green signature, refused at the source.
 - Full narrative: `Changes.txt`.
 
 **1.1.14 — the stable promotion round (the current stable):**
@@ -38,6 +39,7 @@ What's new
 
 Recent versions, one line each — full per-round detail in [Changes.txt](Changes.txt):
 
+- **1.1.15-rc.2** — the fourth audit response round: the golden set learns to discriminate (the textured png, the three-way-distinct contract, the one-way ratchet), the nav pair unifies on the neighbor predicate.
 - **1.1.15-rc.1** — the image slot architecture round: the three physically separated frame-set families (19 loose globals, three hand-written field-by-field moves) become one typed slot and three instances; the lifecycle is two primitives; the nav-index cache keys on the file name.
 - **1.1.14-rc.10** — the corrections round: the byte-invariant class gates (`.editorconfig`, the byte suite, the pushed-range whitespace check), the re-runnable split conservation proof (290/290), the QOI fuzz smoke (36 deterministic mutants), the ARM64 compile leg, the renderer fallback naming itself on the status line.
 - **1.1.14-rc.9** — the navigation faces round: the toolbar's previous/next enable rule reads the navigation's own two paths (the playlist items, the folder fact the preload scan records) instead of a cache only the Jump-To dialog ever fills.

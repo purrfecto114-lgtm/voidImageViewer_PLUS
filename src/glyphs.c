@@ -608,3 +608,17 @@ void glyphs_flush_cache(void)
 	_glyphs_cache_count = 0;
 }
 
+// the second gdi+ startup owns its own token (viv.c starts the
+// first); this pairs it on the kill path. the icons it built are
+// freed by their owners - the token is the only resource this
+// module keeps.
+void glyphs_shutdown(void)
+{
+	if ((_glyphs_state == 1) && (os_GdiplusShutdown))
+	{
+		os_GdiplusShutdown(_glyphs_gdiplus_token);
+		
+		_glyphs_gdiplus_token = 0;
+	}
+}
+

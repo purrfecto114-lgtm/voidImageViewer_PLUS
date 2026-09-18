@@ -1781,6 +1781,14 @@ static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 		
 	cds = (COPYDATASTRUCT *)lParam;
 
+	// the cross-process contract supplies a valid pointer, but the
+	// same message from an in-process sender with a null lParam must
+	// not dereference it.
+	if (!cds)
+	{
+		return 0;
+	}
+
 	switch(cds->dwData)
 	{
 		// execute command line options
@@ -2013,6 +2021,11 @@ static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		{
 			SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));
 		}
+		
+		// the in-place zoom editor rides the same handle: it is
+		// created from the strip's font and never followed a dpi
+		// change of its own.
+		_viv_zoom_edit_refont();
 	}
 	
 	// accept the suggested rectangle: it keeps the window at its
@@ -2282,6 +2295,19 @@ static LRESULT _viv_on_wm_themechanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM l
 	// the system font metrics may follow the theme: drop the cached
 	// menu font and re-read the top bar layout at the new metrics.
 	_viv_menu_font_drop();
+	
+	// the status strip holds the dropped font through its WM_SETFONT:
+	// re-pin it to the fresh one or the strip (and the zoom editor
+	// that copies its handle) draw on a freed font. the dpi path
+	// already re-pins; the theme flip is the same lifecycle.
+	if (_viv_status_hwnd)
+	{
+		SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));
+	}
+	
+	_viv_zoom_edit_refont();
+	
+	_viv_status_update();
 	
 	_viv_menubar_layout();
 	

@@ -46,8 +46,12 @@ def main():
     check("the golden harness script exists",
           os.path.exists("tests/render_golden.ps1"))
     check("the golden set is the pinned thirteen (the real imagery, the shape dimension and the discrimination texture)",
-          ps1.count('"28_control_png_100x100.png"') == 1 and
-          ps1.count('"29_control_png_4000x3000.png"') == 1 and
+          # the discrimination gate names the solid controls once
+          # more (the bootstrap exemption list - round 111), so the
+          # count is two for the pair and one for every textured
+          # sample: a third mention of anything is a drift.
+          ps1.count('"28_control_png_100x100.png"') == 2 and
+          ps1.count('"29_control_png_4000x3000.png"') == 2 and
           ps1.count('"fx_still_qoi_rgba.qoi"') == 1 and
           ps1.count('"fx_anim_pulse.webp"') == 1 and
           ps1.count('"fx_anim_fade.gif"') == 1 and
@@ -88,6 +92,15 @@ def main():
     check("the missing-manifest soft pass is opt-in only",
           "[switch]$AllowMissing" in ps1 and
           "AllowMissing) {" in ps1)
+    # round 111: the bootstrap refuses the fake green at the source -
+    # a textured sample where two legs answered the same hash never
+    # reaches the manifest (the verification pass stays notes-only by
+    # design; the pinned hashes carry the discrimination).
+    check("the bootstrap carries the discrimination gate",
+          "the fake-green signature the discrimination gate exists to refuse" in ps1 and
+          "$solidControls" in ps1)
+    check("the solid exemption rides the gate, not the contract",
+          "$solidControls -contains" in ps1)
 
     # 2. the export module carries the matching contract.
     check("the export timeout matches the harness wait",
@@ -104,6 +117,12 @@ def main():
           "render_golden.ps1" in tests_yml)
     check("tests.yml gates the strict comparison on the tracked manifest",
           "git ls-files tests/golden/golden-manifest.json" in tests_yml)
+    # round 111: an untracked manifest is a deletion, and a deletion
+    # fails the push gate (the old soft branch wore the pre-bootstrap
+    # era's clothes - the audit caught the comments claiming
+    # otherwise).
+    check("tests.yml fails the untracked manifest red",
+          "a deletion is a downgrade, not a bootstrap window" in tests_yml)
     check("tests.yml carries the bootstrap dispatch input",
           "bootstrap-golden" in tests_yml and
           "workflow_dispatch:" in tests_yml)
@@ -144,8 +163,11 @@ def main():
         # by the ci bootstrap dispatch, never by hand). any other
         # divergence - a missing fixture, an extra entry - fails both
         # forms and goes red.
-        ps1_samples = sorted(re.findall(r'"([0-9a-z_.]+.png|[0-9a-z_.]+.gif|[0-9a-z_.]+.bmp|[0-9a-z_.]+.jpg|[0-9a-z_.]+.qoi|[0-9a-z_.]+.webp)"',
-                                        ps1))
+        # the extraction is set-shaped: the bootstrap's solid-exemption
+        # list quotes the two controls a second time (round 111), and
+        # the manifest covers each sample exactly once regardless.
+        ps1_samples = sorted(set(re.findall(r'"([0-9a-z_.]+.png|[0-9a-z_.]+.gif|[0-9a-z_.]+.bmp|[0-9a-z_.]+.jpg|[0-9a-z_.]+.qoi|[0-9a-z_.]+.webp)"',
+                                        ps1)))
         window_form = sorted(s for s in ps1_samples
                              if s != "fx_still_textured.png")
         check("the golden manifest covers exactly the golden set",

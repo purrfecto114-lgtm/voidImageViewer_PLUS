@@ -286,6 +286,13 @@ static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 										// (the old name would become a dead row).
 										_viv_recent_file_rename(old_filename,file_op_new_name);
 
+										// the title bar reads the current fd while the status strip
+										// reads the slot's: mirror the new name into both or the two
+										// faces disagree until the next load.
+										string_copy_with_bufsize(_viv_slot_current.fd.cFileName,MAX_PATH,file_op_new_name);
+
+										_viv_status_update();
+
 										_viv_update_title();
 									}						
 								}
@@ -1945,6 +1952,24 @@ void _viv_set_zoom_dialog(void)
 	SendMessage(hwnd,EM_SETSEL,0,-1);
 	
 	SetFocus(hwnd);
+}
+void _viv_zoom_edit_refont(void)
+{
+	// the in-place zoom editor carries the strip's font handle from
+	// its creation; a font drop (the dpi change, the theme change)
+	// frees that handle while the editor may still be open. re-pin it
+	// to the fresh menu font, or the digits draw with a freed one.
+	if (_viv_zoom_edit_hwnd)
+	{
+		HFONT hfont;
+		
+		hfont = _viv_menu_font();
+		
+		if (hfont)
+		{
+			SendMessage(_viv_zoom_edit_hwnd,WM_SETFONT,(WPARAM)hfont,0);
+		}
+	}
 }
 static void _viv_zoom_edit_end(HWND hwnd,int apply)
 {
