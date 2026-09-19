@@ -22,15 +22,14 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.6 — the judged-fixes round (the current release candidate):**
+**1.1.15-rc.7 — the reentry state round (the current release candidate):**
 
-- **The message box buttons, readable at last** — the button faces drew raw UTF-8 bytes through the wide-char API ("OK" as U+4B4F, "确定" as U+A1E7); three lines through the same UTF-8-to-wide bridge every other face uses close the last raw path in the tree.
-- **The corner resize is back in the borderless layout** — the status bar now answers the grip box itself and hands the size loop to the parent, mouse and touch; the manual edge band widens to the padded-border metric.
-- **Icon-only toolbar** — a new switch (Settings→View, and the toolbar's right-click menu): the full strip is wider than a default window at 96 dpi, so the overflow contract hid whole groups on smaller screens; icons alone always fit.
-- **The fullscreen toggle, measured not brute-forced** — the 1024-entry ladder precomputation (up to 2049 render measurements per toggle) retires into the binary searches the wheel has used since beta.8.
-- **Paste understands a copied path** — the text fallback behind the image formats trims, checks the extension and existence, and opens; the loader refusal flags join the interlocked forms.
-- **The classic Options dialogs retire for real** — sixteen procedures, four templates and seventy-eight resource ids nothing could open anymore leave the tree, the resource file and the build.
+- **Re-opening keeps the window's size** — a second instance's forwarded show command no longer demotes the first instance's window: a minimized window answers `SW_RESTORE` (its placement decides — maximized comes back maximized), a live window only grows, and the launcher word never hides or restores-down the visible window.
+- **Minimize runs no size sweep** — the iconic client is degenerate, and the old sweep rewrote the view anchors through a garbage render size; every zoom and view value now survives the minimize for the restore to answer with.
+- **Iconic geometry reads all go through the placement** — the `/x /y /width /height` defaults, the fullscreen capture (IsZoomed answers false for a maximized-minimized window) and the `/minimal` `//compact` restyle no longer seed their math with the -32000 parking rect.
 - Full narrative: `Changes.txt`.
+
+**1.1.15-rc.6 — the judged-fixes round** — the message box buttons' UTF-8 bridge, the borderless corner grip, the icon-only toolbar, the fullscreen binary searches, the paste path fallback and the classic Options retirement. Full narrative: `Changes.txt`.
 
 **1.1.14 — the current stable** — the cache-set ceiling prices all three held images together at every fill point (a preload that would overflow is abandoned silently; the settle point drops the cache, never the image on screen), and the preloading/caching defaults are pinned as a guard. Full narrative: `Changes.txt`.
 

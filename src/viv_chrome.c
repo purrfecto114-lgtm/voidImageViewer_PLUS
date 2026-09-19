@@ -425,6 +425,21 @@ void _viv_on_size(void)
 {
 	if (!_viv_prevent_on_size)
 	{
+		// the minimized window runs no size sweep: the iconic client
+		// is degenerate (zero, or a sliver the status and view-top
+		// strips subtract into the negative), and the sweep would
+		// clamp the zoom ladder against it and rewrite the view
+		// anchors through a garbage render size (the sliver case
+		// answers rw=1 / rh negative - nonzero, so the view guards
+		// pass and the anchors land seventy-five image widths off).
+		// every value the minimize leaves intact is the size data
+		// the restore must answer with: the WM_SIZE the restore
+		// itself sends re-runs this sweep against the real client.
+		if (IsIconic(_viv_hwnd))
+		{
+			return;
+		}
+		
 		// keep the zoom level inside the live ladder: a window resize changes
 		// the best fit size and with it the reachable zoom range. (inside the
 		// guard: fullscreen toggle intermediates must not re-clamp.)
@@ -810,13 +825,40 @@ debug_printf("toggle fullscreen %d\n",!_viv_is_fullscreen);
 		
 		SetWindowLong(_viv_hwnd,GWL_STYLE,style & ~(WS_CAPTION|WS_THICKFRAME));
 		
-		_viv_fullscreen_is_maxed = IsZoomed(_viv_hwnd);
-		if (_viv_fullscreen_is_maxed)
+		// the capture must answer both maximized truths and both
+		// geometry sources: IsZoomed reports false for a window that
+		// sits minimized with the WPF_RESTORETOMAXIMIZED placement,
+		// and the iconic GetWindowRect parks at -32000 with a sliver
+		// size - the fullscreen exit would then restore the window
+		// to that garbage rect. a minimized window answers from its
+		// placement instead; the live window keeps the rc.6 dance
+		// (de-maximize, then capture the windowed rect).
+		if (IsIconic(_viv_hwnd))
 		{
-			ShowWindow(_viv_hwnd,SW_SHOWNORMAL);
+			WINDOWPLACEMENT wp;
+			
+			wp.length = sizeof(WINDOWPLACEMENT);
+			
+			_viv_fullscreen_is_maxed = 0;
+			
+			if (GetWindowPlacement(_viv_hwnd,&wp))
+			{
+				_viv_fullscreen_is_maxed = ((wp.flags & WPF_RESTORETOMAXIMIZED) != 0);
+				
+				_viv_fullscreen_rect = wp.rcNormalPosition;
+			}
 		}
-		
-		GetWindowRect(_viv_hwnd,&_viv_fullscreen_rect);
+		else
+		{
+			_viv_fullscreen_is_maxed = _viv_is_window_maximized(_viv_hwnd);
+			
+			if (_viv_fullscreen_is_maxed)
+			{
+				ShowWindow(_viv_hwnd,SW_SHOWNORMAL);
+			}
+			
+			GetWindowRect(_viv_hwnd,&_viv_fullscreen_rect);
+		}
 		
 		_viv_menubar_show(0);
 		_viv_status_show(0);

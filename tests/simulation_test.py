@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.6.85",
-          (major, minor, rev, build) == (1, 1, 15, 85), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.6",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.6", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.7.86",
+          (major, minor, rev, build) == (1, 1, 15, 86), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.7",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.7", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -708,13 +708,15 @@ def t_sim_version_117():
     experience = read("experience.md").decode("utf-8", errors="replace")
     check("the readme current-stable line says 1.1.14",
           "**1.1.14 — the current stable**" in readme)
-    check("the candidate slot rotates to the command picker round (rc.3 joins the one-liners)",
+    check("the candidate slot rotates to the reentry state round (rc.6 joins the one-liners)",
           "**1.1.14-rc.10** —" in experience and
           "**1.1.13** —" in experience and
           "**1.1.14-rc.9** —" in experience and
           "**1.1.14-rc.8** —" in experience and
           "**1.1.14-rc.3** —" in experience and
+          "**1.1.15-rc.7 —" in readme and
           "**1.1.15-rc.6 —" in readme and
+          "### 1.1.15-rc.6 —" in experience and
           "### 1.1.15-rc.5 —" in experience and
           "### 1.1.15-rc.3 —" in experience and
           "### 1.1.15-rc.2 —" in experience and
@@ -1383,6 +1385,245 @@ def t_sim_field_round49():
     check("the changelog states the lifetime rule (the review fix)",
           "the font belongs to the dialog that draws it" in changes)
 
+# ---------------------------------------------------------------------------
+# 12. the reentry state round (the corrected field report: "the program
+#     minimizes to the taskbar, then the restore to the foreground loses
+#     the size data"). three defects of one family: the show command a
+#     second instance forwards must never demote the live window state,
+#     the minimized window must never run geometry work against its
+#     degenerate iconic client, and the iconic window must never seed
+#     window-rect math with the -32000 parking rect.
+# ---------------------------------------------------------------------------
+def t_sim_reentry_state():
+    print("sim: the reentry state round (the size the restore loses)")
+
+    # --- the executable-spec table ---------------------------------------
+    # the show-window state machine, line-verified against the two
+    # executable specs this round (wine win32u/window.c WINPOS_ShowWindow
+    # and reactos win32ss/user/ntuser/winpos.c co_WinPosMinMaximize, the
+    # SW_SHOWNORMAL case shares the SW_RESTORE branch in both). the
+    # minimize/restore half is additionally pinned against real windows
+    # by wine's own test_window_placement plain-ok assertions (a
+    # minimized maximized window carries WPF_RESTORETOMAXIMIZED and
+    # SW_RESTORE returns it to maximized). the one case no test pins on
+    # real windows is SW_SHOWNORMAL onto a minimized window: the app
+    # must not bet on it either way - the fix below answers it with
+    # SW_RESTORE, which every spec and every real windows agrees on.
+    SW_HIDE, SW_SHOWNORMAL, SW_SHOWMAXIMIZED = 0, 1, 3
+    SW_SHOWMINIMIZED, SW_RESTORE, SW_SHOWDEFAULT = 7, 9, 10
+
+    def showwindow_spec(state, word):
+        # state: live_normal | live_max | iconic_plain | iconic_restoremax
+        if word in (SW_SHOWNORMAL, SW_RESTORE, SW_SHOWDEFAULT):
+            if state == "iconic_restoremax":
+                return "live_max"       # the placement answers: back to maximized
+            if state == "iconic_plain":
+                return "live_normal"    # the normal rect
+            if state == "live_max":
+                return "live_normal"    # THE DEMOTION (both specs, line-verified)
+            return "live_normal"        # live normal: geometry no-op
+        if word == SW_SHOWMAXIMIZED:
+            return "live_max"           # the only word that may grow
+        if word in (SW_SHOWMINIMIZED, 6):  # 6 = SW_MINIMIZE
+            return "iconic_restoremax" if state == "live_max" else "iconic_plain"
+        if word == SW_HIDE:
+            return "hidden"
+        return state
+
+    check("spec: SW_SHOWNORMAL demotes a live maximized window (the rc.6 forward)",
+          showwindow_spec("live_max", SW_SHOWNORMAL) == "live_normal")
+    check("spec: SW_RESTORE returns the minimized maximized window to maximized",
+          showwindow_spec("iconic_restoremax", SW_RESTORE) == "live_max")
+    check("spec: the minimize of a maximized window arms the restore-max placement",
+          showwindow_spec("live_max", SW_SHOWMINIMIZED) == "iconic_restoremax")
+
+    # --- 1. the copydata activation is state-aware -----------------------
+    copydata = function_body(VIV, "static LRESULT _viv_on_wm_copydata")
+    check("extract the copydata handler from the spliced source",
+          copydata is not None)
+    if copydata:
+        cl_case = copydata[copydata.find("_VIV_COPYDATA_COMMAND_LINE"):]
+        check("the rc.6 bare ShowWindow(hwnd,showcmd) is retired",
+              "ShowWindow(hwnd,showcmd)" not in cl_case,
+              "the launcher word still passes through raw")
+        check("the minimized window answers SW_RESTORE (the placement decides)",
+              "IsIconic(hwnd)" in cl_case and "SW_RESTORE" in cl_case)
+        check("the iconic branch honors a run-maximized launcher word",
+              "showcmd == SW_SHOWMAXIMIZED" in cl_case)
+        check("the live window only grows: the lone live ShowWindow is the maximize",
+              cl_case.count("ShowWindow(hwnd,") == 2)
+
+        # replay the fixed policy over every launcher word x window state:
+        # no word may demote the live state, no word may hide the window.
+        def app_activation(state, word):
+            if state.startswith("iconic"):
+                if word == SW_SHOWMAXIMIZED:
+                    return showwindow_spec(state, SW_SHOWMAXIMIZED)
+                return showwindow_spec(state, SW_RESTORE)
+            if word == SW_SHOWMAXIMIZED:
+                return showwindow_spec(state, SW_SHOWMAXIMIZED)
+            return state  # activation only: SetForegroundWindow answered it
+
+        words = {"SW_HIDE(0)": SW_HIDE, "SW_SHOWNORMAL(1)": SW_SHOWNORMAL,
+                 "SW_SHOWMAXIMIZED(3)": SW_SHOWMAXIMIZED,
+                 "SW_SHOWMINIMIZED(7)": SW_SHOWMINIMIZED,
+                 "SW_RESTORE(9)": SW_RESTORE, "SW_SHOWDEFAULT(10)": SW_SHOWDEFAULT}
+        demoted = ["%s on %s -> %s" % (w, s, app_activation(s, v))
+                   for w, v in words.items() for s in
+                   ("live_max", "live_normal", "iconic_plain", "iconic_restoremax")
+                   if app_activation(s, v) not in
+                   ("live_max", "live_normal", "iconic_plain", "iconic_restoremax")
+                   or (s == "live_max" and app_activation(s, v) == "live_normal")]
+        check("no launcher word demotes or hides the first instance (replay)",
+              not demoted, "; ".join(demoted[:4]))
+        check("the plain re-open returns a minimized maximized window to maximized",
+              app_activation("iconic_restoremax", SW_SHOWNORMAL) == "live_max")
+
+    # --- 2. the minimized window runs no size sweep ----------------------
+    on_size = function_body(VIV, "void _viv_on_size")
+    check("extract _viv_on_size from the spliced source", on_size is not None)
+    if on_size:
+        iconic_guard = on_size.find("IsIconic(_viv_hwnd)")
+        clamp = on_size.find("_viv_clamp_zoom_pos")
+        check("the iconic early-out precedes the zoom clamp in _viv_on_size",
+              iconic_guard != -1 and clamp != -1 and iconic_guard < clamp,
+              "guard at %d, clamp at %d" % (iconic_guard, clamp))
+
+    # the hazard the early-out retires, replayed from the extracted
+    # formulas: the iconic client is degenerate (zero, or a sliver the
+    # strips subtract into the negative), and the rc.6 sweep ran anyway -
+    # the render-size math then answers rw=1 / rh negative (nonzero!),
+    # the view_set rw/rh guards pass, and the view anchors are rewritten
+    # through a 4000x garbage scale.
+    grs = function_body(VIV, "void _viv_get_render_size")
+    check("extract the render-size formula", grs is not None)
+    if grs and on_size:
+        tall = re.search(
+            r"rh = high;\s*\r?\s*rw = \(\(high \* \(__int64\)_viv_slot_current\.image_wide\) \+ _viv_slot_current\.image_high - 1\) / _viv_slot_current\.image_high;",
+            grs)
+        floor = re.search(r"if \(rw <= 0\)\s*\r?\s*\{\s*\r?\s*rw = 1;", grs)
+        check("the tall-image branch and the rw floor are still the extracted shape",
+              tall is not None and floor is not None)
+
+        def render_size_model(wide, high, iw, ih):
+            # the extracted branch math (keep_aspect, fill off, shrinking allowed)
+            if not (wide and high):
+                return 0, 0
+            if (high * iw) // ih < wide:
+                rh = high
+                rw = int((high * iw + ih - 1) / ih)
+                if rw <= 0:
+                    rw = 1
+            else:
+                rw = wide
+                rh = int((wide * ih + iw - 1) / iw)
+                if rh <= 0:
+                    rh = 1
+            return rw, rh
+
+        # iconic client model A (client answers 0x0): the guards hold.
+        rw, rh = render_size_model(0, 0, 4000, 3000)
+        check("iconic model A (0x0 client): the render size answers zero",
+              (rw, rh) == (0, 0))
+        # iconic client model B (152px sliver, strips push high negative):
+        rw, rh = render_size_model(152, -45, 4000, 3000)
+        check("iconic model B (sliver client): the render size answers the garbage pair",
+              rw == 1 and rh == -45, "rw %d rh %d" % (rw, rh))
+        # model B destroys the view anchor: the view_set guard is
+        # `if (rw)` - nonzero, so the rewrite runs.
+        vset = function_body(VIV, "void _viv_view_set")
+        check("extract _viv_view_set", vset is not None)
+        if vset:
+            check("the view_set anchor rewrite guards on plain nonzero rw",
+                  "if (rw)" in vset and "don't set to 0, just use last value" in vset)
+            # the destroyed anchor, replayed: 76 window px mapped at 4000
+            # image px per window px (rw=1) lands at image pixel 304000 -
+            # seventy-five image widths off a 4000px wide image.
+            rx = ((250 - 250) * (152 * 2)) // 1000 - (1 // 2) - 0
+            view_ix = ((152 // 2) - rx) * 4000 / 1.0
+            check("model B rewrites the anchor to a far-off-image pixel",
+                  view_ix == 304000.0, str(view_ix))
+
+    # --- 3. the iconic geometry read census ------------------------------
+    # 3a. the /x /y /width /height defaults: the rc.6 seed read the live
+    #     window rect (the -32000 parking rect while minimized).
+    pcl = function_body(VIV, "void _viv_process_command_line")
+    check("extract _viv_process_command_line", pcl is not None)
+    if pcl:
+        seed = pcl.find("GetWindowRect(_viv_hwnd,&rect);")
+        iconic = pcl.find("IsIconic(_viv_hwnd)")
+        window_x = pcl.find("window_x = rect.left;")
+        check("the geometry seed reads the placement when the window is iconic",
+              seed != -1 and iconic != -1 and window_x != -1 and
+              iconic < window_x and "rcNormalPosition" in pcl,
+              "seed %d, iconic %d, reads %d" % (seed, iconic, window_x))
+
+    # 3b. the fullscreen toggle: the rc.6 capture read IsZoomed (false for
+    #     a maximized-minimized window) and GetWindowRect (the -32000
+    #     sliver) - the fullscreen exit then restored the window to the
+    #     garbage rect.
+    tfs = function_body(VIV, "void _viv_toggle_fullscreen")
+    check("extract _viv_toggle_fullscreen", tfs is not None)
+    if tfs:
+        check("the fullscreen capture asks the state-aware maximized truth",
+              "_viv_fullscreen_is_maxed = _viv_is_window_maximized(_viv_hwnd);" in tfs)
+        check("the bare IsZoomed capture is retired",
+              "_viv_fullscreen_is_maxed = IsZoomed(_viv_hwnd);" not in tfs)
+        iconic_at = tfs.find("if (IsIconic(_viv_hwnd))")
+        demax = tfs.find("ShowWindow(_viv_hwnd,SW_SHOWNORMAL);")
+        check("the iconic capture seeds from the placement normal position",
+              iconic_at != -1 and "WPF_RESTORETOMAXIMIZED" in tfs and
+              "_viv_fullscreen_rect = wp.rcNormalPosition;" in tfs)
+        check("the de-maximize before the capture is live-only",
+              iconic_at != -1 and demax != -1 and demax > iconic_at,
+              "iconic branch %d, demax %d" % (iconic_at, demax))
+
+    # 3c. the restyle: the rc.6 _viv_update_frame read the degenerate
+    #     client and the -32000 window rect and applied their arithmetic
+    #     with a SetWindowPos - the minimized window (a forwarded /minimal
+    #     or //compact preset) landed at the garbage rect, and its leading
+    #     SW_RESTORE popped the window to the front.
+    uf = function_body(VIV, "void _viv_update_frame")
+    check("extract _viv_update_frame", uf is not None)
+    if uf:
+        iconic_at = uf.find("if (IsIconic(_viv_hwnd))")
+        restore_at = uf.find("ShowWindow(_viv_hwnd,SW_RESTORE);")
+        check("the restyle carries an iconic branch",
+              iconic_at != -1)
+        if iconic_at != -1:
+            branch = uf[iconic_at:]
+            depth = 0
+            end = 0
+            for k, c in enumerate(branch):
+                if c == "{":
+                    depth += 1
+                elif c == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = k
+                        break
+            branch = branch[:end]
+            check("the iconic restyle applies the styles and the strips only",
+                  "config_show_caption" in branch and
+                  "_viv_menubar_show(config_show_menu)" in branch and
+                  "SetWindowLong(_viv_hwnd,GWL_STYLE,newstyle);" in branch)
+            check("the iconic restyle never moves the window (frame-only setwindowpos)",
+                  "SWP_NOMOVE|SWP_NOSIZE" in branch)
+            check("the iconic branch returns before the live geometry path",
+                  "return;" in branch)
+        check("the live de-maximize stays out of the iconic path",
+              restore_at != -1 and iconic_at != -1 and restore_at > iconic_at,
+              "iconic %d, restore %d" % (iconic_at, restore_at))
+
+    # 3d. the wm_move guard (already correct upstream): the position
+    #     writes skip the iconic, the maximized and the fullscreen window.
+    move = function_body(VIV, "static LRESULT _viv_on_wm_move")
+    check("extract _viv_on_wm_move", move is not None)
+    if move:
+        check("the wm_move write is iconic-guarded (pin: stays correct)",
+              "IsIconic(hwnd)" in move and "IsMaximized(hwnd)" in move)
+
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -1396,6 +1637,7 @@ if __name__ == "__main__":
     t_sim_field_round47()
     t_sim_field_round48()
     t_sim_field_round49()
+    t_sim_reentry_state()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

@@ -252,6 +252,55 @@ void _viv_update_frame(void)
 		
 		was_maximized = 0;
 
+		// the restyle while the window sits minimized: the iconic
+		// client is degenerate and the iconic window rect parks at
+		// -32000 with a sliver size, so the client-constant resize
+		// arithmetic has no live geometry to run against - and the
+		// SW_RESTORE below would pop the minimized window to the
+		// front. the styles and the strip visibility still apply now;
+		// the placement owns the geometry until the restore answers
+		// it (the restore's own WM_SIZE re-runs the layout sweep
+		// against the real client).
+		if (IsIconic(_viv_hwnd))
+		{
+			oldstyle = GetWindowLong(_viv_hwnd,GWL_STYLE);
+			newstyle = oldstyle;
+			
+			if (config_show_caption)	
+			{
+				newstyle |= WS_CAPTION | WS_SYSMENU;
+			}
+			else
+			{
+				newstyle &= ~(WS_CAPTION | WS_SYSMENU);
+			}
+			
+			if (config_show_thickframe)	
+			{
+				newstyle |= WS_THICKFRAME;
+			}
+			else
+			{
+				newstyle &= ~WS_THICKFRAME;
+			}
+
+			// the top bar is a client side child: showing it grows the
+			// required client area instead of the frame.
+			_viv_menubar_show(config_show_menu);
+			
+			_viv_status_show(config_show_status);
+			_viv_controls_show(config_show_controls);
+			_viv_zoomui_update();
+			
+			SetWindowLong(_viv_hwnd,GWL_STYLE,newstyle);
+			
+			// frame-only: the style change re-filters, the geometry
+			// stays the placement's.
+			SetWindowPos(_viv_hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE|SWP_FRAMECHANGED);
+			
+			return;
+		}
+		
 		// get out of maximized state.
 		if (_viv_is_window_maximized(_viv_hwnd))
 		{

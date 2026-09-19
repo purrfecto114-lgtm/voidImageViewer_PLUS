@@ -191,6 +191,42 @@ after.
 
 ## The 1.1.15 arc — round descriptions
 
+### 1.1.15-rc.7 â the reentry state round (build 86, 2026-09-19)
+
+the corrected field report: "the program minimizes to the taskbar, the
+restore to the foreground loses the size data." the correction moved
+the observation, not the cause - the damage lands at the forwarded show
+command, the restore is where the eye catches it.
+
+- the show-window state machine re-derived line by line against the two
+  executable specs (wine win32u, reactos win32ss): a forwarded
+  sw_shownormal restores a live maximized window to its normal rect
+  (both agree - the demotion every re-open carried), sw_restore answers
+  a minimized window from its placement (pinned on real windows by
+  wine's own test_window_placement), and the one case no test pins on
+  real windows - sw_shownormal onto a minimized window - is routed
+  around: the app answers sw_restore there, which every spec and every
+  real windows agrees on.
+- the copydata activation is state-aware (iconic: sw_restore, or the
+  run-maximized word; live: only the grow word; every other launcher
+  word answers with the foreground call - the bare 0 a startf-less
+  launcher forwards never hides the window).
+- the minimized window runs no size sweep at all: the iconic client is
+  degenerate (zero, or a sliver the strips subtract negative), and the
+  old sweep rewrote the view anchors through rw=1 / rh-negative -
+  nonzero, so the anchor guards passed and the anchors landed
+  seventy-five image widths off. the restore's own wm_size re-runs the
+  sweep against the real client.
+- the iconic geometry reads all go through the placement now: the
+  /x /y /width /height defaults, the fullscreen capture (iszoomed
+  answers false for a maximized-minimized window; the old capture
+  restored the window to the -32000 sliver on the fullscreen exit) and
+  the /minimal //compact restyle (styles and strips only, frame-only
+  setwindowpos, the popping sw_restore live-only).
+- the round's lesson: when two executable specs agree but no
+  real-windows test pins the exact case, do not bet on either - route
+  around the ambiguity with the call every side agrees on.
+
 ### 1.1.15-rc.6 — the judged-fixes round (362e718, build 85, 2026-09-18)
 
 the round took the user's own judged fix list: three things worth doing,

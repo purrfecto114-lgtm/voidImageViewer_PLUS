@@ -8,7 +8,7 @@ being validated in the field, one release-candidate line at a time:
 | Version | Line | Supported |
 | --- | --- | --- |
 | 1.1.14 | latest stable | yes |
-| 1.1.15-rc.x (1.1.15-rc.6 at the time of writing) | current release candidate | yes, until the 1.1.15 stable promotion retires it |
+| 1.1.15-rc.x (1.1.15-rc.7 at the time of writing) | current release candidate | yes, until the 1.1.15 stable promotion retires it |
 | 1.1.13 and older | previous lines | no — please upgrade (stable or the current rc) and re-check before reporting |
 
 The authoritative current values are `VERSION_STRING` in `src/version.h`

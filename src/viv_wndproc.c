@@ -1873,7 +1873,32 @@ static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 				
 				_viv_process_command_line(cl);
 				
-				ShowWindow(hwnd,showcmd);
+				// the launcher word must never demote the
+				// live window state: a forwarded
+				// SW_SHOWNORMAL restores a visible
+				// maximized window to its normal rect (the
+				// size loss every re-open carried while
+				// the field watched the restore), and a
+				// minimized window answers SW_RESTORE so
+				// its placement decides - maximized
+				// before the minimize comes back
+				// maximized. the run-maximized word is
+				// the one launcher ask that still applies;
+				// every other word answers with the
+				// SetForegroundWindow above (the bare 0 a
+				// STARTF-less launcher forwards must not
+				// hide the live window).
+				if (IsIconic(hwnd))
+				{
+					ShowWindow(hwnd,(showcmd == SW_SHOWMAXIMIZED) ? SW_SHOWMAXIMIZED : SW_RESTORE);
+				}
+				else
+				{
+					if (showcmd == SW_SHOWMAXIMIZED)
+					{
+						ShowWindow(hwnd,SW_SHOWMAXIMIZED);
+					}
+				}
 			}
 								
 			return 1;

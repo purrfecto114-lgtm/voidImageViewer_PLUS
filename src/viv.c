@@ -716,7 +716,29 @@ void _viv_process_command_line(wchar_t *cl)
 	single[0] = 0;
 	set_window_rect = 0;
 
-	GetWindowRect(_viv_hwnd,&rect);
+	// the geometry defaults come from the live window rect - unless
+	// the window sits minimized: the iconic window parks at -32000
+	// with a sliver size, so the placement normal position answers
+	// the defaults the /x /y /width /height flags do not override.
+	if (IsIconic(_viv_hwnd))
+	{
+		WINDOWPLACEMENT wp;
+		
+		wp.length = sizeof(WINDOWPLACEMENT);
+		
+		if (!GetWindowPlacement(_viv_hwnd,&wp))
+		{
+			GetWindowRect(_viv_hwnd,&rect);
+		}
+		else
+		{
+			rect = wp.rcNormalPosition;
+		}
+	}
+	else
+	{
+		GetWindowRect(_viv_hwnd,&rect);
+	}
 	window_x = rect.left;
 	window_y = rect.top;
 	window_wide = rect.right - rect.left;
