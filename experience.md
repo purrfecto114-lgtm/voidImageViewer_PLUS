@@ -190,8 +190,61 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.8 — the seventh audit response round (build 87, 2026-09-19)
 
-### 1.1.15-rc.7 â the reentry state round (build 86, 2026-09-19)
+the report arrived as a full-project review: twenty findings with line
+numbers across the clipboard, the threading, the file identity, the
+build chain and the release chain. every claim re-verified before
+anything moved - sixteen confirmed as written, one stale (a
+reproducible-build overpromise this readme never carried), the
+accessibility items continuing the deferred ledger they have ridden
+since the fifth audit.
+
+the clipboard: the CF_DIB path read its header before it measured the
+global, and CreateDIBSection consumed the palette before the size
+check proved it existed - the length gate now runs before the lock
+and the whole dib is proven before the section is created, with the
+stride on the overflow-checked math and INT_MIN falling through with
+the malformed palettes. the CF_BITMAP path answered no budget: the
+source's own geometry now prices the copy before CopyImage allocates.
+
+the identity: the requested file and the displayed file shared one
+variable, so a fast next-then-delete during a load could delete the
+file the user never saw. the displayed identity already existed - the
+current slot's fd, committed by the first frame, moved by every slot
+transition - and the fix bound the file-acting commands to it; the
+navigation keeps the requested file.
+
+the threading: the preload flag captured as an immutable job snapshot
+at thread start; the stage marker on interlocked pointer forms. the
+reply queue's tail repost hands a refused post's duty back (rc.5
+closed the enqueue side; the tail carried the same hole for three
+rounds). the settings save checks every write, keeps the last good
+ini on failure, and moves write-through behind a flush.
+
+the chain: the zig builds wipe their object directories (no ghost
+objects from deleted sources), ci's actions:write lives on the one
+uploading job, releases serialize per tag, NSIS pins 3.12.0, the
+bilingual encoding check runs check-only in ci, sha256.txt joins the
+attested subjects, and the installer wrapper's parameters are
+whitelisted. the readme's floating-controls row now describes the
+seven-cell row that exists, and README_CN.md arrived with the
+language links.
+
+the lessons: size before shape - a length is the fact every
+dereference hangs on, and the validation order is the security
+boundary. the best identity fix adds no new state - the displayed
+identity was already maintained everywhere; only the readers were
+bound to the wrong one. protocol ordering is not a c contract - the
+preload flag's write/read pairs were ordered by the message queue's
+own protocol, but formal data races want formal forms, not arguments.
+audit your fixes for their own tails - rc.5 closed the refused post
+on the enqueue side and the drain's tail repost carried the same hole
+until the seventh audit found it. and one stale claim in twenty says
+the auditor gets verified too.
+
+
+### 1.1.15-rc.7 — the reentry state round (build 86, 2026-09-19)
 
 the corrected field report: "the program minimizes to the taskbar, the
 restore to the foreground loses the size data." the correction moved

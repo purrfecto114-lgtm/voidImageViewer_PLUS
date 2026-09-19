@@ -568,88 +568,116 @@ BOOL _viv_paste_clipboard_image(void)
 	if (hglobal)
 	{
 		BITMAPINFOHEADER *bih;
+		SIZE_T dib_size;
 		
-		bih = (BITMAPINFOHEADER *)GlobalLock(hglobal);
-		if (bih)
+		// size before shape: the global's length is the fact every read
+		// below hangs on. a short or hostile clipboard (one byte, a
+		// truncated producer, a hand-built global) used to reach the
+		// header dereference first, and the GlobalSize check only ran
+		// after the copy math - every malformed entry read past its
+		// allocation before the rejection. the length gate now runs
+		// before the lock, and the whole header is proven present
+		// before any field of it is read.
+		dib_size = (SIZE_T)GlobalSize(hglobal);
+		
+		if (dib_size >= sizeof(BITMAPINFOHEADER))
 		{
-			// only the classic 40 byte header with an uncompressed (or
-			// bitfields) layout is handled here, anything else falls through
-			// to the CF_BITMAP copy below.
-			if ((bih->biSize == sizeof(BITMAPINFOHEADER)) && (bih->biPlanes == 1) && (bih->biWidth > 0) && (bih->biHeight != 0) && ((bih->biCompression == 0 /* BI_RGB */) || (bih->biCompression == 3 /* BI_BITFIELDS */)) && ((bih->biBitCount == 1) || (bih->biBitCount == 4) || (bih->biBitCount == 8) || (bih->biBitCount == 16) || (bih->biBitCount == 24) || (bih->biBitCount == 32)))
+			bih = (BITMAPINFOHEADER *)GlobalLock(hglobal);
+			if (bih)
 			{
-				HDC screen_hdc;
-				
-				screen_hdc = GetDC(0);
-				if (screen_hdc)
+				// only the classic 40 byte header with an uncompressed (or
+				// bitfields) layout is handled here, anything else falls through
+				// to the CF_BITMAP copy below. the two new gates answer the
+				// hostile corners the size math cannot carry: a height of
+				// INT_MIN passes the nonzero test but negates into signed
+				// overflow, and a palette count past the bit depth's own
+				// table is malformed the same way - both fall through.
+				if ((bih->biSize == sizeof(BITMAPINFOHEADER)) && (bih->biPlanes == 1) && (bih->biWidth > 0) && (bih->biHeight != 0) && (bih->biHeight != (-2147483647 - 1)) && ((bih->biCompression == 0 /* BI_RGB */) || (bih->biCompression == 3 /* BI_BITFIELDS */)) && ((bih->biBitCount == 1) || (bih->biBitCount == 4) || (bih->biBitCount == 8) || (bih->biBitCount == 16) || (bih->biBitCount == 24) || (bih->biBitCount == 32)) && ((bih->biBitCount > 8) || (bih->biClrUsed <= (DWORD)(1 << bih->biBitCount))))
 				{
-					// the null initializer answers the sdl elevation on the older
-					// analyzer: the create-dib-section call is the only writer and
-					// the copy below rides the hbitmap guard it pairs with.
-					void *bits = NULL;
-					HBITMAP hbitmap;
-					int budget_height;
+					DWORD color_count;
+					int mask_size;
+					int height;
+					SIZE_T stride;
+					SIZE_T pixels_size;
+					SIZE_T total_needed;
 					
-					// apply the same decode-time pixel budget as the file loaders: a
-					// hostile clipboard dib must not force a giant allocation.
-					budget_height = (bih->biHeight < 0) ? -bih->biHeight : bih->biHeight;
-					hbitmap = 0;
-					if (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)bih->biWidth,(SIZE_T)budget_height)))
+					// the clipboard dib layout: header, bitfield masks (40 byte
+					// headers with BI_BITFIELDS only), palette, bits.
+					color_count = 0;
+					if (bih->biBitCount <= 8)
 					{
-						hbitmap = CreateDIBSection(screen_hdc,(BITMAPINFO *)bih,DIB_RGB_COLORS,&bits,NULL,0);
+						color_count = bih->biClrUsed ? bih->biClrUsed : (1 << bih->biBitCount);
 					}
-					if (hbitmap)
+					
+					mask_size = ((bih->biCompression == 3 /* BI_BITFIELDS */) && ((bih->biBitCount == 16) || (bih->biBitCount == 32))) ? 12 : 0;
+					
+					height = bih->biHeight;
+					if (height < 0)
 					{
-						DWORD color_count;
-						int mask_size;
-						const char *src;
-						int height;
-						int stride;
+						height = -height;
+					}
+					
+					// stride rides the safe multipliers end to end: width *
+					// bitcount crosses dword_max for wide hostile headers (the
+					// 32 bit leg) and the wrapped stride used to pass the size
+					// check as a small number. every overflow saturates to
+					// size_max and the total check below rejects it.
+					stride = safe_size_mul(safe_size_add(safe_size_mul((SIZE_T)bih->biWidth,(SIZE_T)bih->biBitCount),31) / 32,4);
+					
+					pixels_size = safe_size_mul(stride,(SIZE_T)height);
+					
+					total_needed = safe_size_add((SIZE_T)bih->biSize + (SIZE_T)mask_size + (SIZE_T)color_count * 4,pixels_size);
+					
+					// the clipboard global must actually contain the whole
+					// dib (header, masks, palette and bits) BEFORE the dib
+					// section is created: CreateDIBSection reads the palette
+					// and the bitfield masks off this header, so the old
+					// order dereferenced them before proving they existed.
+					if ((total_needed != SIZE_MAX) && (dib_size >= total_needed))
+					{
+						HDC screen_hdc;
 						
-						// the clipboard dib layout: header, bitfield masks (40 byte
-						// headers with BI_BITFIELDS only), palette, bits.
-						color_count = 0;
-						if (bih->biBitCount <= 8)
+						screen_hdc = GetDC(0);
+						if (screen_hdc)
 						{
-							color_count = bih->biClrUsed ? bih->biClrUsed : (1 << bih->biBitCount);
-						}
-						
-						mask_size = ((bih->biCompression == 3 /* BI_BITFIELDS */) && ((bih->biBitCount == 16) || (bih->biBitCount == 32))) ? 12 : 0;
-						
-						src = (const char *)bih + bih->biSize + mask_size + color_count * 4;
-						
-						height = bih->biHeight;
-						if (height < 0)
-						{
-							height = -height;
-						}
-						
-						stride = (int)(((DWORD)bih->biWidth * (DWORD)bih->biBitCount + 31) / 32) * 4;
-						
-						// the clipboard global must actually contain the whole
-						// dib (header, masks, palette and bits): a short or hostile
-						// clipboard would otherwise be read past its end.
-						if (((SIZE_T)GlobalSize(hglobal)) >= ((SIZE_T)bih->biSize + (SIZE_T)mask_size + (SIZE_T)color_count * 4) + ((SIZE_T)stride * (SIZE_T)height))
-						{
-							// size_t length: stride*height crosses int_max inside the 64-bit
-						// pixel budget (400 mp x 4 bytes per pixel).
-						os_copy_memory(bits,src,(SIZE_T)stride * (SIZE_T)height);
+							// the null initializer answers the sdl elevation on the older
+							// analyzer: the create-dib-section call is the only writer and
+							// the copy below rides the hbitmap guard it pairs with.
+							void *bits = NULL;
+							HBITMAP hbitmap;
 							
-							_viv_show_clipboard_image(hbitmap,(int)bih->biWidth,height);
+							// apply the same decode-time pixel budget as the file loaders: a
+							// hostile clipboard dib must not force a giant allocation.
+							hbitmap = 0;
+							if (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)bih->biWidth,(SIZE_T)height)))
+							{
+								hbitmap = CreateDIBSection(screen_hdc,(BITMAPINFO *)bih,DIB_RGB_COLORS,&bits,NULL,0);
+							}
+							if (hbitmap)
+							{
+								const char *src;
+								
+								src = (const char *)bih + bih->biSize + mask_size + color_count * 4;
+								
+								// size_t length: stride*height crosses int_max inside the 64-bit
+								// pixel budget (400 mp x 4 bytes per pixel).
+								os_copy_memory(bits,src,pixels_size);
+								
+								_viv_show_clipboard_image(hbitmap,(int)bih->biWidth,height);
+								
+								ReleaseDC(0,screen_hdc);
+								GlobalUnlock(hglobal);
+								
+								return TRUE;
+							}
 							
 							ReleaseDC(0,screen_hdc);
-							GlobalUnlock(hglobal);
-							
-							return TRUE;
 						}
-						
-						DeleteObject(hbitmap);
 					}
-					
-					ReleaseDC(0,screen_hdc);
 				}
+				
+				GlobalUnlock(hglobal);
 			}
-			
-			GlobalUnlock(hglobal);
 		}
 	}
 	
@@ -665,18 +693,28 @@ BOOL _viv_paste_clipboard_image(void)
 			BITMAP bm;
 			
 			// the clipboard owns the original: make a private dib copy.
-			hbitmap_copy = (HBITMAP)CopyImage(hbitmap,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
-			
-			if (hbitmap_copy)
+			// the source bitmap's own geometry prices the copy before it
+			// runs - CopyImage allocates the full dib section up front,
+			// and this path used to bypass the pixel budget every file
+			// loader answers to (a hostile publisher's gigabyte-sized
+			// clipboard bitmap replicated into the ui with no gate at
+			// all). the budget reads the source's numbers; the copy is
+			// re-validated through GetObject as before.
+			if ((GetObject(hbitmap,sizeof(BITMAP),&bm)) && (bm.bmWidth > 0) && (bm.bmHeight > 0) && (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)bm.bmWidth,(SIZE_T)bm.bmHeight))))
 			{
-				if ((GetObject(hbitmap_copy,sizeof(BITMAP),&bm)) && (bm.bmWidth > 0) && (bm.bmHeight > 0))
-				{
-					_viv_show_clipboard_image(hbitmap_copy,bm.bmWidth,bm.bmHeight);
-					
-					return TRUE;
-				}
+				hbitmap_copy = (HBITMAP)CopyImage(hbitmap,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
 				
-				DeleteObject(hbitmap_copy);
+				if (hbitmap_copy)
+				{
+					if ((GetObject(hbitmap_copy,sizeof(BITMAP),&bm)) && (bm.bmWidth > 0) && (bm.bmHeight > 0))
+					{
+						_viv_show_clipboard_image(hbitmap_copy,bm.bmWidth,bm.bmHeight);
+						
+						return TRUE;
+					}
+					
+					DeleteObject(hbitmap_copy);
+				}
 			}
 		}
 	}
@@ -1002,8 +1040,18 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	int ret;
 	int com_initialized;
 	DWORD tickstart;
-
+	int is_preload_job;
+	
 	tickstart = GetTickCount();
+	
+	// the job snapshot: the preload flag is ui-thread state (the dispatch
+	// stages it before createthread, the reply handlers flip it when a
+	// preload becomes the load to show, the activation paths clear it).
+	// the thread reads it exactly twice, both before the first frame
+	// posts - the snapshot pins those reads to the value the dispatch
+	// staged, so no mid-flight ui write can ever race them: the formal
+	// happens-before rides createthread, not the protocol's ordering.
+	is_preload_job = _viv_load_is_preload;
 	
 	// the pairing flag, same rule as the ui thread's (see _viv_init):
 	// a failed init owes no couninitialize; s_false succeeds and does.
@@ -1020,13 +1068,13 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	ret = 0;
 	stream = NULL;
 	
-	debug_printf("%s %S...\n",_viv_load_is_preload ? "PRELOAD" : "LOAD",_viv_load_image_filename);
+	debug_printf("%s %S...\n",is_preload_job ? "PRELOAD" : "LOAD",_viv_load_image_filename);
 
 	// the stage marker: "open" while the file reads into memory, then
 	// "decode" through the gdi+ attempt, "frames" inside the animation
 	// loop, "done" when the reply posts (the fallback decoders set their
 	// own stages at entry). the exit timeout reads it.
-	_viv_load_stage = "open";
+	InterlockedExchangePointer(&_viv_load_stage,(PVOID)"open");
 	
 	{
 		HANDLE h;
@@ -1171,7 +1219,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 			if ((os_GdipLoadImageFromStream) && (os_GdipLoadImageFromStreamICM) && (os_GdipGetImageWidth) && (os_GdipGetImageHeight) && (os_GdipImageGetFrameDimensionsCount) && (os_GdipImageGetFrameDimensionsList) && (os_GdipImageGetFrameCount) && (os_GdipGetPropertyItemSize) && (os_GdipGetPropertyItem) && (os_GdipImageSelectActiveFrame) && (os_GdipGetImageFlags) && (os_GdipDisposeImage) && (os_GdipCreateFromHDC) && (os_GdipSetCompositingMode) && (os_GdipSetCompositingQuality) && (os_GdipSetInterpolationMode) && (os_GdipSetPixelOffsetMode) && (os_GdipSetSmoothingMode) && (os_GdipDrawImageRectI) && (os_GdipDeleteGraphics))
 			{
 				// the decode attempt begins: gdi+ owns the file until it answers.
-				_viv_load_stage = "decode";
+				InterlockedExchangePointer(&_viv_load_stage,(PVOID)"decode");
 
 				if (config_icm)
 				{
@@ -1228,7 +1276,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 							// gdi+ returns it without decoding a single scanline of the
 							// full image, so a big image appears instantly (blurry) and
 							// sharpens when the full frame arrives.
-							if ((!_viv_load_is_preload) && (os_GdipGetImageThumbnail) && (((VIV_UINT64)load_wide * (VIV_UINT64)load_high) > 2000000))
+							if ((!is_preload_job) && (os_GdipGetImageThumbnail) && (((VIV_UINT64)load_wide * (VIV_UINT64)load_high) > 2000000))
 							{
 								UINT thumb_data_size;
 								
@@ -1447,7 +1495,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 
 								// draw frames.
 								// the animation frame loop owns the next stretch of time.
-								_viv_load_stage = "frames";
+								InterlockedExchangePointer(&_viv_load_stage,(PVOID)"frames");
 
 								{
 									HDC screen_hdc;
@@ -1698,7 +1746,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 		debug_printf("Failed to create stream from %S\n",_viv_load_image_filename);
 	}
 
-	_viv_load_stage = "done";
+	InterlockedExchangePointer(&_viv_load_stage,(PVOID)"done");
 
 	_viv_reply_add(ret ? _VIV_REPLY_LOAD_IMAGE_COMPLETE : _VIV_REPLY_LOAD_IMAGE_FAILED,0,0);
 	

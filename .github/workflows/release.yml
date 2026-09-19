@@ -40,6 +40,16 @@ on:
 permissions:
   contents: read
 
+# one release pipeline per tag at a time: a tag push and a manual
+# dispatch for the same tag used to be able to race each other (two
+# builds, two attestations, one release winning while the other failed
+# mid-publish). queued, never cancelled - a superseded run still
+# finishes so the refuse-to-overwrite gate below answers it cleanly
+# instead of a cancellation tearing down a half-published state.
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -254,24 +264,38 @@ jobs:
       - name: Build installers (NSIS)
         shell: pwsh
         run: |
-          # locate makensis: the pinned windows-2022 image ships NSIS;
-          # the choco fallback is pinned to a known version for
-          # reproducibility (the 2025/2026 images do not ship NSIS at
-          # all and install it from the network every run).
+          # locate makensis, then pin it: the hosted image's preinstalled
+          # NSIS drifts with the image itself, and a rolling installer
+          # toolchain means the same tag can package with different
+          # builders (the audit's traceability finding). the release
+          # demands 3.12.0 - whatever is found first reports its version,
+          # and anything else installs the pinned package (downgrade
+          # allowed) before a single installer is built.
           $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
           if (-not $makensis) {
             if (Test-Path 'C:\Program Files (x86)\NSIS\makensis.exe') {
               $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
-            } else {
-              Write-Host 'installing nsis 3.12.0 via choco...'
-              choco install nsis -y --no-progress --version=3.12.0
-              $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
             }
           }
-          Write-Host "makensis: $makensis"
+          $nsisVersion = ''
+          if ($makensis) { $nsisVersion = (& $makensis '/VERSION') -join '' }
+          Write-Host "makensis found: $makensis (version $nsisVersion)"
+          if ($nsisVersion -ne '3.12.0') {
+            Write-Host 'installing the pinned nsis 3.12.0 via choco...'
+            choco install nsis -y --no-progress --version=3.12.0 --allow-downgrade
+            $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
+            $nsisVersion = (& $makensis '/VERSION') -join ''
+            Write-Host "makensis pinned: $makensis (version $nsisVersion)"
+            if ($nsisVersion -ne '3.12.0') { throw "nsis pin failed: version is '$nsisVersion'" }
+          }
 
-          # validate the encodings required by the bilingual installer files
-          & powershell -ExecutionPolicy Bypass -File nsis\ensure_encodings.ps1
+          # validate the encodings required by the bilingual installer
+          # files - in check mode: ci must never repair its inputs in
+          # flight (the tested tag and the packaged sources have to stay
+          # the same bytes), so the script runs with -CheckOnly and any
+          # drift it would have fixed fails the release right here.
+          & powershell -ExecutionPolicy Bypass -File nsis\ensure_encodings.ps1 -CheckOnly
+          if ($LASTEXITCODE -ne 0) { throw 'installer file encodings drifted from the committed bytes - fix them in the repo, not in ci' }
 
           # the unified bilingual installer: the language is selected inside the setup.
           & $makensis "-DVIV_EXE_DIR=$env:GITHUB_WORKSPACE\build\x64" '-Dx64' nsis\installer.nsi
@@ -402,6 +426,7 @@ jobs:
             dist/voidImageViewer-*-x86-Setup.exe
             dist/voidImageViewer-*-x64.zip
             dist/voidImageViewer-*-x86.zip
+            dist/sha256.txt
 
       - name: Generate release notes from Changes.txt
         run: |

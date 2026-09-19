@@ -13,8 +13,9 @@ build-zig/obj/
 build-zig/obj-arm64/
 build-zig/obj-self/
 build-zig/err.log
-build-zig/viv.exe.manifest
-build-zig/viv-arm64.exe.manifest
+# all generated manifest copies (the plain build, the arm64 build and
+# the selfshot build write their own)
+build-zig/*.manifest
 
 # Visual Studio binary resource editor state (res/voidImageViewer.aps etc)
 *.aps

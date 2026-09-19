@@ -4,6 +4,8 @@
 [![release](https://img.shields.io/github/v/release/purrfecto114-lgtm/voidImageViewer_PLUS.svg?display_name=tag)](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+**English** | [简体中文](README_CN.md)
+
 > A stable fork of [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer) with **touch optimizations**, **on-screen zoom controls**, a **complete dark UI**, and a **bilingual installer + UI language switcher**. Issues welcome in the [issue tracker](https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/issues).
 
 A lightweight Windows image viewer (BMP, GIF, ICO, PNG, JPG, TIF, WEBP, JPEG-XR, HEIF, AVIF, DDS, QOI, EMF, WMF — animated GIF/WEBP included; JPEG-XR (Win7+) and DDS (Win8.1+) ride the WIC codecs Windows itself carries, HEIF/AVIF ride the store's image extensions wherever they are installed, QOI is built in) that opens and displays images as fast as possible.
@@ -22,12 +24,17 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.7 — the reentry state round (the current release candidate):**
+**1.1.15-rc.8 — the seventh audit response round (the current release candidate):**
 
-- **Re-opening keeps the window's size** — a second instance's forwarded show command no longer demotes the first instance's window: a minimized window answers `SW_RESTORE` (its placement decides — maximized comes back maximized), a live window only grows, and the launcher word never hides or restores-down the visible window.
-- **Minimize runs no size sweep** — the iconic client is degenerate, and the old sweep rewrote the view anchors through a garbage render size; every zoom and view value now survives the minimize for the restore to answer with.
-- **Iconic geometry reads all go through the placement** — the `/x /y /width /height` defaults, the fullscreen capture (IsZoomed answers false for a maximized-minimized window) and the `/minimal` `//compact` restyle no longer seed their math with the -32000 parking rect.
+- **The clipboard paste can no longer read past its own data** — a pasted CF_DIB proves the global's length before any header field is read and the whole bitmap (masks, palette, bits) before the DIB section is created; the stride rides overflow-checked math, and a wrapped width×depth product or an `INT_MIN` height falls through to the plain-bitmap path instead of feeding the size check.
+- **The plain-bitmap paste answers to the same pixel budget as the decoders** — a gigabyte-sized CF_BITMAP is refused before `CopyImage` ever allocates.
+- **Destructive commands bind to the image on screen** — delete, copy, move-to, rotate and the shell verbs read the displayed slot's file, so a fast next-then-delete during a load can never land on the file that has not displayed yet (navigation keeps chaining from the newest request).
+- **Cross-thread state rides proper forms** — the preload flag is an immutable job snapshot at thread start, the stage marker answers Interlocked pointer forms, and the reply queue's tail repost hands a refused post's duty back (the rc.5 fix closed the enqueue side).
+- **The settings save stops swallowing failures** — a refused or short write aborts the replace and keeps the last good ini; the move runs write-through behind a flush.
+- **Build and release trust** — the zig builds wipe their object directories (no ghost objects from deleted sources), CI's `actions:write` lives on the one uploading job, releases serialize per tag, NSIS is pinned to 3.12.0, the bilingual encoding check runs check-only in CI, `sha256.txt` joins the attested subjects, and the installer parameters are whitelisted.
 - Full narrative: `Changes.txt`.
+
+**1.1.15-rc.7 — the reentry state round** — re-opening keeps the window's size: the state-aware activation, the minimized size-sweep retirement and the placement-backed geometry reads. Full narrative: `Changes.txt`.
 
 **1.1.15-rc.6 — the judged-fixes round** — the message box buttons' UTF-8 bridge, the borderless corner grip, the icon-only toolbar, the fullscreen binary searches, the paste path fallback and the classic Options retirement. Full narrative: `Changes.txt`.
 
@@ -45,7 +52,7 @@ Touch & zoom controls
 | Two finger tap | Reset zoom |
 | Double tap (touch) | Toggle 1:1 / best fit |
 | Toolbar zoom buttons | Zoom in / out |
-| Floating zoom bar | Windowed: zoom pill. Fullscreen: prev / play / pause / next / zoom (bottom center, idle fade) |
+| Floating zoom bar | One seven-cell row in both modes — prev / play-pause / next / zoom out / percent / zoom in (bottom center; fullscreen fades it out when idle) |
 
 Gestures need Windows 7+ with touch hardware. Single-finger input stays mouse-compatible, so configured click actions are unaffected. Toggle the floating controls via **View → Zoom Controls**. A pinch keeps shrinking below the windowed fit, down to about fit/16 (mirroring the 16× zoom cap) — `Allow shrinking` in Options keeps its meaning.
 

@@ -984,7 +984,9 @@ void _viv_toolbar_update_buttons(void)
 	
 	// the menu bar's no image gate: no file, a missed file or a failed load
 	// disables everything that acts on the image.
-	has_image = ((*_viv_current_fd->cFileName) && (!_viv_file_not_found) && (!_viv_load_failed)) ? 1 : 0;
+	// the faces answer the image on screen: during a first load the
+	// requested fd names a file nothing shows yet.
+	has_image = ((*_viv_slot_current.fd.cFileName) && (!_viv_file_not_found) && (!_viv_load_failed)) ? 1 : 0;
 	
 	_viv_get_render_size(&rw,&rh);
 	

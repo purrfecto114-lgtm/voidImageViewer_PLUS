@@ -29,11 +29,24 @@
 
 $ErrorActionPreference = "Stop"
 
+# -CheckOnly: report drift without fixing it and exit 1 when any file
+# would have been repaired - the ci shape (a pipeline must never repair
+# its own inputs in flight; the tested tag and the packaged sources
+# stay the same bytes). the default remains the local fix mode.
+param([switch]$CheckOnly)
+
+$Failed = $false
+
 function Ensure-Utf8Bom {
     param([string]$Path)
     $bytes = [System.IO.File]::ReadAllBytes($Path)
     if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
         Write-Host "  OK (UTF-8 BOM): $Path" -ForegroundColor Green
+        return
+    }
+    if ($script:CheckOnly) {
+        Write-Host "  DRIFT (missing UTF-8 BOM): $Path" -ForegroundColor Red
+        $script:Failed = $true
         return
     }
     Write-Host "  fixing (adding UTF-8 BOM): $Path" -ForegroundColor Yellow
@@ -48,6 +61,11 @@ function Ensure-Utf16LeBom {
         Write-Host "  OK (UTF-16LE BOM): $Path" -ForegroundColor Green
         return
     }
+    if ($script:CheckOnly) {
+        Write-Host "  DRIFT (not UTF-16LE BOM): $Path" -ForegroundColor Red
+        $script:Failed = $true
+        return
+    }
     Write-Host "  fixing (converting to UTF-16LE BOM): $Path" -ForegroundColor Yellow
     $content = [System.Text.Encoding]::UTF8.GetString($bytes)
     [System.IO.File]::WriteAllText($Path, $content, [System.Text.UnicodeEncoding]::new($false, $true))
@@ -60,4 +78,12 @@ Ensure-Utf8Bom -Path (Join-Path $PSScriptRoot "installer_license_Chinese.txt")
 Ensure-Utf16LeBom -Path (Join-Path $PSScriptRoot "InstallOptions_Chinese.ini")
 Ensure-Utf16LeBom -Path (Join-Path $PSScriptRoot "InstallOptions2_Chinese.ini")
 
-Write-Host "Encoding validation completed!" -ForegroundColor Green
+if ($CheckOnly) {
+    if ($Failed) {
+        Write-Host "Encoding check FAILED: the committed files need the repairs above (run the script locally without -CheckOnly to apply them)." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "Encoding check passed: no repairs needed, the committed bytes are the packaged bytes." -ForegroundColor Green
+} else {
+    Write-Host "Encoding validation completed!" -ForegroundColor Green
+}

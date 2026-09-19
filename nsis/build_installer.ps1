@@ -35,8 +35,15 @@
 #   .\build_installer.ps1 x64 vs2019 Release
 
 param(
+    # the whitelists answer the audit's silent-mistarget finding: a
+    # typoed or unsupported value (an "-Arch arm64" that used to fall
+    # through to the x86 path and quietly packaged the wrong binary)
+    # now fails at the parameter binder instead.
+    [ValidateSet("x86","x64")]
     [string]$Arch = "x86",
+    [ValidateSet("vs2019","vs2026")]
     [string]$VsVersion = "",
+    [ValidateSet("Debug","Release")]
     [string]$BuildConfig = "Release"
 )
 
@@ -71,6 +78,10 @@ if (-not (Test-Path "version.nsh")) {
 if (Test-Path "ensure_encodings.ps1") {
     Write-Host "Validating installer file encodings..." -ForegroundColor Cyan
     & powershell -ExecutionPolicy Bypass -File "ensure_encodings.ps1" | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Error: ensure_encodings.ps1 failed (exit $LASTEXITCODE)!" -ForegroundColor Red
+        exit 1
+    }
 }
 
 # Auto-detect VS version if not specified.

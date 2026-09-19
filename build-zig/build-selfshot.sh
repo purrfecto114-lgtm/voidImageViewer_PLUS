@@ -8,6 +8,14 @@ ZIG="${ZIG:-python3 -m ziglang}"
 FLAGS="-target x86_64-windows-gnu -O1 -DNDEBUG -DVERSION_X64 -DUNICODE -D_UNICODE -DVIVP_SELF_SHOT -Wno-macro-redefined"
 OBJDIR="build-zig/obj-self"
 
+# a clean slate per build: the old shape only mkdir'd, so a deleted or
+# renamed source left its .o behind and the link stage's *.o glob linked
+# the ghost into the binary (stale symbols, duplicate definitions,
+# "deleted from the source but alive in the exe" - and the appended
+# errors.log carried the previous failure into the next run's diagnosis).
+# the directory is gitignored scratch: wiping it costs one rebuild and
+# closes the whole class.
+rm -rf "$OBJDIR"
 mkdir -p "$OBJDIR"
 
 fail=0

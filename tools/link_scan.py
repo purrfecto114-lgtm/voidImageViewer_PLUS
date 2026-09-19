@@ -82,8 +82,12 @@ def scan():
                 # a line that ends in a semicolon and carries a parameter
                 # list is a prototype, not a definition (the domains keep
                 # local prototypes for their own public functions; the
-                # variable externs keep their = / ; definitions).
-                if s.endswith(";") and ("(" in s):
+                # variable externs keep their = / ; definitions). an
+                # initializer kills the prototype reading - a cast on the
+                # right of the = (the interlocked pointer forms landed the
+                # first one) is not a parameter list, and c prototypes
+                # carry no = at all.
+                if s.endswith(";") and ("(" in s) and ("=" not in s):
                     continue
                 defs.setdefault(m.group(2), []).append((u, i))
 

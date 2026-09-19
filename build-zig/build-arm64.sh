@@ -19,6 +19,14 @@ ZIG="${ZIG:-python3 -m ziglang}"
 FLAGS="-target aarch64-windows-gnu -Os -DNDEBUG -DVERSION_ARM64 -DUNICODE -D_UNICODE -Wno-macro-redefined"
 OBJDIR="build-zig/obj-arm64"
 
+# a clean slate per build: the old shape only mkdir'd, so a deleted or
+# renamed source left its .o behind and the link stage's *.o glob linked
+# the ghost into the binary (stale symbols, duplicate definitions,
+# "deleted from the source but alive in the exe" - and the appended
+# errors.log carried the previous failure into the next run's diagnosis).
+# the directory is gitignored scratch: wiping it costs one rebuild and
+# closes the whole class.
+rm -rf "$OBJDIR"
 mkdir -p "$OBJDIR"
 
 # compile in small batches: each zig cc process is a full clang front end.

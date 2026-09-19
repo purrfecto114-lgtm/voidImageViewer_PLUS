@@ -82,7 +82,7 @@ int wic_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 	// gdi+.
 	// the loader's stage marker: the exit timeout names the decoder that
 	// was running when the wait expired.
-	_viv_load_stage = "wic";
+	InterlockedExchangePointer(&_viv_load_stage,(PVOID)"wic");
 
 	if (SUCCEEDED(CoCreateInstance(&_wic_clsid_imaging_factory,NULL,CLSCTX_INPROC_SERVER,&_wic_iid_imaging_factory,(void **)&factory)))
 	{

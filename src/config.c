@@ -445,11 +445,24 @@ static void _config_recent_key_name(utf8_t *buf,int index)
 	buf[13] = 0;
 }
 
+// the write latch: a refused or short WriteFile anywhere in a save sets
+// this, and the replace below refuses to run with it set - a half-written
+// temp file must never take the place of the last good ini (the old shape
+// ignored the return value entirely, so a full disk, a locked file or a
+// vanishing share silently dropped the user's settings).
+static int _config_write_failed = 0;
+
 static void _config_write_utf8(HANDLE h,const utf8_t *s)
 {
 	DWORD num_written;
+	DWORD write_length;
 	
-	WriteFile(h,s,utf8_length(s),&num_written,0);
+	write_length = utf8_length(s);
+	
+	if ((!WriteFile(h,s,write_length,&num_written,0)) || (num_written != write_length))
+	{
+		_config_write_failed = 1;
+	}
 }
 
 static void _config_save_settings_by_location(const wchar_t *path,int is_root)
@@ -457,6 +470,8 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 	HANDLE h;
 	wchar_t tempname[STRING_SIZE];
 	wchar_t filename[STRING_SIZE];
+	
+	_config_write_failed = 0;
 	
 	string_path_combine_utf8(filename,path,(const utf8_t *)"voidImageViewer.ini");
 
@@ -605,13 +620,43 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 //			_config_write_int(h,"context_menu_items",);
 		}
 
-		CloseHandle(h);
-
-		if (!MoveFileExW(tempname,filename,MOVEFILE_REPLACE_EXISTING))
+		// the flush belt: the write-through flag on the move below
+		// keeps the replace from answering before the data reaches
+		// the media, and the flush keeps a lazy cache from losing
+		// the temp file's tail between the close and the move.
+		if (!_config_write_failed)
 		{
+			FlushFileBuffers(h);
+		}
+		
+		CloseHandle(h);
+		
+		if (_config_write_failed)
+		{
+			// a write failed mid-save: the ini keeps the last good
+			// state, the temp file keeps the partial write as the
+			// evidence, and the log line answers the "where did my
+			// settings go" question the silent path never could.
+			debug_printf("config save: a write failed (error %u) - keeping the previous ini\r\n",GetLastError());
+		}
+		else
+		if (!MoveFileExW(tempname,filename,MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+		{
+			DWORD move_error;
+			
+			move_error = GetLastError();
+			
+			// the fallback for the filesystems that refuse the move
+			// (some network shares): the copy is the best effort,
+			// and its own failure lands in the log line with the
+			// temp file kept alongside the old ini.
 			if (CopyFile(tempname,filename,FALSE))
 			{
 				DeleteFile(tempname);
+			}
+			else
+			{
+				debug_printf("config save: replace failed (move %u, copy %u) - the temp file keeps the save\r\n",move_error,GetLastError());
 			}
 		}
 	}

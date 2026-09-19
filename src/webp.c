@@ -90,7 +90,7 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 	
 	// the loader's stage marker: the exit timeout names the decoder that
 	// was running when the wait expired.
-	_viv_load_stage = "webp";
+	InterlockedExchangePointer(&_viv_load_stage,(PVOID)"webp");
 
 	if (SUCCEEDED(GetHGlobalFromStream(stream,&hglobal)))
 	{

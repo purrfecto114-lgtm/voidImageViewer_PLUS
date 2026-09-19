@@ -26,14 +26,15 @@ on:
         default: false
         type: boolean
 
-# Least privilege for the pipeline's token: the tree only needs to be
-# read, and the golden bootstrap's artifact upload answers to
-# actions:write (the audit's depth finding - the default token rides
-# with whatever the repository grants, which is not this pipeline's
-# to assume).
+# Least privilege for the pipeline's token, at the top the tree only
+# needs to be read. the one step that uploads an artifact (the golden
+# bootstrap, inside the compile job below) carries its own actions:write
+# there - a job-scoped grant answers the audit's depth finding without
+# handing the write to every job in the pipeline (the default token
+# rides with whatever the repository grants, which is not this
+# pipeline's to assume).
 permissions:
   contents: read
-  actions: write
 
 jobs:
   tests:
@@ -125,6 +126,13 @@ jobs:
   # repository's CI by surprise: the v145 leg doubles as the forward
   # compatibility / image drift detector.
   compile:
+    # the golden bootstrap's artifact upload is the one step in this
+    # pipeline that answers to actions:write - the grant lives here, on
+    # the job that owns the step, instead of the pipeline-wide grant the
+    # audit found.
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix:

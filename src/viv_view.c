@@ -1037,7 +1037,8 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 		case VIV_ID_EDIT_COPY_TO:
 		case VIV_ID_EDIT_MOVE_TO:
 		{
-			if (*_viv_current_fd->cFileName)
+			// the displayed file, not the requested one (the rule lives at _viv_delete).
+			if (*_viv_slot_current.fd.cFileName)
 			{
 				OPENFILENAME ofn;
 				wchar_t tobuf[STRING_SIZE+1];
@@ -1046,7 +1047,7 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 				
 				os_zero_memory(&ofn,sizeof(OPENFILENAME));
 				
-				string_copy(tobuf,_viv_current_fd->cFileName);
+				string_copy(tobuf,_viv_slot_current.fd.cFileName);
 
 				string_printf(filter_wbuf,"%s (*.*)%c*.*%c",localization_get_string(LOCALIZATION_ID_OPEN_ALL_FILES),0,0);
 
@@ -1071,7 +1072,7 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 					
 					os_zero_memory(&shfileop,sizeof(SHFILEOPSTRUCT));
 					
-					string_copy(frombuf,_viv_current_fd->cFileName);
+					string_copy(frombuf,_viv_slot_current.fd.cFileName);
 					frombuf[string_get_length(frombuf) + 1] = 0;
 					
 					shfileop.hwnd = _viv_hwnd;
@@ -1858,14 +1859,19 @@ static void _viv_set_rate(int rate)
 }
 static void _viv_delete(int permanently)
 {
-	if (*_viv_current_fd->cFileName)
+	// the displayed identity, not the requested one: while a load is in
+	// flight the requested fd already names the next file, but the screen
+	// - and this delete - still belong to the image the first-frame
+	// commit put in the slot. every file-acting command below (copy,
+	// move, the shell verbs) binds to the slot's fd for the same reason.
+	if (*_viv_slot_current.fd.cFileName)
 	{
 		SHFILEOPSTRUCT fo;
 		WIN32_FIND_DATA fd;
 		wchar_t filename_list[STRING_SIZE+1];
 		
-		string_copy_double_null(filename_list,_viv_current_fd->cFileName);
-		os_copy_memory(&fd,_viv_current_fd,sizeof(WIN32_FIND_DATA));
+		string_copy_double_null(filename_list,_viv_slot_current.fd.cFileName);
+		os_copy_memory(&fd,&_viv_slot_current.fd,sizeof(WIN32_FIND_DATA));
 		
 		ZeroMemory(&fo,sizeof(SHFILEOPSTRUCT));
 		fo.hwnd = _viv_hwnd;
@@ -1893,7 +1899,8 @@ static void _viv_delete(int permanently)
 }
 static void _viv_copy(int cut)
 {
-	if (*_viv_current_fd->cFileName)
+	// the displayed file, not the requested one (the rule lives at _viv_delete).
+	if (*_viv_slot_current.fd.cFileName)
 	{
 		if (OpenClipboard(_viv_hwnd))
 		{
@@ -1905,7 +1912,7 @@ static void _viv_copy(int cut)
 				HGLOBAL hmem;
 				int wlen;
 				
-				wlen = string_get_length(_viv_current_fd->cFileName);
+				wlen = string_get_length(_viv_slot_current.fd.cFileName);
 				
 				hmem = GlobalAlloc(GMEM_MOVEABLE,safe_size_add(safe_size_mul_sizeof_wchar(safe_size_add(safe_size_add_one(wlen),1)),sizeof(DROPFILES)));
 				if (hmem)
@@ -1922,7 +1929,7 @@ static void _viv_copy(int cut)
 						df->pt.x = 0;
 						df->pt.y = 0;
 						
-						os_copy_memory(df+1,_viv_current_fd->cFileName,wlen * sizeof(wchar_t));
+						os_copy_memory(df+1,_viv_slot_current.fd.cFileName,wlen * sizeof(wchar_t));
 						((wchar_t *)(df + 1))[wlen] = 0;
 						((wchar_t *)(df + 1))[wlen+1] = 0;
 
@@ -1964,7 +1971,8 @@ static void _viv_copy(int cut)
 }
 static void _viv_copy_filename(void)
 {
-	if (*_viv_current_fd->cFileName)
+	// the displayed file, not the requested one (the rule lives at _viv_delete).
+	if (*_viv_slot_current.fd.cFileName)
 	{
 		if (OpenClipboard(_viv_hwnd))
 		{
@@ -1974,7 +1982,7 @@ static void _viv_copy_filename(void)
 				HGLOBAL hmem;
 				int wlen;
 				
-				wlen = string_get_length(_viv_current_fd->cFileName);
+				wlen = string_get_length(_viv_slot_current.fd.cFileName);
 				
 				hmem = GlobalAlloc(GMEM_MOVEABLE,safe_size_mul_sizeof_wchar(safe_size_add_one(wlen)));
 				if (hmem)
@@ -1985,7 +1993,7 @@ static void _viv_copy_filename(void)
 					wstring = (wchar_t *)GlobalLock(hmem);
 					if (wstring)
 					{
-						os_copy_memory(wstring,_viv_current_fd->cFileName,wlen*sizeof(wchar_t));
+						os_copy_memory(wstring,_viv_slot_current.fd.cFileName,wlen*sizeof(wchar_t));
 						wstring[wlen] = 0;
 
 						GlobalUnlock(hmem);
@@ -2003,7 +2011,8 @@ static void _viv_copy_filename(void)
 }
 static void _viv_copy_image(void)
 {
-	if (*_viv_current_fd->cFileName)
+	// the displayed file, not the requested one (the rule lives at _viv_delete).
+	if (*_viv_slot_current.fd.cFileName)
 	{
 		if (OpenClipboard(_viv_hwnd))
 		{
@@ -2068,23 +2077,27 @@ static void _viv_increase_rate(int dec)
 
 	_viv_status_update_slideshow_rate();
 }
+// the shell verb family answers the displayed file: the slot's fd is
+// what the first-frame commit put on screen, and during an in-flight
+// load the requested fd already points past it (the rule lives at
+// _viv_delete).
 static void _viv_file_preview(void)
 {
-	if (*_viv_current_fd->cFileName)
+	if (*_viv_slot_current.fd.cFileName)
 	{
-		os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,0,"preview",0);
+		os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"preview",0);
 	}
 }
 static void _viv_file_print(void)
 {
-	if (*_viv_current_fd->cFileName)
+	if (*_viv_slot_current.fd.cFileName)
 	{
-		os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,0,"print",0);
+		os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"print",0);
 	}
 }
 static void _viv_file_set_desktop_wallpaper(void)
 {
-	if (*_viv_current_fd->cFileName)
+	if (*_viv_slot_current.fd.cFileName)
 	{
 		wchar_t message_wbuf[STRING_SIZE];
 		wchar_t caption_wbuf[STRING_SIZE];
@@ -2104,18 +2117,20 @@ static void _viv_file_set_desktop_wallpaper(void)
 			
 			if (_viv_stobject_hmodule)
 			{
-				os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,0,"setdesktopwallpaper",0);
+				os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"setdesktopwallpaper",0);
 			}
 		}
 	}
 }
 static void _viv_edit_rotate(int counterclockwise)
 {
-	if (*_viv_current_fd->cFileName)
+	// destructive: the rotation must land on the displayed file (the
+	// in-flight load's target is not on screen yet).
+	if (*_viv_slot_current.fd.cFileName)
 	{
 		if (_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count)
 		{
-			if (os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,1,counterclockwise ? "rotate270" : "rotate90",0))
+			if (os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,1,counterclockwise ? "rotate270" : "rotate90",0))
 			{
 				int i;
 				int temp;
@@ -2161,14 +2176,14 @@ static void _viv_edit_rotate(int counterclockwise)
 }
 static void _viv_file_edit(void)
 {
-	if (*_viv_current_fd->cFileName)
+	if (*_viv_slot_current.fd.cFileName)
 	{
-		os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,0,"edit",0);
+		os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"edit",0);
 	}
 }
 static void _viv_open_file_location(void)
 {
-	if (*_viv_current_fd->cFileName)
+	if (*_viv_slot_current.fd.cFileName)
 	{
 		int openpathok;
 		
@@ -2179,7 +2194,7 @@ static void _viv_open_file_location(void)
 			wchar_t path_part[STRING_SIZE];
 			ITEMIDLIST *folder_idlist;
 			
-			string_get_path_part(path_part,_viv_current_fd->cFileName);
+			string_get_path_part(path_part,_viv_slot_current.fd.cFileName);
 		
 			// if path_part_buf.buf is an empty string, os_ILCreateFromPath will
 			// correctly return the desktop pidl (an empty pidl).
@@ -2190,8 +2205,8 @@ static void _viv_open_file_location(void)
 			{
 				ITEMIDLIST *idlist;
 				
-				idlist = os_ILCreateFromPath(_viv_current_fd->cFileName);
-		debug_printf("idlist %S %p\n",_viv_current_fd->cFileName,idlist);
+				idlist = os_ILCreateFromPath(_viv_slot_current.fd.cFileName);
+		debug_printf("idlist %S %p\n",_viv_slot_current.fd.cFileName,idlist);
 				if (idlist)
 				{
 					HRESULT hres;
@@ -2223,7 +2238,7 @@ static void _viv_open_file_location(void)
 		{
 			wchar_t path[STRING_SIZE];
 			
-			string_get_path_part(path,_viv_current_fd->cFileName);
+			string_get_path_part(path,_viv_slot_current.fd.cFileName);
 			
 			os_shell_execute(_viv_hwnd,path,0,NULL,NULL);
 		}
@@ -2231,9 +2246,9 @@ static void _viv_open_file_location(void)
 }
 static void _viv_properties(void)
 {
-	if (*_viv_current_fd->cFileName)
+	if (*_viv_slot_current.fd.cFileName)
 	{
-		os_shell_execute(_viv_hwnd,_viv_current_fd->cFileName,0,"properties",0);
+		os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"properties",0);
 	}
 }
 void _viv_mousemove(void)

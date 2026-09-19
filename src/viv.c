@@ -194,7 +194,7 @@ volatile LONG _viv_load_image_terminate = 0;
 // "qoi" / "wic" / "done"): written only by the loader thread, read by the
 // exit timeout so a hard kill can at least report where the thread spent
 // its last seconds. a stale value only names the previous stage.
-const char *volatile _viv_load_stage = "";
+PVOID volatile _viv_load_stage = (PVOID)"";
 // set by the budget refusals (canvas / working set / animation) and read
 // by the status line: the user sees why a file was refused, not just that
 // it failed. cleared when the next load dispatches.
@@ -1577,7 +1577,7 @@ void _viv_kill(void)
 			// thread spent its last seconds (open / decode / frames / webp /
 			// qoi / wic) and the file names the decoder family, so the exit is
 			// a recorded event, not a silent hang.
-			debug_printf("load thread timeout: exiting at stage %s (%S)\n",_viv_load_stage,(_viv_load_image_filename) ? _viv_load_image_filename : L"?");
+			debug_printf("load thread timeout: exiting at stage %s (%S)\n",(const char *)InterlockedCompareExchangePointer(&_viv_load_stage,NULL,NULL),(_viv_load_image_filename) ? _viv_load_image_filename : L"?");
 
 			ExitProcess(1);
 		}

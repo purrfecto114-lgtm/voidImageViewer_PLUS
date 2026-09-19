@@ -1,4 +1,115 @@
-﻿Pre-release: Version 1.1.15-rc.7 (the reentry state round)
+﻿Pre-release: Version 1.1.15-rc.8 (the seventh audit response round)
+
+	the report arrived as a full-project review: twenty findings with
+	line numbers, across the clipboard, the threading, the file
+	identity, the build chain and the release chain, each carrying its
+	own priority. every claim was re-verified against the tree before
+	anything moved - the discipline the fifth audit set: sixteen
+	confirmed exactly as written, one arrived stale (a reproducible-
+	build overpromise the readme this tree ships never carried), and
+	the accessibility findings stay on the deferred ledger they have
+	ridden since that same fifth round (a ui automation provider tree
+	is an architecture round of its own, not a patch).
+	
+	the clipboard came first. the paste path read its CF_DIB header
+	fields before it ever measured the global - a one-byte or
+	truncated clipboard read past its allocation on every malformed
+	entry, and CreateDIBSection consumed the palette and the bitfield
+	masks before the size check proved they existed. the length gate
+	now runs before the lock; the whole dib (header, masks, palette,
+	bits) is proven present before the dib section is created; the
+	stride rides the overflow-checked size math end to end (a width x
+	depth product that crosses dword_max used to wrap into a small
+	number and pass the check); an INT_MIN height, which passes the
+	nonzero gate but negates into signed overflow, falls through with
+	the malformed palette counts. the plain CF_BITMAP path answered to
+	no budget at all - CopyImage allocated the full dib section before
+	any gate ran, so a hostile publisher's gigabyte bitmap replicated
+	into the ui with nothing refusing it. the source bitmap's own
+	geometry now prices the copy: the same pixel budget every file
+	loader answers to, read from the source before CopyImage runs, and
+	the copy itself still re-validated through GetObject.
+	
+	the identity finding was the round's sharpest: the requested file
+	and the displayed file were two names for one variable. the
+	dispatch wrote _viv_current_fd the moment a load was requested,
+	while the screen kept showing the previous image until the first
+	frame committed - so a fast next-then-delete during a load deleted
+	the file the user had never seen. the displayed identity already
+	existed and was already maintained everywhere (the current slot's
+	fd: written by the first-frame commit, moved by every slot
+	transition, cleared by the blank and paste paths) - the fix binds
+	every file-acting command to it: delete, copy and move to, the
+	copy-filename family, preview, print, wallpaper, rotate, edit,
+	reveal and properties. the navigation chain keeps the requested
+	file (a rapid next-next still chains from the newest target), the
+	title keeps showing the load in flight, and the toolbar's has-image
+	gate answers the image on screen.
+	
+	the threading pair: the preload flag was ui-thread state the loader
+	thread read bare - the thread now captures it once as an immutable
+	job snapshot (the formal happens-before rides createthread, and the
+	thread's two reads both precede the first frame's post, so no
+	mid-flight reply-handler write can race them); the stage marker
+	rode a plain volatile pointer - both sides now answer the
+	interlocked pointer forms, the same rule the terminate flag took
+	in the fifth audit.
+	
+	the tail of the reply queue's wakeup had one more hole than rc.5
+	closed: the enqueue's refused post hands its duty back, but the
+	drain's own tail repost took the duty and dropped the post's return
+	value - one refused tail post and a non-empty queue no later enqueue
+	would ever wake. the tail hands the duty back the same way now.
+	
+	the settings save stopped swallowing its failures: every write is
+	checked, a refused or short write sets a latch that keeps the
+	half-written temp file from replacing the last good ini, the move
+	runs write-through behind a flush, and every failure path lands in
+	the log with its error code (the temp file stays as the evidence).
+	
+	the build and release chain: the three zig scripts start from a
+	wiped object directory (a deleted source used to leave its .o
+	behind for the *.o link glob to resurrect - ghost objects, and the
+	appended errors.log carried the previous failure into the next
+	diagnosis); ci's token carries actions:write on the one job that
+	uploads instead of the whole pipeline; releases serialize per tag
+	(a tag push and a manual dispatch can no longer race); NSIS is
+	pinned to 3.12.0 - whatever the hosted image preinstalled reports
+	its version and anything else installs the pinned package before a
+	single installer is built; the bilingual encoding check runs
+	check-only in ci, so the tested tag and the packaged bytes stay
+	the same file and any drift fails the release instead of being
+	repaired in flight; sha256.txt joins the attested subjects (the
+	"every release artifact" sentence in the readme now tells the exact
+	truth); and the installer wrapper's parameters are whitelisted (an
+	-arch arm64 used to fall through to the x86 path and quietly
+	package the wrong binary).
+	
+	the readme itself: the floating-controls row was documented as two
+	different controls (a windowed "zoom pill" versus a fullscreen
+	navigation bar) while the implementation ships one seven-cell row
+	that serves both modes - the table now describes the row that
+	exists. and the readme gained its chinese twin: README_CN.md,
+	linked from the english header and back, kept to the same sections
+	and the same facts, so the language switch is one click either way.
+	
+	the workspace and the remote were swept for sensitive material
+	before any of this shipped: all 334 commits walked for credential
+	patterns (clean), the working tree checked for stray secrets
+	(clean), and the selfshot build's manifest copy joined the
+	gitignore beside its siblings.
+
+	verified: the five suites pass, the zig line links a
+	495,104-byte x64 exe and a 375,296-byte aarch64 exe, the warning
+	census holds 757 against 757 with an identical class distribution
+	against the rc.7 baseline tree built back to back (both sides from a
+	cold compiler cache - zig cc's content-addressed cache answers a warm
+	build in a second with no diagnostics, and a census only counts what
+	a cold compile actually says), and link_scan audits 309 externs
+	against 309 definitions (its prototype heuristic learned the cast
+	initializer - the interlocked pointer forms landed the first
+	definition it ever misread).
+Pre-release: Version 1.1.15-rc.7 (the reentry state round)
 
 	the field report arrived twice - first as "the size disappears after
 	re-opening and minimizing", then corrected to the precise repro: the

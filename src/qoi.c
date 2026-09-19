@@ -85,7 +85,7 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 	
 	// the loader's stage marker: the exit timeout names the decoder that
 	// was running when the wait expired.
-	_viv_load_stage = "qoi";
+	InterlockedExchangePointer(&_viv_load_stage,(PVOID)"qoi");
 
 	if (SUCCEEDED(GetHGlobalFromStream(stream,&hglobal)))
 	{

@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.7.86",
-          (major, minor, rev, build) == (1, 1, 15, 86), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.7",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.7", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.8.87",
+          (major, minor, rev, build) == (1, 1, 15, 87), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.8",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.8", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -708,14 +708,16 @@ def t_sim_version_117():
     experience = read("experience.md").decode("utf-8", errors="replace")
     check("the readme current-stable line says 1.1.14",
           "**1.1.14 — the current stable**" in readme)
-    check("the candidate slot rotates to the reentry state round (rc.6 joins the one-liners)",
+    check("the candidate slot rotates to the seventh audit response round (rc.7 joins the one-liners)",
           "**1.1.14-rc.10** —" in experience and
           "**1.1.13** —" in experience and
           "**1.1.14-rc.9** —" in experience and
           "**1.1.14-rc.8** —" in experience and
           "**1.1.14-rc.3** —" in experience and
+          "**1.1.15-rc.8 —" in readme and
           "**1.1.15-rc.7 —" in readme and
           "**1.1.15-rc.6 —" in readme and
+          "### 1.1.15-rc.7 —" in experience and
           "### 1.1.15-rc.6 —" in experience and
           "### 1.1.15-rc.5 —" in experience and
           "### 1.1.15-rc.3 —" in experience and

@@ -1044,7 +1044,21 @@ debug_printf("ADDITIONAL FRAME TERMINATE\n");
 		
 		if (need_post)
 		{
-			PostMessage(hwnd,_VIV_WM_REPLY,0,0);
+			// the tail post answers the same duty the enqueue's own
+			// post does (see _viv_reply_add): taking the duty and then
+			// dropping a refused post's return value would leave a
+			// non-empty queue that no later enqueue wakes - the exact
+			// stall shape the duty flag was built to close. the duty
+			// hands back the same way, and the exit timeout still
+			// bounds whatever window a dying window leaves open.
+			if (!PostMessage(hwnd,_VIV_WM_REPLY,0,0))
+			{
+				EnterCriticalSection(&_viv_cs);
+				
+				_viv_reply_posted = 0;
+				
+				LeaveCriticalSection(&_viv_cs);
+			}
 		}
 	}
 	
