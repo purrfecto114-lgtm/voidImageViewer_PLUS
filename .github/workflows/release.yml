@@ -277,16 +277,21 @@ jobs:
               $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
             }
           }
+          # makensis reports its version with a leading v and no patch
+          # level ("v3.12", "v3.10") - the pin matches the family, not a
+          # literal string (the first ci run taught the format the hard
+          # way: an exact -ne '3.12.0' threw on a successfully pinned
+          # 'v3.12').
           $nsisVersion = ''
-          if ($makensis) { $nsisVersion = (& $makensis '/VERSION') -join '' }
+          if ($makensis) { $nsisVersion = ((& $makensis '/VERSION') -join '').Trim() }
           Write-Host "makensis found: $makensis (version $nsisVersion)"
-          if ($nsisVersion -ne '3.12.0') {
+          if ($nsisVersion -notmatch '^v?3\.12(\.\d+)?$') {
             Write-Host 'installing the pinned nsis 3.12.0 via choco...'
             choco install nsis -y --no-progress --version=3.12.0 --allow-downgrade
             $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
-            $nsisVersion = (& $makensis '/VERSION') -join ''
+            $nsisVersion = ((& $makensis '/VERSION') -join '').Trim()
             Write-Host "makensis pinned: $makensis (version $nsisVersion)"
-            if ($nsisVersion -ne '3.12.0') { throw "nsis pin failed: version is '$nsisVersion'" }
+            if ($nsisVersion -notmatch '^v?3\.12(\.\d+)?$') { throw "nsis pin failed: version is '$nsisVersion'" }
           }
 
           # validate the encodings required by the bilingual installer

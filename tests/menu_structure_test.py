@@ -7358,8 +7358,8 @@ def t_audit_response_round118():
     check("releases serialize per tag",
           "group: release-${{ inputs.tag || github.ref_name }}" in release_yml and
           "cancel-in-progress: false" in release_yml)
-    check("NSIS is pinned to 3.12.0 before any installer is built",
-          "-ne '3.12.0'" in release_yml and
+    check("NSIS is pinned to the 3.12 family before any installer is built",
+          "-notmatch \'^v?3\\.12(\\.\\d+)?$\'" in release_yml and
           "--allow-downgrade" in release_yml)
     check("the encoding check runs check-only in ci",
           "ensure_encodings.ps1 -CheckOnly" in release_yml and
