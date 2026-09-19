@@ -27,13 +27,17 @@
 #       non-unicode ini files would be converted with the target system's
 #       ansi codepage and the chinese text would be corrupted).
 
-$ErrorActionPreference = "Stop"
-
 # -CheckOnly: report drift without fixing it and exit 1 when any file
 # would have been repaired - the ci shape (a pipeline must never repair
 # its own inputs in flight; the tested tag and the packaged sources
 # stay the same bytes). the default remains the local fix mode.
 param([switch]$CheckOnly)
+
+# param() must ride above every other statement - one statement before
+# it and powershell parses the keyword as a command name (the second
+# rc.8 release run taught this the hard way from thirty-five hundred
+# kilometers away).
+$ErrorActionPreference = "Stop"
 
 $Failed = $false
 
