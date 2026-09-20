@@ -239,8 +239,10 @@ static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 										}
 									}	
 									
-									// has the current file changed? slideshow could make this a different filename
-									if (string_compare(old_filename,_viv_current_fd->cFileName) == 0)
+									// has the file on screen changed? the rename binds to the displayed
+// slot (the delete family's identity): a load in flight must not
+// retitle the image the user is looking at.
+									if (string_compare(old_filename,_viv_slot_current.fd.cFileName) == 0)
 									{
 										// rename
 										string_copy_with_bufsize(_viv_current_fd->cFileName,MAX_PATH,file_op_new_name);
@@ -290,9 +292,9 @@ static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 }
 void _viv_rename(void)
 {
-	if (*_viv_current_fd->cFileName)
+	if (*_viv_slot_current.fd.cFileName)
 	{
-		DialogBoxParam(os_hinstance,MAKEINTRESOURCE(IDD_RENAME),_viv_hwnd,_viv_rename_proc,(LPARAM)_viv_current_fd->cFileName);
+		DialogBoxParam(os_hinstance,MAKEINTRESOURCE(IDD_RENAME),_viv_hwnd,_viv_rename_proc,(LPARAM)_viv_slot_current.fd.cFileName);
 	}
 }
 INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)

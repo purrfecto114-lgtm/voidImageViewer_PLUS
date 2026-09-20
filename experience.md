@@ -190,6 +190,40 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.9 — the memory and cache round (2026-09-20, build 88)
+
+- Commit: (this round); the cache ring (eight seats, settings-sized) replaces the single
+  last slot, the preload walks a chain into that ring, the recent guard reads both
+  identities, the rename family binds to the displayed slot, the resume switch captures
+  the session's last file, and the animation frames stop building their mipmaps eagerly.
+- Lessons:
+  - **the census found promises, not leaks.** the "memory too high" field report led to
+    a residency census, and the top findings were all *design* - the cache set riding the
+    image ceiling, the eager per-frame mipmap chain, the 4-bytes-per-pixel animation
+    gate under-pricing its own product. none of it was a leak; all of it was a budget
+    written for a machine with no owner. fixing memory sometimes means fixing promises.
+  - **the ring's one invariant carries every walk.** dense active run at [0..count-1]
+    is what lets the insert shift blind, the activation close its hole, and the trim
+    walk oldest-first without a single hole check. the invariant is *maintained* at the
+    two places the count changes (the dropdown apply and the settings rewind) - both
+    clear the ring from zero. one invariant, centrally maintained, beats defensive
+    checks at every walk.
+  - **take never moves the state field - on purpose.** the slot's state is the preload
+    role's own; the ring takes fd/frames/counts/dims and leaves state behind, and the
+    next dispatch resets it. building the promote path on take meant the promoted seat
+    carries no stale state, and the in-flight decode never pays the trim's price
+    (state-1 only).
+  - **the identity lesson has a third chapter.** rc.8 bound the destructive commands to
+    the displayed slot; this round's recent bug was the same binding question in the
+    *guard* (compare against the request only, miss the in-flight window) and the rename
+    family (seed from the request, retitle the wrong file). "which identity does this
+    reader mean" is now a question every new file-acting site has to answer out loud.
+  - **byte-level surgery still bites its own tail.** one bare LF in 4,000 lines of
+    pasted C (the byte suite caught it), a walk function pasted twice (the compiler
+    caught it), and three wndproc edits lost to a failed script's never-written file
+    (the guard count caught it). the tools all worked; the discipline is trusting none
+    of them alone.
+
 ### 1.1.15-rc.8 — the seventh audit response round (build 87, 2026-09-19)
 
 the report arrived as a full-project review: twenty findings with line

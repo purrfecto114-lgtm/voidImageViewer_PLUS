@@ -617,6 +617,10 @@ static LRESULT _viv_on_wm_endsession(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		// folds into this write: the timer cannot fire anymore.
 		_viv_recent_save_fold();
 		
+		// the resume capture rides the same write (the exit path's
+		// twin).
+		string_copy_with_bufsize(config_last_file,MAX_PATH,_viv_slot_current.fd.cFileName);
+		
 		config_save_settings(config_appdata);
 	}
 	return 0;
@@ -698,6 +702,10 @@ debug_printf("LOADED/FAILED TERMINATE\n");
 
 								_viv_slot_preload.state = 1;
 
+								// the chain walk: with more images asked for, this
+								// finished preload promotes into the cache ring and the
+								// walk continues (the walk's own gate stops it).
+								_viv_preload_chain_walk();
 								// we update status below.
 							}
 						}
@@ -747,9 +755,12 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 					_viv_status_update();
 					_viv_toolbar_update_buttons();
 					
-					// preload next
+					// preload next. a real load landing on the screen is a
+					// settle: the chain starts counting from zero again.
 					if (allow_preload_next)
 					{
+						_viv_preload_chain_count = 0;
+
 						_viv_preload_next();
 					}
 				}
@@ -1598,7 +1609,7 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 	// below the app rows (the upstream TODO's cdeffoldermenu_create2
 	// item). a file that is not open, or a shell without the 5.0+
 	// export set, keeps the menu app-only.
-	if (*_viv_current_fd->cFileName)
+	if (*_viv_slot_current.fd.cFileName)
 	{
 		wchar_t cwd_wbuf[STRING_SIZE];
 
@@ -1608,7 +1619,7 @@ static LRESULT _viv_on_wm_contextmenu(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 		{
 			wchar_t full_wbuf[STRING_SIZE];
 
-			string_path_combine(full_wbuf,cwd_wbuf,_viv_current_fd->cFileName);
+			string_path_combine(full_wbuf,cwd_wbuf,_viv_slot_current.fd.cFileName);
 
 			_viv_shell_context_menu_append(hmenu,hwnd,full_wbuf);
 		}

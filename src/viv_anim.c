@@ -622,7 +622,10 @@ int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 							break;
 				}
 				
-				_viv_get_mipmap(hbitmap,frame_wide,frame_high,_viv_load_render_wide/2,_viv_load_render_high/2,&mip_wide,&mip_high,&frame.mipmap);
+				// the mipmap chain stays lazy here: the paint path builds it
+				// for the frame on screen when the scaling wants it - the
+				// eager build's thousand chains nobody looked at were the
+				// memory spike the animation budget never priced.
 				
 				_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_ADDITIONAL_FRAME,sizeof(_viv_frame_t),&frame);
 			}

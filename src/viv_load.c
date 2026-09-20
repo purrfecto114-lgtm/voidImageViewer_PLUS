@@ -54,7 +54,9 @@ void _viv_reply_clear_all(void);
 void _viv_preload_next(void);
 void _viv_activate_preload(void);
 void viv_copy_current_image_to_last_image(void);
-static void _viv_activate_last(void);
+static int _viv_cache_find(const wchar_t *filename);
+static void _viv_cache_insert(_viv_image_slot_t *src);
+static void _viv_cache_activate(int index);
 void _viv_clear_last(void);
 void _viv_refresh(void);
 void _viv_open_preload(void);
@@ -222,11 +224,15 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 			// contract, a re-open of the displayed file re-tops it. the
 			// forwarded open (the single-instance re-entry the rotate verb's
 			// refresh and the recheck double-click ride) feeds it only when
-			// the file is not the one already on screen: a same-file forward
-			// is a reload, not a recent open, and must not
-			// masquerade as a new open and silently reorder the recent list. the compare folds
-			// ascii case like the mru itself.
-			if ((recent_policy) || (_viv_icompare_filename(full_path_and_filename,_viv_current_fd->cFileName) != 0))
+			// the file matches neither known identity - not the file on
+			// screen (the slot) and not the file on its way there (the
+			// request): a same-file forward is a reload, not a recent open,
+			// and must not masquerade as a new open and silently reorder the
+			// recent list. the request side catches the in-flight window
+			// (the load that never displayed yet), the slot side catches
+			// everything shown. the compare folds ascii case like the mru
+			// itself.
+			if ((recent_policy) || ((_viv_icompare_filename(full_path_and_filename,_viv_current_fd->cFileName) != 0) && (_viv_icompare_filename(full_path_and_filename,_viv_slot_current.fd.cFileName) != 0)))
 			{
 				_viv_recent_file_push(full_path_and_filename);
 			}
@@ -276,7 +282,9 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 // _viv_load_image_thread will be NULL if is_preload is 1.
 void _viv_open(WIN32_FIND_DATA *fd,int is_preload)
 {
-debug_printf("open: %S last %S frame %S is_preload %d\n",fd->cFileName,_viv_slot_last.fd.cFileName,_viv_slot_current.fd.cFileName,is_preload);
+int cache_hit;
+
+debug_printf("open: %S cache %S frame %S is_preload %d\n",fd->cFileName,_viv_slot_cache[0].fd.cFileName,_viv_slot_current.fd.cFileName,is_preload);
 
 if ((_viv_load_image_thread) && (_viv_load_image_filename))
 {
@@ -304,16 +312,20 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		}
 	}
 
-	if ((is_preload) && (_viv_slot_last.frames) && (string_compare(_viv_slot_last.fd.cFileName,fd->cFileName) == 0))
+	cache_hit = _viv_cache_find(fd->cFileName);
+
+	if ((is_preload) && (cache_hit >= 0))
 	{
-		// don't preload if its the same as last cache.
-		// this can occur if you have a playlist or folder with only 2 items.
+		// don't preload what the cache ring already holds. this occurs
+		// with a short playlist or folder, and it is how the preload
+		// chain stops walking - the next image the ring already cached
+		// answers the chain without another decode.
 		return;
 	}
 	else
-	if ((!is_preload) && (_viv_slot_last.frames) && (string_compare(_viv_slot_last.fd.cFileName,fd->cFileName) == 0))
+	if ((!is_preload) && (cache_hit >= 0))
 	{
-		// activate last cache
+		// activate the cache ring hit.
 		// don't activate preload.
 		_viv_should_activate_preload_on_load = 0;
 		
@@ -331,9 +343,13 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 
 		_viv_slot_preload.fd.cFileName[0] = 0;
 		
+		// landing on a cached image is a settle: the chain starts over
+		// from the file now on screen.
+		_viv_preload_chain_count = 0;
+		
 		_viv_status_update();
 
-		_viv_activate_last();
+		_viv_cache_activate(cache_hit);
 
 		_viv_preload_next();
 
@@ -1615,7 +1631,10 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 															frame.delay = 100;
 														}
 														
-														_viv_get_mipmap(hbitmap,first_frame.wide,first_frame.high,_viv_load_render_wide/2,_viv_load_render_high/2,&mip_wide,&mip_high,&frame.mipmap);
+														// the mipmap chain stays lazy here: the paint path builds it
+														// for the frame on screen when the scaling wants it - an
+														// animation paused on frame one no longer pays for a
+														// thousand chains nobody looks at.
 
 														_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_ADDITIONAL_FRAME,sizeof(_viv_frame_t),&frame);
 													}
@@ -1928,9 +1947,17 @@ static SIZE_T _viv_slot_bytes(const _viv_image_slot_t *slot)
 static int _viv_cache_set_over_ceiling(SIZE_T incoming_bytes)
 {
 	SIZE_T total;
+	int i;
 
 	total = _viv_slot_bytes(&_viv_slot_current);
-	total = safe_size_add(total,_viv_slot_bytes(&_viv_slot_last));
+
+	// the ring seats join the sum one by one - the cache count no
+	// longer caps what the ceiling prices at three.
+	for(i=0;i<VIV_CACHE_SLOTS;i++)
+	{
+		total = safe_size_add(total,_viv_slot_bytes(&_viv_slot_cache[i]));
+	}
+
 	total = safe_size_add(total,_viv_slot_bytes(&_viv_slot_preload));
 	total = safe_size_add(total,incoming_bytes);
 
@@ -1939,7 +1966,10 @@ static int _viv_cache_set_over_ceiling(SIZE_T incoming_bytes)
 		return 1;
 	}
 
-	return total > VIV_MAX_IMAGE_BYTES;
+	// the cache set answers its own ceiling, half the image line:
+	// opportunistic residency never deserved the same budget a
+	// displayed image's whole working set rides.
+	return total > VIV_CACHE_SET_MAX_BYTES;
 }
 // the preload fill gate: the one load nobody asked for must never
 // push the set over the ceiling. the current image and the last
@@ -1958,9 +1988,32 @@ int _viv_preload_set_refused(int wide,int high,int frame_count)
 // already priced it.
 static void _viv_cache_set_trim(void)
 {
+	int i;
+
 	if (_viv_cache_set_over_ceiling(0))
 	{
-		_viv_clear_last();
+		// the ring goes first, oldest seat to newest: a cache is
+		// opportunistic and the image on screen is not.
+		for(i=VIV_CACHE_SLOTS-1;i>=0;i--)
+		{
+			if (_viv_slot_cache[i].frames)
+			{
+				_viv_slot_clear_frames(&_viv_slot_cache[i]);
+				
+				if (!_viv_cache_set_over_ceiling(0))
+				{
+					return;
+				}
+			}
+		}
+		
+		// the ring is empty and the set is still over the line: the
+		// finished preload leaves too. nothing is in flight inside a
+		// state-1 slot - an in-flight decode never pays this price.
+		if (_viv_slot_preload.state == 1)
+		{
+			_viv_clear_preload();
+		}
 	}
 }
 void _viv_preload_next(void)
@@ -1970,13 +2023,29 @@ void _viv_preload_next(void)
 	// turned preloading off just as much as the ones who left it on.
 	_viv_cache_set_trim();
 
-	if (config_preload_next)
+	if (config_preload_count > 0)
 	{
 		//UpdateWindow(_viv_hwnd);
 		
 		_viv_next(_viv_last_is_prev,0,1,0);
 	}
 }
+// the chain walk: a finished preload that is not the last of its chain
+// promotes into the cache ring and the walk continues. the last image
+// of the chain keeps the slot - the navigation's first hit lands there.
+// the count gate stops the walk, and a cache count of zero parks the
+// chain at one image (the second would have nowhere to live).
+void _viv_preload_chain_walk(void)
+{
+	if ((_viv_preload_chain_count + 1 < config_preload_count) && (config_cache_count > 0))
+	{
+		_viv_cache_insert(&_viv_slot_preload);
+		_viv_preload_chain_count++;
+
+		_viv_preload_next();
+	}
+}
+
 // the preload has completed and we 
 // want to set it as the current image.
 void _viv_activate_preload(void)
@@ -1996,53 +2065,98 @@ debug_printf("activate preload\n");
 
 	_viv_process_pending_clear();
 }
-// copy the current image to the last image.
+// the ring find: the first seat whose file matches. both navigation
+// directions read the same ring - the preload chain promotes ahead
+// of the walker, the browsing history sits behind it.
+static int _viv_cache_find(const wchar_t *filename)
+{
+	int i;
+
+	for(i=0;i<VIV_CACHE_SLOTS;i++)
+	{
+		if ((_viv_slot_cache[i].frames) && (string_compare(_viv_slot_cache[i].fd.cFileName,filename) == 0))
+		{
+			return i;
+		}
+	}
+
+	return -1;
+}
+// the ring insert: the source slot's whole content takes the head
+// seat. a full active run drops its oldest entry first, everyone
+// shifts down one seat. the settings page clears the ring whenever
+// config_cache_count changes, so the active run stays dense and this
+// walk never crosses a hole. a count of zero never reaches the walk
+// (every caller gates on it) and the guard here makes that doubly
+// true.
+static void _viv_cache_insert(_viv_image_slot_t *src)
+{
+	int i;
+
+	if (config_cache_count <= 0)
+	{
+		return;
+	}
+
+	// a full run drops the oldest entry.
+	if (_viv_slot_cache[config_cache_count-1].frames)
+	{
+		_viv_slot_clear_frames(&_viv_slot_cache[config_cache_count-1]);
+	}
+
+	for(i=config_cache_count-1;i>0;i--)
+	{
+		_viv_slot_cache[i] = _viv_slot_cache[i-1];
+	}
+
+	_viv_slot_take(&_viv_slot_cache[0],src);
+}
+// push the current image into the cache ring's head (the name keeps
+// the historical export surface; the single last slot became the
+// ring).
 void viv_copy_current_image_to_last_image(void)
 {
-	_viv_slot_clear_frames(&_viv_slot_last);
+debug_printf("*** Cache PUSH : %S\n",_viv_slot_current.fd.cFileName);
 
-debug_printf("*** Cache LAST : %S\n",_viv_slot_current.fd.cFileName);
-
-	// only copy if the whole image was loaded.
+	// only cache if the whole image was loaded.
 	// Otherwise we need to reload the whole image again..
-	if (config_cache_last)
+	if (config_cache_count > 0)
 	{
 		if (_viv_slot_current.frame_count == _viv_slot_current.frame_loaded_count)
 		{
-			// the whole current slot moves into the last cache in one
+			// the whole current slot moves into the ring's head in one
 			// take: the file identity, the frames, both counts and the
 			// dimensions. the source is left empty for the incoming
 			// image.
-			_viv_slot_take(&_viv_slot_last,&_viv_slot_current);
+			_viv_cache_insert(&_viv_slot_current);
 		}
 	}
 }
-static void _viv_activate_last(void)
+static void _viv_cache_activate(int index)
 {
 	_viv_image_slot_t old_slot;
 	BYTE old_valid;
+	int i;
+	int active;
 
-debug_printf("activate last\n");
+debug_printf("activate cache %d\n",index);
 
 	old_valid = 0;
 
-	// save current image so we can store it in last image later.
-	// we can't do it now because we are setting the last image to the current image.
-	// the five hand-rolled old_* locals (the fd, the dimensions, the
-	// count and the frames) are one slot now: the whole current image
-	// is saved in one copy and restored in one assignment.
-	if (config_cache_last)
+	// save the current image so it can enter the ring as the newest
+	// entry below. the whole current image is saved in one copy -
+	// the frames belong to the save now: detach them before
+	// _viv_clear runs, or its pending-clear mailbox would stash
+	// (and later free) the very frames being saved.
+	if (config_cache_count > 0)
 	{
 		if (_viv_slot_current.frame_count == _viv_slot_current.frame_loaded_count)
 		{
-debug_printf("*** Cache LAST2 : %S\n",_viv_slot_current.fd.cFileName);
+debug_printf("*** Cache ACTIVATE : %S\n",_viv_slot_current.fd.cFileName);
 
 			old_slot = _viv_slot_current;
 			old_valid = 1;
 
-			// the frames belong to the save now: detach them before
-			// _viv_clear runs, or its pending-clear mailbox would stash
-			// (and later free) the very frames being saved.
 			_viv_slot_current.frames = NULL;
 			_viv_slot_current.frame_count = 0;
 			_viv_slot_current.frame_loaded_count = 0;
@@ -2052,7 +2166,7 @@ debug_printf("*** Cache LAST2 : %S\n",_viv_slot_current.fd.cFileName);
 		}
 	}
 	
-	os_copy_memory(_viv_current_fd,&_viv_slot_last.fd,sizeof(WIN32_FIND_DATA));
+	os_copy_memory(_viv_current_fd,&_viv_slot_cache[index].fd,sizeof(WIN32_FIND_DATA));
 	
 	// the folder fact belongs to the position being left.
 	_viv_nav_folder_neighbor = -1;
@@ -2062,28 +2176,54 @@ debug_printf("*** Cache LAST2 : %S\n",_viv_slot_current.fd.cFileName);
 	
 	_viv_clear();
 
-	// the whole last slot moves into the current slot in one take.
-	_viv_slot_take(&_viv_slot_current,&_viv_slot_last);
-
+	// the whole hit slot moves into the current slot in one take.
+	_viv_slot_take(&_viv_slot_current,&_viv_slot_cache[index]);
+	
+	// the hole closes: the entries above the hit slide down one
+	// seat. the active run is dense ([0..active-1], the count the
+	// settings pin) and the hit sat inside it, so the vacated tail
+	// detaches its stale copies instead of freeing them - the
+	// frames already moved down with the shift.
+	active = config_cache_count;
+	
+	for(i=index;i<active-1;i++)
+	{
+		_viv_slot_cache[i] = _viv_slot_cache[i+1];
+	}
+	
+	_viv_slot_cache[active-1].frames = NULL;
+	_viv_slot_cache[active-1].frame_count = 0;
+	_viv_slot_cache[active-1].frame_loaded_count = 0;
+	_viv_slot_cache[active-1].image_wide = 0;
+	_viv_slot_cache[active-1].image_high = 0;
+	_viv_slot_cache[active-1].fd.cFileName[0] = 0;
+	
 	_viv_start_first_frame();
 
 	_viv_process_pending_clear();
 
 	if (old_valid)
 	{
-		// the saved image becomes the new last cache: the ping-pong
-		// the two takes spell.
-		_viv_slot_last = old_slot;
+		// the saved image becomes the newest cache entry - the
+		// ping-pong the two takes used to spell, generalized to the
+		// ring.
+		_viv_cache_insert(&old_slot);
 	}
 }
-// the last cache clears through the same slot primitive the preload
-// slot uses. the old family-gated clear left the dimensions behind
-// when the frames were already gone - harmless under the readers'
-// non-empty gates, and the unified clear zeroes them anyway.
+// the ring clears through the same slot primitive the preload slot
+// uses, one seat at a time - the settings page calls this when the
+// cache count changes, so the dense-run invariant every walk relies
+// on is rebuilt from zero.
 void _viv_clear_last(void)
 {
-	_viv_slot_clear_frames(&_viv_slot_last);
+	int i;
+	
+	for(i=0;i<VIV_CACHE_SLOTS;i++)
+	{
+		_viv_slot_clear_frames(&_viv_slot_cache[i]);
+	}
 }
+
 void _viv_refresh(void)
 {
 	WIN32_FIND_DATA fd;
@@ -2133,6 +2273,10 @@ void _viv_refresh(void)
 void _viv_open_preload(void)
 {
 	os_copy_memory(_viv_current_fd,&_viv_slot_preload.fd,sizeof(WIN32_FIND_DATA));
+
+	// landing on the parked preload is a settle: the chain starts
+	// over from the file now on screen.
+	_viv_preload_chain_count = 0;
 	
 	// the folder fact belongs to the position being left.
 	_viv_nav_folder_neighbor = -1;
@@ -2252,9 +2396,12 @@ static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
 		return 1;
 	}
 	
-	if ((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4 > VIV_MAX_ANIMATION_TOTAL_BYTES)
+	// 16/3 bytes per canvas pixel per frame: the 32bpp DIB frames the
+	// loader holds plus the mipmap chain's extra third the lazy build
+	// still fills in as the animation plays.
+	if ((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 16 / 3 > VIV_MAX_ANIMATION_TOTAL_BYTES)
 	{
-		debug_printf("animation budget: refusing %u frames of a %u mp canvas (%u mb of frames, ceiling %u mb)\r\n",(unsigned int)frame_count,(unsigned int)(canvas_pixels / 1000000),(unsigned int)(((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4) / 1000000),(unsigned int)(VIV_MAX_ANIMATION_TOTAL_BYTES / 1000000));
+		debug_printf("animation budget: refusing %u frames of a %u mp canvas (%u mb of frames, ceiling %u mb)\r\n",(unsigned int)frame_count,(unsigned int)(canvas_pixels / 1000000),(unsigned int)(((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 16 / 3) / 1000000),(unsigned int)(VIV_MAX_ANIMATION_TOTAL_BYTES / 1000000));
 		
 		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		

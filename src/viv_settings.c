@@ -116,6 +116,7 @@
 #define _VIV_SETTINGS_ID_LANGUAGE	10
 #define _VIV_SETTINGS_ID_THEME		11
 #define _VIV_SETTINGS_ID_MULTIPLE	12
+#define _VIV_SETTINGS_ID_RESUME	13
 #define _VIV_SETTINGS_ID_SELECT_ALL	14
 #define _VIV_SETTINGS_ID_ASSOC		15			// + extension index (param)
 #define _VIV_SETTINGS_ID_ACCENT         16
@@ -214,6 +215,7 @@ static int _viv_settings_snap_auto_zoom;
 static int _viv_settings_snap_auto_type;
 static int _viv_settings_snap_loop;
 static int _viv_settings_snap_preload;
+static BYTE _viv_settings_snap_resume;
 static int _viv_settings_snap_cache;
 static int _viv_settings_snap_toolbar_icon_only;
 static int _viv_settings_snap_left;
@@ -623,6 +625,14 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
+			// resume the last session's file on a blank start.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_RESUME,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
+			y += row_high;
+
 
 			// start menu shortcuts and the appdata storage: the two rows the
 			// old dialog queued for the elevated helper instance. the toggle
@@ -736,20 +746,20 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
 
-			// preload next image.
-			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_PRELOAD,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
+			// preload count: a dropdown now (off / 1..5 images ahead).
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_PRELOAD,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
 			y += row_high;
 
-			// cache last image.
-			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_CACHE,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
+			// cache count: a dropdown now (off / 1..8 images behind).
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_CACHE,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
 			y += row_high;
 
 			y += _viv_settings_dip(10);
@@ -1525,8 +1535,9 @@ static void _viv_settings_snapshot(void)
 	_viv_settings_snap_auto_zoom = config_auto_zoom;
 	_viv_settings_snap_auto_type = config_auto_zoom_type;
 	_viv_settings_snap_loop = config_loop_animations_once;
-	_viv_settings_snap_preload = config_preload_next;
-	_viv_settings_snap_cache = config_cache_last;
+	_viv_settings_snap_preload = config_preload_count;
+	_viv_settings_snap_cache = config_cache_count;
+	_viv_settings_snap_resume = config_resume_last_file;
 	_viv_settings_snap_toolbar_icon_only = config_toolbar_icon_only;
 	_viv_settings_snap_left = config_left_click_action;
 	_viv_settings_snap_right = config_right_click_action;
@@ -1645,14 +1656,24 @@ static void _viv_settings_restore(void)
 		config_loop_animations_once = (BYTE)_viv_settings_snap_loop;
 	}
 
-	if (config_preload_next != (BYTE)_viv_settings_snap_preload)
+	// the counts: a rewind rebuilds the ring's dense-run invariant -
+	// the ring clears whenever the cache count changes (either
+	// direction), exactly like the dropdown's own apply.
+	if (config_cache_count != _viv_settings_snap_cache)
 	{
-		config_preload_next = (BYTE)_viv_settings_snap_preload;
+		config_cache_count = _viv_settings_snap_cache;
+
+		_viv_clear_last();
 	}
 
-	if (config_cache_last != (BYTE)_viv_settings_snap_cache)
+	if (config_preload_count != _viv_settings_snap_preload)
 	{
-		config_cache_last = (BYTE)_viv_settings_snap_cache;
+		config_preload_count = _viv_settings_snap_preload;
+	}
+
+	if (config_resume_last_file != _viv_settings_snap_resume)
+	{
+		config_resume_last_file = _viv_settings_snap_resume;
 	}
 
 	// toolbar icons only: a rewind re-measures the strip (the toggle's
@@ -2213,13 +2234,9 @@ static void _viv_settings_activate(int index,int x,int y)
 					config_loop_animations_once = config_loop_animations_once ? 0 : 1;
 					break;
 
-				case _VIV_SETTINGS_ID_PRELOAD:
-					config_preload_next = config_preload_next ? 0 : 1;
-					break;
-
-				case _VIV_SETTINGS_ID_CACHE:
-					config_cache_last = config_cache_last ? 0 : 1;
-					break;
+				case _VIV_SETTINGS_ID_RESUME:
+					config_resume_last_file = config_resume_last_file ? 0 : 1;
+				break;
 
 				case _VIV_SETTINGS_ID_TOOLBARICON:
 					// the strip re-measures with the labels gone: run the size
@@ -3507,11 +3524,15 @@ static void _viv_settings_paint(HWND hwnd)
 						break;
 
 					case _VIV_SETTINGS_ID_PRELOAD:
-						label_id = LOCALIZATION_ID_PRELOAD_NEXT_IMAGE_STATIC;
+						label_id = LOCALIZATION_ID_SETTINGS_PRELOAD_COUNT;
 						break;
 
 					case _VIV_SETTINGS_ID_CACHE:
-						label_id = LOCALIZATION_ID_CACHE_LAST_IMAGE_STATIC;
+						label_id = LOCALIZATION_ID_SETTINGS_CACHE_COUNT;
+						break;
+
+					case _VIV_SETTINGS_ID_RESUME:
+						label_id = LOCALIZATION_ID_SETTINGS_RESUME_LAST;
 						break;
 
 					case _VIV_SETTINGS_ID_TOOLBARICON:
@@ -3560,14 +3581,6 @@ static void _viv_settings_paint(HWND hwnd)
 
 					case _VIV_SETTINGS_ID_LOOP:
 						_viv_settings_draw_switch(mem,ctl,config_loop_animations_once ? 1 : 0,hot,focus);
-						break;
-
-					case _VIV_SETTINGS_ID_PRELOAD:
-						_viv_settings_draw_switch(mem,ctl,config_preload_next ? 1 : 0,hot,focus);
-						break;
-
-					case _VIV_SETTINGS_ID_CACHE:
-						_viv_settings_draw_switch(mem,ctl,config_cache_last ? 1 : 0,hot,focus);
 						break;
 
 					case _VIV_SETTINGS_ID_TOOLBARICON:

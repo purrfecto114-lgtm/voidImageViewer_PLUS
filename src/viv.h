@@ -77,6 +77,12 @@ extern "C" {
 #if defined(_WIN64)
 #define VIV_MAX_IMAGE_PIXELS	400000000
 #define VIV_MAX_IMAGE_BYTES	2400000000
+// the cache-set ceiling is its own line: the ring and the preload
+// are opportunistic residency and never deserved to compete against
+// the same 2.4 gb ceiling one image's whole working set uses - three
+// cached 800 mb frame sets rode that ceiling untouched. half the
+// image ceiling keeps a promise the trim can actually keep.
+#define VIV_CACHE_SET_MAX_BYTES	1200000000
 // animated frames are stricter than stills on every axis: the canvas
 // ceiling drops to 150 mp (a one-frame animation may not out-size the
 // static budget), the frame count carries its own ceiling, and the
@@ -89,6 +95,7 @@ extern "C" {
 #else
 #define VIV_MAX_IMAGE_PIXELS	100000000
 #define VIV_MAX_IMAGE_BYTES	1200000000
+#define VIV_CACHE_SET_MAX_BYTES	600000000
 // 32-bit: the static behavior is unchanged (100 mp prices to the same
 // 1.2 gb working set); the animation canvas keeps its quarter-ceiling
 // (25 mp) and the frame array is bounded to 400 mb of total frames

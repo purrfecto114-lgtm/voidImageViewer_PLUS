@@ -57,6 +57,8 @@ void _viv_reply_free(_viv_reply_t *e);
 _viv_reply_t *_viv_reply_add(DWORD type,DWORD size,void *data);
 void _viv_reply_clear_all(void);
 void _viv_preload_next(void);
+void _viv_preload_chain_walk(void);
+void _viv_preload_chain_walk(void);
 int _viv_preload_set_refused(int wide,int high,int frame_count);
 void _viv_activate_preload(void);
 void viv_copy_current_image_to_last_image(void);

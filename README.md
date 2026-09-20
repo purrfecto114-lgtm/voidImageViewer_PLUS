@@ -24,7 +24,16 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.8 — the seventh audit response round (the current release candidate):**
+**1.1.15-rc.9 — the memory and cache round (the current release candidate):**
+
+- The image cache is a ring you size — Settings → View → **Cache count** (off / 1–8 images); walk back through what you just saw without reloading.
+- Preloading walks a chain you size — **Preload count** (off / 1–5 images ahead); the chain's images sit in the ring, ready before you arrive.
+- The cache set holds its own memory line (half the image budget), the trim drops the oldest first, and animations stop building a mipmap chain for every frame nobody looks at — the field's high-memory reading lands at a fraction of the old residency.
+- Recent files no longer reorder when a forwarded re-open of the file on screen rides an in-flight load; rename binds to the file you are looking at.
+- **Resume where I left off** (Settings → General) reopens the last session's file on a blank start.
+
+**1.1.15-rc.8 — the seventh audit response round:** clipboard/identity/threading hardening, the bilingual readme, and the release-chain pins. See [Changes.txt](Changes.txt).
+
 
 - **The clipboard paste can no longer read past its own data** — a pasted CF_DIB proves the global's length before any header field is read and the whole bitmap (masks, palette, bits) before the DIB section is created; the stride rides overflow-checked math, and a wrapped width×depth product or an `INT_MIN` height falls through to the plain-bitmap path instead of feeding the size check.
 - **The plain-bitmap paste answers to the same pixel budget as the decoders** — a gigabyte-sized CF_BITMAP is refused before `CopyImage` ever allocates.

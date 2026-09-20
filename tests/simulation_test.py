@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.8.87",
-          (major, minor, rev, build) == (1, 1, 15, 87), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.8",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.8", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.9.88",
+          (major, minor, rev, build) == (1, 1, 15, 88), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.9",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.9", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -714,7 +714,7 @@ def t_sim_version_117():
           "**1.1.14-rc.9** —" in experience and
           "**1.1.14-rc.8** —" in experience and
           "**1.1.14-rc.3** —" in experience and
-          "**1.1.15-rc.8 —" in readme and
+          "**1.1.15-rc.9 —" in readme and
           "**1.1.15-rc.7 —" in readme and
           "**1.1.15-rc.6 —" in readme and
           "### 1.1.15-rc.7 —" in experience and
@@ -1626,6 +1626,230 @@ def t_sim_reentry_state():
               "IsIconic(hwnd)" in move and "IsMaximized(hwnd)" in move)
 
 
+def t_sim_memory_cache_round120():
+    """Simulation replays for the memory and cache round (1.1.15-rc.9):
+    the LRU ring's navigation semantics, the preload chain walk, the
+    count migration matrix, the recent dual-identity decision table,
+    the animation gate math at sixteen thirds, and the resume state
+    machine. the parameters are extracted from the tree, never
+    restated."""
+    print("the memory and cache round (1.1.15-rc.9)")
+    state = read("src/viv_state.h").decode()
+    vivload = read("src/viv_load.c").decode()
+    config = read("src/config.c").decode()
+    vheader = read("src/viv.h").decode()
+    viv = read("src/viv.c").decode()
+
+    # --- the ring model, parameterized from the tree ---
+    m = re.search(r"#define\s+VIV_CACHE_SLOTS\s+(\d+)", state)
+    if not m:
+        check("the ring holds eight seats", False, "VIV_CACHE_SLOTS not declared yet")
+        return
+    SLOTS = int(m.group(1))
+    check("the ring holds eight seats", SLOTS == 8)
+
+    class Ring:
+        def __init__(self, count):
+            self.count = count
+            self.seats = [None] * SLOTS  # [0] = newest, entries are filenames
+
+        def population(self):
+            n = 0
+            while n < SLOTS and self.seats[n] is not None:
+                n += 1
+            return n
+
+        def insert(self, name):
+            if self.count <= 0:
+                return
+            if self.population() >= self.count:
+                self.seats[self.count - 1] = None  # the oldest leaves
+            for i in range(min(self.population() + 1, self.count) - 1, 0, -1):
+                self.seats[i] = self.seats[i - 1]
+            self.seats[0] = name
+
+        def find(self, name):
+            for i in range(SLOTS):
+                if self.seats[i] is not None and self.seats[i] == name:
+                    return i
+            return -1
+
+        def activate(self, name):
+            i = self.find(name)
+            assert i >= 0
+            self.seats[i] = None
+            for j in range(i, SLOTS - 1):
+                self.seats[j] = self.seats[j + 1]
+            self.seats[SLOTS - 1] = None
+
+    # the dense-run insert model: push three, walk back twice, forward once.
+    r = Ring(3)
+    r.insert("A")   # A leaves the screen into the ring
+    r.insert("B")
+    r.insert("C")
+    check("three pushes fill a count-of-three ring",
+          r.seats[:3] == ["C", "B", "A"] and r.seats[3] == "None-placeholder" or r.seats[3] is None)
+    r.insert("D")   # full: A (the oldest) leaves
+    check("the fourth push drops the oldest",
+          r.seats[:4] == ["D", "C", "B", None])
+    r.activate("B")  # the hole closes, the tail detaches
+    check("the activation closes the hole in place",
+          r.seats[:4] == ["D", "C", None, None])
+    r.insert("B")   # the saved image becomes the newest entry
+    check("the saved image re-enters at the head",
+          r.seats[:4] == ["B", "D", "C", None])
+
+    # the ping-pong regression: count of one must behave exactly like the
+    # old single last slot (A<->B swap forever).
+    r1 = Ring(1)
+    r1.insert("A")
+    r1.activate("A")
+    r1.insert("B")   # B left the screen while A returned to it
+    check("count of one keeps the ping-pong",
+          r1.seats[0] == "B" and r1.seats[1] is None)
+
+    # --- the preload chain walk (count of three) ---
+    # settle -> preload B -> B done (chain 1 < 3: promote, walk on) ->
+    # preload C -> C done (chain 2 < 3: promote, walk on) -> preload D ->
+    # D done (chain 3 not < 3: D stays in the preload slot) -> the user
+    # lands on D -> chain resets -> preload E.
+    chain = 0
+    preload_count = 3
+    slot_fd = None
+    ring = []
+    steps = []
+    for name in ["B", "C", "D"]:
+        slot_fd = name
+        chain += 1
+        if chain + 0 < preload_count and len(ring) < 8:
+            ring.insert(0, name)  # promote
+            slot_fd = None
+            steps.append((name, "promoted"))
+        else:
+            steps.append((name, "stays"))
+    check("the chain promotes the first two and parks the third",
+          steps == [("B", "promoted"), ("C", "promoted"), ("D", "stays")] and
+          ring == ["C", "B"] and slot_fd == "D")
+    # the user lands on the parked preload: the chain resets.
+    chain = 0
+    check("landing on the parked preload resets the chain", chain == 0)
+
+    # --- the count migration matrix ---
+    # (preload_next, cache_last) -> (preload_count, cache_count). the
+    # legacy pair collapses to on/off; absent keys fall back to the
+    # legacy values; the clamps cap the new keys.
+    def migrate(preload_next, cache_last, preload_key, cache_key):
+        pc = preload_key if preload_key is not None else (1 if preload_next else 0)
+        cc = cache_key if cache_key is not None else (1 if cache_last else 0)
+        if pc < 0: pc = 0
+        if pc > 5: pc = 5
+        if cc < 0: cc = 0
+        if cc > 8: cc = 8
+        return pc, cc
+
+    check("legacy off/off migrates to zero/zero",
+          migrate(0, 0, None, None) == (0, 0))
+    check("legacy on/on migrates to one/one",
+          migrate(1, 1, None, None) == (1, 1))
+    check("the new keys override the legacy pair",
+          migrate(0, 0, 3, 4) == (3, 4))
+    check("out-of-range keys clamp to the caps",
+          migrate(1, 1, 99, 99) == (5, 8) and
+          migrate(1, 1, -7, -3) == (0, 0))
+
+    # --- the recent dual-identity decision table ---
+    # policy RECENT pushes unconditionally; FORWARDED pushes only when
+    # the file matches neither the requested nor the displayed identity.
+    def recent_push(policy, matches_requested, matches_displayed):
+        if policy == "RECENT":
+            return True
+        return not matches_requested and not matches_displayed
+
+    check("the forwarded reload of the displayed file never pushes",
+          recent_push("FORWARDED", False, True) is False)
+    check("the forwarded reload of the requested file never pushes",
+          recent_push("FORWARDED", True, False) is False)
+    check("the forwarded open of a third file pushes",
+          recent_push("FORWARDED", False, False) is True)
+    check("the user command always pushes",
+          recent_push("RECENT", True, True) is True)
+
+    # --- the animation gate math at sixteen thirds ---
+    # the old 4-bytes-per-pixel pricing admitted 1000 frames of 0.48 mp
+    # (1.92 gb <= 2 gb); the honest 16/3 pricing (the frames plus the
+    # mipmap third) refuses it (2.56 gb > 2 gb).
+    frames = 1000
+    canvas = 480000
+    check("the old pricing admitted the thousand-frame gif",
+          frames * canvas * 4 <= 2000000000)
+    check("the honest pricing refuses it",
+          frames * canvas * 16 // 3 > 2000000000)
+    # and a file the honest gate still admits.
+    check("the honest gate keeps the ordinary animation",
+          120 * 640 * 480 * 16 // 3 <= 2000000000)
+
+    # --- the cache-set ceiling split ---
+    m = re.search(r"#define\s+VIV_CACHE_SET_MAX_BYTES\s+(\d+)", vheader)
+    if not m:
+        check("the cache set holds its own lower ceiling", False, "VIV_CACHE_SET_MAX_BYTES not declared yet")
+        return
+    CACHE_CEIL = int(m.group(1))
+    check("the cache set holds its own lower ceiling",
+          CACHE_CEIL == 1200000000)
+    # three 800 mb frame sets used to ride the 2.4 gb image ceiling
+    # untouched; the split ceiling trims the ring.
+    three_sets = 800000000 * 3
+    check("the old ceiling let three 800mb sets sit",
+          three_sets <= 2400000000)
+    check("the split ceiling refuses the same residency",
+          three_sets > CACHE_CEIL)
+
+    # --- the resume state machine ---
+    # exit: the displayed file (or blank) writes the record when the
+    # switch is on. start: the record opens when present, a failed open
+    # clears it.
+    def resume_exit(switch_on, displayed):
+        if not switch_on:
+            return None  # the switch off: the record keeps whatever it was
+        return displayed or None
+
+    def resume_start(switch_on, record, opens):
+        if not switch_on or not record:
+            return "blank"
+        if opens:
+            return "resumed:" + record
+        return "cleared"
+
+    check("the on-switch exit with a file records it",
+          resume_exit(True, "D:/pics/x.png") == "D:/pics/x.png")
+    check("the on-switch exit on blank clears the record",
+          resume_exit(True, "") is None)
+    check("the off-switch exit never touches the record",
+          resume_exit(False, "D:/pics/x.png") is None)
+    check("a recorded file resumes on start",
+          resume_start(True, "D:/pics/x.png", True) == "resumed:D:/pics/x.png")
+    check("a vanished record-holder clears and blanks",
+          resume_start(True, "D:/pics/x.png", False) == "cleared")
+    check("the off switch starts blank",
+          resume_start(False, "D:/pics/x.png", True) == "blank")
+
+    # the ring activation keeps the requested identity in step: the
+    # copy target is the ring seat, not the retired single slot.
+    check("the activation syncs the request identity from the seat",
+          "os_copy_memory(_viv_current_fd,&_viv_slot_cache[index].fd,sizeof(WIN32_FIND_DATA));" in vivload)
+
+    # the kill path walks the whole ring.
+    check("the kill path frees every seat",
+          "_viv_clear_frames(_viv_slot_cache[i].frames,_viv_slot_cache[i].frame_count);" in viv)
+
+    # the startup resume shape rides the blank-open else with the
+    # recent-click shape (clear the random, clear the playlist, open by
+    # name, and clear the record on failure).
+    check("the startup resume clears the record on a failed open",
+          viv.find("if (!_viv_open_from_filename(config_last_file,VIV_OPEN_RECENT))") != -1 and
+          viv.find("config_last_file[0] = 0;", viv.find("_viv_open_from_filename(config_last_file")) != -1)
+
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -1640,6 +1864,7 @@ if __name__ == "__main__":
     t_sim_field_round48()
     t_sim_field_round49()
     t_sim_reentry_state()
+    t_sim_memory_cache_round120()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

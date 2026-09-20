@@ -133,8 +133,18 @@ extern BYTE config_ontop;
 extern int config_slideshow_custom_rate;
 extern BYTE config_slideshow_custom_rate_type;
 extern BYTE config_scroll_window;
+// the preload/cache counts (the memory and cache round): int images,
+// 0..5 preloaded ahead / 0..8 cached behind. the legacy byte pair reads
+// on as the migration source - the loader reads the counts only.
+extern int config_preload_count;
+extern int config_cache_count;
 extern BYTE config_preload_next;
 extern BYTE config_cache_last;
+// the resume switch and the last session's file (empty = nothing to
+// resume). the exit/endsession paths write it, the blank-start path
+// reads it.
+extern BYTE config_resume_last_file;
+extern wchar_t config_last_file[MAX_PATH];
 extern BYTE config_icm;
 extern BYTE config_show_menu;
 extern BYTE config_show_caption;

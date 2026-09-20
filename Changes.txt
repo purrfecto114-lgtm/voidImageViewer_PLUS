@@ -1,4 +1,77 @@
-﻿Pre-release: Version 1.1.15-rc.8 (the seventh audit response round)
+﻿Pre-release: Version 1.1.15-rc.9 (the memory and cache round)
+
+	the round answers one feature pair, one field report, one new
+	switch and one measurement. the field's memory reading ran high,
+	and the census that followed found the residency promises were
+	written for a machine with no owner: the cache set (the ring plus
+	the preload) rode the same 2.4 gb ceiling one image's whole
+	working set uses, the animation gate priced its frames at 4 bytes
+	a pixel while every frame also carried an eagerly built mipmap
+	chain (a third more), and the loader built that chain for every
+	frame of every animation whether anyone ever saw frame two.
+	
+	the cache grew a ring. the single last-image slot became eight
+	seats the settings size (a dropdown now: off / 1..8 images), and
+	the preload walks a chain of finished loads into that ring (a
+	dropdown too: off / 1..5 images ahead) - both navigation
+	directions read the same ring, the browsing history behind the
+	walker and the preloaded images ahead of it, and the chain's last
+	image keeps the slot so the first hit lands where it always did.
+	the ring's walks all assume the active entries live dense at the
+	head ([0..count-1]), and every count change - the dropdown's own
+	apply or the settings rewind - clears the ring from zero to keep
+	that invariant honest. the ping-pong the single slot spelled is
+	the count-of-one case of the same machine, unchanged.
+	
+	the memory round proper: the cache set answers its own ceiling
+	now (half the image line - 1.2 gb on 64-bit, 600 mb on 32-bit;
+	three cached 800 mb frame sets used to ride the old ceiling
+	untouched), the trim walks the ring oldest-first and only then
+	touches a finished preload (a state-1 slot holds nothing in
+	flight - an in-flight decode never pays), the animation gates
+	price their frames at 16/3 bytes a canvas pixel (the DIB frames
+	plus the mipmap third the lazy build still fills in as the
+	animation plays), and the loader builds the mipmap chain for the
+	first frame only - the paint path builds it for the frame on
+	screen when the scaling wants it, so an animation paused on
+	frame one no longer pays for a thousand chains nobody looks at.
+	
+	the recent files had two identity bugs the seventh audit's
+	binding work left behind: the reload guard compared the forwarded
+	file against the request identity only, so a forward of the file
+	already on screen during an in-flight load fed the mru as a fresh
+	open (the list reordered with nothing visibly opening), and the
+	rename family still seeded from the request - a rename during a
+	load in flight would retitle the file on screen and then have the
+	arriving first frame write the old name back over it. the guard
+	now reads both known identities (a reload of either the requested
+	or the displayed file is a reload), the rename family binds to
+	the displayed slot both ways (the request mirror follows, the
+	title and the strip agree), and the shell-verb section of the
+	context menu joins the displayed-slot family.
+	
+	the resume switch: "resume where I left off" (general/startup)
+	captures the file on screen at exit and logs off - the blank
+	start reopens it with the recent-click shape (the folder
+	re-enumerates lazily around the file), and a vanished record
+	clears itself so the next start does not chase a ghost. the
+	record rides the same ini write the recent list folds into.
+	
+	the counts migrate: a present preload_count/cache_count key wins,
+	an absent one falls back to the legacy preload_next/cache_last
+	pair (on/off), the save writes both generations so an older build
+	still reads the right direction, and the clamps hold 0..5 and
+	0..8.
+	
+	verified: the five suites pass (the round-120 segment carries
+	thirty-two new pins and the simulation replays the ring's
+	navigation semantics, the chain walk, the migration matrix, the
+	dual-identity decision table, the 16/3 gate math and the resume
+	state machine), the zig line links a 496,640-byte x64 exe and a
+	376,832-byte aarch64 exe, and link_scan audits 311 externs
+	against 311 definitions.
+
+Pre-release: Version 1.1.15-rc.8 (the seventh audit response round)
 
 	the report arrived as a full-project review: twenty findings with
 	line numbers, across the clipboard, the threading, the file

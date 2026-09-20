@@ -364,4 +364,10 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"void Image Viewer failed to initialize. The application will now exit.", // LOCALIZATION_ID_INIT_FAILED
 	"Icons only", // LOCALIZATION_ID_TOOLBAR_ICON_ONLY
 	"Toolbar icons only", // LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY
+	"Preload count", // LOCALIZATION_ID_SETTINGS_PRELOAD_COUNT
+	"Cache count", // LOCALIZATION_ID_SETTINGS_CACHE_COUNT
+	"Resume where I left off", // LOCALIZATION_ID_SETTINGS_RESUME_LAST
+	"Off", // LOCALIZATION_ID_SETTINGS_COUNT_OFF
+	"1 image", // LOCALIZATION_ID_SETTINGS_COUNT_ONE
+	"%d images", // LOCALIZATION_ID_SETTINGS_COUNT_MANY
 };

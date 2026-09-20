@@ -155,13 +155,15 @@ static ULONG_PTR os_GdiplusToken; // gdiplus handle
 static int _viv_com_initialized = 0;
 static int _viv_gdiplus_started = 0;
 BYTE _viv_image_is_low_res = 0; // 1 = the displayed image is a progressive preview frame
-// the three image slots (see viv_state.h): the image on screen, the
-// last-image cache and the preload slot. zero-initialized static
-// storage - the embedded find-data needs no heap block, and the
-// three fd allocations the split era made for them are gone.
+// the image slots (see viv_state.h): the image on screen, the cache
+// ring and the preload slot. zero-initialized static storage - the
+// embedded find-data needs no heap block, and the fd allocations the
+// split era made for them are gone. the ring's zero pages are the
+// empty seats beyond the active run.
 _viv_image_slot_t _viv_slot_current;
-_viv_image_slot_t _viv_slot_last;
+_viv_image_slot_t _viv_slot_cache[VIV_CACHE_SLOTS];
 _viv_image_slot_t _viv_slot_preload;
+int _viv_preload_chain_count = 0;
 int _viv_frame_position = 0; // the current frame position
 BYTE _viv_frame_looped = 0; // all frames have been displayed for this animation
 BYTE _viv_is_slideshow_timeup = 0; // the slideshow timer has expired, but we are still showing an animation at least once.
@@ -635,6 +637,11 @@ void _viv_exit(void)
 	// debounce timer never gets to fire once the quit is posted).
 	_viv_recent_save_fold();
 	
+	// the resume capture: the file on screen when the session ends is
+	// where the next session resumes (the switch lives in the settings).
+	// a blank screen clears the record - there is nothing to resume.
+	string_copy_with_bufsize(config_last_file,MAX_PATH,_viv_slot_current.fd.cFileName);
+	
 	config_save_settings(config_appdata);
 	PostQuitMessage(0);
 }
@@ -1052,6 +1059,29 @@ void _viv_process_command_line(wchar_t *cl)
 	// show something if nothing is already shown.
 	if (!is_add)
 	{
+		// nothing was handed to this instance: when the resume switch is
+		// on and the last session recorded a file, that file reopens
+		// with the recent-click shape (the random order goes, the
+		// playlist empties, the folder re-enumerates lazily around the
+		// file). a vanished record-holder clears the record so the
+		// next start does not chase it again.
+		if ((!_viv_export_mode) && (config_resume_last_file) && (config_last_file[0]))
+		{
+			if (_viv_random)
+			{
+				mem_free(_viv_random);
+			
+				_viv_random = 0;
+			}
+		
+			_viv_playlist_clearall();
+		
+			if (!_viv_open_from_filename(config_last_file,VIV_OPEN_RECENT))
+			{
+				config_last_file[0] = 0;
+			}
+		}
+		else
 		if (file_count >= 1)
 		{
 			const wchar_t *open_filename;
@@ -1545,6 +1575,7 @@ static int _viv_init(int nCmdShow)
 
 void _viv_kill(void)
 {
+	int i;
 	_viv_show_cursor();
 
 	// don't load another image..
@@ -1590,11 +1621,14 @@ void _viv_kill(void)
 		mem_free(_viv_load_image_filename);
 	}
 	
-	if (_viv_slot_last.frames)
+	for(i=0;i<VIV_CACHE_SLOTS;i++)
 	{
-		_viv_clear_frames(_viv_slot_last.frames,_viv_slot_last.frame_count);
-		
-		_viv_slot_last.frames = NULL;
+		if (_viv_slot_cache[i].frames)
+		{
+			_viv_clear_frames(_viv_slot_cache[i].frames,_viv_slot_cache[i].frame_count);
+			
+			_viv_slot_cache[i].frames = NULL;
+		}
 	}
 
 	_viv_clear_preload_frames();

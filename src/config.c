@@ -98,8 +98,12 @@ BYTE config_ontop = 0; // 0 = never, 1 = always, 2 = while slideshow or animatin
 int config_slideshow_custom_rate = 3; // custom slideshow rate (see type below)
 BYTE config_slideshow_custom_rate_type = 1; // 0 = milliseconds, 1 = seconds, 2 = minutes
 BYTE config_scroll_window = 1;
-BYTE config_preload_next = 1;
+int config_preload_count = 1; // images preloaded ahead of the walker (0..5)
+int config_cache_count = 1; // images cached behind the walker in the ring (0..8)
+BYTE config_preload_next = 1; // the legacy pair: the migration source, kept in step on save
 BYTE config_cache_last = 1;
+BYTE config_resume_last_file = 0; // reopen the last session's file on a blank start
+wchar_t config_last_file[MAX_PATH] = {0}; // the last session's file (empty = nothing to resume)
 BYTE config_icm = 1;
 BYTE config_show_menu = 1;
 BYTE config_show_caption = 1;
@@ -175,6 +179,19 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 				}
 			}
 		}
+
+	// the last session's file: the resume record. an absent key keeps
+	// whatever is in the buffer (a fresh start's emptiness).
+	{
+		const utf8_t *last_file_value;
+
+		last_file_value = ini_get_string(ini,(const utf8_t *)"last_file");
+
+		if (last_file_value)
+		{
+			string_copy_utf8_string(config_last_file,last_file_value);
+		}
+	}
 		
 		// dark mode. stored as a readable string: auto, dark or light.
 		{
@@ -284,6 +301,32 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_scroll_window = ini_get_int(ini,(const utf8_t *)"scroll_window",config_scroll_window);
 		config_preload_next = ini_get_int(ini,(const utf8_t *)"preload_next",config_preload_next);
 		config_cache_last = ini_get_int(ini,(const utf8_t *)"cache_last",config_cache_last);
+		// the counts: a present key wins; an absent one falls back to the
+		// legacy pair (on/off), and the clamps hold the range the ring and
+		// the chain were built for.
+		config_preload_count = ini_get_int(ini,(const utf8_t *)"preload_count",-1);
+
+		if (config_preload_count < 0)
+		{
+			config_preload_count = config_preload_next ? 1 : 0;
+		}
+
+		if (config_preload_count > 5)
+		{
+			config_preload_count = 5;
+		}
+		config_cache_count = ini_get_int(ini,(const utf8_t *)"cache_count",-1);
+
+		if (config_cache_count < 0)
+		{
+			config_cache_count = config_cache_last ? 1 : 0;
+		}
+
+		if (config_cache_count > 8)
+		{
+			config_cache_count = 8;
+		}
+		config_resume_last_file = ini_get_int(ini,(const utf8_t *)"resume_last_file",config_resume_last_file);
 		config_icm = ini_get_int(ini,(const utf8_t *)"icm",config_icm);
 		config_orientation = ini_get_int(ini,(const utf8_t *)"orientation",config_orientation);
 		config_toolbar_move_window = ini_get_int(ini,(const utf8_t *)"toolbar_move_window",config_toolbar_move_window);
@@ -554,8 +597,14 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"slideshow_custom_rate",config_slideshow_custom_rate);
 			_config_write_int(h,"slideshow_custom_rate_type",config_slideshow_custom_rate_type);
 			_config_write_int(h,"scroll_window",config_scroll_window);
-			_config_write_int(h,"preload_next",config_preload_next);
-			_config_write_int(h,"cache_last",config_cache_last);
+			_config_write_int(h,"preload_count",config_preload_count);
+			_config_write_int(h,"cache_count",config_cache_count);
+			// the legacy pair stays in step (an older build reading the ini
+			// still sees the right on/off; it just loses the counts).
+			_config_write_int(h,"preload_next",config_preload_count >= 1);
+			_config_write_int(h,"cache_last",config_cache_count >= 1);
+			_config_write_int(h,"resume_last_file",config_resume_last_file);
+			_config_write_string(h,"last_file",config_last_file);
 			_config_write_int(h,"icm",config_icm);
 			_config_write_int(h,"orientation",config_orientation);
 			_config_write_int(h,"toolbar_move_window",config_toolbar_move_window);

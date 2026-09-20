@@ -41,9 +41,11 @@ static int _animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
 		return 1;
 	}
 	
-	if ((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4 > VIV_MAX_ANIMATION_TOTAL_BYTES)
+	// 16/3 bytes per canvas pixel per frame: the frames plus the
+	// mipmap chain's extra third (the loader's gate prices the same).
+	if ((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 16 / 3 > VIV_MAX_ANIMATION_TOTAL_BYTES)
 	{
-		debug_printf("animation budget: refusing %u frames of a %u mp canvas (%u mb of frames, ceiling %u mb)\r\n",(unsigned int)frame_count,(unsigned int)(canvas_pixels / 1000000),(unsigned int)(((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 4) / 1000000),(unsigned int)(VIV_MAX_ANIMATION_TOTAL_BYTES / 1000000));
+		debug_printf("animation budget: refusing %u frames of a %u mp canvas (%u mb of frames, ceiling %u mb)\r\n",(unsigned int)frame_count,(unsigned int)(canvas_pixels / 1000000),(unsigned int)(((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 16 / 3) / 1000000),(unsigned int)(VIV_MAX_ANIMATION_TOTAL_BYTES / 1000000));
 		
 		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		

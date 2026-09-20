@@ -332,14 +332,24 @@ extern double _viv_view_iy;
 extern int _viv_zoom_pos;
 extern float _viv_zoom_scales[_VIV_ZOOM_MAX];
 extern BYTE _viv_image_is_low_res;
-// the three image slots: the image on screen, the last-image cache
-// and the background preload slot. the definitions live in viv.c;
-// every lifecycle move between them lives in viv_load.c behind the
-// slot primitives, and the cache-set ceiling prices all three
+// the image slots: the image on screen, the cache ring and the
+// background preload slot. the ring replaced the single last-image
+// cache - seat [0] is the newest (the LRU head), the entries live
+// dense at the head, and config_cache_count sizes the active run
+// (the settings page clears the ring when the count changes). the
+// definitions live in viv.c; every lifecycle move between the slots
+// lives in viv_load.c behind the slot primitives, and the cache-set
+// ceiling prices the current slot, every ring seat and the preload
 // through the one _viv_slot_bytes helper.
+#define VIV_CACHE_SLOTS	8
 extern _viv_image_slot_t _viv_slot_current;
-extern _viv_image_slot_t _viv_slot_last;
+extern _viv_image_slot_t _viv_slot_cache[VIV_CACHE_SLOTS];
 extern _viv_image_slot_t _viv_slot_preload;
+// the preload chain: how many images the current settle point has
+// already preloaded into the ring. the settle and the two navigation
+// hit paths reset it; a finished preload increments it, promotes into
+// the ring and walks on while more images are asked for.
+extern int _viv_preload_chain_count;
 extern int _viv_frame_position;
 extern BYTE _viv_frame_looped;
 extern BYTE _viv_is_slideshow_timeup;
