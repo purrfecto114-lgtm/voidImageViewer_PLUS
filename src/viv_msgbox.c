@@ -38,7 +38,7 @@
 static HWND _viv_msgbox_hwnd = 0;
 static int _viv_msgbox_done = 0;
 static int _viv_msgbox_result = IDOK;
-static wchar_t _viv_msgbox_text[STRING_SIZE];
+static wchar_t *_viv_msgbox_text = 0;
 static unsigned int _viv_msgbox_type = 0;
 
 static int _viv_msgbox_dpi = 96;
@@ -691,7 +691,16 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 		return IDOK;
 	}
 
-	string_copy(_viv_msgbox_text,text);
+	// the text can outrun a fixed store (the command line usage page is
+	// the resident example: 1179 characters against the 1023-cell copy):
+	// the box owns one heap copy per open, the previous open's copy
+	// retires here - one box at a time, the modal pump owns these.
+	if (_viv_msgbox_text)
+	{
+		mem_free(_viv_msgbox_text);
+	}
+
+	_viv_msgbox_text = string_alloc(text);
 	_viv_msgbox_type = type;
 	_viv_msgbox_done = 0;
 	_viv_msgbox_result = IDOK;

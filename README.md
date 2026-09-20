@@ -24,8 +24,14 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.9 — the memory and cache round (the current release candidate):**
+**1.1.15-rc.10 — the gui limits round (the current release candidate):**
 
+- The bottom-right pair breathes — the file stamp carries real padding, so the time and the size read as two facts, not one glued line.
+- The rc.9 count dropdowns come alive — **Cache count** and **Preload count** now open their lists, draw their labels and faces, and apply (a cache change clears the ring as designed).
+- A narrow window drops the cursor readouts before the file stamp — the time holds out beside the size until the very last resort.
+- The zoom editor accepts four digits; the message box no longer truncates the command-line usage page (the `/language` and `/uninstall` rows are back).
+
+**1.1.15-rc.9 — the memory and cache round:** the cache ring and the preload chain you size, the resume switch, the recent/rename identity fixes, and the animation memory work. See [Changes.txt](Changes.txt).
 - The image cache is a ring you size — Settings → View → **Cache count** (off / 1–8 images); walk back through what you just saw without reloading.
 - Preloading walks a chain you size — **Preload count** (off / 1–5 images ahead); the chain's images sit in the ring, ready before you arrive.
 - The cache set holds its own memory line (half the image budget), the trim drops the oldest first, and animations stop building a mipmap chain for every frame nobody looks at — the field's high-memory reading lands at a fraction of the old residency.

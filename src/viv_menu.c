@@ -1003,6 +1003,7 @@ static void _viv_menu_row_text(_viv_menu_draw_t *draw,wchar_t *wbuf)
 
 		case _VIV_MENU_DRAW_LOCALIZED:
 			string_copy_utf8_string(wbuf,localization_get_string(draw->localization_id));
+			break;
 
 		case _VIV_MENU_DRAW_TEXT:
 			// the ad hoc settings dropdown labels.

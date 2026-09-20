@@ -1449,8 +1449,15 @@ void _viv_status_update(void)
 					
 					string_format_number(widebuf,whole);
 					string_cat_utf8(widebuf,(const utf8_t *)".");
-					widebuf[string_get_length(widebuf)] = (wchar_t)('0' + frac);
-					widebuf[string_get_length(widebuf) + 1] = 0;
+					
+					// the decimal tail writes two cells by hand (digit, terminator):
+					// the length check keeps the pair inside the buffer instead of
+					// leaning on the whole part's practical smallness.
+					if (string_get_length(widebuf) < (STRING_SIZE - 2))
+					{
+						widebuf[string_get_length(widebuf)] = (wchar_t)('0' + frac);
+						widebuf[string_get_length(widebuf) + 1] = 0;
+					}
 				}
 				
 				numberfmt.NumDigits = (size.QuadPart < ((LONGLONG)1024 * 1024)) ? 0 : 1;
@@ -1527,7 +1534,11 @@ void _viv_status_update(void)
 
 				date_len = string_get_length(date_buf);
 
-				if ((date_len) && (date_len < STRING_SIZE - 2))
+				// the stamp's own budget: the date text, the space and the full
+				// 64-cell time tail must all fit - the guard reserves the tail
+				// instead of leaning on the cat's silent truncation, so no
+				// locale's maximal stamp can lose its clock half.
+				if ((date_len) && (date_len < (STRING_SIZE - 64)))
 				{
 					date_buf[date_len] = L' ';
 					date_buf[date_len + 1] = 0;
@@ -1636,7 +1647,12 @@ void _viv_status_update(void)
 				{
 					if (GetTextExtentPoint32(hdc,date_buf,string_get_length(date_buf),&size))
 					{
-						date_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+						// the breathing gap: the stamp pane rides immediately left
+						// of the resolution pane and the stock pane padding (five
+						// edges, shared by every pane) reads as glued-together text
+						// at each dpi - the stamp carries twelve extra logical
+						// pixels on its right so the time and the size never touch.
+						date_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5 + ((12 * os_logical_wide) / 96);
 					}
 				}
 
@@ -1673,15 +1689,17 @@ void _viv_status_update(void)
 			
 			// the resolution pane is pinned to the bottom right and is never
 			// dropped. when a huge image (or a tiny window) makes the panes
-			// wider than the bar, the optional right panes give way, widest
-			// last, so the dimension text clips instead of vanishing off the
-			// edge of the window.
+			// wider than the bar, the optional right panes give way by
+			// priority: the cursor-chasing readouts first, the frame counter
+			// next, the file stamp last - the stamp is half of the bottom-
+			// right pair (the time and the size), so it holds out until the
+			// resolution pane's own last-resort clip.
 			while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide + date_wide > avail_wide)
 			&& (frame_wide || pixel_rgb_wide || pixel_pos_wide || date_wide))
 			{
-				if (frame_wide)
+				if (pixel_pos_wide)
 				{
-					frame_wide = 0;
+					pixel_pos_wide = 0;
 				}
 				else
 				if (pixel_rgb_wide)
@@ -1689,13 +1707,13 @@ void _viv_status_update(void)
 					pixel_rgb_wide = 0;
 				}
 				else
-				if (date_wide)
+				if (frame_wide)
 				{
-					date_wide = 0;
+					frame_wide = 0;
 				}
 				else
 				{
-					pixel_pos_wide = 0;
+					date_wide = 0;
 				}
 			}
 			
@@ -1733,36 +1751,42 @@ void _viv_status_update(void)
 			part_array[parti] = part_array[parti - 1] + flex_wide;
 			parti++;
 			
-			if (pixel_pos_wide)
+			// the pane budget: eight slots, three unconditional (zoom,
+			// message, edge) - every optional pane consults the budget before
+			// it writes, so a future pane can never walk part_array past its
+			// end. the text section below gates on the same budget: the
+			// layout and the pane texts stay in lockstep.
+			if ((pixel_pos_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
 			{
 				part_array[parti] = part_array[parti - 1] + pixel_pos_wide;
 				parti++;
 			}
 			
-			if (pixel_rgb_wide)
+			if ((pixel_rgb_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
 			{
 				part_array[parti] = part_array[parti - 1] + pixel_rgb_wide;
 				parti++;
 			}
 			
-			if (frame_wide)
+			if ((frame_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
 			{
 				part_array[parti] = part_array[parti - 1] + frame_wide;
 				parti++;
 			}
 			
-			if (date_wide)
+			if ((date_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
 			{
 				part_array[parti] = part_array[parti - 1] + date_wide;
 				parti++;
 			}
 
-			// the last pane: the file date, pinned to the bottom right (a
-			// -1 right edge extends to the window edge).
 			// the last pane: the resolution, pinned to the bottom right (a
 			// -1 right edge extends to the window edge).
-			part_array[parti] = -1;
-			parti++;
+			if (parti < _VIV_STATUS_PART_MAX)
+			{
+				part_array[parti] = -1;
+				parti++;
+			}
 			
 			SendMessage(_viv_status_hwnd,SB_SETPARTS,parti,(LPARAM)part_array);
 		}
@@ -1876,32 +1900,37 @@ else
 			// the texts can never drift apart.
 			parti = preload_wide ? 3 : 2;
 			
-			if (pixel_pos_wide)
+			// the same pane budget the layout consults: the texts gate on it
+			// so a pane the layout dropped never hears its text either.
+			if ((pixel_pos_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
 			{
 				_viv_status_set(parti,pixel_pos_buf);
 				parti++;
 			}
 			
-			if (pixel_rgb_wide)
+			if ((pixel_rgb_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
 			{
 				_viv_status_set(parti,pixel_rgb_buf);
 				parti++;
 			}
 			
-			if (frame_wide)
+			if ((frame_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
 			{
 				_viv_status_set(parti,frame_buf);
 				parti++;
 			}
 
-			if (date_wide)
+			if ((date_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
 			{
 				_viv_status_set(parti,date_buf);
 				parti++;
 			}
 			
-			_viv_status_set(parti,dimension_buf);
-			parti++;
+			if (parti < _VIV_STATUS_PART_MAX)
+			{
+				_viv_status_set(parti,dimension_buf);
+				parti++;
+			}
 		}
 	}
 }
@@ -2137,8 +2166,9 @@ void _viv_zoomui_update(void)
 		_viv_on_size();
 	}
 
-	// fullscreen shows the six button overlay bar (auto hiding when
-	// idle); windowed mode keeps the two button pill.
+	// one seven cell row serves both modes (the zoomui header owns the
+	// story): the fullscreen copy auto hides when idle, the windowed
+	// copy stays.
 	zoomui_set_fullscreen(_viv_is_fullscreen);
 
 	zoomui_show(config_show_zoom_controls);

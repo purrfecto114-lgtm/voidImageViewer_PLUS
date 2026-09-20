@@ -1,4 +1,74 @@
-﻿Pre-release: Version 1.1.15-rc.9 (the memory and cache round)
+﻿Pre-release: Version 1.1.15-rc.10 (the gui limits round)
+
+	the round answers one field report and one audit. the field
+	reported the bottom-right pair - the file stamp and the
+	resolution/size pane - reading as one glued line: the stock pane
+	padding (five edges shared by every pane) left roughly ten pixels
+	between the time and the size at 96 dpi, and nobody had ever
+	decided the gap. the stamp pane carries twelve extra logical
+	pixels of right padding now, so the pair reads as two facts at
+	every dpi.
+
+	the give-way order learned priorities. a narrow window used to
+	drop the right panes in a fixed order that retired the file stamp
+	before the pixel position - the bottom-right pair lost its first
+	half while the cursor readout lived on. the order is now
+	priority-shaped: the position and rgb readouts give way first
+	(their facts chase the cursor), the frame counter next, and the
+	stamp holds out longest - right up to the resolution pane's own
+	last-resort clip.
+
+	the gui limits proper. the date+time concat reserves the full
+	64-cell time tail in its length guard instead of leaning on the
+	cat's silent truncation; the size decimal's two hand-written
+	cells (the digit and the terminator) check the buffer before they
+	write; and the parts array learned a pane budget - every optional
+	pane consults it before it writes, in the layout and in the text
+	section alike, so a future pane can never walk part_array past
+	its eight slots and the layout and the pane texts stay in
+	lockstep.
+
+	the audit's headline: the rc.9 count dropdowns were dead
+	machines. the rows existed, the config keys worked, the readme
+	advertised them - but the popup switch had no case for the two
+	ids (a click did nothing), the dropdown label switch had no case
+	either (the label cases sat dead in the switch branch where the
+	lost surgery left them), and the value switch had no case (an
+	empty box with an arrow). the round-120 byte surgery lost three
+	edits to a failed script and the guard suite pinned only the
+	control rows, so the suite stayed green over the dead machine.
+	all three come alive: the popup kind formats its rows through the
+	count ladder (off / one image / n images, both languages), the
+	labels draw, the value faces read the same ladder, and the cache
+	apply clears the ring - the same rule the settings rewind
+	follows, the rule the rc.9 changelog already claimed.
+
+	three more finds from the same sweep. the zoom editor took
+	unbounded digits (ES_NUMBER bounds the characters, not the
+	length - a pasted novel rode the buffer into the parser); it
+	takes four now, the ladder's whole vocabulary. the message box
+	store truncated every text at 1023 cells - the command line
+	usage page is 1179 characters, so the /language and /uninstall
+	rows never showed; the box owns one heap copy per open now. and
+	the menu row painter's localized case fell through into the text
+	case - harmless today (no row carries both fields), a silent
+	bias tomorrow.
+
+	the comment batch: the last-pane double comment (the file date
+	version sat on top of the resolution version), the menubar strip
+	height double (the classic version on top of the remake), and
+	the zoomui fullscreen comment still describing the retired
+	six-button overlay all tell the one truth now.
+
+	verified: the five suites pass (the round's guards ran red over
+	the dead machines before the surgery), the zig line links a
+	496,640-byte x64 exe and a 376,832-byte
+	aarch64 exe, the warning census holds 769 against
+	769 from a cold cache on both sides, and
+	link_scan audits 311 externs against
+	311 definitions.
+
+Pre-release: Version 1.1.15-rc.9 (the memory and cache round)
 
 	the round answers one feature pair, one field report, one new
 	switch and one measurement. the field's memory reading ran high,

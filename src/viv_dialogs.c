@@ -661,6 +661,11 @@ void _viv_set_zoom_dialog(void)
 	
 	_viv_zoom_edit_hwnd = hwnd;
 	
+	// four digits are the whole zoom vocabulary (the ladder tops at
+	// 1600): the limit keeps a pasted novel from riding the buffer
+	// into the parser (ES_NUMBER alone does not bound the length).
+	SendMessage(hwnd,EM_SETLIMITTEXT,4,0);
+	
 	// digits only, never text: dissociate the ime so even a full-width
 	// digit ime mode types plain digits into the field (see
 	// os_imm_associate_disable).

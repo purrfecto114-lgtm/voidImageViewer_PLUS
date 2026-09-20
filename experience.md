@@ -190,6 +190,34 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.10 — the gui limits round (2026-09-20, build 89)
+
+- Commit: (this round); the status bar pair's breathing gap, the priority give-way order,
+  the stamp/decimal buffer budgets, the pane budget shared by the layout and the texts,
+  the count dropdowns' three machines wired alive, the zoom editor's four-digit limit,
+  the message box heap copy, and the comment truths.
+- Lessons:
+  - **green guards over a dead machine.** rc.9's changelog claimed "the dropdown's own
+    apply clears the ring" - the apply never existed. the guards pinned the control rows
+    (the easy, visible part) and the suite stayed green while every interactive path was
+    dead. a feature's guards must pin its *machines* (the popup case, the label case,
+    the value case, the apply), not just its furniture.
+  - **the lost-surgery tail.** round-120 recorded three wndproc edits lost to a failed
+    script and caught them by count; the settings machine lost three edits the same way
+    and nothing counted them. when a round's own log says "lost edits, caught by
+    guards," audit what the guards did not count.
+  - **a limit that cannot fire is still worth writing - once, on both sides.** the pane
+    budget can never fire against today's eight-slot worst case; it exists so the ninth
+    pane cannot silently walk the array. the same edit gated the text section, because
+    a budget that only guards the layout half would let the texts drift from it.
+  - **spacing is a decision, not a rounding error.** "too close together" was not the
+    ten pixels of stock padding being wrong - it was that nobody had ever *decided*
+    the gap. the pair now carries a named, dpi-scaled, commented twelve logical
+    pixels.
+  - **stale comments are load-bearing lies.** the six-button overlay comment described
+    a ui two retirements old; the double strip-height comment carried both eras stacked.
+    every reader after the truth paid the comment's tax.
+
 ### 1.1.15-rc.9 — the memory and cache round (2026-09-20, build 88)
 
 - Commit: (this round); the cache ring (eight seats, settings-sized) replaces the single

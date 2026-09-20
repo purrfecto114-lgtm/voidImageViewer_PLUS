@@ -1090,6 +1090,9 @@ static int _viv_settings_command_at(int item_index)
 // rc.13: the language list mixes sources (a localization string plus two
 // self-named languages), so it reads by index.
 #define _VIV_SETTINGS_POPUP_LANGUAGE	2
+// round-121: the count lists (preload ahead / cache behind) format
+// their rows from the count itself.
+#define _VIV_SETTINGS_POPUP_COUNT		3
 
 // rc.13: the owner drawn dropdown labels (one pool per open, reclaimed by
 // the row pool reset - the same lifetime rule the recent list follows).
@@ -1099,6 +1102,28 @@ static int _viv_settings_command_at(int item_index)
 #define _VIV_SETTINGS_POPUP_MAX		32
 #define _VIV_SETTINGS_POPUP_LABEL_CHARS	96
 static wchar_t _viv_settings_popup_labels[_VIV_SETTINGS_POPUP_MAX][_VIV_SETTINGS_POPUP_LABEL_CHARS];
+
+// the count ladder: off / one / many. both languages keep their
+// grammar straight through the three strings (english pluralizes,
+// chinese counts with a classifier) - the popup rows and the value
+// box read the same ladder so the open list and the closed face can
+// never disagree.
+static void _viv_settings_count_text(int count,wchar_t *wbuf)
+{
+	if (count <= 0)
+	{
+		string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_COUNT_OFF));
+	}
+	else
+	if (count == 1)
+	{
+		string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_COUNT_ONE));
+	}
+	else
+	{
+		string_printf(wbuf,(const char *)localization_get_string(LOCALIZATION_ID_SETTINGS_COUNT_MANY),count);
+	}
+}
 
 static void _viv_settings_popup_text(int kind,const void *context,int index,wchar_t *wbuf)
 {
@@ -1132,6 +1157,10 @@ static void _viv_settings_popup_text(int kind,const void *context,int index,wcha
 					string_copy_utf8_string(wbuf,localization_get_language_name(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED));
 					break;
 			}
+			break;
+
+		case _VIV_SETTINGS_POPUP_COUNT:
+			_viv_settings_count_text(index,wbuf);
 			break;
 
 		default:
@@ -2168,6 +2197,46 @@ static void _viv_settings_run_dropdown(HWND hwnd,const _viv_settings_ctl_t *ctl)
 			break;
 				}
 
+		case _VIV_SETTINGS_ID_PRELOAD:
+		{
+			int selected;
+
+			// off / 1..5 images ahead. the chain adapts on the next walk:
+			// the count is read at dispatch time, a smaller count simply
+			// stops feeding the chain.
+			selected = _viv_settings_popup(hwnd,&drop_ctl->value,_VIV_SETTINGS_POPUP_COUNT,0,6,config_preload_count);
+
+			if ((selected >= 0) && (selected != config_preload_count))
+			{
+				config_preload_count = selected;
+
+				_viv_settings_invalidate();
+			}
+
+			break;
+		}
+
+		case _VIV_SETTINGS_ID_CACHE:
+		{
+			int selected;
+
+			// off / 1..8 images behind. the ring's dense-run invariant is
+			// sized by the count: a change in either direction clears it
+			// (the rewind and this apply share the rule).
+			selected = _viv_settings_popup(hwnd,&drop_ctl->value,_VIV_SETTINGS_POPUP_COUNT,0,9,config_cache_count);
+
+			if ((selected >= 0) && (selected != config_cache_count))
+			{
+				config_cache_count = selected;
+
+				_viv_clear_last();
+
+				_viv_settings_invalidate();
+			}
+
+			break;
+		}
+
 		default:
 			break;
 	}
@@ -2689,6 +2758,14 @@ static void _viv_settings_draw_dropdown(HDC hdc,const _viv_settings_ctl_t *ctl,i
 				_viv_get_key_text(wbuf,_viv_settings_key_at(_viv_settings_key_index));
 			}
 
+			break;
+
+		case _VIV_SETTINGS_ID_PRELOAD:
+			_viv_settings_count_text(config_preload_count,wbuf);
+			break;
+
+		case _VIV_SETTINGS_ID_CACHE:
+			_viv_settings_count_text(config_cache_count,wbuf);
 			break;
 	}
 
@@ -3484,6 +3561,14 @@ static void _viv_settings_paint(HWND hwnd)
 					case _VIV_SETTINGS_ID_KEYS:
 						_viv_settings_draw_label(mem,&label_rect,LOCALIZATION_ID_SHORTCUT_KEY,_viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
 						break;
+
+					case _VIV_SETTINGS_ID_PRELOAD:
+						_viv_settings_draw_label(mem,&label_rect,LOCALIZATION_ID_SETTINGS_PRELOAD_COUNT,_viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+						break;
+
+					case _VIV_SETTINGS_ID_CACHE:
+						_viv_settings_draw_label(mem,&label_rect,LOCALIZATION_ID_SETTINGS_CACHE_COUNT,_viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+						break;
 				}
 
 				_viv_settings_draw_dropdown(mem,ctl,hot,focus);
@@ -3521,14 +3606,6 @@ static void _viv_settings_paint(HWND hwnd)
 
 					case _VIV_SETTINGS_ID_LOOP:
 						label_id = LOCALIZATION_ID_PLAY_ANIMATIONS_ONCE_STATIC;
-						break;
-
-					case _VIV_SETTINGS_ID_PRELOAD:
-						label_id = LOCALIZATION_ID_SETTINGS_PRELOAD_COUNT;
-						break;
-
-					case _VIV_SETTINGS_ID_CACHE:
-						label_id = LOCALIZATION_ID_SETTINGS_CACHE_COUNT;
 						break;
 
 					case _VIV_SETTINGS_ID_RESUME:

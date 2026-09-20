@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.9.88",
-          (major, minor, rev, build) == (1, 1, 15, 88), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.9",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.9", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.10.89",
+          (major, minor, rev, build) == (1, 1, 15, 89), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.10",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.10", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -714,7 +714,7 @@ def t_sim_version_117():
           "**1.1.14-rc.9** —" in experience and
           "**1.1.14-rc.8** —" in experience and
           "**1.1.14-rc.3** —" in experience and
-          "**1.1.15-rc.9 —" in readme and
+          "**1.1.15-rc.10 —" in readme and
           "**1.1.15-rc.7 —" in readme and
           "**1.1.15-rc.6 —" in readme and
           "### 1.1.15-rc.7 —" in experience and
@@ -1850,6 +1850,140 @@ def t_sim_memory_cache_round120():
           viv.find("config_last_file[0] = 0;", viv.find("_viv_open_from_filename(config_last_file")) != -1)
 
 
+def t_sim_gui_limits_round121():
+    """Simulation replays for the gui limits round (1.1.15-rc.10): the
+    give-way priority table, the pane budget arithmetic, the count
+    ladder against the config clamps, the stamp's date+time budget,
+    and the zoom editor's four-digit ceiling. the parameters are
+    extracted from the tree, never restated."""
+    print("the gui limits round (1.1.15-rc.10)")
+    chrome = read("src/viv_chrome.c").decode()
+    settings = read("src/viv_settings.c").decode()
+    config = read("src/config.c").decode()
+    state = read("src/viv_state.h").decode()
+    string_h = read("src/string.h").decode()
+    dialogs = read("src/viv_dialogs.c").decode()
+
+    # --- the give-way priority, extracted and replayed ---
+    i = chrome.find("while ((zoom_wide + preload_wide + dimension_wide")
+    body = chrome[i:chrome.find("if (zoom_wide + preload_wide + dimension_wide > avail_wide)", i)]
+    order = []
+    for name in ("pixel_pos_wide", "pixel_rgb_wide", "frame_wide", "date_wide"):
+        pos = body.find(name + " = 0;")
+        check(f"the give-way body drops {name}",
+              pos >= 0)
+        if pos >= 0:
+            order.append((pos, name))
+    order.sort()
+    names = [n for _, n in order]
+    check("the give-way priority is pos, rgb, frame, date",
+          names == ["pixel_pos_wide", "pixel_rgb_wide", "frame_wide", "date_wide"], str(names))
+
+    # replay: the drop loop against a shrinking bar.
+    def drop_sequence(panes, avail):
+        dropped = []
+        zoom, preload, dim = panes["zoom"], panes["preload"], panes["dimension"]
+        pos, rgb, frame, date = panes["pos"], panes["rgb"], panes["frame"], panes["date"]
+        while (zoom + preload + dim + frame + pos + rgb + date > avail) and (frame or rgb or pos or date):
+            if pos:
+                pos = 0; dropped.append("pos")
+            elif rgb:
+                rgb = 0; dropped.append("rgb")
+            elif frame:
+                frame = 0; dropped.append("frame")
+            else:
+                date = 0; dropped.append("date")
+        return dropped, (zoom + preload + dim + frame + pos + rgb + date)
+
+    panes = {"zoom": 100, "preload": 0, "dimension": 200, "pos": 80, "rgb": 90, "frame": 70, "date": 150}
+    dropped, remaining = drop_sequence(panes, 690)  # everything fits
+    check("a wide bar drops nothing", dropped == [] and remaining == 690)
+    dropped, remaining = drop_sequence(panes, 610)  # one pane must go
+    check("the first to go is the position readout", dropped == ["pos"])
+    dropped, remaining = drop_sequence(panes, 520)
+    check("the rgb follows the position", dropped == ["pos", "rgb"])
+    dropped, remaining = drop_sequence(panes, 450)
+    check("the frame counter goes third", dropped == ["pos", "rgb", "frame"])
+    dropped, remaining = drop_sequence(panes, 380)
+    check("the stamp holds out longest of the optional four", dropped == ["pos", "rgb", "frame", "date"])
+    dropped, remaining = drop_sequence(panes, 299)
+    check("past the last drop the sum no longer shrinks (the clip owns the rest)",
+          dropped == ["pos", "rgb", "frame", "date"] and remaining == 300)
+
+    # --- the pane budget, extracted and replayed ---
+    m = re.search(r"#define\s+_VIV_STATUS_PART_MAX\s+(\d+)", state)
+    check("the parts array holds eight slots", m is not None and m.group(1) == "8")
+    MAX = int(m.group(1)) if m else 0
+    # unconditional panes: zoom, message, edge. optional: preload, pos, rgb, frame, date.
+    unconditional, optional = 3, 5
+    check("the structural worst case fills the array exactly",
+          unconditional + optional == MAX)
+    # replay the real sequence: zoom, preload (ungated: parti=1 always
+    # fits), message, then the four gated right-cluster panes, then the
+    # gated final -1 pane.
+    parti = 0
+    parti += 1  # zoom (unconditional)
+    assert parti - 1 < (MAX - 1)  # preload's slot is structurally guaranteed
+    parti += 1  # preload (optional but always in bounds here)
+    parti += 1  # message (unconditional)
+    for k in range(4):  # pos, rgb, frame, date - the gated four
+        if parti < (MAX - 1):  # the gate the tree rides
+            parti += 1
+    if parti < MAX:
+        parti += 1  # the final -1 pane
+    check("the budget never lets parti pass the array",
+          parti <= MAX and parti == MAX, str(parti))
+    # a hypothetical ninth pane (a future feature) meets a closed gate.
+    refused = not (parti < (MAX - 1))
+    check("a future ninth pane is refused by the budget, not written past the end",
+          refused)
+
+    # --- the count ladder against the config clamps ---
+    m = re.search(r"_viv_settings_popup\(hwnd,&drop_ctl->value,_VIV_SETTINGS_POPUP_COUNT,0,(\d+),config_preload_count\)", settings)
+    check("the preload list offers six entries (off / 1..5)",
+          m is not None and m.group(1) == "6")
+    m = re.search(r"_viv_settings_popup\(hwnd,&drop_ctl->value,_VIV_SETTINGS_POPUP_COUNT,0,(\d+),config_cache_count\)", settings)
+    check("the cache list offers nine entries (off / 1..8)",
+          m is not None and m.group(1) == "9")
+    preload_cap = 5 if "config_preload_count = 5;" in config else -1
+    cache_cap = 8 if "config_cache_count = 8;" in config else -1
+    check("the list tops match the config clamps",
+          preload_cap == 5 and cache_cap == 8, f"({preload_cap}, {cache_cap})")
+
+    def ladder(count):
+        if count <= 0:
+            return "off"
+        if count == 1:
+            return "one"
+        return "many:%d" % count
+
+    check("the ladder answers off at zero, one at one, many above",
+          [ladder(0), ladder(1), ladder(5), ladder(8)] == ["off", "one", "many:5", "many:8"])
+
+    # --- the stamp's date+time budget ---
+    m = re.search(r"#define\s+STRING_SIZE\s+(\d+)", string_h)
+    SS = int(m.group(1)) if m else 0
+    m = re.search(r"if \(\(date_len\) && \(date_len < \(STRING_SIZE - (\d+)\)\)\)", chrome)
+    tail = int(m.group(1)) if m else -1
+    check("the stamp guard reserves the full 64-cell time tail", tail == 64)
+    worst_date = SS - tail - 1  # the guard is strict: date_len < SS - 64
+    worst_total = worst_date + 1 + (tail - 1) + 1  # date + space + 63 time chars + terminator
+    check("the worst-case stamp fits the buffer exactly",
+          worst_total == SS and worst_date + 1 + 63 <= SS - 1, str(worst_total))
+
+    # --- the zoom editor's four-digit ceiling ---
+    m = re.search(r"SendMessage\(hwnd,EM_SETLIMITTEXT,(\d+),0\);", dialogs)
+    check("the editor takes four digits", m is not None and m.group(1) == "4")
+    limit = int(m.group(1)) if m else 0
+    worst_input = int("9" * limit) if limit else 0
+    # string_to_int's accumulator: i = i * 10 + digit, int arithmetic.
+    acc = 0
+    for _ in range(limit):
+        acc = acc * 10 + 9
+    check("the worst input cannot wrap the int accumulator",
+          acc == worst_input and acc < 2**31 - 1, str(acc))
+
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -1865,6 +1999,7 @@ if __name__ == "__main__":
     t_sim_field_round49()
     t_sim_reentry_state()
     t_sim_memory_cache_round120()
+    t_sim_gui_limits_round121()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

@@ -387,8 +387,6 @@ void _viv_menubar_layout(void)
 		return;
 	}
 	
-	// the strip height: the label plus vertical air, floored at the classic
-	// bar height so a failed metric query can never collapse the strip.
 	// the strip height: the label plus vertical air, floored at the
 	// remake bar height (28 dip) so a failed metric query can never
 	// collapse the strip.
