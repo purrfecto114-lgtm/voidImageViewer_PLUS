@@ -2210,6 +2210,21 @@ static void _viv_settings_run_dropdown(HWND hwnd,const _viv_settings_ctl_t *ctl)
 			{
 				config_preload_count = selected;
 
+				// the chain promotes into the ring: n images ahead
+				// need n-1 seats plus the parked one. the apply
+				// raises the cache to hold what the promise costs -
+				// the row below shows the new count the moment it
+				// changes, and a cache the user later lowers caps
+				// the walk gracefully (the chain's own gate, not a
+				// silent break).
+				if (config_cache_count < config_preload_count - 1)
+				{
+					config_cache_count = config_preload_count - 1;
+
+					// the count change rule: either direction clears.
+					_viv_clear_last();
+				}
+
 				_viv_settings_invalidate();
 			}
 
@@ -3658,6 +3673,10 @@ static void _viv_settings_paint(HWND hwnd)
 
 					case _VIV_SETTINGS_ID_LOOP:
 						_viv_settings_draw_switch(mem,ctl,config_loop_animations_once ? 1 : 0,hot,focus);
+						break;
+
+					case _VIV_SETTINGS_ID_RESUME:
+						_viv_settings_draw_switch(mem,ctl,config_resume_last_file ? 1 : 0,hot,focus);
 						break;
 
 					case _VIV_SETTINGS_ID_TOOLBARICON:

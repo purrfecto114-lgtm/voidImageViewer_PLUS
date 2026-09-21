@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.10.89",
-          (major, minor, rev, build) == (1, 1, 15, 89), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.10",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.10", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.11.89",
+          (major, minor, rev, build) == (1, 1, 15, 90), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.11",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.11", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -714,7 +714,7 @@ def t_sim_version_117():
           "**1.1.14-rc.9** —" in experience and
           "**1.1.14-rc.8** —" in experience and
           "**1.1.14-rc.3** —" in experience and
-          "**1.1.15-rc.10 —" in readme and
+          "**1.1.15-rc.11 —" in readme and
           "**1.1.15-rc.7 —" in readme and
           "**1.1.15-rc.6 —" in readme and
           "### 1.1.15-rc.7 —" in experience and
@@ -1851,12 +1851,12 @@ def t_sim_memory_cache_round120():
 
 
 def t_sim_gui_limits_round121():
-    """Simulation replays for the gui limits round (1.1.15-rc.10): the
+    """Simulation replays for the gui limits round (1.1.15-rc.11): the
     give-way priority table, the pane budget arithmetic, the count
     ladder against the config clamps, the stamp's date+time budget,
     and the zoom editor's four-digit ceiling. the parameters are
     extracted from the tree, never restated."""
-    print("the gui limits round (1.1.15-rc.10)")
+    print("the gui limits round (1.1.15-rc.11)")
     chrome = read("src/viv_chrome.c").decode()
     settings = read("src/viv_settings.c").decode()
     config = read("src/config.c").decode()
@@ -1984,6 +1984,105 @@ def t_sim_gui_limits_round121():
           acc == worst_input and acc < 2**31 - 1, str(acc))
 
 
+def t_sim_resume_chain_round122():
+    """Simulation replays for the resume and chain round (1.1.15-rc.11):
+    the seat-gate arithmetic (the effective ahead is the parked slot
+    plus the ring's seats), the apply coupling (the promise raises the
+    cache it costs), and the parked-hit decision table. the parameters
+    are extracted from the tree, never restated."""
+    print("the resume and chain round (1.1.15-rc.11)")
+    load = read("src/viv_load.c").decode()
+    config = read("src/config.c").decode()
+    settings = read("src/viv_settings.c").decode()
+
+    # --- the seat gate, extracted and replayed ---
+    check("the walk carries both gates",
+          "if ((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count))" in load.replace("\r\n", "\n"))
+    preload_cap = 5 if "config_preload_count = 5;" in config else -1
+    cache_cap = 8 if "config_cache_count = 8;" in config else -1
+    check("the config clamps are 5 and 8", preload_cap == 5 and cache_cap == 8)
+
+    def walk(preload, cache):
+        # replay the chain walk: each pass of both gates promotes one
+        # finished load into a ring seat; the last completed load parks
+        # in the preload slot when the gates refuse.
+        if preload <= 0:
+            return 0, 0
+        chain = 0
+        while (chain + 1 < preload) and (chain < cache):
+            chain += 1
+        return chain, 1
+
+    # the field report's own pair: three ahead on the default
+    # one-seat cache. the old walk promoted past the ring's capacity
+    # and evicted the chain's head; the seat gate caps the walk.
+    promos, parked = walk(3, 1)
+    check("preload 3 on a one-seat ring walks two ahead, not three",
+          promos == 1 and parked == 1, f"({promos}, {parked})")
+
+    ok = True
+    detail = ""
+    for preload in range(0, preload_cap + 1):
+        for cache in range(0, cache_cap + 1):
+            promos, parked = walk(preload, cache)
+            effective = promos + parked
+            expect = 0 if preload == 0 else min(preload, cache + 1)
+            if effective != expect:
+                ok = False
+                detail = f"preload={preload} cache={cache}: {effective} != {expect}"
+    check("the effective ahead is min(preload, cache+1) across the whole matrix",
+          ok, detail)
+
+    ok = all(walk(p, c)[0] <= c for p in range(6) for c in range(9))
+    check("promotions never exceed the ring's seats (the head is never evicted)",
+          ok)
+
+    promos, parked = walk(5, 0)
+    check("a zero-seat ring parks the chain at one image (the documented rule)",
+          promos == 0 and parked == 1)
+
+    # --- the apply coupling, replayed ---
+    def apply_preload(preload, cache):
+        if cache < preload - 1:
+            return preload - 1
+        return cache
+
+    ok = True
+    detail = ""
+    for preload in range(0, preload_cap + 1):
+        for cache in range(0, cache_cap + 1):
+            after = apply_preload(preload, cache)
+            effective = 0 if preload == 0 else min(preload, after + 1)
+            if preload >= 1 and effective != preload:
+                ok = False
+                detail = f"preload={preload} cache={cache}: effective {effective}"
+            if after < cache:
+                ok = False
+                detail = f"preload={preload} cache={cache}: lowered to {after}"
+    check("the apply coupling makes every promise true and never lowers the cache",
+          ok, detail)
+    check("the field report's pair raises the default cache to two",
+          apply_preload(3, 1) == 2)
+    check("off and one never touch the cache",
+          apply_preload(0, 1) == 1 and apply_preload(1, 0) == 0)
+
+    # --- the parked-hit decision table ---
+    def dispatch(is_preload, fd_match, state):
+        return is_preload and fd_match and state != 2
+
+    check("a walk onto the parked file answers as-is", dispatch(True, True, 1))
+    check("a walk onto the in-flight file answers as-is", dispatch(True, True, 0))
+    check("a failed preload retries (state 2 falls through)", not dispatch(True, True, 2))
+    check("a real navigation never takes the early return", not dispatch(False, True, 1))
+    check("a walk for a different file dispatches", not dispatch(True, False, 1))
+
+    # the branch shape the decision table replays.
+    s = settings.replace("\r\n", "\n")
+    check("the early return gates on the preload role, the fd and the state",
+          "if ((is_preload) && (_viv_slot_preload.state != 2) && (*_viv_slot_preload.fd.cFileName) && (string_compare(_viv_slot_preload.fd.cFileName,fd->cFileName) == 0))" in s or
+          "if ((is_preload) && (_viv_slot_preload.state != 2) && (*_viv_slot_preload.fd.cFileName) && (string_compare(_viv_slot_preload.fd.cFileName,fd->cFileName) == 0))" in load.replace("\r\n", "\n"))
+
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -2000,6 +2099,7 @@ if __name__ == "__main__":
     t_sim_reentry_state()
     t_sim_memory_cache_round120()
     t_sim_gui_limits_round121()
+    t_sim_resume_chain_round122()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

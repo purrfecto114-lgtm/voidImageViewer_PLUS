@@ -1,4 +1,56 @@
-﻿Pre-release: Version 1.1.15-rc.10 (the gui limits round)
+﻿Pre-release: Version 1.1.15-rc.11 (the resume and chain round)
+
+	the round answers one field report about two entries. the user
+	tried the pair the memory round shipped - the resume switch on
+	the general page and the preload count on the view page - and
+	both failed them: the switch drew its label and toggled its
+	config on click, but the pill itself never rendered (the row
+	read as a dead text line - on or off was invisible), and the
+	preload count that promised n images ahead delivered disk
+	loads.
+
+	the switch was the lost round-120 surgery's last missing piece:
+	the row, the activate case, the label case, the snapshot and
+	the config keys all landed, but the state-draw machine - the
+	switch that paints the pill - never got its case. the
+	resurrection rounds had audited the dropdown machines; the
+	switch machines rode unaudited. the case joins its seven
+	 siblings now, and the guard suite walks the full matrix -
+	every switch control against its three machines (activate,
+	label, state draw), every dropdown against its own three (run,
+	label, value face) - so a control that exists without its
+	machines can never pass again.
+
+	the preload broke on capacity. the chain promotes its finished
+	loads into the cache ring, but the ring only has as many seats
+	as the cache count - and the cache count's default is one. a
+	preload of three on a one-seat ring promoted image two, then
+	evicted image one promoting image three: the walk cannibalized
+	its own head, and the "preloaded" first image reloaded from
+	disk on the very next keypress. two gates and one coupling
+	close it. the walk's own gate now stops at the ring's capacity
+	- the parked slot plus the seats is all the ahead the machine
+	can hold, so a small cache degrades the chain gracefully
+	instead of breaking it silently. the preload's apply raises
+	the cache to hold what the promise costs (three ahead needs
+	two seats - the row below shows the new count the moment it
+	changes, and a cache the user later lowers caps the walk
+	through the same gate). and a walk that asks for the file the
+	preload slot already holds - parked after a finished decode or
+	still in flight - now answers as-is instead of discarding the
+	parked frames and paying the same decode again (the ring hit's
+	settle used to throw the chain's parked end away, then
+	re-preload the very file it threw away).
+
+	verified: the four suites pass (the menu suite carries the
+	matrix walk and the round's own thirty-odd checks, the
+	simulation suite replays the seat-gate arithmetic, the apply
+	coupling and the parked-hit decision table), the zig line
+	links a byte-different pair of exes, the cold-cache warning
+	census holds the line against the baseline, and link_scan
+	audits the externs unchanged.
+
+Pre-release: Version 1.1.15-rc.10 (the gui limits round)
 
 	the round answers one field report and one audit. the field
 	reported the bottom-right pair - the file stamp and the

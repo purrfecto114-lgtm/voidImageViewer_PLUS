@@ -374,6 +374,18 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		return;
 	}
 	
+	if ((is_preload) && (_viv_slot_preload.state != 2) && (*_viv_slot_preload.fd.cFileName) && (string_compare(_viv_slot_preload.fd.cFileName,fd->cFileName) == 0))
+	{
+		// the walk asked for the file the slot already holds -
+		// parked after a finished decode, or still in flight. both
+		// answer the request as they are: a re-dispatch would clear
+		// the parked frames and pay the same decode again (the ring
+		// hit's settle used to discard the chain's parked end, then
+		// re-preload the very file it threw away). a failed preload
+		// falls through - the retry may answer a transient lock.
+		return;
+	}
+	
 	// clear any existing preload and start a fresh one.
 	_viv_clear_preload();
 	
@@ -2033,11 +2045,17 @@ void _viv_preload_next(void)
 // the chain walk: a finished preload that is not the last of its chain
 // promotes into the cache ring and the walk continues. the last image
 // of the chain keeps the slot - the navigation's first hit lands there.
-// the count gate stops the walk, and a cache count of zero parks the
-// chain at one image (the second would have nowhere to live).
+// the gates: the count gate stops the walk at the promised images, and
+// the seat gate stops it at the ring's capacity - a chain longer than
+// the ring would evict its own head promoting the tail, and the
+// "preloaded" images would reload from disk (the field report: three
+// ahead on a one-seat ring, every next a disk load). the parked slot
+// plus the seats is all the ahead the machine can hold; a cache count
+// of zero parks the chain at one image (the second would have nowhere
+// to live).
 void _viv_preload_chain_walk(void)
 {
-	if ((_viv_preload_chain_count + 1 < config_preload_count) && (config_cache_count > 0))
+	if ((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count))
 	{
 		_viv_cache_insert(&_viv_slot_preload);
 		_viv_preload_chain_count++;

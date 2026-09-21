@@ -190,6 +190,37 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.11 — the resume and chain round (2026-09-21, build 90)
+
+- Commit: (this round); the resume switch's state-draw case (the pill), the chain walk's
+  seat gate, the preload apply's cache coupling, the parked-hit early return, and the
+  control matrix walk in the guard suite.
+- Lessons:
+  - **the resurrection audit had its own blind spot.** round-121 resurrected the three
+    dead dropdown machines and pinned their shape - but the audit checklist read
+    "dropdown machines," not "control machines." the resume switch shipped in the same
+    lost surgery with its pill missing, one page over from the resurrected dropdowns,
+    and the round that taught the lesson walked past it. a same-class audit must
+    enumerate the class, not the instance.
+  - **a promise that needs capacity must name its capacity.** the preload chain
+    promised n images ahead into a ring the cache count sizes - and the default cache
+    is one seat. three ahead on one seat walked fine, promoted twice, and evicted the
+    chain's own head: every next was a disk load. the fix is not a bigger default; it
+    is the walk refusing to promote past the seats it has (graceful) and the apply
+    raising the cache to what the promise costs (visible) - the degradation is never
+    silent again.
+  - **the matrix walk is the guard the class deserved.** "every switch against
+    activate/label/state-draw, every dropdown against run/label/value, no dead cases
+    either way" is 40 checks of pure structure - and it would have caught the rc.9
+    dropdowns, the rc.9 pill, and any future control added without its machines. the
+    census numbers (seven switches, thirteen dropdowns) force every future control
+    addition to walk through this section.
+  - **don't pay a decode the machine already owns.** the ring hit's settle used to
+    clear the parked preload's fd, walk one file forward, and re-decode the very file
+    it had just thrown away. the early return - "the walk asked for what the slot
+    holds; the slot answers" - is six lines. identity discipline is not only about
+    which fd a reader binds; it is about asking whether the work is already done.
+
 ### 1.1.15-rc.10 — the gui limits round (2026-09-20, build 89)
 
 - Commit: (this round); the status bar pair's breathing gap, the priority give-way order,

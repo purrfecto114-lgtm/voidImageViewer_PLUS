@@ -24,12 +24,13 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.10 — the gui limits round (the current release candidate):**
+**1.1.15-rc.11 — the resume and chain round (the current release candidate):**
 
-- The bottom-right pair breathes — the file stamp carries real padding, so the time and the size read as two facts, not one glued line.
-- The rc.9 count dropdowns come alive — **Cache count** and **Preload count** now open their lists, draw their labels and faces, and apply (a cache change clears the ring as designed).
-- A narrow window drops the cursor readouts before the file stamp — the time holds out beside the size until the very last resort.
-- The zoom editor accepts four digits; the message box no longer truncates the command-line usage page (the `/language` and `/uninstall` rows are back).
+- The **Resume where I left off** switch draws its pill — the round-120 row existed and toggled, but the switch itself never rendered; on or off is visible now.
+- The preload chain stops cannibalizing itself — a ring too small for the chain used to evict the chain's own head (three ahead on the default one-seat cache reloaded every image from disk); the walk now stops at the ring's capacity, the preload apply raises the cache to hold what the promise costs, and a walk onto the file the slot already holds answers as-is instead of re-decoding it.
+- The guard suite walks the full control machine matrix — every switch against activate/label/state-draw, every dropdown against run/label/value — so a control that exists without its machines can never pass again.
+
+**1.1.15-rc.10 — the gui limits round:** the breathing bottom-right pair, the resurrected count dropdowns, the narrow-window give-way order, the four-digit zoom editor, and the full command-line usage page. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.9 — the memory and cache round:** the cache ring and the preload chain you size, the resume switch, the recent/rename identity fixes, and the animation memory work. See [Changes.txt](Changes.txt).
 - The image cache is a ring you size — Settings → View → **Cache count** (off / 1–8 images); walk back through what you just saw without reloading.
