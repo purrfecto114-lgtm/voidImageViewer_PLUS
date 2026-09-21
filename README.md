@@ -24,11 +24,13 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.11 — the resume and chain round (the current release candidate):**
+**1.1.15-rc.12 — the report fusion round (the current release candidate):**
 
-- The **Resume where I left off** switch draws its pill — the round-120 row existed and toggled, but the switch itself never rendered; on or off is visible now.
-- The preload chain stops cannibalizing itself — a ring too small for the chain used to evict the chain's own head (three ahead on the default one-seat cache reloaded every image from disk); the walk now stops at the ring's capacity, the preload apply raises the cache to hold what the promise costs, and a walk onto the file the slot already holds answers as-is instead of re-decoding it.
-- The guard suite walks the full control machine matrix — every switch against activate/label/state-draw, every dropdown against run/label/value — so a control that exists without its machines can never pass again.
+- The third fusion report's ledger lands whole — the two P1 guard teeth (the rc.7 restore pinned as code a comment could satisfy, the picker's leaf-id arithmetic pinned by count) and the sixteen P2 line fixes: the chain walk's empty-slot refusal, the exit free's loaded count, the iconic apply, the hidden-window reveal, the msgbox clamp, the timer's duty hand-back, the paste's queued-next refusal, the menu/title/cursor/save-as faces answering the displayed slot, the delete's re-anchored scan, and the installer's runtime quote refusal.
+- The guard suite bites machines, not mentions — the census extends to case bindings (a case wired to the wrong key can no longer pass), the count ladder's boundaries extract from the source and replay, the golden ratchet and fail-closed exit gain their own pins, and the simulation word table covers the whole winuser show set.
+- CI and installer trust — every release and codeql job carries a timeout, the tests workflow grants no write token the bootstrap never spent, `sha256.txt` travels with LF endings, the zip channel ships the third-party notices, and the uninstaller's second stage deletes its own exe instead of leaving it in %TEMP%.
+
+**1.1.15-rc.11 — the resume and chain round:** the resume switch's pill, the preload chain's seat gate, and the guard suite's control-machine matrix walk. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.10 — the gui limits round:** the breathing bottom-right pair, the resurrected count dropdowns, the narrow-window give-way order, the four-digit zoom editor, and the full command-line usage page. See [Changes.txt](Changes.txt).
 
@@ -78,7 +80,7 @@ Canvas, backdrop & dark mode
 - **Windowed / fullscreen background color** — Options → View, or the View menu picker; the mat around the image and the empty-window canvas.
 - **Backdrop under transparency** — View → Transparency backdrop: follow the window background color, black, white, custom color, or checkerboard. Alpha images (PNG/GIF/WEBP) composite over it at load time. This is *not* the canvas around the image — that color is the windowed background above.
 - **Dark UI rule** — the light UI always shows your exact colors. In the dark UI a light mat keeps its hue but drops into the dark range (the default white maps to the dark palette canvas), and the same rule applies to the custom backdrop, so nothing glares out of the dark chrome. The Win11 caption tint follows the mat.
-- **The dark UI is complete** — dialogs, options pages, the menu bar and the navigation tree all follow the theme (owner-drawn where the theme API falls short on older builds); light dialogs stay light.
+- **The dark UI is complete** — dialogs, options pages and the menu bar all follow the theme (owner-drawn where the theme API falls short on older builds); light dialogs stay light.
 - Dark mode itself: Options → General → Dark mode — light, dark, or follow Windows. Theme flips repaint the whole window and re-assert the dark chrome unconditionally (a delayed re-check heals any system-side light repaint), and the open dialogs re-theme live.
 
 Recent files

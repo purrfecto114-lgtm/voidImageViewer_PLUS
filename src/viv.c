@@ -1153,6 +1153,16 @@ void _viv_process_command_line(wchar_t *cl)
 		{
 			if (set_window_rect)
 			{
+				// an explicit geometry must land on the window the user
+				// sees: a minimized window answers SetWindowPos in its
+				// virtual corner and the restore that follows replays the
+				// old placement, so the launcher's rectangle silently
+				// died (the same command worked on a live window).
+				if (IsIconic(_viv_hwnd))
+				{
+					ShowWindow(_viv_hwnd,SW_RESTORE);
+				}
+				
 				SetWindowPos(_viv_hwnd,0,window_x,window_y,window_wide,window_high,SWP_NOZORDER|SWP_NOACTIVATE);
 			}
 		}
@@ -1625,7 +1635,12 @@ void _viv_kill(void)
 	{
 		if (_viv_slot_cache[i].frames)
 		{
-			_viv_clear_frames(_viv_slot_cache[i].frames,_viv_slot_cache[i].frame_count);
+			// a partial frame set (frames that failed mid-decode) enters
+			// the ring with a loaded count under the declared one; the
+			// free must answer the frames that exist, never the
+			// uninitialized tail (the ring's own eviction never made this
+			// mismatch - it always frees by loaded).
+			_viv_clear_frames(_viv_slot_cache[i].frames,_viv_slot_cache[i].frame_loaded_count);
 			
 			_viv_slot_cache[i].frames = NULL;
 		}
@@ -1840,7 +1855,12 @@ static int _viv_main(int nCmdShow)
 		_viv_kill();
 	}
 
-	return 0;
+	// the only path that reaches this tail is a failed init (its
+	// dialog was the loud half; the exit code is the quiet half a
+	// script or a setup waits on - success here would answer
+	// "nothing went wrong" to a caller that just watched it go
+	// wrong).
+	return 1;
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine,int nShowCmd)

@@ -862,6 +862,21 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 			y = owner_rect.top + ((owner_rect.bottom - owner_rect.top) - box_rect.bottom) / 2;
 		}
 
+		// an iconic owner answers its virtual rect (the -32000
+		// corner): a box centered on it parks off-screen where no one
+		// could dismiss it, and the modal pump behind it would stall a
+		// second instance forever. the dialog family clamps through
+		// os.c; this box joins them.
+		box_rect.left = x;
+		box_rect.top = y;
+		box_rect.right += x;
+		box_rect.bottom += y;
+		
+		os_make_rect_completely_visible(_viv_msgbox_hwnd,&box_rect);
+		
+		x = box_rect.left;
+		y = box_rect.top;
+		
 		SetWindowPos(_viv_msgbox_hwnd,HWND_TOP,x,y,0,0,SWP_NOSIZE | SWP_NOACTIVATE);
 	}
 

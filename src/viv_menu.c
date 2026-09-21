@@ -198,7 +198,10 @@ void _viv_check_menus(HMENU hmenu)
 				
 	_viv_get_render_size(&rw,&rh);
 	
-	is_image_enabled = ((*_viv_current_fd->cFileName) && (!_viv_file_not_found) && (!_viv_load_failed)) ? MF_ENABLED : MF_DISABLED;
+	// the face answers the image on screen: during a first load the
+	// requested fd names a file nothing shows yet (the toolbar face
+	// and the command bodies already answer the slot).
+	is_image_enabled = ((*_viv_slot_current.fd.cFileName) && (!_viv_file_not_found) && (!_viv_load_failed)) ? MF_ENABLED : MF_DISABLED;
 
 	// the fourth audit's consistency finding: the navigation pair
 	// gates on "is there anywhere to go" - the same predicate the

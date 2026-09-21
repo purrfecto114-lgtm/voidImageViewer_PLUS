@@ -79,8 +79,9 @@ after.
   alike); the dead ids retired by name only, because renumbering live
   constants is its own regression.
 - **a pinned window needs remeasuring every structural round.** the
-  splice window has been recalibrated at least seven times (30548 → 31129
-  → 31138 → 31170 → 31410 → 31613 → 30523), each time with the
+  splice window has been recalibrated at least eleven times (30548 → 31129
+  → 31138 → 31170 → 31410 → 31613 → 30523 → 30741 → 30961 → 31081 → 31118
+  → 31188), each time with the
   measurement written into the comment. measure, then pin; never pin a
   hope.
 
@@ -121,7 +122,7 @@ after.
   always generated."
 - **editors rewrite bytes silently.** four recorded encounters, every one
   caught by accident of another suite pinning the damaged shape — the
-  byte suite (rc.10) exists so there is no fifth unnoticed. the fifth
+  byte suite (1.1.14-rc.10) exists so there is no fifth unnoticed. the fifth
   came in the logbook round itself: the editor flattened three
   tab-aligned pin strings inside the menu suite, and the damaged guard
   went red on its own pin in the same round — caught by the guard it
@@ -466,7 +467,7 @@ radio-checked, one page per menu so no page can outgrow the screen.
 the report's second ask was the wider question — every feature entry
 point checked and every code path behind it verified usable — and the
 entry-point census landed in the changelog: all 118 command rows dispatch,
-all 63 default keys install and name real commands, the toolbar, the
+all 62 default keys install and name real commands, the toolbar, the
 context menu and the menubar share one table and one dispatcher, all
 thirty settings control ids answer, and the ini round-trip regenerates
 all 118 names uniquely.
@@ -700,3 +701,38 @@ full per-version narrative at each tag in `Changes.txt`.
   strip, the bilingual localization with the live language switcher,
   and the field-fix rounds (the full per-version narrative lives in
   `Changes.txt` at each tag).
+
+## round 123 - the report fusion round (1.1.15-rc.12)
+
+the third fusion report arrived as a fourteen-sweep audit of the rc.10
+tree with the main thread re-verifying eight of eight headline claims.
+the round took its whole ledger: two p1 guard teeth, sixteen p2 line
+fixes, the p3/p4 debts the deferrals kept, and the account corrections.
+five lessons worth keeping:
+
+- **a pin satisfied by a comment is not a pin.** the rc.7 restore pin
+  matched a comment that explains the line; reverting the code alone
+  passed every suite. the fusion report's E4 proved it with a live
+  mutation. the replacement pins whole code shapes - a ternary with its
+  own arms - that no prose can satisfy.
+- **a census of instances needs a census of bindings.** round 122's
+  matrix walk proved every control had its machines; the fusion report
+  then swapped two label ids and the walk stayed green. a case is not a
+  binding: the round's census now demands each activate body and each
+  pill body carry its own config variable.
+- **the version sweep has its own failure shape.** the rc.11 sweep
+  renamed assertions and dragged four historical round docstrings along
+  (round 114/118/120/121 all claimed to be rc.11), and one check name
+  kept an old build number its assertion had already left. the sweep
+  now carries two rules: the name and the assertion move together, and
+  history's docstrings stay as their rounds wrote them.
+- **write-token hygiene is measurable.** the tests workflow carried
+  actions:write on both matrix legs for a step that never needed any
+  grant - upload-artifact runs on the default token. the fusion round
+  removed the grant entirely; the pin refuses its return.
+- **same-family fixes travel in packs.** the request-fd family (menu
+  face, title bar, cursor gate, save-as seed, delete scan anchor), the
+  stop pair (paste and blank), the exit codes (init, debug_fatal) -
+  each family had one member fixed in an earlier round while its
+  siblings kept the defect. the report's matrix audit found them by
+  class, and the round fixed them by class.

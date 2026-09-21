@@ -353,6 +353,27 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 			
 			string_path_combine_utf8(new_exe_filename_wbuf,install_path,(const utf8_t *)"voidImageViewer.exe");
 			
+			// the options word arrived inside a quoted argument of an
+			// elevated command line: a quote in it would close that
+			// quote and restructure the elevated call into commands of
+			// the caller's choosing. real options are switch names; a
+			// quote is never one (the nsis side refuses the same
+			// character before this process ever sees it - this is the
+			// second belt).
+			{
+				wchar_t *q;
+				
+				for(q=install_options;*q;q++)
+				{
+					if (*q == '"')
+					{
+						install_options[0] = 0;
+						
+						break;
+					}
+				}
+			}
+			
 			os_shell_execute(0,new_exe_filename_wbuf,1,NULL,install_options);
 		}
 	}

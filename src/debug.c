@@ -35,7 +35,11 @@ void DECLSPEC_NORETURN debug_fatal(const char *format,...)
 	va_end(args);
 
 	MessageBox(0,wbuf,L"voidImageViewer",MB_OK|MB_ICONERROR|MB_SYSTEMMODAL);
-	ExitProcess(0);
+	
+	// a fatal path must answer failure to whoever waits on the
+	// process (a setup that copies critical files reads this code -
+	// zero here read as "nothing went wrong").
+	ExitProcess(1);
 }
 
 #ifdef _DEBUG

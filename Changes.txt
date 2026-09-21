@@ -1,4 +1,107 @@
-﻿Pre-release: Version 1.1.15-rc.11 (the resume and chain round)
+﻿Pre-release: Version 1.1.15-rc.12 (the report fusion round)
+
+	the round answers the third fusion report - fourteen sweeps over
+	the rc.10 tree, the main thread re-verifying eight of eight
+	headline claims, and the verdict that the rc.10 lesson was never
+	systematized: a fourth dead machine, two string pins the code's
+	own comments could satisfy, and half the fresh guard teeth
+	decorative. the verdict's own words closed it: every fix round
+	shipped its own new defect, and the one-fact-one-place debt kept
+	paying interest. this round lands the whole ledger.
+
+	the two p1 teeth first, because they explain how the rest stayed
+	hidden: the rc.7 restore pin was satisfied by the comment that
+	explains the line (the report's E4 reverted the code alone and
+	every suite stayed green) - the pin is a code shape now, and the
+	live branch beside it grew its own. the picker's leaf-id contract
+	pinned a string that appears twice in the tree, so one copy could
+	vanish silently (E1: ret-1 to ret bound every command to its
+	successor, all suites green) - the count is pinned at exactly two.
+
+	the p2 line fixes, in the report's own order: the chain walk
+	refuses an empty slot (the activation had just taken the preload
+	out; the walk inserted the empty seat anyway - a ghost seat that
+	evicted a real neighbour and counted itself forever); the exit
+	free answers the loaded count (a partial frame set entered the
+	ring when frames failed mid-decode; the exit path freed by the
+	declared count over the garbage tail); an explicit geometry
+	restores the minimized window before it lands (the old apply hit
+	the virtual corner and the restore replayed the placement); a
+	hidden live window answers a forward with a show (the explorer
+	double-click arrived as sw_shownormal and the branch answered
+	only the maximized word - the window stayed unreachable forever;
+	the hide word itself stays a hide); the msgbox clamps its centered
+	rect (an iconic owner's -32000 rect parked the box off-screen and
+	the modal pump stalled the second instance); the animation timer
+	hands a refused post's duty back (one refusal froze the animation
+	forever); the paste clears the queued next behind the in-flight
+	leg (its complete dispatched the stranger over the pasted image);
+	the menu face, the title bar, the cursor gate and the save-as
+	seed answer the image on screen (the request fd names a file
+	nothing shows yet - the toolbar and the command bodies already
+	answered the slot); the post-delete scan re-anchors on the
+	deleted file's seat; the installer refuses a quote inside the
+	runtime options word on both sides (the nsis scan and the app's
+	own belt - a quote would close the quoted argument of the
+	elevated command line and restructure the call); and the ring's
+	inert guards close (the insert trims at every seat change, the
+	activate refuses a zero-count ring, the glyphs' refused startup is
+	a permanent no, a failed init answers the exit code with failure,
+	debug_fatal exits nonzero, close stops the in-flight load and its
+	queue, the save-as never writes one file's name over another
+	file's pixels).
+
+	the guard teeth follow the machines: the census extends to case
+	bindings (a case wired to the wrong key can no longer pass - the
+	activate body and the pill body must each carry their own config
+	variable), the count ladder's boundaries extract from the source
+	and replay (a test-side model used to hold the boundaries the
+	code never read), the golden ratchet and its fail-closed exit
+	gain pins of their own, the simulation word table covers the
+	whole winuser show set (sw_showminimized was 7 - it is 2, and 7 is
+	sw_showminnoactive), the migrate model falls negative keys back to
+	the legacy pair the config's own branch reads, a born-dead assert
+	retires (the (a and b) or c shape the rc.5 round had already
+	killed once), and the round64 right edge names a template that
+	still exists (the old edge's find returned -1 and the slice
+	swallowed the tail of the file).
+
+	ci and installer trust: every release and codeql job carries a
+	timeout, the tests workflow grants no write token (the upload step
+	never needed one - the v145 leg carried it with no step that ever
+	spent it), sha256.txt travels with lf endings (the crlf an ascii
+	out-file wrote made coreutils 8.32 refuse all four lines - the
+	readme's own verification command), the zip channel ships the
+	third-party notices (the license alone does not carry the qoi
+	port's mit text), the uninstaller's second stage deletes its own
+	exe before the rmdir (rmdir cannot remove a directory the running
+	file sits in - every uninstall left the temp copy behind) and
+	answers its exit code, the nsis pin tradeoff is written down, and
+	the build scripts' dead batch/wait pair is gone (nothing ever ran
+	in the background).
+
+	the account corrections: thirteen localization ids the rc.6
+	retirement's account claimed were live retire for real (the
+	classic dialogs' captions and labels, the language auto row, the
+	association checkboxes and the two static labels the count
+	dropdowns replaced) - the en and zh tables lose their rows with
+	them; the rc.5 section header returns to the changelog (the
+	judged-fixes round deleted it in flight and seven rounds read
+	past the gap); the default-key count is sixty-two, not
+	sixty-three, in both books that said otherwise; the readme's
+	chinese what's-new regains the seventh-audit bullets its
+	compression dropped; the libwebp keep-list names what the tree
+	actually keeps; the dark-ui line no longer names a navigation
+	tree the rc.6 round buried; and the experience log's splice
+	chain and byte-suite birthright are corrected below.
+
+	verified: the five suites pass (the menu suite grows the round-123
+	section and its control-binding census; the simulation suite grows
+	the empty-slot, loaded-count, reveal and stop-pair replays), the
+	splice window recalibrated at a measured 31188, the zig line
+	links both legs, the warning census holds the zero-new-class line,
+	and link_scan audits every extern against its definition.
+
 
 	the round answers one field report about two entries. the user
 	tried the pair the memory round shipped - the resume switch on
@@ -500,6 +603,7 @@ Pre-release: Version 1.1.15-rc.6 (the judged-fixes round)
 	warning census holds the zero-new-class line against the rc.5
 	baseline.
 
+Pre-release: Version 1.1.15-rc.5 (the sixth audit response round)
 
 	the round opened as a question about the system's own keys - do the
 	viewer's shortcuts fight them? they do not, and cannot: the tree
@@ -723,7 +827,7 @@ Pre-release: Version 1.1.15-rc.4 (the command picker round)
 	- the command table: all one hundred and eighteen pickable rows
 	  have a dispatch case; the extra dispatched ids are the timers,
 	  the recent slots and the internal-only commands, each by design.
-	- the default keys: all sixty-three rows install at init and every
+	- the default keys: all sixty-two rows install at init and every
 	  command they name is a real table command.
 	- the toolbar: every button routes through wm_command with ids
 	  the dispatcher owns.

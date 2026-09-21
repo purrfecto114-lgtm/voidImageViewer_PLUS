@@ -126,13 +126,12 @@ jobs:
   # repository's CI by surprise: the v145 leg doubles as the forward
   # compatibility / image drift detector.
   compile:
-    # the golden bootstrap's artifact upload is the one step in this
-    # pipeline that answers to actions:write - the grant lives here, on
-    # the job that owns the step, instead of the pipeline-wide grant the
-    # audit found.
+    # the golden bootstrap's artifact upload needs no write grant
+    # (upload-artifact runs on the default token); the fusion audit's
+    # write-token finding closes by removing the grant entirely - the
+    # v145 leg carried it with no step that ever spent it.
     permissions:
       contents: read
-      actions: write
     strategy:
       fail-fast: false
       matrix:

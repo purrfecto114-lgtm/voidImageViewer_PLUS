@@ -553,6 +553,16 @@ static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high)
 	_viv_load_image_allow_draw = 0;
 	InterlockedExchange(&_viv_load_image_terminate,1);
 	
+	// the queued next must not survive either: its COMPLETE would
+	// dispatch the stranger over the pasted image (the terminate
+	// above only stops the in-flight leg).
+	if (_viv_load_image_next_fd)
+	{
+		mem_free(_viv_load_image_next_fd);
+		
+		_viv_load_image_next_fd = NULL;
+	}
+	
 	// the current image moves to the last image slot, exactly like
 	// navigating to a new image does.
 	viv_copy_current_image_to_last_image();
@@ -800,7 +810,11 @@ static int _viv_get_extension_format(const wchar_t *filename)
 // the in-memory rotation is included, alpha is flattened over the window background.
 void _viv_save_image_as(void)
 {
-	if (*_viv_current_fd->cFileName)
+	// the gate and the seed answer the image on screen (the pixels
+	// below already do): during a first load the request fd names a
+	// file nothing shows yet - that window would save one file's
+	// name over another file's pixels.
+	if (*_viv_slot_current.fd.cFileName)
 	{
 		if (_viv_slot_current.frame_count)
 		{
@@ -830,7 +844,7 @@ void _viv_save_image_as(void)
 			os_zero_memory(&ofn,sizeof(OPENFILENAME));
 			
 			// default to the current filename with a .png extension.
-			string_copy(tobuf,_viv_current_fd->cFileName);
+			string_copy(tobuf,_viv_slot_current.fd.cFileName);
 			
 			last_dot = -1;
 			
@@ -945,6 +959,20 @@ void _viv_doing_cancel(void)
 }
 void _viv_blank(void)
 {
+	// close means close: the load it closed on must not answer over
+	// the blank state - the FIRST_FRAME of the abandoned load would
+	// land on screen and the queued next would follow it (the paste
+	// path stops the same pair for the same reason).
+	_viv_load_image_allow_draw = 0;
+	InterlockedExchange(&_viv_load_image_terminate,1);
+	
+	if (_viv_load_image_next_fd)
+	{
+		mem_free(_viv_load_image_next_fd);
+		
+		_viv_load_image_next_fd = NULL;
+	}
+	
 	_viv_clear();
 
 	// the blank state has no file: the stale error flags from the last
@@ -2055,7 +2083,12 @@ void _viv_preload_next(void)
 // to live).
 void _viv_preload_chain_walk(void)
 {
-	if ((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count))
+	// the activation just took the slot's contents - a counter that
+	// passes while the slot sits empty inserts the empty seat anyway:
+	// a ghost seat that evicts a real neighbour and counts itself
+	// forever. the frames term refuses the walk until a finished
+	// preload is actually in hand.
+	if ((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count) && (_viv_slot_preload.frames))
 	{
 		_viv_cache_insert(&_viv_slot_preload);
 		_viv_preload_chain_count++;
@@ -2128,6 +2161,12 @@ static void _viv_cache_insert(_viv_image_slot_t *src)
 	}
 
 	_viv_slot_take(&_viv_slot_cache[0],src);
+	
+	// the ceiling settled only at the two quiet points; a navigation
+	// burst could push past it in between. one trim on insert keeps
+	// the promise live at every seat change instead of only at the
+	// settle.
+	_viv_cache_set_trim();
 }
 // push the current image into the cache ring's head (the name keeps
 // the historical export surface; the single last slot became the
@@ -2152,6 +2191,14 @@ debug_printf("*** Cache PUSH : %S\n",_viv_slot_current.fd.cFileName);
 }
 static void _viv_cache_activate(int index)
 {
+	// a zero-count ring is empty by construction (the insert
+	// refuses, the settings change clears); the tail write below
+	// would answer seat [-1]. the guard asks the same question the
+	// insert's own entry guard does.
+	if (config_cache_count <= 0)
+	{
+		return;
+	}
 	_viv_image_slot_t old_slot;
 	BYTE old_valid;
 	int i;

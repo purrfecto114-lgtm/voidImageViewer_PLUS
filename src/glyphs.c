@@ -409,9 +409,16 @@ static int _glyphs_load(void)
 		{
 			_glyphs_state = 1;
 		}
+		else
+		{
+			// a refused startup is a permanent state too: without this
+			// latch the early-out above never stuck, and every paint
+			// re-ran the LoadLibrary table for a gdi+ that never comes.
+			_glyphs_state = 2;
+		}
 	}
 
-	return 1;
+	return (_glyphs_state == 1) ? 1 : 0;
 }
 
 // render one glyph into a new HICON.

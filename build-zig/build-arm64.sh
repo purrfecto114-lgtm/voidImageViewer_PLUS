@@ -29,9 +29,10 @@ OBJDIR="build-zig/obj-arm64"
 rm -rf "$OBJDIR"
 mkdir -p "$OBJDIR"
 
-# compile in small batches: each zig cc process is a full clang front end.
+# each zig cc process is a full clang front end; the build runs them
+# serially (the old batch/wait pair was a no-op - nothing ever ran in
+# the background).
 fail=0
-batch=0
 while read -r f; do
 	[ -n "$f" ] || continue
 	# libwebp includes repo relative headers ("src/dec/..."), the app code
@@ -43,13 +44,7 @@ while read -r f; do
 	esac
 	o="$OBJDIR/$(printf '%s' "$f" | tr '/' '_' | sed 's/\.c$/.o/')"
 	$ZIG cc $FLAGS $inc -c "$f" -o "$o" 2>> "$OBJDIR/errors.log" || fail=1
-	batch=$((batch+1))
-	if [ $batch -ge 8 ]; then
-		wait 2>/dev/null || true
-		batch=0
-	fi
 done < build-zig/files.txt
-wait 2>/dev/null || true
 
 if [ "$fail" -ne 0 ]; then
 	echo "COMPILE FAILED - see $OBJDIR/errors.log"

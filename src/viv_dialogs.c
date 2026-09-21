@@ -51,8 +51,6 @@ void _viv_set_zoom_dialog(void);
 static void _viv_zoom_edit_end(HWND hwnd,int apply);
 static LRESULT CALLBACK _viv_zoom_edit_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 void _viv_command_line_options(void);
-static void _viv_update_color_button_bitmap(HWND hwnd);
-static void _viv_delete_color_button_bitmap(HWND hwnd);
 static void _viv_jumpto_on_size(HWND hwnd);
 static void _viv_jumpto_on_search(HWND hwnd);
 static void _viv_jumpto_open_sel(HWND hwnd);
@@ -862,69 +860,6 @@ void _viv_command_line_options(void)
 	viv_msgbox(_viv_hwnd,caption_wbuf,text_wbuf,MB_OK|MB_ICONQUESTION);
 		
 	mem_free(text_wbuf);
-}
-static void _viv_update_color_button_bitmap(HWND hwnd)
-{	
-	HBITMAP hbitmap;
-	HDC screen_hdc;
-	HDC mem_hdc;
-	HGDIOBJ last_hbitmap;
-	RECT rect;
-	HBRUSH hbrush;
-	COLORREF colorref;
-	int wide;
-	int high;
-	
-	wide = (64 * os_logical_wide) / 96;
-	high = (13 * os_logical_high) / 96;
-	
-	colorref = (COLORREF)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-	
-	screen_hdc = GetDC(0);
-	mem_hdc = CreateCompatibleDC(screen_hdc);
-	
-	hbitmap = CreateCompatibleBitmap(screen_hdc,wide,high);
-
-	last_hbitmap = SelectObject(mem_hdc,hbitmap);
-	
-	hbrush = CreateSolidBrush(colorref);
-
-	rect.left = 1;
-	rect.top = 1;
-	rect.right = wide-1;
-	rect.bottom = high-1;
-	FillRect(mem_hdc,&rect,hbrush);
-	ExcludeClipRect(mem_hdc,rect.left,rect.top,rect.right,rect.bottom);
-	
-	rect.left = 0;
-	rect.top = 0;
-	rect.right = wide;
-	rect.bottom = high;
-	FillRect(mem_hdc,&rect,(HBRUSH)GetStockObject(BLACK_BRUSH));
-
-	DeleteObject(hbrush);
-	
-	SelectObject(mem_hdc,last_hbitmap);
-	
-	DeleteDC(mem_hdc);
-	ReleaseDC(0,screen_hdc);
-	
-	last_hbitmap = (HBITMAP)SendMessage(hwnd,BM_SETIMAGE,IMAGE_BITMAP,(LPARAM)hbitmap);
-	if (last_hbitmap)
-	{
-		DeleteObject(last_hbitmap);
-	}
-}
-static void _viv_delete_color_button_bitmap(HWND hwnd)
-{	
-	HGDIOBJ last_hbitmap;
-	
-	last_hbitmap = (HBITMAP)SendMessage(hwnd,BM_SETIMAGE,IMAGE_BITMAP,0);
-	
-	if (last_hbitmap)
-	{
-		DeleteObject(last_hbitmap);
-	}
 }
 static void _viv_jumpto_on_size(HWND hwnd)
 {

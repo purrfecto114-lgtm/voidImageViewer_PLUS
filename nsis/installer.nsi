@@ -478,8 +478,27 @@ skip_wmf_association:
 
         ; check for command line options that will override the default install options.
         ${GetOptions} $CMDLINE "/install-options" $0
-        IfErrors +2
+        IfErrors no_install_options_word
+        ; the word travels inside a quoted argument of an elevated
+        ; command line below: a quote in it would close that quote
+        ; and restructure the elevated call into commands of the
+        ; caller's choosing (the build-time whitelist pins the
+        ; builder's own parameters; this is the runtime counterpart).
+        ; real options are switch names - a quote is never one. a
+        ; refused word drops silently: the install proceeds with the
+        ; options the wizard itself collected.
+        StrCpy $1 0
+install_options_quote_scan:
+        StrCpy $2 $0 1 $1
+        StrCmp $2 "" install_options_scan_clean
+        StrCmp $2 `"` install_options_refused
+        IntOp $1 $1 + 1
+        Goto install_options_quote_scan
+install_options_refused:
+        StrCpy $0 ""
+install_options_scan_clean:
         StrCpy $admin_install_options "$admin_install_options $0"
+no_install_options_word:
 
         ; install with admin rights.
         ; MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "ADMIN $admin_install_options"
@@ -518,8 +537,9 @@ Section "Uninstall"
         ; it, and ride the second stage - which elevates itself for admin
         ; installs (the /uninstall switch sets the admin-install flag in the
         ; app's own installer code). the copy now lands under a fresh
-        ; os-generated name no one can pre-create, and the stage only ever
-        ; executes a file this section verified it just copied.
+        ; os-generated name no one can pre-create, and the stage only
+        ; executes a file whose existence this section verified
+        ; immediately after copying it.
         GetTempFileName $0 $Temp
         Delete $0
         CreateDirectory $0
@@ -536,9 +556,21 @@ Section "Uninstall"
         ; the add-remove-programs entry, the installed files and the install
         ; directory (elevating itself through the app's runas path when the
         ; install was an admin install).
-        ExecWait '"$0\voidImageViewer.exe" /uninstall "$INSTDIR"'
+        ExecWait '"$0\voidImageViewer.exe" /uninstall "$INSTDIR"' $1
+        IfErrors uninstall_stage_error
+        IntCmp $1 0 uninstall_stage_ok
 
-        ; remove the second stage directory
+uninstall_stage_error:
+
+        MessageBox MB_OK|MB_ICONSTOP "The uninstall stage failed."
+
+uninstall_stage_ok:
+
+        ; remove the second stage: the exe must go first - RMDir
+        ; cannot remove a directory the file still sits in, and every
+        ; uninstall used to leave the %TEMP% copy behind on reboot
+        ; flags that never came.
+        Delete "$0\voidImageViewer.exe"
         RMDir /REBOOTOK $0
 
 SectionEnd

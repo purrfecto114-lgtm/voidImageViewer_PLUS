@@ -103,7 +103,15 @@ VOID NTAPI _viv_timer_queue_timer_callback(PVOID param,BOOLEAN TimerOrWaitFired)
 	{
 		_viv_is_animation_timer_event = 1;
 		
-		PostMessage(_viv_hwnd,WM_TIMER,VIV_ID_ANIMATION_TIMER,0);
+		// the duty hand-back the reply queue already carries: a
+		// refused post (queue full, window going away) left the sticky
+		// flag set with no event in flight - the animation froze
+		// forever on one refusal. give the duty back so the next tick
+		// posts again.
+		if (!PostMessage(_viv_hwnd,WM_TIMER,VIV_ID_ANIMATION_TIMER,0))
+		{
+			_viv_is_animation_timer_event = 0;
+		}
 	}
 }
 static void _viv_timer_start(void)

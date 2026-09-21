@@ -1889,6 +1889,13 @@ static void _viv_delete(int permanently)
 
 				_viv_playlist_delete(&fd);
 			
+				// the scan must start from the deleted file's own seat:
+				// the request fd can name an in-flight file nothing shows
+				// yet, and a scan from that stranger would answer the wrong
+				// neighbour (delete A during B's first load and the next
+				// lands past A's side instead of beside it).
+				os_copy_memory(_viv_current_fd,&fd,sizeof(WIN32_FIND_DATA));
+				
 				if (!_viv_next(0,1,0,0))
 				{
 					_viv_blank();

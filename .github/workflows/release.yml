@@ -53,6 +53,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
       version: ${{ steps.resolve.outputs.version }}
@@ -143,6 +144,7 @@ jobs:
   tests:
     needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -176,6 +178,7 @@ jobs:
   build:
     needs: [validate, tests]
     runs-on: windows-2022
+    timeout-minutes: 45
     permissions:
       contents: read
     outputs:
@@ -281,7 +284,9 @@ jobs:
           # level ("v3.12", "v3.10") - the pin matches the family, not a
           # literal string (the first ci run taught the format the hard
           # way: an exact -ne '3.12.0' threw on a successfully pinned
-          # 'v3.12').
+          # 'v3.12'). the tradeoff is deliberate: a pre-installed
+          # 3.12.x passes without reinstalling - choco cannot pin a
+          # patch level the version command never reports.
           $nsisVersion = ''
           if ($makensis) { $nsisVersion = ((& $makensis '/VERSION') -join '').Trim() }
           Write-Host "makensis found: $makensis (version $nsisVersion)"
@@ -324,8 +329,11 @@ jobs:
           $version = $env:VERSION
           $x64zip = "voidImageViewer-$version-x64.zip"
           $x86zip = "voidImageViewer-$version-x86.zip"
-          Compress-Archive -Path 'build\x64\voidImageViewer.exe', 'LICENSE' -DestinationPath $x64zip
-          Compress-Archive -Path 'build\x86\voidImageViewer.exe', 'LICENSE' -DestinationPath $x86zip
+          # the notices travel with the zip too: the LICENSE alone does
+          # not carry the qoi port's MIT text the notices file appends
+          # (the installer channel ships it; the zip channel skipped it).
+          Compress-Archive -Path 'build\x64\voidImageViewer.exe', 'LICENSE', 'THIRD_PARTY_NOTICES.md' -DestinationPath $x64zip
+          Compress-Archive -Path 'build\x86\voidImageViewer.exe', 'LICENSE', 'THIRD_PARTY_NOTICES.md' -DestinationPath $x86zip
           if (!(Test-Path $x64zip) -or !(Test-Path $x86zip)) { throw 'packaging failed' }
           # rename the installers to include the release version (built into nsis\)
           Move-Item "nsis\voidImageViewer-*-x64-Setup.exe" "voidImageViewer-$version-x64-Setup.exe" -Force
@@ -353,7 +361,11 @@ jobs:
             "$($a.out)=$h" | Add-Content -Path $env:GITHUB_OUTPUT
             Write-Host "$($a.file): $h"
           }
-          $lines | Out-File -FilePath sha256.txt -Encoding ascii
+          # LF endings: the CRLF an ascii Out-File writes made coreutils
+          # 8.32 (ubuntu 22.04's sha256sum -c) refuse all four lines -
+          # the readme's own verification command, failing on the
+          # distributions the readme names.
+          [IO.File]::WriteAllText("$PWD\sha256.txt", ($lines -join "`n") + "`n")
           Get-Content sha256.txt
 
       - name: Upload build artifact (hand-off to publish)
@@ -371,6 +383,7 @@ jobs:
   publish:
     needs: [validate, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
       id-token: write

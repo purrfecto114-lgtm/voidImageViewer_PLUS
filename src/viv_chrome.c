@@ -396,15 +396,19 @@ void _viv_update_title(void)
 	window_title[0] = 0;
 	filename = L"";
 
+	// the title answers the image on screen (the status bar already
+	// does): during a first load the request fd names a file nothing
+	// shows yet - the title would name a file the window never
+	// painted.
 	switch(config_title_bar_format)
 	{
 		case 0: // full path
-			filename = _viv_current_fd->cFileName;
+			filename = _viv_slot_current.fd.cFileName;
 			break;
 
 		case 1: // filename only
 		default:
-			filename = string_get_filename_part(_viv_current_fd->cFileName);
+			filename = string_get_filename_part(_viv_slot_current.fd.cFileName);
 			break;
 			
 		case 2: // none
@@ -2209,7 +2213,7 @@ int _viv_should_show_cursor(void)
 {
 	if (!_viv_in_popup_menu)
 	{
-		if ((*_viv_current_fd->cFileName) && (!_viv_file_not_found) && (!_viv_load_failed))
+		if ((*_viv_slot_current.fd.cFileName) && (!_viv_file_not_found) && (!_viv_load_failed))
 		{
 			if (GetForegroundWindow() == _viv_hwnd)
 			{

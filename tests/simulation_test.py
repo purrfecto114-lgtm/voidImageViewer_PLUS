@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.11.89",
-          (major, minor, rev, build) == (1, 1, 15, 90), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.11",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.11", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.12.91",
+          (major, minor, rev, build) == (1, 1, 15, 91), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.12",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.12", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -714,7 +714,7 @@ def t_sim_version_117():
           "**1.1.14-rc.9** —" in experience and
           "**1.1.14-rc.8** —" in experience and
           "**1.1.14-rc.3** —" in experience and
-          "**1.1.15-rc.11 —" in readme and
+          "**1.1.15-rc.12 —" in readme and
           "**1.1.15-rc.7 —" in readme and
           "**1.1.15-rc.6 —" in readme and
           "### 1.1.15-rc.7 —" in experience and
@@ -1412,7 +1412,9 @@ def t_sim_reentry_state():
     # must not bet on it either way - the fix below answers it with
     # SW_RESTORE, which every spec and every real windows agrees on.
     SW_HIDE, SW_SHOWNORMAL, SW_SHOWMAXIMIZED = 0, 1, 3
-    SW_SHOWMINIMIZED, SW_RESTORE, SW_SHOWDEFAULT = 7, 9, 10
+    SW_SHOWMINIMIZED, SW_SHOWNOACTIVATE, SW_SHOW = 2, 4, 5
+    SW_SHOWMINNOACTIVE, SW_SHOWNA, SW_RESTORE = 7, 8, 9
+    SW_SHOWDEFAULT, SW_FORCEMINIMIZE = 10, 11
 
     def showwindow_spec(state, word):
         # state: live_normal | live_max | iconic_plain | iconic_restoremax
@@ -1464,12 +1466,19 @@ def t_sim_reentry_state():
                 return showwindow_spec(state, SW_RESTORE)
             if word == SW_SHOWMAXIMIZED:
                 return showwindow_spec(state, SW_SHOWMAXIMIZED)
-            return state  # activation only: SetForegroundWindow answered it
+            if state == "hidden":
+                if word == SW_HIDE:
+                    return "hidden"   # an explicit hide stays a hide
+                return "live_normal"  # SW_SHOW: the reveal the fusion round added
+            return state  # SW_SHOW is a no-op on a visible window
 
         words = {"SW_HIDE(0)": SW_HIDE, "SW_SHOWNORMAL(1)": SW_SHOWNORMAL,
+                 "SW_SHOWMINIMIZED(2)": SW_SHOWMINIMIZED,
                  "SW_SHOWMAXIMIZED(3)": SW_SHOWMAXIMIZED,
-                 "SW_SHOWMINIMIZED(7)": SW_SHOWMINIMIZED,
-                 "SW_RESTORE(9)": SW_RESTORE, "SW_SHOWDEFAULT(10)": SW_SHOWDEFAULT}
+                 "SW_SHOWNOACTIVATE(4)": SW_SHOWNOACTIVATE, "SW_SHOW(5)": SW_SHOW,
+                 "SW_SHOWMINNOACTIVE(7)": SW_SHOWMINNOACTIVE, "SW_SHOWNA(8)": SW_SHOWNA,
+                 "SW_RESTORE(9)": SW_RESTORE, "SW_SHOWDEFAULT(10)": SW_SHOWDEFAULT,
+                 "SW_FORCEMINIMIZE(11)": SW_FORCEMINIMIZE}
         demoted = ["%s on %s -> %s" % (w, s, app_activation(s, v))
                    for w, v in words.items() for s in
                    ("live_max", "live_normal", "iconic_plain", "iconic_restoremax")
@@ -1688,7 +1697,7 @@ def t_sim_memory_cache_round120():
     r.insert("B")
     r.insert("C")
     check("three pushes fill a count-of-three ring",
-          r.seats[:3] == ["C", "B", "A"] and r.seats[3] == "None-placeholder" or r.seats[3] is None)
+          r.seats[:3] == ["C", "B", "A"] and r.seats[3] is None)
     r.insert("D")   # full: A (the oldest) leaves
     check("the fourth push drops the oldest",
           r.seats[:4] == ["D", "C", "B", None])
@@ -1741,9 +1750,9 @@ def t_sim_memory_cache_round120():
     def migrate(preload_next, cache_last, preload_key, cache_key):
         pc = preload_key if preload_key is not None else (1 if preload_next else 0)
         cc = cache_key if cache_key is not None else (1 if cache_last else 0)
-        if pc < 0: pc = 0
+        if pc < 0: pc = 1 if preload_next else 0
         if pc > 5: pc = 5
-        if cc < 0: cc = 0
+        if cc < 0: cc = 1 if cache_last else 0
         if cc > 8: cc = 8
         return pc, cc
 
@@ -1754,8 +1763,10 @@ def t_sim_memory_cache_round120():
     check("the new keys override the legacy pair",
           migrate(0, 0, 3, 4) == (3, 4))
     check("out-of-range keys clamp to the caps",
-          migrate(1, 1, 99, 99) == (5, 8) and
-          migrate(1, 1, -7, -3) == (0, 0))
+          migrate(1, 1, 99, 99) == (5, 8))
+    check("negative keys fall back to the legacy pair (the config's own branch)",
+          migrate(1, 1, -7, -3) == (1, 1) and
+          migrate(0, 0, -1, -1) == (0, 0))
 
     # --- the recent dual-identity decision table ---
     # policy RECENT pushes unconditionally; FORWARDED pushes only when
@@ -1840,7 +1851,7 @@ def t_sim_memory_cache_round120():
 
     # the kill path walks the whole ring.
     check("the kill path frees every seat",
-          "_viv_clear_frames(_viv_slot_cache[i].frames,_viv_slot_cache[i].frame_count);" in viv)
+          "_viv_clear_frames(_viv_slot_cache[i].frames,_viv_slot_cache[i].frame_loaded_count);" in viv)
 
     # the startup resume shape rides the blank-open else with the
     # recent-click shape (clear the random, clear the playlist, open by
@@ -1851,7 +1862,7 @@ def t_sim_memory_cache_round120():
 
 
 def t_sim_gui_limits_round121():
-    """Simulation replays for the gui limits round (1.1.15-rc.11): the
+    """Simulation replays for the gui limits round (1.1.15-rc.10): the
     give-way priority table, the pane budget arithmetic, the count
     ladder against the config clamps, the stamp's date+time budget,
     and the zoom editor's four-digit ceiling. the parameters are
@@ -1997,7 +2008,7 @@ def t_sim_resume_chain_round122():
 
     # --- the seat gate, extracted and replayed ---
     check("the walk carries both gates",
-          "if ((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count))" in load.replace("\r\n", "\n"))
+          "((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count) && (_viv_slot_preload.frames))" in load.replace("\r\n", "\n"))
     preload_cap = 5 if "config_preload_count = 5;" in config else -1
     cache_cap = 8 if "config_cache_count = 8;" in config else -1
     check("the config clamps are 5 and 8", preload_cap == 5 and cache_cap == 8)
@@ -2083,6 +2094,88 @@ def t_sim_resume_chain_round122():
           "if ((is_preload) && (_viv_slot_preload.state != 2) && (*_viv_slot_preload.fd.cFileName) && (string_compare(_viv_slot_preload.fd.cFileName,fd->cFileName) == 0))" in load.replace("\r\n", "\n"))
 
 
+def t_sim_report_fusion_round123():
+    """Simulation replays for the report fusion round (1.1.15-rc.12):
+    the empty-slot walk refusal, the exit free's loaded count, the
+    live-hidden reveal table, and the paste/blank stop pair. every
+    model is extracted from the tree or replays the code's own
+    arithmetic, never restated from memory."""
+    print("the report fusion round (1.1.15-rc.12)")
+    vivload = read("src/viv_load.c").decode()
+    viv = read("src/viv.c").decode()
+    wndproc = read("src/viv_wndproc.c").decode()
+    l = vivload.replace("\r\n", "\n")
+    v = viv.replace("\r\n", "\n")
+    w = wndproc.replace("\r\n", "\n")
+
+    # --- the empty-slot walk, extracted and replayed ---
+    gate = "(_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count) && (_viv_slot_preload.frames)"
+    check("the walk's gate carries the slot term",
+          gate in l)
+
+    def walk_inserts(chain, preload, cache, has_frames):
+        return ((chain + 1 < preload) and (chain < cache) and has_frames)
+
+    check("an empty slot never inserts (the activation just took it)",
+          not walk_inserts(0, 3, 8, False) and
+          not walk_inserts(2, 5, 8, False))
+    check("a held slot inserts while seats remain",
+          walk_inserts(0, 3, 8, True) and walk_inserts(2, 5, 3, True))
+    check("the seat terms still stop the walk",
+          not walk_inserts(0, 1, 8, True) and not walk_inserts(1, 2, 1, True))
+
+    # --- the exit free's loaded count ---
+    check("the exit free counts the loaded frames",
+          "_viv_clear_frames(_viv_slot_cache[i].frames,_viv_slot_cache[i].frame_loaded_count);" in v)
+    # replay: a partial decode (two of four frames landed) leaves the
+    # array tail uninitialized - the free must iterate the loaded prefix.
+    frames = ["hb0", "hb1", None, None]
+    freed_loaded = frames[:2]
+    freed_declared = frames[:4]
+    check("the loaded count frees the two real frames",
+          freed_loaded == ["hb0", "hb1"])
+    check("a declared count would answer the uninitialized tail",
+          None in freed_declared)
+
+    # --- the live-hidden reveal table ---
+    copydata = function_body(w, "static LRESULT _viv_on_wm_copydata")
+    check("extract the copydata handler for the reveal table",
+          copydata is not None)
+    if copydata:
+        cl_case = copydata[copydata.find("_VIV_COPYDATA_COMMAND_LINE"):]
+        check("the live branch shows every word except the hide",
+              "if (showcmd != SW_HIDE)" in cl_case and
+              "ShowWindow(hwnd,(showcmd == SW_SHOWMAXIMIZED) ? SW_SHOWMAXIMIZED : SW_SHOW);" in cl_case)
+        # replay: the words a launcher can forward x a hidden live window.
+        def live_answer(word):
+            if word == 3:
+                return "live_max"
+            if word == 0:
+                return "hidden"      # an explicit hide (and the bare zero) stays
+            return "live_normal"     # SW_SHOW: the reveal
+        check("every non-maximized, non-hide word reveals a hidden live window",
+              all(live_answer(x) == "live_normal" for x in (1, 2, 4, 5, 7, 8, 9, 10, 11)))
+        check("the maximized word grows, the hide word hides",
+              live_answer(3) == "live_max" and live_answer(0) == "hidden")
+
+    # --- the paste/blank stop pair (one policy, two call sites) ---
+    pb = function_body(l, "static void _viv_show_clipboard_image")
+    bl = function_body(l, "void _viv_blank(void)")
+    check("the paste stops the in-flight leg and its queue",
+          pb is not None and "_viv_load_image_next_fd = NULL;" in pb)
+    check("close stops the in-flight leg and its queue too",
+          bl is not None and "_viv_load_image_next_fd = NULL;" in bl)
+    # replay: the COMPLETE that lands after either stop must not draw
+    # over the new state and must not dispatch the cleared queue.
+    def complete_after_stop(allow_draw, terminated, next_fd):
+        draws = allow_draw and not terminated
+        dispatches = next_fd is not None
+        return draws, dispatches
+    check("a stopped load draws nothing and dispatches no one",
+          complete_after_stop(0, 1, None) == (False, False))
+    check("the old paste answered the stranger over the image (the regression replay)",
+          complete_after_stop(0, 1, "queued stranger") == (False, True))
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -2100,6 +2193,7 @@ if __name__ == "__main__":
     t_sim_memory_cache_round120()
     t_sim_gui_limits_round121()
     t_sim_resume_chain_round122()
+    t_sim_report_fusion_round123()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

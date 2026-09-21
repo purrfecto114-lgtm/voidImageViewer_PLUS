@@ -1908,20 +1908,30 @@ static LRESULT _viv_on_wm_copydata(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPara
 				// its placement decides - maximized
 				// before the minimize comes back
 				// maximized. the run-maximized word is
-				// the one launcher ask that still applies;
-				// every other word answers with the
-				// SetForegroundWindow above (the bare 0 a
-				// STARTF-less launcher forwards must not
-				// hide the live window).
+				// the one launcher ask that grows the
+				// window; every other word answers with a
+				// show below and the SetForegroundWindow
+				// above (the hide word and the bare
+				// STARTF-less zero stay excluded).
 				if (IsIconic(hwnd))
 				{
 					ShowWindow(hwnd,(showcmd == SW_SHOWMAXIMIZED) ? SW_SHOWMAXIMIZED : SW_RESTORE);
 				}
 				else
 				{
-					if (showcmd == SW_SHOWMAXIMIZED)
+					// a hidden live window must answer a forward: a
+					// launcher that starts the first instance hidden
+					// (STARTF_USESHOWWINDOW with SW_HIDE) left it
+					// unreachable forever - the explorer forward arrived as
+					// SW_SHOWNORMAL and this branch answered only the
+					// maximized word. SW_SHOW is the no-op a visible window
+					// never notices and the reveal a hidden one waits for;
+					// the hide word itself stays a hide (a launcher asking
+					// to hide is not asking to reveal, and the bare
+					// STARTF-less zero rides the same exclusion).
+					if (showcmd != SW_HIDE)
 					{
-						ShowWindow(hwnd,SW_SHOWMAXIMIZED);
+						ShowWindow(hwnd,(showcmd == SW_SHOWMAXIMIZED) ? SW_SHOWMAXIMIZED : SW_SHOW);
 					}
 				}
 			}

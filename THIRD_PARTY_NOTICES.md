@@ -35,9 +35,10 @@ repository; this file maps them to their sources.
   (`src/enc/`, `src/mux/`) and the encoder-side `.c` files inside
   `src/dsp` and `src/utils`. The decode set was verified self-contained
   by an include-closure scan: no kept file references anything pruned.
-- Kept beyond the compiled set: `tests/`, `doc/`, `cmake/`, the upstream
-  headers, `COPYING`, `PATENTS`, `AUTHORS`, `ChangeLog`, `NEWS`,
-  `README.md` and the top-level build files.
+- Kept beyond the compiled set: `AUTHORS`, `COPYING`, `PATENTS`,
+  `README.md`, `VERSION.imported` and `configure.ac` (the R70 housekeeping
+  round pruned `tests/`, `doc/`, `cmake/`, `ChangeLog` and `NEWS`; this
+  list now names what the tree actually keeps).
 - License: BSD-3-Clause — see [libwebp/COPYING](libwebp/COPYING); the
   WebP patent grant is in [libwebp/PATENTS](libwebp/PATENTS). The BSD
   notice is also reproduced in the `webp` section of [LICENSE](LICENSE).
@@ -62,7 +63,8 @@ vendored copy through that tool, never by hand.
   it (every read bounds-checked against the chunk end, the end-marker
   verification, the pixel budget) is this fork's own.
 - The viewer ships this port in its binary; the MIT text below travels
-  with it as part of this notices file.
+  with it - the installer ships this notices file, and the zip channel
+  carries it alongside the license since the fusion round.
 
 ```text
 MIT License
