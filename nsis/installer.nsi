@@ -141,6 +141,8 @@ LangString MsgSelectOptionsSub ${LANG_ENGLISH} "Choose any additional install op
 LangString MsgSelectOptionsSub ${LANG_SIMPCHINESE} "选择其他安装选项。"
 LangString MsgUninstallCopyFailed ${LANG_ENGLISH} "Failed to stage the uninstaller. The uninstall cannot continue."
 LangString MsgUninstallCopyFailed ${LANG_SIMPCHINESE} "无法准备卸载程序副本，卸载无法继续。"
+LangString MsgUninstallStageFailed ${LANG_ENGLISH} "The uninstall stage failed."
+LangString MsgUninstallStageFailed ${LANG_SIMPCHINESE} "卸载阶段失败。"
 LangString MsgOsNotX64 ${LANG_ENGLISH} "OS is not x64.$\nInstall anyway?"
 LangString MsgOsNotX64 ${LANG_SIMPCHINESE} "当前操作系统不是 64 位。$\n仍然要安装吗？"
 LangString MsgExecAdminFailed ${LANG_ENGLISH} "Failed to execute admin command"
@@ -562,7 +564,7 @@ Section "Uninstall"
 
 uninstall_stage_error:
 
-        MessageBox MB_OK|MB_ICONSTOP "The uninstall stage failed."
+        MessageBox MB_OK|MB_ICONSTOP "$(MsgUninstallStageFailed)"
 
 uninstall_stage_ok:
 
@@ -570,7 +572,7 @@ uninstall_stage_ok:
         ; cannot remove a directory the file still sits in, and every
         ; uninstall used to leave the %TEMP% copy behind on reboot
         ; flags that never came.
-        Delete "$0\voidImageViewer.exe"
+        Delete /REBOOTOK "$0\voidImageViewer.exe"
         RMDir /REBOOTOK $0
 
 SectionEnd

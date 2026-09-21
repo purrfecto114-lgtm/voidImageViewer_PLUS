@@ -2165,6 +2165,9 @@ def t_sim_report_fusion_round123():
           pb is not None and "_viv_load_image_next_fd = NULL;" in pb)
     check("close stops the in-flight leg and its queue too",
           bl is not None and "_viv_load_image_next_fd = NULL;" in bl)
+    check("both stops retire the activation ask (the exception rides above the terminate pair)",
+          pb is not None and "_viv_should_activate_preload_on_load = 0;" in pb and
+          bl is not None and "_viv_should_activate_preload_on_load = 0;" in bl)
     # replay: the COMPLETE that lands after either stop must not draw
     # over the new state and must not dispatch the cleared queue.
     def complete_after_stop(allow_draw, terminated, next_fd):

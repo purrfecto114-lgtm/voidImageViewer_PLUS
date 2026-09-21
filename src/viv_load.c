@@ -563,6 +563,14 @@ static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high)
 		_viv_load_image_next_fd = NULL;
 	}
 	
+	// the activation exception rides above the terminate pair: a
+	// preload the user navigated onto would still land over the
+	// pasted image - retire the activation ask and the parked name
+	// with the same stroke (the ring-hit path in _viv_open clears
+	// the same pair).
+	_viv_should_activate_preload_on_load = 0;
+	_viv_slot_preload.fd.cFileName[0] = 0;
+	
 	// the current image moves to the last image slot, exactly like
 	// navigating to a new image does.
 	viv_copy_current_image_to_last_image();
@@ -972,6 +980,14 @@ void _viv_blank(void)
 		
 		_viv_load_image_next_fd = NULL;
 	}
+	
+	// the activation exception rides above the terminate pair: a
+	// preload the user navigated onto would still land over the
+	// pasted image - retire the activation ask and the parked name
+	// with the same stroke (the ring-hit path in _viv_open clears
+	// the same pair).
+	_viv_should_activate_preload_on_load = 0;
+	_viv_slot_preload.fd.cFileName[0] = 0;
 	
 	_viv_clear();
 

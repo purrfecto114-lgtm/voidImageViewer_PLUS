@@ -98,7 +98,7 @@
 	verified: the five suites pass (the menu suite grows the round-123
 	section and its control-binding census; the simulation suite grows
 	the empty-slot, loaded-count, reveal and stop-pair replays), the
-	splice window recalibrated at a measured 31188, the zig line
+	splice window recalibrated at a measured 31221, the zig line
 	links both legs, the warning census holds the zero-new-class line,
 	and link_scan audits every extern against its definition.
 

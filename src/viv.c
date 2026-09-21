@@ -1314,6 +1314,10 @@ static int _viv_init(int nCmdShow)
 		{
 			_viv_kill();
 			
+			// the zero is the one-shot's answer: an install command that
+			// finished its work reads as success to whoever waited on the
+			// process (the fusion round's cross-check caught a shared tail
+			// answering failure to every install).
 			return 0;
 		}
 	}
@@ -1380,6 +1384,10 @@ static int _viv_init(int nCmdShow)
 
 			_viv_kill();
 			
+			// the forward's zero: a second instance that handed its
+			// command line to the live window and left reads as success
+			// (the smoke test's crash bucket used to disagree with the
+			// rc.11 tail about this).
 			return 0;
 		}
 	}
@@ -1401,7 +1409,7 @@ static int _viv_init(int nCmdShow)
 		
 		_viv_kill();
 		
-		return 0;
+		return -1;
 	}
 	
 	_viv_hmenu = _viv_create_menu();
@@ -1412,7 +1420,7 @@ static int _viv_init(int nCmdShow)
 		
 		_viv_kill();
 		
-		return 0;
+		return -1;
 	}
 	
 	rect.left = config_x;
@@ -1469,7 +1477,7 @@ static int _viv_init(int nCmdShow)
 		
 		_viv_kill();
 		
-		return 0;
+		return -1;
 	}
 	
 	// the canvas owns the hotkeys, and the canvas never composes text:
@@ -1809,7 +1817,11 @@ for(i=0;i<4;i++)
 
 static int _viv_main(int nCmdShow)
 {
-	if (_viv_init(nCmdShow))
+	int init_ret;
+	
+	init_ret = _viv_init(nCmdShow);
+	
+	if (init_ret > 0)
 	{
 		// the render export: one pump, one paint, one bitmap, one exit
 		// code - the pixel regression harness contract (viv_export.c).
@@ -1853,14 +1865,19 @@ static int _viv_main(int nCmdShow)
 	exit:
 		
 		_viv_kill();
+		
+		// the quiet gui close answers zero.
+		return 0;
 	}
 
-	// the only path that reaches this tail is a failed init (its
-	// dialog was the loud half; the exit code is the quiet half a
-	// script or a setup waits on - success here would answer
-	// "nothing went wrong" to a caller that just watched it go
-	// wrong).
-	return 1;
+	// the quiet half of fail-loud: a completed one-shot (an install
+	// command, a second-instance forward) answers success to whoever
+	// waits on the process, a failed init answers failure. the fusion
+	// round first shared one tail over all three and the cross-check
+	// caught it: the installer's three exit-code reads answered
+	// "failed" to every install, and the smoke test's crash bucket
+	// caught every forward.
+	return (init_ret == 0) ? 0 : 1;
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine,int nShowCmd)

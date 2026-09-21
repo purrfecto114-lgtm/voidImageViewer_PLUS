@@ -3202,7 +3202,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 31600)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response - the clipboard gates, the identity binding, the job snapshot and the interlocked stage (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31188)
+          viv_lines >= 21130 and viv_lines <= 31600)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response - the clipboard gates, the identity binding, the job snapshot and the interlocked stage (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch)
 
     # 3. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3263,7 +3263,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 31600, f"({total})")  # round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31188)
+          21130 <= total <= 31600, f"({total})")  # round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch)
 
     # 6. the fourth CI catch stays guarded: a measurement macro expanded
     #    inside a struct body must see both its #define and the extern it
@@ -7069,7 +7069,7 @@ def t_audit_response_round113():
           "return RegisterClassExW(&wcex) ? 1 : 0;" in osc)
     check("the three init steps fail out loud",
           viv.count("_viv_init_failed((int)GetLastError());") == 3 and
-          viv.count("_viv_kill();\r\n\t\t\r\n\t\treturn 0;") == 3)
+          viv.count("_viv_kill();\r\n\t\t\r\n\t\treturn -1;") == 3)
     check("the init-failure string rides the localization tables",
           "LOCALIZATION_ID_INIT_FAILED" in read("src/localization.h").decode() and
           "failed to initialize" in read("src/localization_en_us.h").decode() and
@@ -7962,6 +7962,9 @@ def t_report_fusion_round123():
     pb = body(l, "static void _viv_show_clipboard_image")
     check("the paste clears the queued next",
           "mem_free(_viv_load_image_next_fd);" in pb and "_viv_load_image_next_fd = NULL;" in pb)
+    check("the paste retires the activation ask with the pair",
+          "_viv_should_activate_preload_on_load = 0;" in pb and
+          "_viv_slot_preload.fd.cFileName[0] = 0;" in pb)
 
     # 8. THE FOUR FACES' ONE ANSWER (P2-15 + P3-6 + P3-21: the menu
     #    face, the title bar, the cursor gate and the save-as seed all
@@ -7997,6 +8000,8 @@ def t_report_fusion_round123():
           "_viv_load_image_allow_draw = 0;" in bl and
           "InterlockedExchange(&_viv_load_image_terminate,1);" in bl and
           "_viv_load_image_next_fd = NULL;" in bl)
+    check("close retires the activation ask too",
+          "_viv_should_activate_preload_on_load = 0;" in bl)
 
     # 11. THE RING'S INERT GUARDS (P3-9/P3-30: the insert could push
     #     past the ceiling between the two settle points, and the
@@ -8024,8 +8029,11 @@ def t_report_fusion_round123():
     #     and debug_fatal's ExitProcess(0) read as success to a setup
     #     that waited on it).
     main_body = v[v.find("static int _viv_main"):v.find("int APIENTRY WinMain")]
-    check("a failed init answers the exit code with failure",
-          main_body.rstrip().endswith("return 1;\n}"))
+    check("the exit-code contract is three-way (a completed one-shot and a quiet gui close answer zero; a failed init answers one)",
+          "return (init_ret == 0) ? 0 : 1;" in main_body and
+          main_body.count("_viv_kill();\n\t\t\n\t\treturn -1;") == 3)
+    check("the quiet gui close answers zero at the exit label",
+          "\texit:\n\t\t\n\t\t_viv_kill();\n\t\t\n\t\t// the quiet gui close answers zero.\n\t\treturn 0;\n\t}" in main_body)
     check("debug_fatal exits with a failure code",
           "ExitProcess(1);" in db)
 
@@ -8050,7 +8058,7 @@ def t_report_fusion_round123():
           "install_options_quote_scan:" in ns and "install_options_refused:" in ns)
     check("the c side refuses the quote before it restructures the runas line",
           "if (*q == '\"')" in ic and
-          ic.find("install_options[0] = 0;") < ic.find("os_shell_execute(0,new_exe_filename_wbuf,1,NULL,install_options)"))
+          0 <= ic.find("install_options[0] = 0;") < ic.find("os_shell_execute(0,new_exe_filename_wbuf,1,NULL,install_options)"))
 
     # 16. THE LEAF-ID ARITHMETIC (P1-3: the fusion report's E1 - a
     #     single ret-1 could vanish into the flat popup's copy and
@@ -8100,6 +8108,20 @@ def t_report_fusion_round123():
         expr = switch_draw[cid]
         check(f"the {cid.lower()} pill draws its own config key",
               f"case _VIV_SETTINGS_ID_{cid}:\n\t\t\t\t\t\t_viv_settings_draw_switch(mem,ctl,{expr},hot,focus);" in s)
+    switch_label = {
+        "MULTIPLE": "LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE",
+        "STARTMENU": "LOCALIZATION_ID_STARTMENU_SHORTCUTS",
+        "APPDATA": "LOCALIZATION_ID_STORE_SETTINGS_APPDATA",
+        "AUTOZOOM": "LOCALIZATION_ID_OPTIONS_VIEW_AUTO_SIZE_WINDOW_STATIC",
+        "LOOP": "LOCALIZATION_ID_PLAY_ANIMATIONS_ONCE_STATIC",
+        "RESUME": "LOCALIZATION_ID_SETTINGS_RESUME_LAST",
+        "TOOLBARICON": "LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY",
+    }
+    paint_sig = "static void _viv_settings_paint(HWND hwnd)"
+    for cid in sorted(switch_label):
+        lid = switch_label[cid]
+        check(f"the {cid.lower()} label case binds its own string",
+              f"label_id = {lid};" in case_body(s, paint_sig, cid))
 
     # 19. THE LADDER'S OWN BOUNDARIES (P2-6: the pins named the helper
     #     while a test-side model held the boundaries - mutating the
@@ -8144,10 +8166,14 @@ def t_report_fusion_round123():
     #     answered no error check, and a comment claimed the stage
     #     proves provenance it cannot).
     check("the second stage deletes its exe before the rmdir",
-          'Delete "$0\\voidImageViewer.exe"' in ns and
-          ns.find('Delete "$0\\voidImageViewer.exe"') < ns.find("RMDir /REBOOTOK $0"))
+          'Delete /REBOOTOK "$0\\voidImageViewer.exe"' in ns and
+          ns.find('Delete /REBOOTOK "$0\\voidImageViewer.exe"') < ns.find("RMDir /REBOOTOK $0"))
     check("the second stage's exec answers an error check",
           "uninstall_stage_error:" in ns)
+    check("the stage-failure message is localized, not hardcoded",
+          "LangString MsgUninstallStageFailed ${LANG_ENGLISH}" in ns and
+          "LangString MsgUninstallStageFailed ${LANG_SIMPCHINESE}" in ns and
+          "$(MsgUninstallStageFailed)" in ns)
     check("the second stage comment claims only existence",
           "whose existence this section verified" in ns)
 

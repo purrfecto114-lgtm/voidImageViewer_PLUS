@@ -81,7 +81,7 @@ after.
 - **a pinned window needs remeasuring every structural round.** the
   splice window has been recalibrated at least eleven times (30548 → 31129
   → 31138 → 31170 → 31410 → 31613 → 30523 → 30741 → 30961 → 31081 → 31118
-  → 31188), each time with the
+  → 31221), each time with the
   measurement written into the comment. measure, then pin; never pin a
   hope.
 

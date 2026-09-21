@@ -26,13 +26,12 @@ on:
         default: false
         type: boolean
 
-# Least privilege for the pipeline's token, at the top the tree only
-# needs to be read. the one step that uploads an artifact (the golden
-# bootstrap, inside the compile job below) carries its own actions:write
-# there - a job-scoped grant answers the audit's depth finding without
-# handing the write to every job in the pipeline (the default token
-# rides with whatever the repository grants, which is not this
-# pipeline's to assume).
+# Least privilege for the pipeline's token: the top of the tree only
+# needs to be read, and the artifact upload inside the compile job
+# below needs no write grant either (upload-artifact rides the job's
+# default token). the fusion audit removed the job-scoped actions:write
+# the earlier round granted - the v145 leg carried it with no step
+# that ever spent it.
 permissions:
   contents: read
 
