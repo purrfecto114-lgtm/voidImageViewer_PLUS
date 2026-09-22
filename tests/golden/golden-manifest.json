@@ -11,57 +11,57 @@
                                      },
     "fx_anim_bounce.gif":  {
                                "gdi":  "060131fa917986ac0a4bf970d1b263ab3bb5908378832ebb2d3394bc79fbe12a",
-                               "gl":  "7d0eb3361c4c1cee3dc41da813ecd4b0198266bc41962a02f0264086ca49e8f5",
-                               "d3d":  "9669125cf71736d2043927a64d41047fcc39454ae3aea9b308deae6ec922a903"
+                               "gl":  "3ad02ba713692a115360fbda392b2c8eaa54ddbfa4b3d0043ec7a4d96f4da70b",
+                               "d3d":  "cce5f7aaa1be80b3a208a17fa2f34c237caf7d771b60dbd45fb126e213e50568"
                            },
     "fx_anim_fade.gif":  {
                              "gdi":  "774675c66949dadc41e8b77e4db06d0a4568682d4b462f6a8d99aa4989d67a42",
-                             "gl":  "3b77f81542abc14372e8899edcc553d8f1c1f1f54dc568bb1de93b88d8b07852",
-                             "d3d":  "89203fb13c9a14ee48f29658a1ac0cfc45d75c2629b9aba3ebc5d9d92fc3f4f0"
+                             "gl":  "4c5bffa752c1d5044b09497274dfc0f25d323b8f857f101aa90c98caae5b250d",
+                             "d3d":  "aa1625be0c03cd7597fb8d337c156d1f979999be209959279f691dd6b8849a42"
                          },
     "fx_still_24bpp.bmp":  {
                                "gdi":  "2e69e06f7ec65a8fd8572a12b0ccb07f47eda9969048ba9804718159846baaff",
-                               "gl":  "54ab659f8f9d0a121229f9a8227fd8a88d4bb4060fc720befcae88eab08121bd",
-                               "d3d":  "1713426a7cd6e15920a663aa56eee2b0646044f415609739b951261a630e5dbd"
+                               "gl":  "8491d456926ef61b62659e1d6aa295322e558396b699c90b8462ec7d14704abc",
+                               "d3d":  "e9e4490397364c43f10a9c16baccb53db5b1b7613de7160e3e7c369b0010048d"
                            },
     "fx_still_photo.jpg":  {
                                "gdi":  "08718618dede618758e564f377ae0fdd0d9f9e71730ea8b4398aa8f3f3e5221e",
-                               "gl":  "4ab89fc8ab08259da76ef9672bdcd54c34b99ca1167c091707e0f3de32cf66a7",
-                               "d3d":  "ca039b58ffa177910e113f2124b3168e72490d97d523f18f3e061a4faa4a5d0f"
+                               "gl":  "0675ebd8a8ad643fc25098ccd4504290c7d8c5989bfa2c075d34e7800e366cfd",
+                               "d3d":  "a4024e16fbe9dd47b2df281bf0f20316b8d36d0cf8e446e69a40fa6dc27da947"
                            },
     "fx_still_qoi_rgb.qoi":  {
                                  "gdi":  "52f230c5964b1af9c079004b851fbbfc2935fbec333fb4e0a38f28f37e2c9a4e",
-                                 "gl":  "34adb8024af80a211f6e0b7b82cddef28ae9e45379db71e40e2a1e50934caeef",
-                                 "d3d":  "66b139744c7a094989d6f4b4914d385babc9848a18e209c35957b9d4e8d33e43"
+                                 "gl":  "67c6bd1570b856a0eda6ed1b1eab48d20ce97fa0f01a6cbfc91e98b628f70cdd",
+                                 "d3d":  "790d550fb19ee832f34326f32491c698321718e65434e0a580dd1b3c0a3591d1"
                              },
     "fx_still_qoi_rgba.qoi":  {
                                   "gdi":  "fa021f79a029121e8837089d8883f4df2d21fc6cca4b2a8b740f4acf2a00e4af",
-                                  "gl":  "9027442287089d3e22ae9478edf42bf40b3ebac4ac7936d6873c967089b11a7e",
-                                  "d3d":  "08c6f73582c106bb0fe7b6ca91eb872c662693dd971f22ac6faa8358931adac7"
+                                  "gl":  "363ec9719ad392eabc7e89edd1d6630b4a12200a18c4217a8297d21fb4f5e805",
+                                  "d3d":  "0ea640bb37cf39083f74a95bdb7e0a000cece5acd6845bdad9c5d6e41f7b7a47"
                               },
     "fx_still_rgba.png":  {
                               "gdi":  "b3370bdeb14540f5029b7c87145fda4d4394507269f61f36d6dcc5fb72ead5f2",
-                              "gl":  "f18abbadd7f9b6b2f5b90f7676a0ffe3097576b914d3778fbea2cd95299e2882",
-                              "d3d":  "f5abefd6995ead5d9b407d284fe1f326a24aa6b5fa6e3a5ab442c0e42c104200"
+                              "gl":  "f091c929cb9d7a33b7663099b8a8f7f96a31cccdaa0ce0322058007568f2247e",
+                              "d3d":  "7e7a487630891ac0dadd34d9a025d6fda0d947ef57b4fa0d7ac8366822d03574"
                           },
     "fx_anim_pulse.webp":  {
                                "gdi":  "90e92c4f5ab525dab24d83a1e64533825410b78b792015ef2e6ba78e1e89435f",
-                               "gl":  "c36afb6d806f8fb29a0302fc25cb013dc6e53e05f0cfff812bae6010fc1def0f",
-                               "d3d":  "3a3cfe703566968c9a3b3712310e302829c37fcf9f79297c1ea6320258034d0f"
+                               "gl":  "06a829869c5cad2e0d7049a4dbf2417c638cd7e068d48b2c4887d63b945acaf8",
+                               "d3d":  "ab837a8e94dcfd70c99a14fcc185d0e1c08fda2d1d7c1471fa9118f73acdceba"
                            },
     "fx_still_webp_odd.webp":  {
                                    "gdi":  "336494945f5b650384459996326fb39d3d0486fd72f1afab9e8ab44a3552e501",
-                                   "gl":  "ef1ead780352157f91e17d006d6dd52f4aa1a256de0a3b4fec7c3efa6f3a88ea",
-                                   "d3d":  "88863bb9b2ed2e01b9a0d29a14f2357baea428ad9ae94fffcc9d6b94b7bb2486"
+                                   "gl":  "53d01d5a8476e134776975aef56fa8a233bf8ff30edb36859c1dac9e503cc425",
+                                   "d3d":  "bfafa52dd5f9780b1073966e5e7b58bbd3a82a876d7acbf85f430b10b5615092"
                                },
     "fx_still_qoi_sliver.qoi":  {
                                     "gdi":  "6b48e99223dc1e415146bd7f232e74992a428f4315d60badd1cdf8e3e2074466",
-                                    "gl":  "ac63dd115d7a33674e0a48ea3d65ffbefd0ff87441bc9e5fd1669e2c8b3d9da4",
-                                    "d3d":  "776a9c33375f1254f442716fec1996c8555727e51388e3f98ab939219ebce946"
+                                    "gl":  "a6e657188d7465fd6490a6ce6333bcde66a51a787f16624303ed508d38002864",
+                                    "d3d":  "4cb8f638c33d9e287b543919510c5914b84fcbce7e6c49c45d6fd2d2fc9b6b2b"
                                 },
     "fx_still_textured.png":  {
                                   "gdi":  "2052ad621003d16a341ef4bb0013e5c99c62aacad748de6b5f1305c0f3bb72cc",
-                                  "gl":  "37f2af7241327a1d84d2fec67522a5bdd69ac836a23942a0817789fa67d81885",
-                                  "d3d":  "ef49b97568f6ae5e03f60a22fd18055596127210d39d488fcb3b24eb2a72f6fb"
+                                  "gl":  "5f259a989ead237da5de890ba022c9ac11b0b7b39118ca85d46de1fe7cf8618f",
+                                  "d3d":  "1e82ae6ee0bead1478688d9ba78577c578f4b6a270deedbdf4f0b00d9577c2b7"
                               }
 }
