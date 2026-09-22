@@ -96,7 +96,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"&Always", // LOCALIZATION_ID_ALWAYS,
 	"&While Playing Slideshow or Animating", // LOCALIZATION_ID_WHILE_PLAYING_OR_ANIMATING,
 	"&Never", // LOCALIZATION_ID_NEVER,
-	"&Options...", // LOCALIZATION_ID_OPTIONS,
+	"&Settings...", // LOCALIZATION_ID_OPTIONS,
 	
 	// Slideshow menu
 	"&Slideshow", // LOCALIZATION_ID_SLIDESHOW_MENU,
@@ -363,4 +363,5 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Auto-hide the floating control bar in full screen", // LOCALIZATION_ID_SETTINGS_AUTO_HIDE_BAR
 	"Show pixel info in the status bar", // LOCALIZATION_ID_SETTINGS_PIXEL_INFO
 	"Ctrl+mouse wheel action:", // LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC
+	"Apply", // LOCALIZATION_ID_SETTINGS_APPLY
 };

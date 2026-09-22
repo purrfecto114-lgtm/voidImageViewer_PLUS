@@ -79,7 +79,7 @@
 #define _VIV_SETTINGS_SWITCH_HIGH	24
 #define _VIV_SETTINGS_SWATCH_WIDE	64
 #define _VIV_SETTINGS_SWATCH_HIGH	22
-#define _VIV_SETTINGS_BUTTON_WIDE	160
+#define _VIV_SETTINGS_BUTTON_WIDE	140
 #define _VIV_SETTINGS_BUTTON_HIGH	32
 #define _VIV_SETTINGS_KEYBUTTON_WIDE	88
 #define _VIV_SETTINGS_KEYBUTTON_HIGH	26
@@ -151,6 +151,8 @@
 #define _VIV_SETTINGS_ID_FLOATBAR		42
 #define _VIV_SETTINGS_ID_AUTOHIDE	43
 #define _VIV_SETTINGS_ID_PIXELINFO	44
+// round-126: the apply button - the commit without the close.
+#define _VIV_SETTINGS_ID_APPLY		45
 #define _VIV_SETTINGS_ID_CANCEL		40
 #define _VIV_SETTINGS_ID_OK			41
 
@@ -182,7 +184,12 @@ typedef struct _viv_settings_ctl_s
 } _viv_settings_ctl_t;
 
 // every control of the current page. the array order is the tab order.
-#define _VIV_SETTINGS_CTL_MAX 30
+// round-126: the capacity answers the 4k 300 percent report - the
+// general page's thirty-three seats (the nav, the content, the
+// three-button footer) met a thirty-seat array and the silent drop
+// at the add point took the footer buttons on every dpi. forty
+// keeps four spare seats over the busiest page.
+#define _VIV_SETTINGS_CTL_MAX 40
 
 static HWND _viv_settings_hwnd = 0;
 static int _viv_settings_is_registered = 0;
@@ -197,6 +204,16 @@ static int _viv_settings_pressed = -1;	// ctl pressed with capture
 static int _viv_settings_focus = -1;	// ctl with keyboard focus
 static BYTE _viv_settings_focus_keyboard = 0;	// rc.7: 1 = the focus arrived by keyboard (the ring draws only then)
 static BYTE _viv_settings_tracking = 0;	// the mouse leave tracking is armed
+
+// round-126: the content scroll. the clamped work areas (720p at 100
+// percent, 1080p at 150, the 4k at 300) cut the client under the
+// content - the rows scroll under the pinned footer instead of
+// sinking below the fold.
+static int _viv_settings_scroll_y;
+static int _viv_settings_scroll_max;
+static BYTE _viv_settings_scroll_drag = 0;	// the scrollbar thumb ride
+static int _viv_settings_scroll_grab;
+static BYTE _viv_settings_keys_dirty = 0;	// the shortcut editor's lamp (a deep compare per paint costs more than the latch)
 
 static HFONT _viv_settings_font = 0;
 static HFONT _viv_settings_font_bold = 0;
@@ -218,6 +235,8 @@ static int _viv_settings_snap_language;
 static int _viv_settings_snap_dark_mode;
 static int _viv_settings_snap_accent;
 static int _viv_settings_snap_multiple_instances;
+static int _viv_settings_snap_appdata;
+static int _viv_settings_snap_startmenu;
 static int _viv_settings_snap_shrink_blit;
 static int _viv_settings_snap_mag;
 static int _viv_settings_snap_title;
@@ -275,6 +294,9 @@ static void _viv_settings_activate(int index,int x,int y);
 static void _viv_settings_theme_update(void);
 static void _viv_settings_snapshot(void);
 static void _viv_settings_restore(void);
+static void _viv_settings_commit(void);
+static void _viv_settings_apply(void);
+static int _viv_settings_dirty(void);
 static void _viv_settings_ok(void);
 static void _viv_settings_cancel(void);
 static void _viv_settings_close(void);
@@ -299,7 +321,7 @@ static int _viv_settings_dip(int d);
 static void _viv_settings_ctl_add(int type,int id,int param,int x,int y,int wide,int high);
 static void _viv_settings_draw_text_raw(HDC hdc,const RECT *rect,const wchar_t *text,HFONT font,COLORREF color,int flags);
 static void _viv_settings_draw_label(HDC hdc,const RECT *rect,int localization_id,HFONT font,COLORREF color);
-static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int selected,int hot,int inactive);
+static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int selected,int hot,int inactive,int focus);
 static void _viv_settings_draw_accent(HDC hdc,const _viv_settings_ctl_t *ctl,int hot,int focus);
 static void _viv_settings_draw_title(HDC hdc,const RECT *client);
 static void _viv_settings_title_close_rect(const RECT *client,RECT *rect);
@@ -496,13 +518,17 @@ static void _viv_settings_window_size_px(int *wide,int *high)
 	// round's catch).
 	{
 		RECT work;
-		
-		if (SystemParametersInfo(SPI_GETWORKAREA,0,&work,0))
+
+		// round-126: the rc.13 clamp asked spi_getworkarea - a
+		// primary-monitor-only answer (a settings window on a secondary
+		// screen clamped against the wrong ceiling). the owner's own
+		// monitor answers here; the pages scroll under the pinned footer
+		// when the clamp bites (the 4k 300 percent report).
+		os_MonitorRectFromWindow(_viv_hwnd,0,&work);
+
+		if (*high > work.bottom - work.top)
 		{
-			if (*high > work.bottom - work.top)
-			{
-				*high = work.bottom - work.top;
-			}
+			*high = work.bottom - work.top;
 		}
 	}
 }
@@ -561,6 +587,19 @@ static int _viv_settings_ctl_enabled(const _viv_settings_ctl_t *ctl)
 
 			return 1;
 
+		case _VIV_SETTINGS_CT_BUTTON:
+
+			// the apply button lives on the dirty lamp; the ok and cancel
+			// buttons answer every question. the gate feeds four mouths:
+			// the hit test, the focus walk, the activate refusal and the
+			// grey face.
+			if (ctl->id == _VIV_SETTINGS_ID_APPLY)
+			{
+				return _viv_settings_dirty();
+			}
+
+			return 1;
+
 		case _VIV_SETTINGS_CT_KEYBUTTON:
 
 			if (ctl->id == _VIV_SETTINGS_ID_KEY_EDIT)
@@ -596,6 +635,7 @@ static void _viv_settings_layout(void)
 	int cell_wide;
 	int row_high;
 	int footer_y;
+	int content_first;
 
 	vivp_dpi_probe("layout");
 
@@ -619,6 +659,10 @@ static void _viv_settings_layout(void)
 			nav_wide - (_viv_settings_dip(_VIV_SETTINGS_NAV_X) * 2),
 			_viv_settings_dip(_VIV_SETTINGS_NAV_ITEM_HIGH));
 	}
+
+	// the content seats start after the navigation column; the scroll
+	// bake below moves exactly this range.
+	content_first = _viv_settings_ctl_count;
 
 	content_x = nav_wide + _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD);
 	content_wide = (client.right - _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD)) - content_x;
@@ -947,10 +991,51 @@ static void _viv_settings_layout(void)
 		}
 	}
 
-	// the footer: cancel and ok, right aligned (the paint pass draws
-	// the divider hairline above it).
+	// the content scroll: the clamped work areas cut the client under
+	// the content - the rows scroll under the pinned footer instead of
+	// sinking below the fold. the offset bakes into the rects (the
+	// dropdown popups and the hit tests read the same numbers); the
+	// navigation column and the footer band never move.
+	{
+		int content_bottom;
+		int viewport_bottom;
+
+		content_bottom = y + _viv_settings_dip(4);
+		viewport_bottom = client.bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH);
+
+		_viv_settings_scroll_max = content_bottom - viewport_bottom;
+
+		if (_viv_settings_scroll_max < 0)
+		{
+			_viv_settings_scroll_max = 0;
+		}
+
+		if (_viv_settings_scroll_y > _viv_settings_scroll_max)
+		{
+			_viv_settings_scroll_y = _viv_settings_scroll_max;
+		}
+
+		if (_viv_settings_scroll_y < 0)
+		{
+			_viv_settings_scroll_y = 0;
+		}
+
+		if (_viv_settings_scroll_y > 0)
+		{
+			for(i=content_first;i<_viv_settings_ctl_count;i++)
+			{
+				OffsetRect(&_viv_settings_ctls[i].rect,0,-_viv_settings_scroll_y);
+				OffsetRect(&_viv_settings_ctls[i].value,0,-_viv_settings_scroll_y);
+			}
+		}
+	}
+
+	// the footer: apply, cancel and ok, right aligned (ok keeps its
+	// learned seat; the paint pass draws the divider hairline above
+	// it).
 	footer_y = client.bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH) + (_viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH)) / 2;
 
+	_viv_settings_ctl_add(_VIV_SETTINGS_CT_BUTTON,_VIV_SETTINGS_ID_APPLY,0,client.right - _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE) * 3 - _viv_settings_dip(12) * 2,footer_y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
 	_viv_settings_ctl_add(_VIV_SETTINGS_CT_BUTTON,_VIV_SETTINGS_ID_CANCEL,0,client.right - _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE) * 2 - _viv_settings_dip(12),footer_y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
 	_viv_settings_ctl_add(_VIV_SETTINGS_CT_BUTTON,_VIV_SETTINGS_ID_OK,0,client.right - _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),footer_y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
 
@@ -1005,15 +1090,90 @@ static int _viv_settings_hit_test(int x,int y)
 	return -1;
 }
 
+static int _viv_settings_focus_next(int from,int dir);
+
+// the keyboard walker keeps its target inside the viewport: a focus
+// move below the fold scrolls the column the shortest way to show
+// it (the navigation column and the footer band never scroll).
+static void _viv_settings_ensure_visible(int index)
+{
+	RECT client;
+	int viewport_top;
+	int viewport_bottom;
+	int top;
+	int bottom;
+	int before;
+
+	if ((index < 0) || (index >= _viv_settings_ctl_count))
+	{
+		return;
+	}
+
+	if ((_viv_settings_ctls[index].type == _VIV_SETTINGS_CT_NAV) || (_viv_settings_ctls[index].type == _VIV_SETTINGS_CT_BUTTON))
+	{
+		return;
+	}
+
+	if (_viv_settings_scroll_max <= 0)
+	{
+		return;
+	}
+
+	GetClientRect(_viv_settings_hwnd,&client);
+
+	viewport_top = _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH) + _viv_settings_dip(2);
+	viewport_bottom = client.bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH);
+
+	top = _viv_settings_ctls[index].rect.top;
+	bottom = _viv_settings_ctls[index].rect.bottom;
+
+	before = _viv_settings_scroll_y;
+
+	if (bottom > viewport_bottom)
+	{
+		_viv_settings_scroll_y += bottom - viewport_bottom;
+	}
+	else
+	if (top < viewport_top)
+	{
+		_viv_settings_scroll_y -= viewport_top - top;
+	}
+
+	if (_viv_settings_scroll_y < 0)
+	{
+		_viv_settings_scroll_y = 0;
+	}
+
+	if (_viv_settings_scroll_y > _viv_settings_scroll_max)
+	{
+		_viv_settings_scroll_y = _viv_settings_scroll_max;
+	}
+
+	if (_viv_settings_scroll_y != before)
+	{
+		_viv_settings_layout();
+	}
+}
+
 // focus helpers. the array order is the tab order.
 static void _viv_settings_focus_set(int index,int invalidate)
 {
+	// a disabled row cannot hold the ring (its parent switch just
+	// turned off): the ring walks to the next live control.
+	if ((index >= 0) && (index < _viv_settings_ctl_count) && (!_viv_settings_ctl_enabled(&_viv_settings_ctls[index])))
+	{
+		index = _viv_settings_focus_next(index,1);
+	}
+
 	if (_viv_settings_focus != index)
 	{
 		_viv_settings_focus = index;
 
 		if (invalidate)
 		{
+			// the keyboard walker keeps its target in view.
+			_viv_settings_ensure_visible(index);
+
 			_viv_settings_invalidate();
 		}
 	}
@@ -1649,6 +1809,10 @@ static void _viv_settings_snapshot(void)
 	_viv_settings_appdata = config_appdata ? 1 : 0;
 	_viv_settings_startmenu = _viv_is_start_menu_shortcuts() ? 1 : 0;
 
+	// the dirty baseline for the two pending rows.
+	_viv_settings_snap_appdata = _viv_settings_appdata;
+	_viv_settings_snap_startmenu = _viv_settings_startmenu;
+
 	// rc.7: the startup switch is gone; a value an older install
 	// wrote retires here (once per settings open).
 	_viv_settings_run_key_retire();
@@ -1694,6 +1858,10 @@ static void _viv_settings_snapshot(void)
 	_viv_settings_capture_active = 0;
 	_viv_settings_capture_edit = 0;
 	_viv_settings_capture_key = 0;
+
+	// the shortcut editor's lamp starts dark (a snapshot re-baselines
+	// everything the editor could have touched).
+	_viv_settings_keys_dirty = 0;
 }
 
 // cancel: rewind every config field and reverse the live effects.
@@ -1905,12 +2073,178 @@ static void _viv_settings_restore(void)
 	}
 }
 
-// ok: everything already applied live. hand the edited key list to the
-// real one, rebuild the menu, remember the last page and save. the two
-// admin rows (appdata storage, start menu shortcuts) ride along as
-// command line params for the elevated helper instance (the options
-// dialog behavior: the helper does the work and exits).
-static void _viv_settings_ok(void)
+// the dirty lamp: is anything off the baseline? the live families
+// carry the comparison (the restore pass walks the same fields), the
+// two pending admin rows compare against their snapshot baselines
+// (the live queries walk the file system and the registry - too
+// heavy for a paint-time question), and the shortcut editor rides
+// its latch. the apply button's face asks this every paint.
+static int _viv_settings_dirty(void)
+{
+	int i;
+
+	if (config_language != _viv_settings_snap_language)
+	{
+		return 1;
+	}
+
+	if (config_dark_mode != (BYTE)_viv_settings_snap_dark_mode)
+	{
+		return 1;
+	}
+
+	if (config_multiple_instances != (BYTE)_viv_settings_snap_multiple_instances)
+	{
+		return 1;
+	}
+
+	if (_viv_settings_appdata != _viv_settings_snap_appdata)
+	{
+		return 1;
+	}
+
+	if (_viv_settings_startmenu != _viv_settings_snap_startmenu)
+	{
+		return 1;
+	}
+
+	if (config_shrink_blit_mode != (BYTE)_viv_settings_snap_shrink_blit)
+	{
+		return 1;
+	}
+
+	if (config_mag_filter != (BYTE)_viv_settings_snap_mag)
+	{
+		return 1;
+	}
+
+	if (config_title_bar_format != (BYTE)_viv_settings_snap_title)
+	{
+		return 1;
+	}
+
+	if (config_auto_zoom != (BYTE)_viv_settings_snap_auto_zoom)
+	{
+		return 1;
+	}
+
+	if (config_auto_zoom_type != (BYTE)_viv_settings_snap_auto_type)
+	{
+		return 1;
+	}
+
+	if (config_loop_animations_once != (BYTE)_viv_settings_snap_loop)
+	{
+		return 1;
+	}
+
+	if (config_preload_count != _viv_settings_snap_preload)
+	{
+		return 1;
+	}
+
+	if (config_cache_count != _viv_settings_snap_cache)
+	{
+		return 1;
+	}
+
+	if (config_resume_last_file != (BYTE)_viv_settings_snap_resume)
+	{
+		return 1;
+	}
+
+	if (config_toolbar_icon_only != (BYTE)_viv_settings_snap_toolbar_icon_only)
+	{
+		return 1;
+	}
+
+	if (config_show_zoom_controls != (BYTE)_viv_settings_snap_show_zoom_controls)
+	{
+		return 1;
+	}
+
+	if (config_zoom_auto_hide != (BYTE)_viv_settings_snap_zoom_auto_hide)
+	{
+		return 1;
+	}
+
+	if (config_pixel_info != (BYTE)_viv_settings_snap_pixel_info)
+	{
+		return 1;
+	}
+
+	if (config_left_click_action != (BYTE)_viv_settings_snap_left)
+	{
+		return 1;
+	}
+
+	if (config_right_click_action != (BYTE)_viv_settings_snap_right)
+	{
+		return 1;
+	}
+
+	if (config_mouse_wheel_action != (BYTE)_viv_settings_snap_wheel)
+	{
+		return 1;
+	}
+
+	if (config_ctrl_mouse_wheel_action != (BYTE)_viv_settings_snap_ctrl_wheel)
+	{
+		return 1;
+	}
+
+	if (config_windowed_background_color_r != _viv_settings_snap_windowed_r)
+	{
+		return 1;
+	}
+
+	if (config_windowed_background_color_g != _viv_settings_snap_windowed_g)
+	{
+		return 1;
+	}
+
+	if (config_windowed_background_color_b != _viv_settings_snap_windowed_b)
+	{
+		return 1;
+	}
+
+	if (config_fullscreen_background_color_r != _viv_settings_snap_fullscreen_r)
+	{
+		return 1;
+	}
+
+	if (config_fullscreen_background_color_g != _viv_settings_snap_fullscreen_g)
+	{
+		return 1;
+	}
+
+	if (config_fullscreen_background_color_b != _viv_settings_snap_fullscreen_b)
+	{
+		return 1;
+	}
+
+	if (viv_theme_accent() != _viv_settings_snap_accent)
+	{
+		return 1;
+	}
+
+	for(i=0;i<_VIV_ASSOCIATION_COUNT;i++)
+	{
+		if (_viv_settings_assoc[i] != _viv_settings_snap_assoc[i])
+		{
+			return 1;
+		}
+	}
+
+	return _viv_settings_keys_dirty ? 1 : 0;
+}
+
+// the commit: everything already applied live. hand the edited key
+// list to the real one, rebuild the menu, remember the last page and
+// save. the two admin rows (appdata storage, start menu shortcuts)
+// ride along as command line params for the elevated helper instance
+// (the options dialog behavior: the helper does the work and exits).
+static void _viv_settings_commit(void)
 {
 	HMENU new_hmenu;
 	wchar_t params[STRING_SIZE];
@@ -1957,8 +2291,28 @@ static void _viv_settings_ok(void)
 	}
 
 	config_save_settings(config_appdata);
+}
+
+// ok: the commit, then the close.
+static void _viv_settings_ok(void)
+{
+	_viv_settings_commit();
 
 	_viv_settings_close();
+}
+
+// apply: the commit without the close. the baseline moves with the
+// commit - a later cancel answers with the applied state, not the
+// state the window opened on (the 300 percent report's "the toggle
+// did not survive" was this seam in the wild: the only exits on the
+// general page were the cancel paths, and every one of them rewound).
+static void _viv_settings_apply(void)
+{
+	_viv_settings_commit();
+
+	_viv_settings_snapshot();
+
+	_viv_settings_invalidate();
 }
 
 static void _viv_settings_cancel(void)
@@ -2067,6 +2421,9 @@ static void _viv_settings_capture_commit(void)
 	_viv_settings_capture_end();
 
 	_viv_settings_key_index_clamp();
+
+	// the editor changed the working copy: the dirty lamp lights.
+	_viv_settings_keys_dirty = 1;
 
 	_viv_settings_invalidate();
 }
@@ -2437,6 +2794,9 @@ static void _viv_settings_activate(int index,int x,int y)
 			{
 				_viv_settings_page = ctl->param;
 
+				// each page starts at its own top.
+				_viv_settings_scroll_y = 0;
+
 				_viv_settings_layout();
 
 				_viv_settings_invalidate();
@@ -2637,6 +2997,11 @@ static void _viv_settings_activate(int index,int x,int y)
 				_viv_settings_ok();
 			}
 			else
+			if (ctl->id == _VIV_SETTINGS_ID_APPLY)
+			{
+				_viv_settings_apply();
+			}
+			else
 			{
 				_viv_settings_cancel();
 			}
@@ -2682,6 +3047,9 @@ static void _viv_settings_activate(int index,int x,int y)
 					if (_viv_settings_key_index >= 0)
 					{
 						_viv_key_remove(&_viv_settings_keylist,_viv_settings_command_index,_viv_settings_key_at(_viv_settings_key_index));
+
+						// the working copy changed: the dirty lamp lights.
+						_viv_settings_keys_dirty = 1;
 
 						_viv_settings_key_index_clamp();
 
@@ -2748,7 +3116,7 @@ static void _viv_settings_draw_label(HDC hdc,const RECT *rect,int localization_i
 	_viv_settings_draw_text_raw(hdc,rect,wbuf,font,color,DT_VCENTER | DT_END_ELLIPSIS);
 }
 
-static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int selected,int hot,int inactive)
+static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int selected,int hot,int inactive,int focus)
 {
 	static const int glyph_ids[_VIV_OPTIONS_PAGE_COUNT] = {GLYPH_SETTINGS,GLYPH_PICTURE,GLYPH_GAMEPAD};
 	static const int page_ids[_VIV_OPTIONS_PAGE_COUNT] = {LOCALIZATION_ID_SETTINGS_PAGE_GENERAL,LOCALIZATION_ID_SETTINGS_PAGE_VIEW,LOCALIZATION_ID_SETTINGS_PAGE_CONTROLS};
@@ -2792,6 +3160,13 @@ static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int se
 	text_rect.bottom = rect.bottom;
 
 	_viv_settings_draw_label(hdc,&text_rect,page_ids[ctl->param],_viv_settings_font,text_color);
+
+	// the keyboard ring rides the whole item (the field review's
+	// finding: the tab wrap from ok landed invisible).
+	if (focus)
+	{
+		_viv_settings_draw_focus_ring(hdc,&rect);
+	}
 }
 
 static void _viv_settings_draw_dropdown(HDC hdc,const _viv_settings_ctl_t *ctl,int hot,int focus)
@@ -3311,6 +3686,11 @@ static void _viv_settings_draw_button(HDC hdc,const _viv_settings_ctl_t *ctl,int
 		string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_CANCEL));
 	}
 	else
+	if (ctl->id == _VIV_SETTINGS_ID_APPLY)
+	{
+		string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_APPLY));
+	}
+	else
 	{
 		switch(ctl->id)
 		{
@@ -3330,6 +3710,117 @@ static void _viv_settings_draw_button(HDC hdc,const _viv_settings_ctl_t *ctl,int
 
 	_viv_settings_draw_text_raw(hdc,&ctl->rect,wbuf,_viv_settings_font,text_color,DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
 
+}
+
+// the scrollbar geometry: the thumb rides the right pad strip - the
+// ten dip slice inside the content pad never collides with the value
+// boxes.
+static void _viv_settings_scrollbar_track(const RECT *client,RECT *track)
+{
+	track->left = client->right - _viv_settings_dip(10);
+	track->right = client->right - _viv_settings_dip(2);
+	track->top = _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH) + _viv_settings_dip(2);
+	track->bottom = client->bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH) - _viv_settings_dip(2);
+}
+
+// the thumb is the viewport's share of the content, placed at the
+// scroll position (a minimum height keeps it grabbable).
+static int _viv_settings_scrollbar_thumb(const RECT *track,RECT *thumb)
+{
+	int high;
+	int travel;
+
+	high = ((track->bottom - track->top) * (track->bottom - track->top)) / ((track->bottom - track->top) + _viv_settings_scroll_max);
+
+	if (high < _viv_settings_dip(24))
+	{
+		high = _viv_settings_dip(24);
+	}
+
+	travel = (track->bottom - track->top) - high;
+
+	if (travel <= 0)
+	{
+		return 0;
+	}
+
+	thumb->left = track->left;
+	thumb->right = track->right;
+	thumb->top = track->top + ((travel * _viv_settings_scroll_y) / _viv_settings_scroll_max);
+	thumb->bottom = thumb->top + high;
+
+	return 1;
+}
+
+// the thumb ride: the press jumps the thumb under the cursor and the
+// capture holds it there until the release.
+static void _viv_settings_scrollbar_drag(HWND hwnd,int y)
+{
+	RECT client;
+	RECT track;
+	RECT thumb;
+	int travel;
+	int before;
+
+	GetClientRect(hwnd,&client);
+
+	_viv_settings_scrollbar_track(&client,&track);
+
+	if (!_viv_settings_scrollbar_thumb(&track,&thumb))
+	{
+		return;
+	}
+
+	travel = (track.bottom - track.top) - (thumb.bottom - thumb.top);
+
+	if (travel <= 0)
+	{
+		return;
+	}
+
+	before = _viv_settings_scroll_y;
+
+	_viv_settings_scroll_y = ((((y - _viv_settings_scroll_grab) - track.top) * _viv_settings_scroll_max)) / travel;
+
+	if (_viv_settings_scroll_y < 0)
+	{
+		_viv_settings_scroll_y = 0;
+	}
+
+	if (_viv_settings_scroll_y > _viv_settings_scroll_max)
+	{
+		_viv_settings_scroll_y = _viv_settings_scroll_max;
+	}
+
+	if (_viv_settings_scroll_y != before)
+	{
+		_viv_settings_layout();
+
+		_viv_settings_invalidate();
+	}
+}
+
+// the scrollbar face: the track tints the pad strip, the thumb
+// rounds on it (the wheel, the page keys, the thumb ride and the
+// focus walker all move the same offset).
+static void _viv_settings_draw_scrollbar(HDC mem,const RECT *client)
+{
+	RECT track;
+	RECT thumb;
+
+	if (_viv_settings_scroll_max <= 0)
+	{
+		return;
+	}
+
+	_viv_settings_scrollbar_track(client,&track);
+
+	_viv_settings_fill_round(mem,&track,0,_viv_settings_color(_VIV_SETTINGS_C_NAV_FACE),_viv_settings_color(_VIV_SETTINGS_C_NAV_FACE));
+
+	if (_viv_settings_scrollbar_thumb(&track,&thumb))
+	{
+		_viv_settings_fill_round(mem,&thumb,_viv_settings_dip(3),_viv_settings_color(_VIV_SETTINGS_C_HOVER),_viv_settings_color(_VIV_SETTINGS_C_LINE));
+	}
 }
 
 static void _viv_settings_draw_focus_ring(HDC hdc,const RECT *rect)
@@ -3634,6 +4125,27 @@ static void _viv_settings_paint(HWND hwnd)
 
 	FillRect(mem,&line_rect,_viv_settings_brush(_VIV_SETTINGS_C_LINE));
 
+	// the footer buttons draw ahead of the content clip: their band
+	// sits below the viewport and a scrolled row must not paint over
+	// them (the main loop skips the button type; the key buttons are
+	// content and stay inside).
+	for(i=0;i<_viv_settings_ctl_count;i++)
+	{
+		if (_viv_settings_ctls[i].type == _VIV_SETTINGS_CT_BUTTON)
+		{
+			_viv_settings_draw_button(mem,&_viv_settings_ctls[i],_viv_settings_hot == i ? 1 : 0,_viv_settings_pressed == i ? 1 : 0,(_viv_settings_focus == i) && (_viv_settings_focus_keyboard) ? 1 : 0);
+		}
+	}
+
+	// the scrolled content clips to the viewport: a scrolled row must
+	// not paint over the pinned title row or the footer band (the
+	// navigation column never shares the content's x range).
+	if (_viv_settings_scroll_max > 0)
+	{
+		SaveDC(mem);
+		IntersectClipRect(mem,0,_viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH),client.right,client.bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH));
+	}
+
 	// every control of the page.
 	for(i=0;i<_viv_settings_ctl_count;i++)
 	{
@@ -3642,6 +4154,12 @@ static void _viv_settings_paint(HWND hwnd)
 		int focus;
 
 		ctl = &_viv_settings_ctls[i];
+
+		if (ctl->type == _VIV_SETTINGS_CT_BUTTON)
+		{
+			// drawn ahead of the clip.
+			continue;
+		}
 
 		hot = (_viv_settings_hot == i) ? 1 : 0;
 		focus = ((_viv_settings_focus == i) && (_viv_settings_focus_keyboard)) ? 1 : 0;
@@ -3699,7 +4217,7 @@ static void _viv_settings_paint(HWND hwnd)
 				break;
 
 			case _VIV_SETTINGS_CT_NAV:
-				_viv_settings_draw_nav(mem,ctl,_viv_settings_page == ctl->param ? 1 : 0,hot,inactive);
+				_viv_settings_draw_nav(mem,ctl,_viv_settings_page == ctl->param ? 1 : 0,hot,inactive,focus);
 				break;
 
 			case _VIV_SETTINGS_CT_ACCENT:
@@ -3953,6 +4471,13 @@ static void _viv_settings_paint(HWND hwnd)
 
 	}
 
+	if (_viv_settings_scroll_max > 0)
+	{
+		RestoreDC(mem,-1);
+
+		_viv_settings_draw_scrollbar(mem,&client);
+	}
+
 	BitBlt(hdc,0,0,client.right,client.bottom,mem,0,0,SRCCOPY);
 
 	SelectObject(mem,old_bitmap);
@@ -4150,6 +4675,39 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			_viv_settings_invalidate();
 			break;
 
+		case WM_MOUSEWHEEL:
+		{
+			int delta;
+			int step;
+
+			// the content column scrolls three rows per notch. the
+			// settings window answers its own wheel - the viewer's zoom
+			// never sees it while this dialog holds the messages.
+			if (_viv_settings_scroll_max > 0)
+			{
+				delta = (int)GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+				step = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH) * 3;
+
+				_viv_settings_scroll_y -= delta * step;
+
+				if (_viv_settings_scroll_y < 0)
+				{
+					_viv_settings_scroll_y = 0;
+				}
+
+				if (_viv_settings_scroll_y > _viv_settings_scroll_max)
+				{
+					_viv_settings_scroll_y = _viv_settings_scroll_max;
+				}
+
+				_viv_settings_layout();
+
+				_viv_settings_invalidate();
+			}
+
+			return 0;
+		}
+
 		case WM_MOUSEMOVE:
 		{
 			int x;
@@ -4158,6 +4716,15 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 			x = GET_X_LPARAM(lParam);
 			y = GET_Y_LPARAM(lParam);
+
+			// the scrollbar drag: the thumb follows the cursor while the
+			// capture holds.
+			if (_viv_settings_scroll_drag)
+			{
+				_viv_settings_scrollbar_drag(hwnd,y);
+
+				return 0;
+			}
 
 			hit = _viv_settings_hit_test(x,y);
 
@@ -4261,6 +4828,40 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 				return 0;
 			}
 
+			// the scrollbar strip answers the press next: the thumb jumps
+			// under the cursor and rides it (the capture holds until the
+			// release).
+			if (_viv_settings_scroll_max > 0)
+			{
+				RECT client;
+				RECT track;
+				RECT thumb;
+
+				GetClientRect(hwnd,&client);
+
+				_viv_settings_scrollbar_track(&client,&track);
+
+				if ((x >= track.left) && (x < track.right) && (y >= track.top) && (y < track.bottom))
+				{
+					SetCapture(hwnd);
+
+					_viv_settings_scroll_drag = 1;
+
+					if (_viv_settings_scrollbar_thumb(&track,&thumb))
+					{
+						_viv_settings_scroll_grab = (thumb.bottom - thumb.top) / 2;
+					}
+					else
+					{
+						_viv_settings_scroll_grab = 0;
+					}
+
+					_viv_settings_scrollbar_drag(hwnd,y);
+
+					return 0;
+				}
+			}
+
 			hit = _viv_settings_hit_test(x,y);
 
 			if (hit >= 0)
@@ -4296,6 +4897,8 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			{
 				ReleaseCapture();
 			}
+
+			_viv_settings_scroll_drag = 0;
 
 			_viv_settings_pressed = -1;
 			_viv_settings_hot = hit;
@@ -4417,6 +5020,47 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 			switch(vk)
 			{
+				case VK_PRIOR:
+				case VK_NEXT:
+				{
+					RECT client;
+					int page;
+
+					// the page keys scroll the content column - the
+					// keyboard's wheel (a no-op when the page fits).
+					if (_viv_settings_scroll_max > 0)
+					{
+						GetClientRect(hwnd,&client);
+
+						page = (client.bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH);
+
+						if (vk == VK_PRIOR)
+						{
+							_viv_settings_scroll_y -= page;
+						}
+						else
+						{
+							_viv_settings_scroll_y += page;
+						}
+
+						if (_viv_settings_scroll_y < 0)
+						{
+							_viv_settings_scroll_y = 0;
+						}
+
+						if (_viv_settings_scroll_y > _viv_settings_scroll_max)
+						{
+							_viv_settings_scroll_y = _viv_settings_scroll_max;
+						}
+
+						_viv_settings_layout();
+
+						_viv_settings_invalidate();
+					}
+
+					return 0;
+				}
+
 				case VK_TAB:
 
 					_viv_settings_focus_cycle(GetKeyState(VK_SHIFT) < 0 ? -1 : 1);
@@ -4427,6 +5071,8 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 				case VK_DOWN:
 				{
 					int index;
+					int prev;
+					int wrapped;
 
 					// a dropdown in focus: the arrows open the list.
 					if ((_viv_settings_focus >= 0) && (_viv_settings_ctls[_viv_settings_focus].type == _VIV_SETTINGS_CT_DROPDOWN))
@@ -4436,12 +5082,24 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 						return 0;
 					}
 
-					index = _viv_settings_focus_next(_viv_settings_focus < 0 ? 0 : _viv_settings_focus,(vk == VK_DOWN) ? 1 : -1);
+					prev = _viv_settings_focus < 0 ? 0 : _viv_settings_focus;
+
+					index = _viv_settings_focus_next(prev,(vk == VK_DOWN) ? 1 : -1);
+
+					// a wrap arrival is not a page selection (the tab rule):
+					// the walk that crosses the array's seam lands on a
+					// navigation item by accident - one up arrow from the
+					// first row must not teleport the dialog to another
+					// page (the field review's keyboard finding).
+					wrapped = ((vk == VK_DOWN) && (index <= prev)) || ((vk == VK_UP) && (index >= prev));
 
 					// focusing a navigation item switches to its page.
-					if ((index >= 0) && (_viv_settings_ctls[index].type == _VIV_SETTINGS_CT_NAV))
+					if ((index >= 0) && (!wrapped) && (_viv_settings_ctls[index].type == _VIV_SETTINGS_CT_NAV))
 					{
 						_viv_settings_page = _viv_settings_ctls[index].param;
+
+						// each page starts at its own top.
+						_viv_settings_scroll_y = 0;
 
 						_viv_settings_layout();
 					}
@@ -4495,10 +5153,23 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 					return 0;
 
 				case VK_RETURN:
+				{
+					// the focused push button takes the enter key (the
+					// windows rule); everything else answers the ok path.
+					// a disabled apply declines (the activate refusal).
+					if ((_viv_settings_focus >= 0) &&
+						((_viv_settings_ctls[_viv_settings_focus].type == _VIV_SETTINGS_CT_BUTTON) ||
+						 (_viv_settings_ctls[_viv_settings_focus].type == _VIV_SETTINGS_CT_KEYBUTTON)))
+					{
+						_viv_settings_activate(_viv_settings_focus,-1,-1);
+
+						return 0;
+					}
 
 					_viv_settings_ok();
 
 					return 0;
+				}
 
 				case VK_ESCAPE:
 
@@ -4632,7 +5303,16 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 			if (rect)
 			{
-				SetWindowPos(hwnd,0,rect->left,rect->top,rect->right - rect->left,rect->bottom - rect->top,SWP_NOZORDER | SWP_NOACTIVATE);
+				int wide;
+				int high;
+
+				// the suggested rect keeps the position; the size rides
+				// the same work-area clamp the create path measures with
+				// (a dpi hop can suggest a taller rect than the new
+				// monitor's work area).
+				_viv_settings_window_size_px(&wide,&high);
+
+				SetWindowPos(hwnd,0,rect->left,rect->top,wide,high,SWP_NOZORDER | SWP_NOACTIVATE);
 			}
 
 			_viv_settings_layout();
@@ -4720,6 +5400,10 @@ void _viv_settings_show(void)
 	_viv_settings_fonts_create();
 
 	_viv_settings_snapshot();
+
+	// the scroll starts at the top of the restored page.
+	_viv_settings_scroll_y = 0;
+	_viv_settings_scroll_max = 0;
 
 	// restore the last page (clamped to the page count).
 	_viv_settings_page = config_options_last_page;

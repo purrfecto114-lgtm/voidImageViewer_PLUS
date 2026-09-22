@@ -88,7 +88,7 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"总是置顶(&A)", // LOCALIZATION_ID_ALWAYS
 	"播放时置顶(&W)", // LOCALIZATION_ID_WHILE_PLAYING_OR_ANIMATING
 	"从不置顶(&N)", // LOCALIZATION_ID_NEVER
-	"选项(&O)...", // LOCALIZATION_ID_OPTIONS
+	"设置(&S)...", // LOCALIZATION_ID_OPTIONS
 	"幻灯片放映(&S)", // LOCALIZATION_ID_SLIDESHOW_MENU
 	"播放/暂停(&P)", // LOCALIZATION_ID_PLAY_PAUSE
 	"切换间隔(&R)", // LOCALIZATION_ID_RATE
@@ -337,4 +337,5 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"全屏时自动隐藏悬浮控制条", // LOCALIZATION_ID_SETTINGS_AUTO_HIDE_BAR
 	"状态栏显示像素信息", // LOCALIZATION_ID_SETTINGS_PIXEL_INFO
 	"Ctrl+滚轮操作:", // LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC
+	"应用", // LOCALIZATION_ID_SETTINGS_APPLY
 };

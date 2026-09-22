@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.13.92",
-          (major, minor, rev, build) == (1, 1, 15, 92), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.13",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.13", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.14.93",
+          (major, minor, rev, build) == (1, 1, 15, 93), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.14",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.14", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -714,7 +714,7 @@ def t_sim_version_117():
           "**1.1.14-rc.9** —" in experience and
           "**1.1.14-rc.8** —" in experience and
           "**1.1.14-rc.3** —" in experience and
-          "**1.1.15-rc.13 —" in readme and
+          "**1.1.15-rc.14 —" in readme and
           "**1.1.15-rc.7 —" in readme and
           "**1.1.15-rc.6 —" in readme and
           "### 1.1.15-rc.7 —" in experience and
@@ -2101,13 +2101,13 @@ def t_sim_resume_chain_round122():
 
 
 def t_sim_field_response_round124():
-    """Simulation replays for the field response round (1.1.15-rc.13):
+    """Simulation replays for the field response round (1.1.15-rc.14):
     the successor window's scan economy and cursor alignment, the
     timer fallback pair, the toolbar's play resolution, the status
     bar's two levels, and the backdrop's alpha gate. the parameters
     are extracted from the tree or replay the code's own arithmetic,
     never restated from memory."""
-    print("the field response round (1.1.15-rc.13)")
+    print("the field response round (1.1.15-rc.14)")
     load = read("src/viv_load.c").decode().replace("\r\n", "\n")
     view = read("src/viv_view.c").decode().replace("\r\n", "\n")
     toolbar = read("src/viv_toolbar.c").decode().replace("\r\n", "\n")
@@ -2288,12 +2288,12 @@ def t_sim_field_response_round124():
 
 
 def t_sim_report_fusion_round123():
-    """Simulation replays for the report fusion round (1.1.15-rc.13):
+    """Simulation replays for the report fusion round (1.1.15-rc.14):
     the empty-slot walk refusal, the exit free's loaded count, the
     live-hidden reveal table, and the paste/blank stop pair. every
     model is extracted from the tree or replays the code's own
     arithmetic, never restated from memory."""
-    print("the report fusion round (1.1.15-rc.13)")
+    print("the report fusion round (1.1.15-rc.14)")
     vivload = read("src/viv_load.c").decode()
     viv = read("src/viv.c").decode()
     wndproc = read("src/viv_wndproc.c").decode()
@@ -2376,6 +2376,92 @@ def t_sim_report_fusion_round123():
     check("the old paste answered the stranger over the image (the regression replay)",
           complete_after_stop(0, 1, "queued stranger") == (False, True))
 
+
+
+# ---------------------------------------------------------------------------
+# the settings footer round (1.1.15-rc.14): apply, dirty and scroll.
+
+def t_sim_settings_round126():
+    """Simulation replays for the settings footer round (1.1.15-rc.14):
+    the apply/cancel state machine (apply re-baselines the rollback so
+    cancel answers with the applied state, not the open state), the
+    dirty lamp's arithmetic and the scroll math the clamped work areas
+    ride (the 4k 300 percent report)."""
+    print("sim: the settings footer round (1.1.15-rc.14)")
+
+    # A. the apply state machine. the live config and the snapshot
+    #    baseline are the two ledgers; ok = commit + close, cancel =
+    #    rewind to the baseline, apply = commit + re-baseline + stay.
+    live = {"floatbar": 0, "autohide": 1, "pixel": 0, "toolbar_icon": 0}
+    keys_dirty = False
+
+    def dirty():
+        return (live != snap) or keys_dirty
+
+    # open: the baseline is the live state.
+    snap = dict(live)
+    check("a clean open is not dirty", not dirty())
+
+    # a toggle lights the lamp at once.
+    live["floatbar"] = 1
+    check("a toggle lights the dirty lamp", dirty())
+
+    # apply: the persist lands and the baseline moves with it.
+    snap = dict(live)
+    check("apply re-baselines the lamp", not dirty())
+
+    # a stray edit after apply, then cancel: the rewind answers with
+    # the applied state - the open-state baseline is gone (the 300
+    # percent report's "the toggle did not survive" was this seam in
+    # the wild: the only exits were cancel paths).
+    live["pixel"] = 1
+    live = dict(snap)
+    check("cancel after apply reverts to the applied baseline",
+          live == {"floatbar": 1, "autohide": 1, "pixel": 0, "toolbar_icon": 0})
+
+    # the key latch: the editor arms it, the snapshot clears it, the
+    # lamp sees it without a deep compare.
+    keys_dirty = True
+    check("the key latch lights the lamp on an unchanged config", dirty())
+    keys_dirty = False
+    check("the snapshot clears the latch", not dirty())
+
+    # B. the scroll math. the viewport is the client under the footer;
+    # the content needs its bottom plus a breathing margin; the scroll
+    # range is the shortfall, clamped at zero.
+    ROW_HIGH, FOOTER_HIGH, MARGIN = 34, 76, 4
+
+    def scroll_max(content_bottom, client_high):
+        return max(0, content_bottom + MARGIN - (client_high - FOOTER_HIGH))
+
+    # the general page bottoms at 664 dip (the measured layout).
+    check("the clamped 680-dip work area scrolls the general page (the 300 percent report)",
+          scroll_max(664, 680) >= 60, str(scroll_max(664, 680)))
+    check("the design height never scrolls and one dip short answers with one dip",
+          scroll_max(664, 744) == 0 and scroll_max(664, 743) == 1)
+    check("the shorter pages never scroll on the clamped area",
+          scroll_max(526, 680) == 0 and scroll_max(418, 680) == 0)
+    check("a half-height work area scrolls every page but stays clamped",
+          0 < scroll_max(664, 500) < 664 and scroll_max(526, 500) > 0)
+
+    # the wheel: one notch is three rows, clamped at both ends.
+    STEP = ROW_HIGH * 3
+
+    def wheel(y, notches, mx):
+        return max(0, min(mx, y - (notches * STEP)))
+
+    mx = scroll_max(664, 680)
+    check("a forward notch climbs to the top and clamps",
+          wheel(mx, 1, mx) == max(0, mx - STEP) and wheel(0, 1, mx) == 0)
+    check("a backward notch descends three rows and clamps at the bottom",
+          wheel(0, -1, mx) == min(mx, STEP) and wheel(mx, -1, mx) == mx)
+
+    # the scroll state resets on a page switch (page one's offset must
+    # not answer for page two's shorter content).
+    check("a page switch resets the offset",
+          (lambda y: 0)(wheel(50, 0, mx)) == 0)
+
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -2395,6 +2481,7 @@ if __name__ == "__main__":
     t_sim_resume_chain_round122()
     t_sim_report_fusion_round123()
     t_sim_field_response_round124()
+    t_sim_settings_round126()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

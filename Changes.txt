@@ -1,4 +1,44 @@
-﻿Pre-release: Version 1.1.15-rc.13 (the field response round)
+﻿Pre-release: Version 1.1.15-rc.14 (the settings footer round)
+
+	the 4k 300 percent report: the settings window showed no footer
+	at all. the remake's rows had pushed the general page to
+	thirty-three live controls against a thirty-seat array, and the
+	capacity guard at the add point answered by silently dropping the
+	last two registrations - the cancel and ok buttons, on every dpi,
+	on the page that carries most of the settings. the array answers
+	forty seats now, and the census guards count every page's live
+	demand against the declared ceiling, so no page can ship a full
+	house again.
+
+	the same report's "the floating bar does not hot switch" was the
+	cascade, not a sink gap: the pill did follow the toggle live, but
+	the only exits left on the buttonless page were esc, the close
+	command and the title x - all three cancel paths, and every one of
+	them rewound the toggle. the footer's third button arrives with the
+	round: apply commits without closing and moves the rollback
+	baseline with it (a later cancel answers with the applied state,
+	not the state the window opened on), and its face rides the dirty
+	lamp - grey while nothing differs from the baseline, live the moment
+	anything does (the shortcut editor arms its own latch so the lamp
+	never pays a deep list compare per paint).
+
+	the clamped work areas (720p at 100 percent, 1080p at 150, the 4k
+	at 300) cut the client under the content: the rows now scroll
+	under the pinned footer - the wheel (three rows a notch), the page
+	keys, a draggable thumb on the pad strip, and the keyboard walker
+	scrolls its target into view. the height clamp asks the owner's own
+	monitor for its work area (the spi query only knows the primary's),
+	and a dpi hop rides the same clamp.
+
+	the review round's keyboard repairs land with it: an arrow wrap
+	onto the navigation column is a focus move, not a page selection
+	(one up arrow from the first row no longer teleports the dialog);
+	enter answers the focused push button before the global ok; the
+	navigation column draws its keyboard focus ring; a disabled row
+	passes the ring on; and the file menu entry and the window title
+	agree on the name (settings) at last.
+
+Pre-release: Version 1.1.15-rc.13 (the field response round)
 
 	the round answers a nine-item field report from the rc.12
 	release, each item diagnosed by a parallel agent and re-verified

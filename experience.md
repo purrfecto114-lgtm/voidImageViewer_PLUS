@@ -191,6 +191,64 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.14 — the settings footer round (2026-09-22, build 93)
+
+- Commit: (this round); the capacity lift with the per-page census guard,
+  the apply machine (the commit/ok/apply split, the dirty lamp, the keys
+  latch), the content scroll (the offset bake, the viewport clip, the
+  wheel/page-keys/thumb/focus-walker quartet), the monitor-aware height
+  clamp, and the three keyboard repairs the rubric review surfaced.
+- Lessons:
+  - **a capacity guard that drops silently is a deferred outage.** the
+    settings control array answered a full house by dropping the tail -
+    and the tail is the footer, because the footer registers last. the
+    rc.13 remake added rows without counting seats; three suites stayed
+    green over a page with no commit buttons, and the field read one
+    integer as three different bugs (no footer, "too large," "no hot
+    switch"). the census now counts every page's live demand against the
+    declared ceiling - the same contract the ring's capacity learned in
+    round-120, one layer up. the switch/dropdown census itself had walked
+    7/13 (rc.11) to 10/14 (rc.13) without a seat dimension; the round
+    adds it.
+  - **diagnose the exit before the switch.** "the floating bar does not
+    hot switch" was true to the eye and false in the code: the click
+    handler ran the live sink, the pill followed - and every reachable
+    exit on the buttonless page (esc, the close command, the title x)
+    rewound it. when a toggle "does not work," walk the commit path the
+    user actually takes, not only the sink the code calls.
+  - **apply is a baseline move, not a second commit path.** splitting ok
+    into commit + close let apply be commit + re-snapshot + stay: one
+    writer, two lifecycles. the dirty lamp rides the one gate
+    (ctl_enabled) that four consumers already read - hit test, focus
+    walk, activate refusal, the grey face - so the button's whole
+    behavior is one function.
+  - **clamp against the monitor you are on.** spi_getworkarea answers
+    the primary monitor only; a per-monitor-v2 app that clamps a window
+    against it is wrong on every secondary screen. the owner's own
+    monitor (monitorfromwindow + getmonitorinfo's rcwork) is the query
+    that matches the window.
+
+### 1.1.15-rc.13 — the field response round (2026-09-22, build 92)
+
+- Commit: 152c067 + 6492d5d; the nine-item field report, six parallel
+  diagnosis agents with self-verification, the main thread's second
+  pass, two implementation agents and four function agents on the
+  integrated result - the verification catches (the slwa/ulw mutual
+  exclusion, the golden gate's 1:1 truth) shipped in the same release.
+- Lessons:
+  - **two p0s only the function agents caught.** both were runtime or
+    geometry semantics - a layered-window api contract, a fit-math
+    illusion that three human reviews shared - and static reading walked
+    past both. the method that works: verification agents with the web
+    and re-derivation, not just the tree.
+  - **comments are intent, not fact.** a "100x100 magnify" comment that
+    was mathematically false gave every reviewer the same wrong picture;
+    the geometry settled by re-running the export config's own
+    arithmetic, not by reading the comment harder.
+  - **a guard must pin the machine's output, not the machine's
+    absence.** the uv-mapping flip mutation passed all five suites; the
+    byte teeth the round added pin the mapping rows themselves.
+
 ### 1.1.15-rc.11 — the resume and chain round (2026-09-21, build 90)
 
 - Commit: (this round); the resume switch's state-draw case (the pill), the chain walk's

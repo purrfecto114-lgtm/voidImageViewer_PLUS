@@ -24,11 +24,14 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.13 — the field response round (the current release candidate):**
+**1.1.15-rc.14 — the settings footer round (the current release candidate):**
 
-- The nine-item field report lands whole — the upgrade's lost cache seat (the chain reserves the history seat; the effective promise is min(preload, cache)), the per-step folder rescans (the successor window: one scan serves the navigation and the preload chain alike), the animation toolbar that could never resume, and the flipped hardware launch (the getobject height sign is unrecoverable — one mapping for every top-down frame).
-- The pill renders through gdiplus antialiased paths into a premultiplied layered bitmap (per-pixel alpha kills the black corners, the arcs smooth out), the menu retires its dead rows (the win8-dead preview verb gated, the sub-second slideshow rates gone), and the settings page regroups (view sections, the floating-bar and pixel-info switches, the ctrl-wheel action, toolbar tooltips).
-- The status bar's frame counter owns a fast path, the rotate no longer blocks the ui thread on the shell's re-encode, and a backdrop change reloads only the images that baked it.
+- The 4K-300% report lands whole — the general page's footer buttons were silently dropped (thirty-three live controls on a thirty-seat array; the capacity now counts forty and the census guards every page against it), and the window height clamps to its own monitor's work area.
+- The settings content scrolls under the pinned footer when the work area is short (720p@100%, 1080p@150%, 4K@300%) — wheel, page keys, a draggable thumb, and the keyboard walker scrolls its target into view.
+- The footer gains **Apply** — commit without closing, grey while nothing differs (the dirty lamp); a later Esc or Cancel answers with the applied state, not the state the window opened on. The floating bar hot-switches for real now — the rc.13 sinks were live all along, the missing buttons were the break.
+- The keyboard repairs: an arrow wrap onto the navigation column no longer teleports the page, Enter answers the focused button before the global OK, the navigation column draws its focus ring, and the File menu entry finally says Settings like its window.
+
+**1.1.15-rc.13 — the field response round:** the nine-item field report — the upgrade's lost cache seat, the successor window, the animation toolbar, the renderer flip, the pill's layered-window rework, the menu retirements and the settings regrouping. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.12 — the report fusion round:** the third fusion report's ledger — the two P1 guard teeth, the sixteen P2 line fixes, and the ci/installer trust work. See [Changes.txt](Changes.txt).
 
@@ -38,6 +41,7 @@ What's new
 
 **1.1.15-rc.9 — the memory and cache round:** the cache ring and the preload chain you size, the resume switch, the recent/rename identity fixes, and the animation memory work. See [Changes.txt](Changes.txt).
 - The image cache is a ring you size — Settings → View → **Cache count** (off / 1–8 images); walk back through what you just saw without reloading.
+- Every settings row applies live as you flip it; **OK** (or Enter) persists and closes, **Apply** persists and stays, **Cancel** (or Esc, or the title ✕) rewinds to the last persisted baseline. On short work areas the page scrolls under the footer — the wheel, the page keys and the scrollbar thumb all move it.
 - Preloading walks a chain you size — **Preload count** (off / 1–5 images ahead); the chain's images sit in the ring, ready before you arrive.
 - The cache set holds its own memory line (half the image budget), the trim drops the oldest first, and animations stop building a mipmap chain for every frame nobody looks at — the field's high-memory reading lands at a fraction of the old residency.
 - Recent files no longer reorder when a forwarded re-open of the file on screen rides an in-flight load; rename binds to the file you are looking at.
@@ -74,16 +78,16 @@ Touch & zoom controls
 | Toolbar zoom buttons | Zoom in / out |
 | Floating zoom bar | One seven-cell row in both modes — prev / play-pause / next / zoom out / percent / zoom in (bottom center; fullscreen fades it out when idle) |
 
-Gestures need Windows 7+ with touch hardware. Single-finger input stays mouse-compatible, so configured click actions are unaffected. Toggle the floating controls via **View → Zoom Controls**. A pinch keeps shrinking below the windowed fit, down to about fit/16 (mirroring the 16× zoom cap) — `Allow shrinking` in Options keeps its meaning.
+Gestures need Windows 7+ with touch hardware. Single-finger input stays mouse-compatible, so configured click actions are unaffected. Toggle the floating controls via **View → Floating Control Bar**. A pinch keeps shrinking below the windowed fit, down to about fit/16 (mirroring the 16× zoom cap) — `Allow shrinking` in Options keeps its meaning.
 
 Canvas, backdrop & dark mode
 --------
 
-- **Windowed / fullscreen background color** — Options → View, or the View menu picker; the mat around the image and the empty-window canvas.
+- **Windowed / fullscreen background color** — Settings → View, or the View menu picker; the mat around the image and the empty-window canvas.
 - **Backdrop under transparency** — View → Transparency backdrop: follow the window background color, black, white, custom color, or checkerboard. Alpha images (PNG/GIF/WEBP) composite over it at load time. This is *not* the canvas around the image — that color is the windowed background above.
 - **Dark UI rule** — the light UI always shows your exact colors. In the dark UI a light mat keeps its hue but drops into the dark range (the default white maps to the dark palette canvas), and the same rule applies to the custom backdrop, so nothing glares out of the dark chrome. The Win11 caption tint follows the mat.
 - **The dark UI is complete** — dialogs, options pages and the menu bar all follow the theme (owner-drawn where the theme API falls short on older builds); light dialogs stay light.
-- Dark mode itself: Options → General → Dark mode — light, dark, or follow Windows. Theme flips repaint the whole window and re-assert the dark chrome unconditionally (a delayed re-check heals any system-side light repaint), and the open dialogs re-theme live.
+- Dark mode itself: Settings → General → Theme — automatic (follow Windows), light, or dark. Theme flips repaint the whole window and re-assert the dark chrome unconditionally (a delayed re-check heals any system-side light repaint), and the open dialogs re-theme live.
 
 Recent files
 --------
@@ -94,7 +98,7 @@ Languages
 English and 简体中文 ship built-in.
 
 - The setup picks the language on its first page.
-- **Options → General → Language** switches Auto / English / 简体中文 on the fly (no restart).
+- **Settings → General → Language** switches Auto / English / 简体中文 on the fly (no restart).
 - Stored as `language=auto|english|chinese` in `voidImageViewer.ini`; unattended installs may pass `/language english|chinese|auto`.
 
 Build from source
