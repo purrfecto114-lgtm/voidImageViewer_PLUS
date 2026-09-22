@@ -372,6 +372,9 @@ void _viv_playlist_add_current_if_empty(void)
 }
 void _viv_playlist_clearall(void)
 {	
+	// the folder branch resumes when the playlist goes - a window
+	// captured before the playlist era must not answer its steps.
+	_viv_nav_window_invalidate();
 	_viv_playlist_t *d;
 	
 	d = _viv_playlist_start;

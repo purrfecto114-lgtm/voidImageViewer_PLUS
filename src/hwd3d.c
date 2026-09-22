@@ -57,7 +57,6 @@ static int _viv_d3d_client_wide;
 static int _viv_d3d_client_high;
 static float _viv_d3d_u;
 static float _viv_d3d_v;
-static int _viv_d3d_bottom_up;
 
 // the export harness readback state: a top-down bgra buffer armed before
 // the paint, filled by the render instead of a present.
@@ -382,7 +381,6 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	
 	_viv_d3d_u = (float)wide / (float)pot_wide;
 	_viv_d3d_v = (float)high / (float)pot_high;
-	_viv_d3d_bottom_up = (ds->dsBmih.biHeight > 0) ? 1 : 0;
 	_viv_d3d_last_hbitmap = hbitmap;
 	
 	return 1;
@@ -515,28 +513,22 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 		verts[3].z = 0.0f;
 		verts[3].rhw = 1.0f;
 		
-		if (_viv_d3d_bottom_up)
-		{
-			verts[0].u = 0.0f;
-			verts[0].v = _viv_d3d_v;
-			verts[1].u = _viv_d3d_u;
-			verts[1].v = _viv_d3d_v;
-			verts[2].u = 0.0f;
-			verts[2].v = 0.0f;
-			verts[3].u = _viv_d3d_u;
-			verts[3].v = 0.0f;
-		}
-		else
-		{
-			verts[0].u = 0.0f;
-			verts[0].v = 0.0f;
-			verts[1].u = _viv_d3d_u;
-			verts[1].v = 0.0f;
-			verts[2].u = 0.0f;
-			verts[2].v = _viv_d3d_v;
-			verts[3].u = _viv_d3d_u;
-			verts[3].v = _viv_d3d_v;
-		}
+		// every frame this app builds is a top-down dib, and the sign
+		// that says so is unrecoverable through getobject - it answers
+		// the absolute height for both orientations (the wine test suite
+		// asserts it, reactos implements it, and the r96 read believed it
+		// could tell: the flag was always 1 on a real machine and every
+		// image rode the flip - the field report's upside-down launch).
+		// the one mapping answers them all: the screen's top edge samples
+		// the texture's row zero, the image's own top.
+		verts[0].u = 0.0f;
+		verts[0].v = 0.0f;
+		verts[1].u = _viv_d3d_u;
+		verts[1].v = 0.0f;
+		verts[2].u = 0.0f;
+		verts[2].v = _viv_d3d_v;
+		verts[3].u = _viv_d3d_u;
+		verts[3].v = _viv_d3d_v;
 		
 		_viv_d3d_device->lpVtbl->SetRenderState(_viv_d3d_device,D3DRS_CULLMODE,D3DCULL_NONE);
 		_viv_d3d_device->lpVtbl->SetRenderState(_viv_d3d_device,D3DRS_LIGHTING,FALSE);

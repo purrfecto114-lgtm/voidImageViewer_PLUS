@@ -209,8 +209,20 @@ try {
         # green would enter the manifest, so the bootstrap is where it
         # is refused - before anything is written.
         $solidControls = @("28_control_png_100x100.png", "29_control_png_4000x3000.png")
+        # rc.13: the upright mapping answers 1:1 exactly - a textured
+        # sample that renders at native size legitimately agrees
+        # across legs, and the flip era's disagreement on them was the
+        # bug's own signature (the old "100x100 magnify" note was
+        # wrong: fill_window 0 never magnifies). the discrimination
+        # rides the scaled samples - a hardware leg that never drew
+        # still cannot match gdi's halftone shrink.
+        $oneToOne = @("fx_anim_bounce.gif", "fx_anim_fade.gif", "fx_still_24bpp.bmp",
+                      "fx_still_photo.jpg", "fx_still_qoi_rgb.qoi", "fx_still_qoi_rgba.qoi",
+                      "fx_still_rgba.png", "fx_anim_pulse.webp", "fx_still_webp_odd.webp",
+                      "fx_still_textured.png")
         foreach ($s in $goldenSamples) {
             if ($solidControls -contains $s) { continue }
+            if ($oneToOne -contains $s) { continue }
             $answered = @()
             foreach ($r in @("gdi", "gl", "d3d")) {
                 if ($results[$s].ContainsKey($r) -and $results[$s][$r]) { $answered += $results[$s][$r] }

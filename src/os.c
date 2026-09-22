@@ -152,6 +152,17 @@ int (__stdcall *os_GdipSaveImageToFile)(void *image,const wchar_t *filename,cons
 int (__stdcall *os_GdipGetImageEncodersSize)(unsigned int *numCodecs,unsigned int *size) = 0;
 int (__stdcall *os_GdipGetImageEncoders)(unsigned int numCodecs,unsigned int size,void *encoders) = 0;
 HPALETTE (__stdcall *os_GdipCreateHalftonePalette)(void) = 0;
+int (__stdcall *os_GdipCreatePath)(int fill_mode,void **path) = 0;
+int (__stdcall *os_GdipDeletePath)(void *path) = 0;
+int (__stdcall *os_GdipAddPathArc)(void *path,float x,float y,float width,float height,float start_angle,float sweep_angle) = 0;
+int (__stdcall *os_GdipAddPathLine)(void *path,float x1,float y1,float x2,float y2) = 0;
+int (__stdcall *os_GdipClosePathFigure)(void *path) = 0;
+int (__stdcall *os_GdipCreateSolidFill)(unsigned int argb,void **brush) = 0;
+int (__stdcall *os_GdipDeleteBrush)(void *brush) = 0;
+int (__stdcall *os_GdipFillPath)(void *graphics,void *brush,void *path) = 0;
+int (__stdcall *os_GdipDrawPath)(void *graphics,void *pen,void *path) = 0;
+int (__stdcall *os_GdipCreatePen1)(unsigned int argb,float width,int unit,void **pen) = 0;
+int (__stdcall *os_GdipDeletePen)(void *pen) = 0;
 BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void) = 0;
 HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
 static unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
@@ -1122,6 +1133,19 @@ void os_init(void)
 		os_GdipSetInterpolationMode = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipSetInterpolationMode");
 		os_GdipSetPixelOffsetMode = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipSetPixelOffsetMode");
 		os_GdipSetSmoothingMode = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipSetSmoothingMode");
+		// the vector path group (the zoomui pill per-pixel layered surface):
+		// stadium paths, solid fills, hairline strokes.
+		os_GdipCreatePath = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipCreatePath");
+		os_GdipDeletePath = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDeletePath");
+		os_GdipAddPathArc = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipAddPathArc");
+		os_GdipAddPathLine = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipAddPathLine");
+		os_GdipClosePathFigure = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipClosePathFigure");
+		os_GdipCreateSolidFill = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipCreateSolidFill");
+		os_GdipDeleteBrush = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDeleteBrush");
+		os_GdipFillPath = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipFillPath");
+		os_GdipDrawPath = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDrawPath");
+		os_GdipCreatePen1 = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipCreatePen1");
+		os_GdipDeletePen = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDeletePen");
 		os_GdipDrawImageRectI = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDrawImageRectI");
 		os_GdipDeleteGraphics = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipDeleteGraphics");
 		os_GdipCreateBitmapFromHBITMAP = (void *)_os_get_proc_address(_os_gdiplus_hmodule,"GdipCreateBitmapFromHBITMAP");

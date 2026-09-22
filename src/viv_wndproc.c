@@ -884,6 +884,7 @@ debug_printf("FIRST FRAME TERMINATE\n");
 								first_frame->frame.hbitmap = 0;
 								first_frame->frame.mipmap = NULL;
 								_viv_slot_preload.frame_loaded_count = 1;
+								_viv_slot_preload.alpha_baked = first_frame->alpha_baked;
 
 								_viv_status_update();
 							}
@@ -917,6 +918,7 @@ debug_printf("FIRST FRAME TERMINATE\n");
 							first_frame->frame.hbitmap = 0;
 							first_frame->frame.mipmap = NULL;
 							_viv_slot_current.frame_loaded_count = 1;
+							_viv_slot_current.alpha_baked = first_frame->alpha_baked;
 							
 							_viv_start_first_frame();
 							
@@ -1284,7 +1286,7 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				if (invalidate)
 				{
 					_viv_update_src_pixel(1,0);
-					_viv_status_update();
+					_viv_status_update_frame();
 					InvalidateRect(hwnd,0,FALSE);
 					
 					if (_viv_is_animation_paint)

@@ -131,6 +131,20 @@ extern int (__stdcall *os_GdipGetImageEncoders)(unsigned int numCodecs,unsigned 
 // graphics::GetHalftonePalette for 256 color mode (an upstream todo): the
 // gdiplus flat api hands back the halftone palette as a plain gdi hpalette.
 extern HPALETTE (__stdcall *os_GdipCreateHalftonePalette)(void);
+// the flat api group the zoom pill's per-pixel layered surface needs:
+// stadium paths (arcs, lines, closefigure), solid fills and hairline
+// strokes, resolved from the same gdiplus.dll load.
+extern int (__stdcall *os_GdipCreatePath)(int fill_mode,void **path);
+extern int (__stdcall *os_GdipDeletePath)(void *path);
+extern int (__stdcall *os_GdipAddPathArc)(void *path,float x,float y,float width,float height,float start_angle,float sweep_angle);
+extern int (__stdcall *os_GdipAddPathLine)(void *path,float x1,float y1,float x2,float y2);
+extern int (__stdcall *os_GdipClosePathFigure)(void *path);
+extern int (__stdcall *os_GdipCreateSolidFill)(unsigned int argb,void **brush);
+extern int (__stdcall *os_GdipDeleteBrush)(void *brush);
+extern int (__stdcall *os_GdipFillPath)(void *graphics,void *brush,void *path);
+extern int (__stdcall *os_GdipDrawPath)(void *graphics,void *pen,void *path);
+extern int (__stdcall *os_GdipCreatePen1)(unsigned int argb,float width,int unit,void **pen);
+extern int (__stdcall *os_GdipDeletePen)(void *pen);
 int os_save_hbitmap(HBITMAP hbitmap,const wchar_t *filename,int format);
 extern BOOL (WINAPI *os_CreateTimerQueueTimer)(PHANDLE phNewTimer,HANDLE TimerQueue,WAITORTIMERCALLBACK Callback,PVOID Parameter,DWORD DueTime,DWORD Period,ULONG Flags);
 extern BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HANDLE CompletionEvent);

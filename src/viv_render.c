@@ -613,7 +613,19 @@ void _viv_backdrop_apply(void)
 {
 	_viv_check_menus(_viv_hmenu);
 	
-	_viv_refresh();
+	// an opaque image never baked the backdrop into its pixels -
+	// the mat around it answers the paint, and the full reload (the
+	// ring nuked, the current file redecoded) bought nothing (the
+	// field report's lag family). an alpha image baked it at load:
+	// only the reload repaints its frames over the new backdrop.
+	if (_viv_slot_current.alpha_baked)
+	{
+		_viv_refresh();
+	}
+	else
+	{
+		InvalidateRect(_viv_hwnd,0,FALSE);
+	}
 }
 void _viv_update_src_pixel(int force,int update_statusbar)
 {

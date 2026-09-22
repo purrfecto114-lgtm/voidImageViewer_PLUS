@@ -124,6 +124,8 @@ static int _viv_toolbar_playing = 0; // 1 = the pause face on the play slot.
 static int _viv_toolbar_hover = -1; // the item under the mouse, or -1.
 static int _viv_toolbar_pressed = -1; // the item held with capture, or -1.
 static BYTE _viv_toolbar_tracking = 0; // the mouse leave tracking is armed.
+static HWND _viv_toolbar_tooltip_hwnd = 0; // the strip rect tooltip (the zoomui pill clone).
+static BYTE _viv_toolbar_item_tool[_VIV_TOOLBAR_ITEM_COUNT]; // a tooltip tool exists for the item.
 
 // the faces resolve through the theme tokens now: one palette for every
 // surface (the private dark values duplicated the token table), and a
@@ -133,6 +135,10 @@ static BYTE _viv_toolbar_tracking = 0; // the mouse leave tracking is armed.
 static void _viv_toolbar_measure(void);
 static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_y);
+static int _viv_toolbar_tooltip_id(int itemi);
+static void _viv_toolbar_tooltip_sync(void);
+static void _viv_toolbar_tooltip_destroy(void);
+static void _viv_toolbar_tooltip_apply_colors(void);
 void _viv_start_move_window(void); // viv_view.c: the strip background drag
 
 // dip macros: the 96 dpi design units at the window's current dpi.
@@ -320,6 +326,151 @@ static void _viv_toolbar_measure(void)
 		
 		group--;
 	}
+	
+	// the tools follow the fresh layout (rects, visibility, the play face).
+	_viv_toolbar_tooltip_sync();
+}
+
+// round-125: the strip tooltip - the zoomui pill rect mechanism ported
+// over. one comctl tooltip child of the strip, one tool per visible
+// button (uId = item index), TTF_SUBCLASS so the control relays the
+// mouse messages itself. the text is the button own localized command
+// name (the label family the command table uses for these verbs), the
+// play slot following its live face like the pill play cell does. the
+// rect follows every layout pass, so the overflow walk and the group
+// mask never leave a stale tool behind: a masked slot keeps the x of
+// the slot after it, and a stale rect there would name the wrong button.
+static int _viv_toolbar_tooltip_id(int itemi)
+{
+	if (_viv_toolbar_items[itemi].type != _VIV_TOOLBAR_TYPE_BUTTON)
+	{
+		return 0;
+	}
+	
+	return _viv_toolbar_item_label_id(itemi);
+}
+
+// tint the tooltip control with the palette (the zoomui rule): comctl
+// tooltips have no dark theme of their own, the colors arrive by message.
+static void _viv_toolbar_tooltip_apply_colors(void)
+{
+	if (_viv_toolbar_tooltip_hwnd)
+	{
+		if (_viv_toolbar_dark)
+		{
+			SendMessage(_viv_toolbar_tooltip_hwnd,TTM_SETTIPBKCOLOR,viv_theme_color(VIV_TK_FACE),0);
+			SendMessage(_viv_toolbar_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,viv_theme_color(VIV_TK_TEXT),0);
+		}
+		else
+		{
+			SendMessage(_viv_toolbar_tooltip_hwnd,TTM_SETTIPBKCOLOR,GetSysColor(COLOR_INFOBK),0);
+			SendMessage(_viv_toolbar_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,GetSysColor(COLOR_INFOTEXT),0);
+		}
+	}
+}
+
+// create the control on the first layout, then keep the tools level with
+// the strip: a visible button gains (or refreshes) its tool, anything
+// else loses it. the play slot text refresh rides the same pass (the
+// face swap runs the measure).
+static void _viv_toolbar_tooltip_sync(void)
+{
+	int itemi;
+	
+	if (!_viv_toolbar_hwnd)
+	{
+		return;
+	}
+	
+	if (!_viv_toolbar_tooltip_hwnd)
+	{
+		_viv_toolbar_tooltip_hwnd = os_CreateWindowEx(
+			WS_EX_TOPMOST,
+			TOOLTIPS_CLASSA,
+			"",
+			WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+			CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,
+			_viv_toolbar_hwnd,
+			0,
+			os_hinstance,
+			NULL);
+		
+		if (_viv_toolbar_tooltip_hwnd)
+		{
+			_viv_toolbar_tooltip_apply_colors();
+		}
+	}
+	
+	if (!_viv_toolbar_tooltip_hwnd)
+	{
+		return;
+	}
+	
+	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+	{
+		int id;
+		
+		id = _viv_toolbar_tooltip_id(itemi);
+		
+		if ((id) && (_viv_toolbar_item_visible[itemi]))
+		{
+			TOOLINFOW ti;
+			wchar_t wbuf[STRING_SIZE];
+			
+			os_zero_memory(&ti,sizeof(ti));
+			
+			ti.cbSize = sizeof(ti);
+			ti.uFlags = TTF_SUBCLASS;
+			ti.hwnd = _viv_toolbar_hwnd;
+			ti.uId = (UINT_PTR)itemi;
+			ti.rect.left = _viv_toolbar_item_x[itemi];
+			ti.rect.top = 0;
+			ti.rect.right = _viv_toolbar_item_x[itemi] + _viv_toolbar_item_wide[itemi];
+			ti.rect.bottom = _viv_toolbar_bar_high;
+			ti.hinst = 0;
+			string_copy_utf8_string(wbuf,localization_get_string((localization_id_t)id));
+			ti.lpszText = wbuf;
+			
+			if (_viv_toolbar_item_tool[itemi])
+			{
+				SendMessage(_viv_toolbar_tooltip_hwnd,TTM_SETTOOLINFOW,0,(LPARAM)&ti);
+			}
+			else
+			{
+				if (SendMessage(_viv_toolbar_tooltip_hwnd,TTM_ADDTOOLW,0,(LPARAM)&ti))
+				{
+					_viv_toolbar_item_tool[itemi] = 1;
+				}
+			}
+		}
+		else
+		if (_viv_toolbar_item_tool[itemi])
+		{
+			TOOLINFOW ti;
+			
+			os_zero_memory(&ti,sizeof(ti));
+			
+			ti.cbSize = sizeof(ti);
+			ti.hwnd = _viv_toolbar_hwnd;
+			ti.uId = (UINT_PTR)itemi;
+			
+			SendMessage(_viv_toolbar_tooltip_hwnd,TTM_DELTOOLW,0,(LPARAM)&ti);
+			
+			_viv_toolbar_item_tool[itemi] = 0;
+		}
+	}
+}
+
+static void _viv_toolbar_tooltip_destroy(void)
+{
+	if (_viv_toolbar_tooltip_hwnd)
+	{
+		DestroyWindow(_viv_toolbar_tooltip_hwnd);
+		
+		_viv_toolbar_tooltip_hwnd = 0;
+	}
+	
+	os_zero_memory(_viv_toolbar_item_tool,sizeof(_viv_toolbar_item_tool));
 }
 
 static void _viv_toolbar_invalidate_item(int itemi)
@@ -384,7 +535,12 @@ static void _viv_toolbar_fire(int itemi)
 		{
 			command_id = VIV_ID_SLIDESHOW_PAUSE_ONLY;
 		}
-		else if ((_viv_slot_current.frame_count > 1) && (_viv_animation_play))
+		// an animated image toggles its own clock here - playing or
+		// paused alike. the paused state used to fall through to the
+		// slideshow start: the face said "resume", the click started a
+		// slideshow, and the animation could never resume from the
+		// toolbar (the field report's dead animation toolbar).
+		else if (_viv_slot_current.frame_count > 1)
 		{
 			command_id = VIV_ID_ANIMATION_PLAY_PAUSE;
 		}
@@ -929,6 +1085,8 @@ void _viv_toolbar_destroy(void)
 {
 	if (_viv_toolbar_hwnd)
 	{
+		_viv_toolbar_tooltip_destroy();
+		
 		DestroyWindow(_viv_toolbar_hwnd);
 		
 		_viv_toolbar_hwnd = 0;
@@ -1084,6 +1242,10 @@ void _viv_toolbar_set_dark(int dark)
 			InvalidateRect(_viv_toolbar_hwnd,0,FALSE);
 		}
 	}
+	
+	// the tooltip control may exist before the first palette flip and a
+	// fresh control always starts light: tint it on every call.
+	_viv_toolbar_tooltip_apply_colors();
 }
 
 int _viv_toolbar_high(void)

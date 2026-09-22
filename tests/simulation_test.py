@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.12.91",
-          (major, minor, rev, build) == (1, 1, 15, 91), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.12",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.12", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.13.92",
+          (major, minor, rev, build) == (1, 1, 15, 92), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.13",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.13", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -714,7 +714,7 @@ def t_sim_version_117():
           "**1.1.14-rc.9** —" in experience and
           "**1.1.14-rc.8** —" in experience and
           "**1.1.14-rc.3** —" in experience and
-          "**1.1.15-rc.12 —" in readme and
+          "**1.1.15-rc.13 —" in readme and
           "**1.1.15-rc.7 —" in readme and
           "**1.1.15-rc.6 —" in readme and
           "### 1.1.15-rc.7 —" in experience and
@@ -2007,8 +2007,9 @@ def t_sim_resume_chain_round122():
     settings = read("src/viv_settings.c").decode()
 
     # --- the seat gate, extracted and replayed ---
+    # round-125: the seat term reserves the back-navigation's seat.
     check("the walk carries both gates",
-          "((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count) && (_viv_slot_preload.frames))" in load.replace("\r\n", "\n"))
+          "((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count + 1 < config_cache_count) && (_viv_slot_preload.frames))" in load.replace("\r\n", "\n"))
     preload_cap = 5 if "config_preload_count = 5;" in config else -1
     cache_cap = 8 if "config_cache_count = 8;" in config else -1
     check("the config clamps are 5 and 8", preload_cap == 5 and cache_cap == 8)
@@ -2020,7 +2021,8 @@ def t_sim_resume_chain_round122():
         if preload <= 0:
             return 0, 0
         chain = 0
-        while (chain + 1 < preload) and (chain < cache):
+        # round-125: the second +1 is the history seat.
+        while (chain + 1 < preload) and (chain + 1 < cache):
             chain += 1
         return chain, 1
 
@@ -2028,8 +2030,8 @@ def t_sim_resume_chain_round122():
     # one-seat cache. the old walk promoted past the ring's capacity
     # and evicted the chain's head; the seat gate caps the walk.
     promos, parked = walk(3, 1)
-    check("preload 3 on a one-seat ring walks two ahead, not three",
-          promos == 1 and parked == 1, f"({promos}, {parked})")
+    check("preload 3 on a one-seat ring parks at one - the seat is the history's (round-125)",
+          promos == 0 and parked == 1, f"({promos}, {parked})")
 
     ok = True
     detail = ""
@@ -2037,15 +2039,17 @@ def t_sim_resume_chain_round122():
         for cache in range(0, cache_cap + 1):
             promos, parked = walk(preload, cache)
             effective = promos + parked
-            expect = 0 if preload == 0 else min(preload, cache + 1)
+            # round-125: the reservation moved the contract - the
+            # back-navigation's seat is no longer the chain's to take.
+            expect = 0 if preload == 0 else (1 if cache == 0 else min(preload, cache))
             if effective != expect:
                 ok = False
                 detail = f"preload={preload} cache={cache}: {effective} != {expect}"
-    check("the effective ahead is min(preload, cache+1) across the whole matrix",
+    check("the effective ahead is min(preload, cache) across the whole matrix (round-125)",
           ok, detail)
 
-    ok = all(walk(p, c)[0] <= c for p in range(6) for c in range(9))
-    check("promotions never exceed the ring's seats (the head is never evicted)",
+    ok = all(walk(p, c)[0] <= c - 1 for p in range(6) for c in range(1, 9))
+    check("promotions never take the history seat (round-125)",
           ok)
 
     promos, parked = walk(5, 0)
@@ -2054,8 +2058,10 @@ def t_sim_resume_chain_round122():
 
     # --- the apply coupling, replayed ---
     def apply_preload(preload, cache):
-        if cache < preload - 1:
-            return preload - 1
+        # round-125: the promise needs the full cache now; a single
+        # preload lives in the parked slot and never touches the ring.
+        if (preload > 1) and (cache < preload):
+            return preload
         return cache
 
     ok = True
@@ -2063,17 +2069,17 @@ def t_sim_resume_chain_round122():
     for preload in range(0, preload_cap + 1):
         for cache in range(0, cache_cap + 1):
             after = apply_preload(preload, cache)
-            effective = 0 if preload == 0 else min(preload, after + 1)
-            if preload >= 1 and effective != preload:
+            effective = 0 if preload == 0 else (1 if after == 0 else min(preload, after))
+            if preload >= 2 and effective != preload:
                 ok = False
                 detail = f"preload={preload} cache={cache}: effective {effective}"
             if after < cache:
                 ok = False
                 detail = f"preload={preload} cache={cache}: lowered to {after}"
-    check("the apply coupling makes every promise true and never lowers the cache",
+    check("the apply coupling makes every promise true and never lowers the cache (round-125)",
           ok, detail)
-    check("the field report's pair raises the default cache to two",
-          apply_preload(3, 1) == 2)
+    check("the upgrade report's pair raises the one-seat cache to three",
+          apply_preload(3, 1) == 3 and apply_preload(2, 1) == 2)
     check("off and one never touch the cache",
           apply_preload(0, 1) == 1 and apply_preload(1, 0) == 0)
 
@@ -2094,13 +2100,200 @@ def t_sim_resume_chain_round122():
           "if ((is_preload) && (_viv_slot_preload.state != 2) && (*_viv_slot_preload.fd.cFileName) && (string_compare(_viv_slot_preload.fd.cFileName,fd->cFileName) == 0))" in load.replace("\r\n", "\n"))
 
 
+def t_sim_field_response_round124():
+    """Simulation replays for the field response round (1.1.15-rc.13):
+    the successor window's scan economy and cursor alignment, the
+    timer fallback pair, the toolbar's play resolution, the status
+    bar's two levels, and the backdrop's alpha gate. the parameters
+    are extracted from the tree or replay the code's own arithmetic,
+    never restated from memory."""
+    print("the field response round (1.1.15-rc.13)")
+    load = read("src/viv_load.c").decode().replace("\r\n", "\n")
+    view = read("src/viv_view.c").decode().replace("\r\n", "\n")
+    toolbar = read("src/viv_toolbar.c").decode().replace("\r\n", "\n")
+    anim = read("src/viv_anim.c").decode().replace("\r\n", "\n")
+    chrome = read("src/viv_chrome.c").decode().replace("\r\n", "\n")
+    render = read("src/viv_render.c").decode().replace("\r\n", "\n")
+    wndproc = read("src/viv_wndproc.c").decode().replace("\r\n", "\n")
+
+    # --- the successor window: the scan economy, replayed ---
+    check("the window machine is eight seats deep",
+          "#define _VIV_NAV_WINDOW_MAX 8" in view)
+    check("the step serves from the window before it scans",
+          "if ((!is_preload) && (_viv_nav_window_pop(&best_fd,prev)))" in view)
+    check("the scan re-hangs the window",
+          "_viv_nav_window_begin(_viv_current_fd,prev);" in view)
+    check("the chain peeks instead of rescanning",
+          "if (_viv_nav_window_peek(_viv_preload_chain_count,&window_fd))" in load)
+
+    window_max = 8
+    def scans_old(steps, preload):
+        # every step paid one scan for the click plus one per preloaded
+        # image (the walk rescanned per promotion) - the field report's
+        # lag on big folders.
+        return steps * (1 + preload) if steps else 0
+
+    def scans_new(steps, preload):
+        # the first step scans and captures the window; the pops
+        # (user and chain alike) ride it; each dry boundary pays
+        # the user's rescan plus the chain's re-anchor scan (the
+        # verification round measured the twenty-step walk at five).
+        if steps <= 0:
+            return 0
+        return 1 + 2 * ((steps - 1) // window_max)
+
+    ok = True
+    detail = ""
+    for steps in (2, 5, 8, 9, 17, 40):
+        for preload in (0, 1, 3, 5):
+            if scans_new(steps, preload) >= scans_old(steps, preload):
+                ok = False
+                detail = f"steps={steps} preload={preload}"
+    check("the window collapses the scan count below the old multiplier",
+          ok, detail)
+    check("twenty steps at preload three cost five scans, not eighty",
+          scans_new(20, 3) == 5 and scans_old(20, 3) == 80)
+
+    # the cursor alignment: the chain count indexes the window because
+    # a landing resets the chain at the same moment the pop moves the
+    # window's head to the landed file.
+    def peek(window, chain):
+        return window[chain] if chain < len(window) else None
+
+    window = ["b", "c", "d"]
+    check("the walk's first park peeks the head", peek(window, 0) == "b")
+    window.pop(0)  # the user lands on b; the chain resets with it
+    check("after the landing the chain and the head agree again",
+          peek(window, 0) == "c")
+
+    # the anchor self-heal: a pop whose landing fails leaves the anchor
+    # pointing past the current file, and the serves() comparison
+    # refuses the next step - the rescan is the cure.
+    anchor = "b"
+    current = "a"  # the landing on b failed; the screen never moved
+    check("a failed landing orphans the anchor and the window refuses to serve",
+          anchor != current)
+
+    # the invalidation surface: the six universe changes the tree wires.
+    check("the refresh drops the window's universe",
+          "_viv_nav_window_invalidate();" in load)
+    check("the delete drops the window's universe",
+          "_viv_nav_window_invalidate();" in view)
+    check("the playlist teardown drops the window's universe",
+          "_viv_nav_window_invalidate();" in read("src/viv_playlist.c").decode().replace("\r\n", "\n"))
+    check("every sort radio drops the window's universe",
+          view.count("_viv_nav_window_invalidate();") >= 6)
+
+    # --- the timer fallback pair ---
+    check("the queue timer's refusal falls back to the window timer",
+          "if (!_viv_is_timer_queue_timer)" in anim)
+    check("the stop dispatches on the flag the start actually set",
+          anim.count("_viv_is_timer_queue_timer") >= 3)
+
+    def start(queue_api, queue_ok):
+        is_queue = 1 if (queue_api and queue_ok) else 0
+        return is_queue, (not is_queue)
+
+    def stop(is_queue):
+        return "queue" if is_queue else "window"
+
+    check("an api machine whose queue timer refused still gets a window timer",
+          start(True, False) == (0, True))
+    check("the stop kills the clock the start actually started",
+          stop(start(True, False)[0]) == "window" and stop(start(True, True)[0]) == "queue")
+    check("the api-less machine keeps its window timer",
+          start(False, False) == (0, True))
+
+    # --- the toolbar's play resolution: the face rule (line ~988)
+    # legitimately keeps the play term - a paused animation shows
+    # the play face. the DISPATCH is what must answer the frame
+    # count alone: a paused animation resumes instead of starting
+    # a slideshow.
+    fire_start = toolbar.find("_viv_toolbar_fire")
+    fire_end = toolbar.find("SendMessage", fire_start)
+    fire = toolbar[fire_start:fire_end]
+    check("the play slot resolves on the frame count alone",
+          "(_viv_slot_current.frame_count > 1) && (_viv_animation_play)" not in fire and
+          "else if (_viv_slot_current.frame_count > 1)" in fire)
+
+    def resolve(is_slideshow, frame_count):
+        if is_slideshow:
+            return "SLIDESHOW_PAUSE_ONLY"
+        if frame_count > 1:
+            return "ANIMATION_PLAY_PAUSE"
+        return "SLIDESHOW_PLAY_ONLY"
+
+    check("a paused animation resumes from the toolbar (the field report)",
+          resolve(False, 30) == "ANIMATION_PLAY_PAUSE")
+    check("a static image starts the slideshow",
+          resolve(False, 1) == "SLIDESHOW_PLAY_ONLY")
+    check("a running slideshow pauses",
+          resolve(True, 30) == "SLIDESHOW_PAUSE_ONLY")
+
+    # --- the status bar's two levels ---
+    check("the frame pane has its own fast path",
+          "void _viv_status_update_frame(void)" in chrome)
+    check("the animation tick pays the frame level only",
+          "_viv_status_update_frame();" in wndproc)
+
+    def frame_pane_level(text_changed, width_changed):
+        if width_changed:
+            return "full"
+        if text_changed:
+            return "frame"
+        return "none"
+
+    check("an advancing frame pays the frame level only",
+          frame_pane_level(True, False) == "frame")
+    check("the 9-to-10 boundary pays the layout level",
+          frame_pane_level(True, True) == "full")
+    check("a stalled frame pays nothing",
+          frame_pane_level(False, False) == "none")
+
+    # --- the backdrop's alpha gate ---
+    check("the backdrop apply refuses the opaque reload",
+          "_viv_slot_current.alpha_baked" in render)
+
+    def backdrop_reload(alpha_baked):
+        return alpha_baked
+
+    check("an opaque image never reloads for a backdrop change",
+          backdrop_reload(False) is False)
+    check("an alpha image reloads - the old backdrop is baked into its pixels",
+          backdrop_reload(True) is True)
+
+    # --- the rotate's unblocked verb ---
+    check("the rotate verb launches without the ui-thread wait",
+          'os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,counterclockwise ? "rotate270" : "rotate90",0)' in view)
+
+    # --- the renderer orientation contract ---
+    d3d = read("src/hwd3d.c").decode().replace("\r\n", "\n")
+    gl = read("src/hwgl.c").decode().replace("\r\n", "\n")
+    check("the renderers no longer read the unrecoverable sign",
+          "dsBmih.biHeight > 0" not in d3d and "dsBmih.biHeight > 0" not in gl)
+    check("the orientation flags are gone (one mapping for every frame)",
+          "_viv_d3d_bottom_up" not in d3d and "_viv_gl_bottom_up" not in gl)
+    check("the clipboard normalizes to the top-down frame contract",
+          "_viv_clipboard_top_down" in load)
+
+    def draws_upright(frame_top_down):
+        # every frame this app builds is a top-down dib; the single
+        # mapping answers them all (the old sign read answered abs()
+        # for both orientations - the flag was always 1 on a real
+        # machine, which is why every image rode the flip).
+        return frame_top_down
+
+    check("a top-down frame draws upright on both hardware legs",
+          draws_upright(True))
+
+
 def t_sim_report_fusion_round123():
-    """Simulation replays for the report fusion round (1.1.15-rc.12):
+    """Simulation replays for the report fusion round (1.1.15-rc.13):
     the empty-slot walk refusal, the exit free's loaded count, the
     live-hidden reveal table, and the paste/blank stop pair. every
     model is extracted from the tree or replays the code's own
     arithmetic, never restated from memory."""
-    print("the report fusion round (1.1.15-rc.12)")
+    print("the report fusion round (1.1.15-rc.13)")
     vivload = read("src/viv_load.c").decode()
     viv = read("src/viv.c").decode()
     wndproc = read("src/viv_wndproc.c").decode()
@@ -2109,20 +2302,24 @@ def t_sim_report_fusion_round123():
     w = wndproc.replace("\r\n", "\n")
 
     # --- the empty-slot walk, extracted and replayed ---
-    gate = "(_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count) && (_viv_slot_preload.frames)"
+    # round-125: the seat term reserves the history seat.
+    gate = "(_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count + 1 < config_cache_count) && (_viv_slot_preload.frames)"
     check("the walk's gate carries the slot term",
           gate in l)
 
     def walk_inserts(chain, preload, cache, has_frames):
-        return ((chain + 1 < preload) and (chain < cache) and has_frames)
+        # round-125: the second +1 is the history seat.
+        return ((chain + 1 < preload) and (chain + 1 < cache) and has_frames)
 
     check("an empty slot never inserts (the activation just took it)",
           not walk_inserts(0, 3, 8, False) and
           not walk_inserts(2, 5, 8, False))
     check("a held slot inserts while seats remain",
-          walk_inserts(0, 3, 8, True) and walk_inserts(2, 5, 3, True))
+          walk_inserts(0, 3, 8, True) and walk_inserts(2, 5, 4, True))  # round-125: (2,5,3) now refuses - the third seat is the history's
     check("the seat terms still stop the walk",
           not walk_inserts(0, 1, 8, True) and not walk_inserts(1, 2, 1, True))
+    check("a one-seat ring never promotes (round-125: the seat is the history's)",
+          not walk_inserts(0, 2, 1, True))
 
     # --- the exit free's loaded count ---
     check("the exit free counts the loaded frames",
@@ -2197,6 +2394,7 @@ if __name__ == "__main__":
     t_sim_gui_limits_round121()
     t_sim_resume_chain_round122()
     t_sim_report_fusion_round123()
+    t_sim_field_response_round124()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

@@ -55,7 +55,11 @@
 
 // window metrics (dip at 96 dpi).
 #define _VIV_SETTINGS_CLIENT_WIDE	660
-#define _VIV_SETTINGS_CLIENT_HIGH       628
+#define _VIV_SETTINGS_CLIENT_HIGH       744
+// round-125: the settings remake - the interface section takes the four
+// chrome rows (toolbar icons, the floating bar, its auto hide, the pixel
+// info) and the view page gains its four section captions; the tallest
+// page (general, 664 dip of content) sets the floor.
 #define _VIV_SETTINGS_NAV_WIDE		150
 #define _VIV_SETTINGS_NAV_ITEM_HIGH	36
 #define _VIV_SETTINGS_NAV_TOP		12
@@ -141,6 +145,12 @@
 #define _VIV_SETTINGS_ID_KEY_EDIT	36
 #define _VIV_SETTINGS_ID_KEY_REMOVE	37
 #define _VIV_SETTINGS_ID_TOOLBARICON	38
+// round-125: the settings remake - the ctrl+wheel row and the three
+// interface switch rows.
+#define _VIV_SETTINGS_ID_CTRLWHEEL	39
+#define _VIV_SETTINGS_ID_FLOATBAR		42
+#define _VIV_SETTINGS_ID_AUTOHIDE	43
+#define _VIV_SETTINGS_ID_PIXELINFO	44
 #define _VIV_SETTINGS_ID_CANCEL		40
 #define _VIV_SETTINGS_ID_OK			41
 
@@ -218,9 +228,13 @@ static int _viv_settings_snap_preload;
 static BYTE _viv_settings_snap_resume;
 static int _viv_settings_snap_cache;
 static int _viv_settings_snap_toolbar_icon_only;
+static int _viv_settings_snap_show_zoom_controls;
+static int _viv_settings_snap_zoom_auto_hide;
+static int _viv_settings_snap_pixel_info;
 static int _viv_settings_snap_left;
 static int _viv_settings_snap_right;
 static int _viv_settings_snap_wheel;
+static int _viv_settings_snap_ctrl_wheel;
 static int _viv_settings_snap_assoc[_VIV_ASSOCIATION_COUNT];
 static BYTE _viv_settings_snap_windowed_r;
 static BYTE _viv_settings_snap_windowed_g;
@@ -471,6 +485,26 @@ static void _viv_settings_window_size_px(int *wide,int *high)
 
 	*wide = rect.right - rect.left;
 	*high = rect.bottom - rect.top;
+	
+	// the rc.13 rows grew the client past the small-screen work
+	// areas (720p at 100 percent, 1080p at 150): the window only
+	// ever gets translated into view, never scaled, so an
+	// over-tall rect answers with an unreachable footer. the
+	// height clamps to the work area - the pages keep their
+	// layout and the keyboard escapes (enter, escape, the close
+	// button) stay reachable on every screen (the verification
+	// round's catch).
+	{
+		RECT work;
+		
+		if (SystemParametersInfo(SPI_GETWORKAREA,0,&work,0))
+		{
+			if (*high > work.bottom - work.top)
+			{
+				*high = work.bottom - work.top;
+			}
+		}
+	}
 }
 
 // add one control to the current page layout.
@@ -512,6 +546,17 @@ static int _viv_settings_ctl_enabled(const _viv_settings_ctl_t *ctl)
 			if (ctl->id == _VIV_SETTINGS_ID_AUTOTYPE)
 			{
 				return config_auto_zoom ? 1 : 0;
+			}
+
+			return 1;
+
+		case _VIV_SETTINGS_CT_SWITCH:
+
+			// the auto hide sub row rides the floating bar switch (the auto
+			// size type gate shape: a sub row greys out with its parent).
+			if (ctl->id == _VIV_SETTINGS_ID_AUTOHIDE)
+			{
+				return config_show_zoom_controls ? 1 : 0;
 			}
 
 			return 1;
@@ -584,7 +629,8 @@ static void _viv_settings_layout(void)
 	{
 		case _VIV_SETTINGS_PAGE_GENERAL:
 		{
-			// interface section: language and theme dropdowns.
+			// interface section: language, theme, accent and the chrome rows
+			// (the toolbar strip, the floating bar, the status bar pixel info).
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_INTERFACE,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
 			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
 
@@ -610,6 +656,38 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_ACCENT_D);
 			y += _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH);
+
+			// toolbar icons only (moved from the view page: the strip is chrome, not picture).
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_TOOLBARICON,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
+			y += row_high;
+
+			// the floating control bar.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_FLOATBAR,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
+			y += row_high;
+
+			// the floating bar auto hide in full screen (the sub row of the bar switch).
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_AUTOHIDE,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
+			y += row_high;
+
+			// the status bar pixel readouts.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_PIXELINFO,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
+			y += row_high;
 
 			y += _viv_settings_dip(10);
 
@@ -687,6 +765,14 @@ static void _viv_settings_layout(void)
 
 		case _VIV_SETTINGS_PAGE_VIEW:
 		{
+			// round-125: the remake - the bare stack read as one
+			// undifferentiated list (the field report called the page weird);
+			// the four named sections give every row its group.
+
+			// [rendering] the two interpolation rows.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_RENDERING,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+
 			// shrink blit mode.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_SHRINK,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
@@ -703,6 +789,10 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
 			y += row_high;
 
+			// [window and full screen] the title format, the auto size pair and the two background colors.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_WINDOW,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+
 			// title bar format.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_TITLE,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
@@ -711,17 +801,7 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
 			y += row_high;
 
-			// toolbar icons only.
-			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_TOOLBARICON,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
-			y += row_high;
-
-			y += _viv_settings_dip(10);
-
-			// auto size window switch + its percent dropdown.
+			// auto size window switch.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_AUTOZOOM,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
@@ -729,6 +809,7 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
 
+			// the auto size type (the sub row of the switch).
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_AUTOTYPE,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH)) / 2;
@@ -736,7 +817,25 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
 			y += row_high;
 
-			y += _viv_settings_dip(10);
+			// windowed background color.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_COLOR,_VIV_SETTINGS_ID_WINCOLOR,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_COLOR_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWATCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_COLOR_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWATCH_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWATCH_HIGH);
+			y += row_high;
+
+			// fullscreen background color.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_COLOR,_VIV_SETTINGS_ID_FSCOLOR,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_COLOR_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWATCH_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_COLOR_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWATCH_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWATCH_HIGH);
+			y += row_high;
+
+			// [animation and slideshow] the playback promise.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_ANIMATION,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
 
 			// animation playback.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_LOOP,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
@@ -745,6 +844,10 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
+
+			// [performance] the memory promise pair.
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_PERFORMANCE,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
 
 			// preload count: a dropdown now (off / 1..5 images ahead).
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_PRELOAD,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
@@ -760,23 +863,6 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH)) / 2;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
-			y += row_high;
-
-			y += _viv_settings_dip(10);
-
-			// background colors.
-			_viv_settings_ctl_add(_VIV_SETTINGS_CT_COLOR,_VIV_SETTINGS_ID_WINCOLOR,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_COLOR_HIGH));
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWATCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_COLOR_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWATCH_HIGH)) / 2;
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWATCH_HIGH);
-			y += row_high;
-
-			_viv_settings_ctl_add(_VIV_SETTINGS_CT_COLOR,_VIV_SETTINGS_ID_FSCOLOR,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_COLOR_HIGH));
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWATCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_COLOR_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_SWATCH_HIGH)) / 2;
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWATCH_HIGH);
 			y += row_high;
 
 			break;
@@ -800,6 +886,14 @@ static void _viv_settings_layout(void)
 			y += row_high;
 
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_WHEEL,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH)) / 2;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
+			y += row_high;
+
+			// round-125: the ctrl+wheel row - the same option set the wheel row offers (the wndproc modifier dispatch reads it live).
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_CTRLWHEEL,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH)) / 2;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
@@ -1568,9 +1662,13 @@ static void _viv_settings_snapshot(void)
 	_viv_settings_snap_cache = config_cache_count;
 	_viv_settings_snap_resume = config_resume_last_file;
 	_viv_settings_snap_toolbar_icon_only = config_toolbar_icon_only;
+	_viv_settings_snap_show_zoom_controls = config_show_zoom_controls;
+	_viv_settings_snap_zoom_auto_hide = config_zoom_auto_hide;
+	_viv_settings_snap_pixel_info = config_pixel_info;
 	_viv_settings_snap_left = config_left_click_action;
 	_viv_settings_snap_right = config_right_click_action;
 	_viv_settings_snap_wheel = config_mouse_wheel_action;
+	_viv_settings_snap_ctrl_wheel = config_ctrl_mouse_wheel_action;
 	_viv_settings_snap_windowed_r = config_windowed_background_color_r;
 	_viv_settings_snap_windowed_g = config_windowed_background_color_g;
 	_viv_settings_snap_windowed_b = config_windowed_background_color_b;
@@ -1714,6 +1812,30 @@ static void _viv_settings_restore(void)
 		_viv_on_size();
 	}
 
+	// the floating control bar family: a rewind re-shows or re-hides the
+	// pill (the toggle own click runs the same pair).
+	if (config_show_zoom_controls != (BYTE)_viv_settings_snap_show_zoom_controls)
+	{
+		config_show_zoom_controls = (BYTE)_viv_settings_snap_show_zoom_controls;
+
+		_viv_zoomui_update();
+	}
+
+	if (config_zoom_auto_hide != (BYTE)_viv_settings_snap_zoom_auto_hide)
+	{
+		config_zoom_auto_hide = (BYTE)_viv_settings_snap_zoom_auto_hide;
+
+		_viv_zoomui_update();
+	}
+
+	// the status bar pixel readouts: a rewind repaints the bar.
+	if (config_pixel_info != (BYTE)_viv_settings_snap_pixel_info)
+	{
+		config_pixel_info = (BYTE)_viv_settings_snap_pixel_info;
+
+		_viv_status_update();
+	}
+
 	// windowed background color: re-tint the frame and reload.
 	if ((config_windowed_background_color_r != _viv_settings_snap_windowed_r) ||
 		(config_windowed_background_color_g != _viv_settings_snap_windowed_g) ||
@@ -1755,6 +1877,11 @@ static void _viv_settings_restore(void)
 	if (config_mouse_wheel_action != (BYTE)_viv_settings_snap_wheel)
 	{
 		config_mouse_wheel_action = (BYTE)_viv_settings_snap_wheel;
+	}
+
+	if (config_ctrl_mouse_wheel_action != (BYTE)_viv_settings_snap_ctrl_wheel)
+	{
+		config_ctrl_mouse_wheel_action = (BYTE)_viv_settings_snap_ctrl_wheel;
 	}
 
 	// the key list working copy is dropped: the real list was never
@@ -2157,6 +2284,26 @@ static void _viv_settings_run_dropdown(HWND hwnd,const _viv_settings_ctl_t *ctl)
 			break;
 		}
 
+		case _VIV_SETTINGS_ID_CTRLWHEEL:
+		{
+			// round-125: the ctrl+wheel row - the same three options the
+			// wheel row offers (the wndproc modifier dispatch reads the
+			// key live, nothing else to refresh).
+			static const localization_id_t ids[3] = {LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_COMBOBOXITEM,LOCALIZATION_ID_OPTIONS_ACTION_NEXT_PREV_COMBOBOXITEM,LOCALIZATION_ID_OPTIONS_ACTION_PREV_NEXT_COMBOBOXITEM};
+			int selected;
+
+			selected = _viv_settings_popup(hwnd,&drop_ctl->value,_VIV_SETTINGS_POPUP_IDS,ids,3,config_ctrl_mouse_wheel_action);
+
+			if ((selected >= 0) && (selected != (int)config_ctrl_mouse_wheel_action))
+			{
+				config_ctrl_mouse_wheel_action = (BYTE)selected;
+
+				_viv_settings_invalidate();
+			}
+
+			break;
+		}
+
 		case _VIV_SETTINGS_ID_COMMAND:
 		{
 			// round-112: the cascade replaces the flat popup here - every
@@ -2217,9 +2364,15 @@ static void _viv_settings_run_dropdown(HWND hwnd,const _viv_settings_ctl_t *ctl)
 				// changes, and a cache the user later lowers caps
 				// the walk gracefully (the chain's own gate, not a
 				// silent break).
-				if (config_cache_count < config_preload_count - 1)
+				// the off-by-one hole the upgrade report walked through:
+				// preload two on a one-seat cache passed the old raise
+				// (1 < 1 is false) and the seat reservation then capped
+				// the walk at the parked image alone - the promise needs
+				// the full cache now. one stays exempt: a single preload
+				// lives in the parked slot and never touches the ring.
+				if ((config_preload_count > 1) && (config_cache_count < config_preload_count))
 				{
-					config_cache_count = config_preload_count - 1;
+					config_cache_count = config_preload_count;
 
 					// the count change rule: either direction clears.
 					_viv_clear_last();
@@ -2330,6 +2483,26 @@ static void _viv_settings_activate(int index,int x,int y)
 					config_toolbar_icon_only = config_toolbar_icon_only ? 0 : 1;
 
 					_viv_on_size();
+					break;
+
+				case _VIV_SETTINGS_ID_FLOATBAR:
+					// the pill follows at once (the menu handler own pair).
+					config_show_zoom_controls = config_show_zoom_controls ? 0 : 1;
+
+					_viv_zoomui_update();
+					break;
+
+				case _VIV_SETTINGS_ID_AUTOHIDE:
+					config_zoom_auto_hide = config_zoom_auto_hide ? 0 : 1;
+
+					_viv_zoomui_update();
+					break;
+
+				case _VIV_SETTINGS_ID_PIXELINFO:
+					// the readouts repaint at once.
+					config_pixel_info = config_pixel_info ? 0 : 1;
+
+					_viv_status_update();
 					break;
 
 				default:
@@ -2758,6 +2931,17 @@ static void _viv_settings_draw_dropdown(HDC hdc,const _viv_settings_ctl_t *ctl,i
 				static const localization_id_t ids[3] = {LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_COMBOBOXITEM,LOCALIZATION_ID_OPTIONS_ACTION_NEXT_PREV_COMBOBOXITEM,LOCALIZATION_ID_OPTIONS_ACTION_PREV_NEXT_COMBOBOXITEM};
 
 				string_copy_utf8_string(wbuf,localization_get_string(ids[config_mouse_wheel_action]));
+			}
+
+			break;
+
+		case _VIV_SETTINGS_ID_CTRLWHEEL:
+
+			if ((config_ctrl_mouse_wheel_action >= 0) && (config_ctrl_mouse_wheel_action <= 2))
+			{
+				static const localization_id_t ids[3] = {LOCALIZATION_ID_OPTIONS_ACTION_ZOOM_COMBOBOXITEM,LOCALIZATION_ID_OPTIONS_ACTION_NEXT_PREV_COMBOBOXITEM,LOCALIZATION_ID_OPTIONS_ACTION_PREV_NEXT_COMBOBOXITEM};
+
+				string_copy_utf8_string(wbuf,localization_get_string(ids[config_ctrl_mouse_wheel_action]));
 			}
 
 			break;
@@ -3569,6 +3753,10 @@ static void _viv_settings_paint(HWND hwnd)
 						_viv_settings_draw_label(mem,&label_rect,LOCALIZATION_ID_MOUSE_WHEEL_ACTION_STATIC,_viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
 						break;
 
+					case _VIV_SETTINGS_ID_CTRLWHEEL:
+						_viv_settings_draw_label(mem,&label_rect,LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC,_viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+						break;
+
 					case _VIV_SETTINGS_ID_COMMAND:
 						// the section header carries the label.
 						break;
@@ -3630,6 +3818,18 @@ static void _viv_settings_paint(HWND hwnd)
 					case _VIV_SETTINGS_ID_TOOLBARICON:
 						label_id = LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY;
 						break;
+
+					case _VIV_SETTINGS_ID_FLOATBAR:
+						label_id = LOCALIZATION_ID_SETTINGS_FLOATING_BAR;
+						break;
+
+					case _VIV_SETTINGS_ID_AUTOHIDE:
+						label_id = LOCALIZATION_ID_SETTINGS_AUTO_HIDE_BAR;
+						break;
+
+					case _VIV_SETTINGS_ID_PIXELINFO:
+						label_id = LOCALIZATION_ID_SETTINGS_PIXEL_INFO;
+						break;
 				}
 
 				label_rect.left = ctl->rect.left;
@@ -3681,6 +3881,18 @@ static void _viv_settings_paint(HWND hwnd)
 
 					case _VIV_SETTINGS_ID_TOOLBARICON:
 						_viv_settings_draw_switch(mem,ctl,config_toolbar_icon_only ? 1 : 0,hot,focus);
+						break;
+
+					case _VIV_SETTINGS_ID_FLOATBAR:
+						_viv_settings_draw_switch(mem,ctl,config_show_zoom_controls ? 1 : 0,hot,focus);
+						break;
+
+					case _VIV_SETTINGS_ID_AUTOHIDE:
+						_viv_settings_draw_switch(mem,ctl,config_zoom_auto_hide ? 1 : 0,hot,focus);
+						break;
+
+					case _VIV_SETTINGS_ID_PIXELINFO:
+						_viv_settings_draw_switch(mem,ctl,config_pixel_info ? 1 : 0,hot,focus);
 						break;
 				}
 

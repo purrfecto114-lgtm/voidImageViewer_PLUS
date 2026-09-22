@@ -149,6 +149,7 @@ void _viv_clear(void)
 	_viv_image_is_low_res = 0;
 	_viv_slot_current.image_wide = 0;
 	_viv_slot_current.image_high = 0;
+	_viv_slot_current.alpha_baked = 0;
 	_viv_animation_play = 1;
 }
 void _viv_process_pending_clear(void)
@@ -547,8 +548,91 @@ void _viv_set_clipboard_image(void)
 // pasted images have no filename: the title falls back to the application
 // name and every filename based command (save as, delete, rename, copy to,
 // ...) already checks for an empty filename and quietly does nothing.
+// the frame contract: every hbitmap the slots hold is a top-down dib.
+// the clipboard is the one publisher that answers bottom-up rows (a
+// positive-height cf_dib, the format's own convention), and the
+// renderers draw one mapping for all frames - the orientation is
+// unrecoverable downstream (getobject answers the absolute height
+// for both orientations; the sign that said top-down is already
+// gone), so the paste normalizes before the pixels become a frame.
+// a normalization failure keeps the original bitmap: the gdi leg
+// never cared about the row order, and the hardware legs are no
+// worse than they were.
+static HBITMAP _viv_clipboard_top_down(HBITMAP hbitmap)
+{
+	BITMAP bm;
+	BITMAPINFOHEADER bih;
+	HDC hdc;
+	HBITMAP dib;
+	void *bits;
+
+	if (!GetObject(hbitmap,sizeof(BITMAP),&bm))
+	{
+		return 0;
+	}
+
+	if ((bm.bmWidth <= 0) || (bm.bmHeight <= 0))
+	{
+		return 0;
+	}
+
+	os_zero_memory(&bih,sizeof(BITMAPINFOHEADER));
+	bih.biSize = sizeof(BITMAPINFOHEADER);
+	bih.biWidth = bm.bmWidth;
+	bih.biHeight = -bm.bmHeight;
+	bih.biPlanes = 1;
+	bih.biBitCount = 32;
+	bih.biCompression = BI_RGB;
+
+	dib = 0;
+	bits = NULL;
+
+	hdc = GetDC(0);
+	if (hdc)
+	{
+		dib = CreateDIBSection(hdc,(BITMAPINFO *)&bih,DIB_RGB_COLORS,&bits,NULL,0);
+		if (dib)
+		{
+			// the negative request height answers top-down rows; gdi
+			// reads the source's own orientation either way, so the
+			// channel is idempotent for a paste that was already
+			// top-down.
+			// the full-line contract (the paint readback's own
+			// check): a partial copy would leave the tail rows
+			// uninitialized in the frame.
+			if (GetDIBits(hdc,hbitmap,0,bm.bmHeight,bits,(BITMAPINFO *)&bih,DIB_RGB_COLORS) != bm.bmHeight)
+			{
+				DeleteObject(dib);
+				dib = 0;
+			}
+		}
+
+		ReleaseDC(0,hdc);
+	}
+
+	return dib;
+}
+
 static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high)
 {
+	// the pasted image is the new current - a successor window from
+	// the folder it interrupted cannot serve the next step.
+	_viv_nav_window_invalidate();
+	
+	{
+		HBITMAP hbitmap_top_down;
+		
+		// the top-down frame contract: the renderers draw one
+		// mapping for every frame, and the paste normalizes
+		// before the pixels become a frame.
+		hbitmap_top_down = _viv_clipboard_top_down(hbitmap);
+		if (hbitmap_top_down)
+		{
+			DeleteObject(hbitmap);
+			hbitmap = hbitmap_top_down;
+		}
+	}
+
 	// stop an in flight file load from clobbering the pasted image.
 	_viv_load_image_allow_draw = 0;
 	InterlockedExchange(&_viv_load_image_terminate,1);
@@ -580,6 +664,7 @@ static void _viv_show_clipboard_image(HBITMAP hbitmap,int wide,int high)
 	_viv_slot_current.image_wide = wide;
 	_viv_slot_current.image_high = high;
 	_viv_slot_current.frame_count = 1;
+	_viv_slot_current.alpha_baked = 0;
 	_viv_slot_current.frame_loaded_count = 1;
 	_viv_slot_current.frames = (_viv_frame_t *)mem_alloc(sizeof(_viv_frame_t));
 	
@@ -1136,6 +1221,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	first_frame.frame.mipmap = 0;
 	first_frame.frame.delay = 0;
 	first_frame.is_low_res = 0;
+	first_frame.alpha_baked = 0;
 
 	ret = 0;
 	stream = NULL;
@@ -1452,6 +1538,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 																		low_res_first_frame.frame.mipmap = NULL; // no mipmap: the full frame provides them
 																		low_res_first_frame.frame.delay = 0;
 																		low_res_first_frame.is_low_res = 1;
+																		low_res_first_frame.alpha_baked = 0;
 																		
 																		_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_FIRST_FRAME,sizeof(low_res_first_frame),&low_res_first_frame);
 																		
@@ -1721,6 +1808,11 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 														// preload first mipmap
 														_viv_get_mipmap(hbitmap,first_frame.wide,first_frame.high,_viv_load_render_wide/2,_viv_load_render_high/2,&mip_wide,&mip_high,&first_frame.frame.mipmap);
 							
+														// the bake the first frame ran (alpha pixels got the mat
+														// painted under them) rides the reply: the commit stamps
+														// the slot, and the backdrop apply reloads only what
+														// actually baked.
+														first_frame.alpha_baked = (image_flags & 2) ? 1 : 0;
 														_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_FIRST_FRAME,sizeof(_viv_reply_load_image_first_frame_t),&first_frame);
 
 														ret = 1;
@@ -2074,6 +2166,8 @@ static void _viv_cache_set_trim(void)
 }
 void _viv_preload_next(void)
 {
+	WIN32_FIND_DATA window_fd;
+
 	// the trim runs before the config gate: the cache-set ceiling is a
 	// memory promise, not a convenience, and it binds the users who
 	// turned preloading off just as much as the ones who left it on.
@@ -2083,20 +2177,35 @@ void _viv_preload_next(void)
 	{
 		//UpdateWindow(_viv_hwnd);
 		
-		_viv_next(_viv_last_is_prev,0,1,0);
+		// the successor window answers the chain without a scan:
+		// the entry at the chain's own depth is the next image the
+		// walk has not promoted. the chain count is the cursor - a
+		// landing resets it to zero at the same moment the window's
+		// head moves to the landed file, so both point at the same
+		// next image.
+		if (_viv_nav_window_peek(_viv_preload_chain_count,&window_fd))
+		{
+			_viv_open(&window_fd,1);
+		}
+		else
+		{
+			_viv_next(_viv_last_is_prev,0,1,0);
+		}
 	}
 }
 // the chain walk: a finished preload that is not the last of its chain
 // promotes into the cache ring and the walk continues. the last image
 // of the chain keeps the slot - the navigation's first hit lands there.
 // the gates: the count gate stops the walk at the promised images, and
-// the seat gate stops it at the ring's capacity - a chain longer than
-// the ring would evict its own head promoting the tail, and the
-// "preloaded" images would reload from disk (the field report: three
-// ahead on a one-seat ring, every next a disk load). the parked slot
-// plus the seats is all the ahead the machine can hold; a cache count
-// of zero parks the chain at one image (the second would have nowhere
-// to live).
+// the seat gate stops it one seat short of the ring's capacity - the
+// reserved seat is the back-navigation's: a walk that filled every
+// seat would evict the image the user just left, and every direction
+// change would pay the disk again (the upgrade field report: preload
+// raised past a one-seat cache, the walk took the only seat, the
+// cached previous image was gone). the parked slot plus the unreserved
+// seats is all the ahead the machine can hold - the effective promise
+// is min(preload, cache); a cache count of zero or one parks the chain
+// at one image (the second would have nowhere to live).
 void _viv_preload_chain_walk(void)
 {
 	// the activation just took the slot's contents - a counter that
@@ -2104,7 +2213,7 @@ void _viv_preload_chain_walk(void)
 	// a ghost seat that evicts a real neighbour and counts itself
 	// forever. the frames term refuses the walk until a finished
 	// preload is actually in hand.
-	if ((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count < config_cache_count) && (_viv_slot_preload.frames))
+	if ((_viv_preload_chain_count + 1 < config_preload_count) && (_viv_preload_chain_count + 1 < config_cache_count) && (_viv_slot_preload.frames))
 	{
 		_viv_cache_insert(&_viv_slot_preload);
 		_viv_preload_chain_count++;
@@ -2243,6 +2352,7 @@ debug_printf("*** Cache ACTIVATE : %S\n",_viv_slot_current.fd.cFileName);
 			_viv_slot_current.frame_loaded_count = 0;
 			_viv_slot_current.image_wide = 0;
 			_viv_slot_current.image_high = 0;
+			_viv_slot_current.alpha_baked = 0;
 			_viv_slot_current.fd.cFileName[0] = 0;
 		}
 	}
@@ -2308,6 +2418,10 @@ void _viv_clear_last(void)
 void _viv_refresh(void)
 {
 	WIN32_FIND_DATA fd;
+	
+	// the user asked for the directory's truth - the successor
+	// window's memory of it is gone.
+	_viv_nav_window_invalidate();
 	
 	os_copy_memory(&fd,_viv_current_fd,sizeof(WIN32_FIND_DATA));
 

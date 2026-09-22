@@ -35,12 +35,19 @@
 // the fade.
 //
 // single window self drawn pill (no embedded BUTTON child windows): one
-// WS_CHILD window paints the stadium tray and every capsule cell in
-// WM_PAINT, tracks hover / press with capture + hit testing, fires the
-// real commands with WM_COMMAND, hosts one rect based tooltip, and
-// answers HTTRANSPARENT outside the button and percent cells so the
-// rounded corners and the tray gaps never eat clicks. no Mica, plain GDI
-// only.
+// WS_CHILD window draws the stadium tray and every capsule cell, tracks
+// hover / press with capture + hit testing, fires the real commands with
+// WM_COMMAND, hosts one rect based tooltip, and answers HTTRANSPARENT
+// outside the button and percent cells so the tray gaps never eat
+// clicks. where layered child windows exist (windows 8+) the whole pill
+// is rasterized into a 32bpp premultiplied dib - gdi+ anti-aliased
+// stadium paths for the tray and the capsules, gdi text and icons over
+// the filled surface - and pushed through UpdateLayeredWindow: the
+// corner crescents carry alpha 0 (no black corners, their clicks fall
+// through to the image) and the rounded edges blend smoothly over the
+// picture. windows 7 keeps the plain gdi WM_PAINT leg with its hard
+// corners (no layered children there, the legacy look is the best it
+// gets)
 
 #include "viv.h"
 #include "zoomui.h"
@@ -57,9 +64,30 @@
 #define LWA_ALPHA 2
 #endif
 
+// layered window per-pixel alpha (updatelayeredwindow). (not defined in
+// older SDKs)
+#ifndef ULW_ALPHA
+#define ULW_ALPHA 2
+#endif
+
+#ifndef AC_SRC_OVER
+#define AC_SRC_OVER 0
+#endif
+
+#ifndef AC_SRC_ALPHA
+#define AC_SRC_ALPHA 1
+#endif
+
 #ifndef BN_CLICKED
 #define BN_CLICKED 0
 #endif
+
+// gdi+ constants the stadium painter uses (the glyphs module keeps its
+// own copy of the same values). FillModeAlternate, UnitPixel,
+// SmoothingModeAntiAlias.
+#define _ZOOMUI_GDIP_FILL_ALTERNATE 0
+#define _ZOOMUI_GDIP_UNIT_PIXEL 2
+#define _ZOOMUI_GDIP_SMOOTHING_ANTIALIAS 4
 
 // the seven cells of the row, left to right. the same row serves
 // windowed mode and fullscreen: the mode only decides the idle fade.
@@ -148,6 +176,15 @@ static int _zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;
 static DWORD _zoomui_last_activity = 0; // GetTickCount of the last user input.
 static int _zoomui_visible_wanted = 0; // the state zoomui_show() latched.
 
+static HDC _zoomui_mem_hdc = 0; // the dib memory dc (the ulw surface).
+static HBITMAP _zoomui_dib = 0; // the 32bpp dib behind the ulw surface.
+static HBITMAP _zoomui_dib_old = 0; // the dc stock bitmap while the dib is in.
+static unsigned char *_zoomui_dib_bits = 0; // the dib scan0 (gdi+ writes here).
+static int _zoomui_dib_wide = 0; // the dib size (tracks the client size).
+static int _zoomui_dib_high = 0;
+static int _zoomui_gdip_state = 0; // 0 idle, 1 ready, 2 refused (latched).
+static ULONG_PTR _zoomui_gdip_token = 0; // own gdi+ startup token.
+
 static void _zoomui_apply_tooltip_colors(void);
 
 static void _zoomui_draw_button(HDC hdc,const RECT *rect,int celli,int is_pressed,int is_disabled,int is_hot,int has_focus);
@@ -180,6 +217,17 @@ static void _zoomui_tooltip_destroy(void);
 static void _zoomui_tooltip_update_rects(void);
 static void _zoomui_tooltip_update_text(int celli);
 static void _zoomui_clear_hover_press(int invalidate);
+static int _zoomui_gdip_ready(void);
+static int _zoomui_use_ulw(void);
+static void _zoomui_free_dib(void);
+static int _zoomui_ensure_dib(int wide,int high);
+static void _zoomui_submit_layered(int alpha);
+static unsigned int _zoomui_argb(COLORREF color);
+static void _zoomui_gdip_stadium(void *graphics,const RECT *rect,COLORREF fill_color,COLORREF line_color);
+static COLORREF _zoomui_button_face_color(int is_pressed,int is_disabled,int is_hot);
+static void _zoomui_draw_button_content(HDC hdc,const RECT *rect,int celli,int is_pressed,int is_disabled,int is_hot,int has_focus);
+static void _zoomui_premultiply(unsigned char *bits,int wide,int high);
+static void _zoomui_render_layered(void);
 
 // the auto hide only applies to the fullscreen bar: the windowed row is
 // a plain control and stays put.
@@ -220,13 +268,203 @@ static void _zoomui_kill_poll_timer(void)
 	}
 }
 
-// push the current alpha to the layered window. ignored when the
-// layered child support is missing (the bar is simply opaque then).
+// resolve the gdi+ flat api for the stadium painter and start gdi+ with
+// an own token. a second startup with an own token is explicitly
+// allowed (the glyphs module does the same), which removes any doubt
+// about init order; a refused startup latches off so every later paint
+// skips straight to the plain gdi leg instead of retrying a gdi+ that
+// never comes.
+static int _zoomui_gdip_ready(void)
+{
+	if (_zoomui_gdip_state)
+	{
+		return (_zoomui_gdip_state == 1) ? 1 : 0;
+	}
+
+	if ((!os_GdipCreatePath) || (!os_GdipDeletePath) || (!os_GdipAddPathArc) ||
+		(!os_GdipAddPathLine) || (!os_GdipClosePathFigure) ||
+		(!os_GdipCreateSolidFill) || (!os_GdipDeleteBrush) || (!os_GdipFillPath) ||
+		(!os_GdipDrawPath) || (!os_GdipCreatePen1) || (!os_GdipDeletePen) ||
+		(!os_GdipCreateFromHDC) || (!os_GdipSetSmoothingMode) || (!os_GdipDeleteGraphics) ||
+		(!os_GdiplusStartup))
+	{
+		_zoomui_gdip_state = 2;
+
+		return 0;
+	}
+
+	{
+		os_GdiplusStartupInput_t input;
+		int ret;
+
+		input.GdiplusVersion = 1;
+		input.DebugEventCallback = 0;
+		input.SuppressBackgroundThread = 0;
+		input.SuppressExternalCodecs = 0;
+
+		ret = os_GdiplusStartup(&_zoomui_gdip_token,&input,0);
+
+		// the started state pairs the shutdown in zoomui_kill: a refused
+		// startup leaves the token zero and the shutdown skipped, instead
+		// of unbalancing a token nobody handed out.
+		_zoomui_gdip_state = (ret == 0) ? 1 : 2;
+	}
+
+	return (_zoomui_gdip_state == 1) ? 1 : 0;
+}
+
+// the per-pixel alpha leg needs both the layered child support (the
+// win8+ probe from zoomui_init) and the gdi+ rasterizer: without either
+// one the plain gdi WM_PAINT leg stays and keeps its legacy look.
+static int _zoomui_use_ulw(void)
+{
+	return ((_zoomui_layered_ok) && (_zoomui_gdip_ready())) ? 1 : 0;
+}
+
+// drop the cached dib and its memory dc (a size change or the kill path).
+static void _zoomui_free_dib(void)
+{
+	if (_zoomui_mem_hdc)
+	{
+		if (_zoomui_dib_old)
+		{
+			SelectObject(_zoomui_mem_hdc,_zoomui_dib_old);
+		}
+
+		DeleteDC(_zoomui_mem_hdc);
+
+		_zoomui_mem_hdc = 0;
+		_zoomui_dib_old = 0;
+	}
+
+	if (_zoomui_dib)
+	{
+		DeleteObject(_zoomui_dib);
+
+		_zoomui_dib = 0;
+	}
+
+	_zoomui_dib_bits = 0;
+	_zoomui_dib_wide = 0;
+	_zoomui_dib_high = 0;
+}
+
+// make sure the dib exists at the given client size. the dib is top-down
+// 32bpp: gdi+ writes straight argb into it through the memory dc, the
+// premultiply pass converts, updatelayeredwindow reads the result.
+static int _zoomui_ensure_dib(int wide,int high)
+{
+	if ((_zoomui_dib) && (_zoomui_dib_wide == wide) && (_zoomui_dib_high == high))
+	{
+		return 1;
+	}
+
+	_zoomui_free_dib();
+
+	if ((wide > 0) && (high > 0))
+	{
+		BITMAPINFO bmi;
+
+		os_zero_memory(&bmi,sizeof(bmi));
+
+		bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+		bmi.bmiHeader.biWidth = wide;
+		bmi.bmiHeader.biHeight = -high; // top-down: scan0 is the first row.
+		bmi.bmiHeader.biPlanes = 1;
+		bmi.bmiHeader.biBitCount = 32;
+		bmi.bmiHeader.biCompression = BI_RGB;
+
+		_zoomui_dib = CreateDIBSection(0,&bmi,DIB_RGB_COLORS,(void **)&_zoomui_dib_bits,0,0);
+
+		if (_zoomui_dib)
+		{
+			_zoomui_mem_hdc = CreateCompatibleDC(0);
+
+			if (_zoomui_mem_hdc)
+			{
+				_zoomui_dib_old = SelectObject(_zoomui_mem_hdc,_zoomui_dib);
+
+				_zoomui_dib_wide = wide;
+				_zoomui_dib_high = high;
+
+				return 1;
+			}
+
+			DeleteObject(_zoomui_dib);
+
+			_zoomui_dib = 0;
+			_zoomui_dib_bits = 0;
+		}
+	}
+
+	return 0;
+}
+
+// push the cached dib through updatelayeredwindow: the per-pixel alpha
+// carries the AA edges and the alpha 0 corner crescents (their clicks
+// fall through to the image behind), sourceconstantalpha carries the
+// idle fade on top. the window keeps its position and size - only the
+// surface and the constant alpha change.
+static void _zoomui_submit_layered(int alpha)
+{
+	if ((_zoomui_hwnd) && (_zoomui_dib) && (_zoomui_mem_hdc))
+	{
+		SIZE size;
+		POINT pt;
+		BLENDFUNCTION blend;
+
+		size.cx = _zoomui_dib_wide;
+		size.cy = _zoomui_dib_high;
+
+		pt.x = 0;
+		pt.y = 0;
+
+		blend.BlendOp = AC_SRC_OVER;
+		blend.BlendFlags = 0;
+		blend.SourceConstantAlpha = (BYTE)alpha;
+		blend.AlphaFormat = AC_SRC_ALPHA;
+
+		if (!UpdateLayeredWindow(_zoomui_hwnd,0,0,&size,_zoomui_mem_hdc,&pt,0,&blend,ULW_ALPHA))
+		{
+			// a refused submit must not leave an undrawn opaque
+			// rectangle over the image: the layered leg retires and
+			// the gdi leg redraws - the runtime self-heal the probe's
+			// static answer cannot promise (the verification round's
+			// catch).
+			_zoomui_layered_ok = 0;
+			
+			SetWindowLong(_zoomui_hwnd,GWL_EXSTYLE,GetWindowLong(_zoomui_hwnd,GWL_EXSTYLE) & ~WS_EX_LAYERED);
+			
+			InvalidateRect(_zoomui_hwnd,0,FALSE);
+		}
+	}
+}
+
+// push the current alpha to the layered window. the ulw leg rides
+// blend.sourceconstantalpha on a re-submit of the cached surface (the
+// fade never re-rasterizes), the constant-alpha leg keeps
+// setlayeredwindowattributes. ignored when the layered child support
+// is missing (the bar is simply opaque then).
 static void _zoomui_set_alpha(int alpha)
 {
 	if ((_zoomui_hwnd) && (_zoomui_layered_ok))
 	{
-		SetLayeredWindowAttributes(_zoomui_hwnd,0,(BYTE)alpha,LWA_ALPHA);
+		if (_zoomui_use_ulw())
+		{
+			if (_zoomui_dib)
+			{
+				_zoomui_submit_layered(alpha);
+			}
+			else
+			{
+				// no surface yet: the first render submits with this alpha
+				_zoomui_render_layered();
+			}
+		}
+		else
+		{
+			SetLayeredWindowAttributes(_zoomui_hwnd,0,(BYTE)alpha,LWA_ALPHA);
+		}
 	}
 }
 
@@ -584,7 +822,16 @@ static void _zoomui_invalidate(void)
 {
 	if (_zoomui_hwnd)
 	{
-		InvalidateRect(_zoomui_hwnd,0,FALSE);
+		if (_zoomui_use_ulw())
+		{
+			// the layered surface owns the pixels and no wm_paint ever
+			// arrives for it: re-render straight into the dib
+			_zoomui_render_layered();
+		}
+		else
+		{
+			InvalidateRect(_zoomui_hwnd,0,FALSE);
+		}
 	}
 }
 
@@ -927,6 +1174,22 @@ void zoomui_init(HWND parent)
 			if (SetLayeredWindowAttributes(_zoomui_hwnd,0,_ZOOMUI_ALPHA_OPAQUE,LWA_ALPHA))
 			{
 				_zoomui_layered_ok = 1;
+				
+				// the probe poisoned the well: setlayeredwindowattributes
+				// and updatelayeredwindow are exclusive - after a
+				// successful slwa call every ulw call fails until the
+				// layering style bit is cleared and set again (the msdn
+				// contract; the wpf team documented the same trap). the
+				// probe only ever needed the answer, not the state -
+				// undo it before the first ulw submit.
+				{
+					DWORD exstyle;
+					
+					exstyle = GetWindowLong(_zoomui_hwnd,GWL_EXSTYLE);
+					
+					SetWindowLong(_zoomui_hwnd,GWL_EXSTYLE,exstyle & ~WS_EX_LAYERED);
+					SetWindowLong(_zoomui_hwnd,GWL_EXSTYLE,exstyle | WS_EX_LAYERED);
+				}
 			}
 			else
 			{
@@ -970,6 +1233,10 @@ void zoomui_kill(void)
 		_zoomui_hwnd = 0;
 	}
 
+	// the layered surface and its memory dc outlive the window by design:
+	// free them once no message can ever ask for another frame
+	_zoomui_free_dib();
+
 	_zoomui_clear_hover_press(0);
 
 	_zoomui_layered_ok = 0;
@@ -981,6 +1248,16 @@ void zoomui_kill(void)
 	_zoomui_pct_wide = 0;
 	_zoomui_area_wide = 0;
 	_zoomui_area_high = 0;
+
+	// pair the own-token gdi+ startup from _zoomui_gdip_ready: a refused
+	// startup left the token zero and this shutdown skips
+	if ((_zoomui_gdip_state == 1) && (os_GdiplusShutdown))
+	{
+		os_GdiplusShutdown(_zoomui_gdip_token);
+	}
+
+	_zoomui_gdip_token = 0;
+	_zoomui_gdip_state = 0;
 
 	_zoomui_parent_hwnd = 0;
 }
@@ -1150,6 +1427,14 @@ void zoomui_show(int show)
 			_zoomui_alpha = _zoomui_layered_ok ? 0 : _ZOOMUI_ALPHA_OPAQUE;
 			_zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;
 			_zoomui_last_activity = GetTickCount();
+
+			// pre-render the per-pixel surface while the pill is still hidden:
+			// the show presents the rounded surface directly and no legacy
+			// frame of the old paint can slip in between
+			if (_zoomui_use_ulw())
+			{
+				_zoomui_render_layered();
+			}
 
 			ShowWindow(_zoomui_hwnd,SW_SHOW);
 
@@ -1325,6 +1610,66 @@ void zoomui_layout(int wide,int high)
 	_zoomui_invalidate();
 }
 
+// the capsule face color for one button state (shared by the gdi and
+// the layered legs).
+static COLORREF _zoomui_button_face_color(int is_pressed,int is_disabled,int is_hot)
+{
+	if (is_disabled)
+	{
+		return viv_theme_color(VIV_TK_FACE);
+	}
+
+	if ((is_pressed) && (is_hot))
+	{
+		return viv_theme_color(VIV_TK_DOWN);
+	}
+
+	if (is_hot)
+	{
+		return viv_theme_color(VIV_TK_HOVER);
+	}
+
+	return viv_theme_color(VIV_TK_FACE);
+}
+
+// the text color, the glyph and the focus ring on top of a capsule
+// body (both legs draw the body their own way, the content is shared).
+static void _zoomui_draw_button_content(HDC hdc,const RECT *rect,int celli,int is_pressed,int is_disabled,int is_hot,int has_focus)
+{
+	int offset;
+
+	offset = ((is_pressed) && (!is_disabled)) ? 1 : 0;
+
+	if (is_disabled)
+	{
+		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXTOFF));
+	}
+	else
+	{
+		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
+	}
+
+	SetBkMode(hdc,TRANSPARENT);
+
+	// the vector glyphs make the buttons unmistakable.
+	_zoomui_draw_icon(hdc,rect,celli,offset,is_disabled);
+
+	// keyboard focus: a dotted ring inside the hot capsule.
+	if ((has_focus) && (is_hot) && (!is_disabled))
+	{
+		RECT focus_rect;
+
+		CopyRect(&focus_rect,rect);
+
+		InflateRect(&focus_rect,-4,-4);
+
+		if ((focus_rect.right > focus_rect.left) && (focus_rect.bottom > focus_rect.top))
+		{
+			DrawFocusRect(hdc,&focus_rect);
+		}
+	}
+}
+
 static void _zoomui_draw_button(HDC hdc,const RECT *rect,int celli,int is_pressed,int is_disabled,int is_hot,int has_focus)
 {
 	RECT fill_rect;
@@ -1332,14 +1677,6 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int celli,int is_presse
 	HPEN pen;
 	HPEN old_pen;
 	HGDIOBJ old_brush;
-	int offset;
-
-	offset = 0;
-
-	if ((is_pressed) && (!is_disabled))
-	{
-		offset = 1;
-	}
 
 	CopyRect(&fill_rect,rect);
 
@@ -1347,27 +1684,14 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int celli,int is_presse
 	// button height, so each end is a true semicircle and the row reads
 	// as one rail of stadium cells instead of the square cornered
 	// blocks (which sat next to the flat toolbar like a patch from
-	// another toolkit). roundrect fills and outlines the same
-	// silhouette in one call.
+	// another toolkit). roundrect fills and outlines the same silhouette
+	// in one call. this plain gdi body only draws on the fallback leg -
+	// the layered leg rasterizes the same stadium through gdi+ with
+	// anti-aliased arcs (_zoomui_gdip_stadium).
 	{
 		COLORREF fill_color;
 
-		if ((is_disabled))
-		{
-			fill_color = viv_theme_color(VIV_TK_FACE);
-		}
-		else if ((is_pressed) && (is_hot))
-		{
-			fill_color = viv_theme_color(VIV_TK_DOWN);
-		}
-		else if (is_hot)
-		{
-			fill_color = viv_theme_color(VIV_TK_HOVER);
-		}
-		else
-		{
-			fill_color = viv_theme_color(VIV_TK_FACE);
-		}
+		fill_color = _zoomui_button_face_color(is_pressed,is_disabled,is_hot);
 
 		brush = CreateSolidBrush(fill_color);
 		pen = CreatePen(PS_SOLID,1,viv_theme_color((is_pressed) && (is_hot) ? VIV_TK_DOWN : VIV_TK_LINE));
@@ -1398,34 +1722,7 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int celli,int is_presse
 		DeleteObject(brush);
 	}
 
-	if (is_disabled)
-	{
-		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXTOFF));
-	}
-	else
-	{
-		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
-	}
-
-	SetBkMode(hdc,TRANSPARENT);
-
-	// the vector glyphs make the buttons unmistakable.
-	_zoomui_draw_icon(hdc,rect,celli,offset,is_disabled);
-
-	// keyboard focus: a dotted ring inside the hot capsule.
-	if ((has_focus) && (is_hot) && (!is_disabled))
-	{
-		RECT focus_rect;
-
-		CopyRect(&focus_rect,rect);
-
-		InflateRect(&focus_rect,-4,-4);
-
-		if ((focus_rect.right > focus_rect.left) && (focus_rect.bottom > focus_rect.top))
-		{
-			DrawFocusRect(hdc,&focus_rect);
-		}
-	}
+	_zoomui_draw_button_content(hdc,rect,celli,is_pressed,is_disabled,is_hot,has_focus);
 }
 
 // the glyph id for one button cell: the play/pause cell follows the
@@ -1545,6 +1842,232 @@ static void _zoomui_draw_percent(HDC hdc,const RECT *rect)
 	{
 		SelectObject(hdc,old_font);
 	}
+}
+
+// colorref (0x00bbggrr) to the gdi+ argb layout (0xaarrggbb).
+static unsigned int _zoomui_argb(COLORREF color)
+{
+	return 0xFF000000u | (((unsigned int)color & 0xFFu) << 16) | ((unsigned int)color & 0xFF00u) | (((unsigned int)color >> 16) & 0xFFu);
+}
+
+// draw one stadium (a rect whose ends are true semicircles) with gdi+
+// anti-aliasing: two arc caps and two edge lines in one closed figure,
+// then the solid fill and the 1px hairline stroke. this is the same
+// silhouette the gdi leg gets from roundrect, minus the jaggies.
+static void _zoomui_gdip_stadium(void *graphics,const RECT *rect,COLORREF fill_color,COLORREF line_color)
+{
+	void *path;
+	float left;
+	float top;
+	float right;
+	float bottom;
+	float radius;
+
+	path = 0;
+
+	left = (float)rect->left;
+	top = (float)rect->top;
+	right = (float)rect->right;
+	bottom = (float)rect->bottom;
+
+	// the end circles span the full height (the full-stadium read); a rect
+	// narrower than it is tall collapses to its inscribed ellipse instead
+	// of a self crossing figure
+	radius = (bottom - top) / 2.0f;
+
+	if (radius > ((right - left) / 2.0f))
+	{
+		radius = (right - left) / 2.0f;
+	}
+
+	if (radius < 1.0f)
+	{
+		radius = 1.0f;
+	}
+
+	if (os_GdipCreatePath(_ZOOMUI_GDIP_FILL_ALTERNATE,&path) == 0)
+	{
+		void *brush;
+		void *pen;
+
+		// top edge, right cap, bottom edge, left cap: the lines meet the
+		// arc ends exactly and closefigure ties the figure shut. the angles
+		// are degrees clockwise from the x axis on the y-down grid.
+		os_GdipAddPathLine(path,left + radius,top,right - radius,top);
+		os_GdipAddPathArc(path,right - (radius * 2.0f),top,radius * 2.0f,radius * 2.0f,270.0f,180.0f);
+		os_GdipAddPathLine(path,right - radius,bottom,left + radius,bottom);
+		os_GdipAddPathArc(path,left,top,radius * 2.0f,radius * 2.0f,90.0f,180.0f);
+		os_GdipClosePathFigure(path);
+
+		brush = 0;
+
+		if (os_GdipCreateSolidFill(_zoomui_argb(fill_color),&brush) == 0)
+		{
+			os_GdipFillPath(graphics,brush,path);
+
+			os_GdipDeleteBrush(brush);
+		}
+
+		pen = 0;
+
+		if (os_GdipCreatePen1(_zoomui_argb(line_color),1.0f,_ZOOMUI_GDIP_UNIT_PIXEL,&pen) == 0)
+		{
+			os_GdipDrawPath(graphics,pen,path);
+
+			os_GdipDeletePen(pen);
+		}
+
+		os_GdipDeletePath(path);
+	}
+}
+
+// gdi+ writes straight alpha into a 32bpp dib and plain gdi (the text,
+// the icons, the separator) writes none at all, while updatelayeredwindow
+// reads premultiplied argb: one pass converts every pixel. the pixels
+// gdi touched over no gdi+ fill (alpha 0 with a color) turn opaque
+// instead of vanishing - the safety net for any draw that ever slips
+// outside the filled shapes.
+static void _zoomui_premultiply(unsigned char *bits,int wide,int high)
+{
+	unsigned char *p;
+	int x;
+	int y;
+
+	p = bits;
+
+	for(y=0;y<high;y++)
+	{
+		for(x=0;x<wide;x++)
+		{
+			unsigned int a;
+
+			a = p[3];
+
+			if (a == 0)
+			{
+				if ((p[0]) || (p[1]) || (p[2]))
+				{
+					p[3] = 255;
+				}
+				else
+				{
+					// fully transparent stays fully transparent so the corner
+					// crescents can never leak a colored fringe
+					p[0] = 0;
+					p[1] = 0;
+					p[2] = 0;
+				}
+			}
+			else
+			{
+				p[0] = (unsigned char)((p[0] * a) / 255);
+				p[1] = (unsigned char)((p[1] * a) / 255);
+				p[2] = (unsigned char)((p[2] * a) / 255);
+			}
+
+			p += 4;
+		}
+	}
+}
+
+// render the whole pill into the 32bpp dib and submit it as the layered
+// surface. pass one is gdi+ (the tray and the capsules, anti-aliased),
+// pass two is gdi (the separator, the percent text, the icons and the
+// focus ring over the filled shapes - they only write rgb, the fills
+// behind them already own alpha 255), pass three is the premultiply
+// conversion and the updatelayeredwindow submit. the pill is a few
+// hundred pixels wide: a full re-render on every hover / press / percent
+// change is still nothing.
+static void _zoomui_render_layered(void)
+{
+	RECT client_rect;
+	int has_focus;
+	int i;
+
+	if ((!_zoomui_hwnd) || (!_zoomui_use_ulw()))
+	{
+		return;
+	}
+
+	GetClientRect(_zoomui_hwnd,&client_rect);
+
+	if (!_zoomui_ensure_dib(client_rect.right - client_rect.left,client_rect.bottom - client_rect.top))
+	{
+		return;
+	}
+
+	has_focus = (GetFocus() == _zoomui_hwnd) ? 1 : 0;
+
+	{
+		void *graphics;
+
+		graphics = 0;
+
+		if (os_GdipCreateFromHDC(_zoomui_mem_hdc,&graphics) != 0)
+		{
+			// no graphics, no frame: keep the last submitted surface instead
+			// of pushing a zeroed (invisible) pill
+			return;
+		}
+
+		// the surface is the whole window: every frame starts clean or the
+		// previous hover glow would bleed through the transparent crescents
+		os_zero_memory(_zoomui_dib_bits,(_zoomui_dib_wide * 4) * _zoomui_dib_high);
+
+		os_GdipSetSmoothingMode(graphics,_ZOOMUI_GDIP_SMOOTHING_ANTIALIAS);
+
+		// every gdi+ primitive happens inside this one graphics lifetime:
+		// gdi writes in between would fight the gdi+ dc state cache, so the
+		// gdi pass waits until deletegraphics
+		_zoomui_gdip_stadium(graphics,&client_rect,viv_theme_color(VIV_TK_FACE),viv_theme_color(VIV_TK_LINE));
+
+		for(i=0;i<_ZOOMUI_CELL_COUNT;i++)
+		{
+			if (_zoomui_is_button_cell(i))
+			{
+				int is_pressed;
+				int is_disabled;
+				int is_hot;
+
+				is_pressed = (_zoomui_pressed_index == i) ? 1 : 0;
+				is_disabled = _zoomui_is_button_disabled(i);
+				is_hot = (_zoomui_hot_index == i) ? 1 : 0;
+
+				_zoomui_gdip_stadium(graphics,&_zoomui_cell_rects[i],_zoomui_button_face_color(is_pressed,is_disabled,is_hot),viv_theme_color(((is_pressed) && (is_hot)) ? VIV_TK_DOWN : VIV_TK_LINE));
+			}
+		}
+
+		os_GdipDeleteGraphics(graphics);
+	}
+
+	for(i=0;i<_ZOOMUI_CELL_COUNT;i++)
+	{
+		if (i == _ZOOMUI_CELL_SEP)
+		{
+			_zoomui_draw_separator(_zoomui_mem_hdc);
+		}
+		else
+		if (i == _ZOOMUI_CELL_PCT)
+		{
+			_zoomui_draw_percent(_zoomui_mem_hdc,&_zoomui_cell_rects[i]);
+		}
+		else
+		{
+			int is_pressed;
+			int is_disabled;
+			int is_hot;
+
+			is_pressed = (_zoomui_pressed_index == i) ? 1 : 0;
+			is_disabled = _zoomui_is_button_disabled(i);
+			is_hot = (_zoomui_hot_index == i) ? 1 : 0;
+
+			_zoomui_draw_button_content(_zoomui_mem_hdc,&_zoomui_cell_rects[i],i,is_pressed,is_disabled,is_hot,has_focus);
+		}
+	}
+
+	_zoomui_premultiply(_zoomui_dib_bits,_zoomui_dib_wide,_zoomui_dib_high);
+
+	_zoomui_submit_layered(_zoomui_alpha);
 }
 
 static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
@@ -1982,6 +2505,19 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			break;
 		}
 
+		case WM_SIZE:
+		{
+			// a resized pill needs a fresh surface at the new client size (the
+			// dib is rebuilt inside the render). wm_paint never arrives on the
+			// ulw leg, so the re-render cannot wait for one
+			if (_zoomui_use_ulw())
+			{
+				_zoomui_render_layered();
+			}
+
+			break;
+		}
+
 		case WM_ERASEBKGND:
 		{
 			// all painting happens in WM_PAINT (tray + capsules in one
@@ -1996,6 +2532,23 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 			RECT client_rect;
 			int has_focus;
 			int i;
+
+			// the per-pixel leg never draws through the window dc: the layered
+			// surface is the only truth, wm_paint just proves the surface
+			// exists (a lost dib re-renders and re-submits)
+			if (_zoomui_use_ulw())
+			{
+				hdc = BeginPaint(hwnd,&ps);
+
+				if (hdc)
+				{
+					EndPaint(hwnd,&ps);
+				}
+
+				_zoomui_render_layered();
+
+				return 0;
+			}
 
 			hdc = BeginPaint(hwnd,&ps);
 

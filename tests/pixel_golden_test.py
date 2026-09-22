@@ -47,19 +47,22 @@ def main():
           os.path.exists("tests/render_golden.ps1"))
     check("the golden set is the pinned thirteen (the real imagery, the shape dimension and the discrimination texture)",
           # the discrimination gate names the solid controls once
-          # more (the bootstrap exemption list - round 111), so the
-          # count is two for the pair and one for every textured
-          # sample: a third mention of anything is a drift.
+          # more (the bootstrap exemption list - round 111), and
+          # round-125's 1:1 exemption names the ten native-size
+          # textured samples a second time: the count is two for
+          # the pair and the 1:1 ten, one for the scaled sliver
+          # (the only sample the distinctness gate still holds),
+          # and a third mention of anything is a drift.
           ps1.count('"28_control_png_100x100.png"') == 2 and
           ps1.count('"29_control_png_4000x3000.png"') == 2 and
-          ps1.count('"fx_still_qoi_rgba.qoi"') == 1 and
-          ps1.count('"fx_anim_pulse.webp"') == 1 and
-          ps1.count('"fx_anim_fade.gif"') == 1 and
-          ps1.count('"fx_still_24bpp.bmp"') == 1 and
-          ps1.count('"fx_still_photo.jpg"') == 1 and
-          ps1.count('"fx_still_webp_odd.webp"') == 1 and
+          ps1.count('"fx_still_qoi_rgba.qoi"') == 2 and
+          ps1.count('"fx_anim_pulse.webp"') == 2 and
+          ps1.count('"fx_anim_fade.gif"') == 2 and
+          ps1.count('"fx_still_24bpp.bmp"') == 2 and
+          ps1.count('"fx_still_photo.jpg"') == 2 and
+          ps1.count('"fx_still_webp_odd.webp"') == 2 and
           ps1.count('"fx_still_qoi_sliver.qoi"') == 1 and
-          ps1.count('"fx_still_textured.png"') == 1)
+          ps1.count('"fx_still_textured.png"') == 2)
     check("the truncated anomaly stubs stay out of the golden set",
           '"30_control_gif_single_frame.gif"' not in ps1 and
           '"31_control_gif_anim_normal.gif"' not in ps1 and
@@ -212,10 +215,20 @@ def main():
         # the bootstrap, and this check arms itself the moment they do.
         solid_exempt = {"28_control_png_100x100.png",
                         "29_control_png_4000x3000.png"}
-        check("every textured golden sample answers three-way distinct (the identical-d3d fake green the fourth audit flagged)",
+        # rc.13: the upright mapping answers 1:1 exactly - the flip
+        # era's three-way distinctness on the native-size samples was
+        # the bug's own signature (and the old "coincidence" note on
+        # the solid pair is explained: 1:1 exact sampling). the
+        # fake-green contract rides the scaled samples now.
+        one_to_one_exempt = {"fx_anim_bounce.gif", "fx_anim_fade.gif",
+                             "fx_still_24bpp.bmp", "fx_still_photo.jpg",
+                             "fx_still_qoi_rgb.qoi", "fx_still_qoi_rgba.qoi",
+                             "fx_still_rgba.png", "fx_anim_pulse.webp",
+                             "fx_still_webp_odd.webp", "fx_still_textured.png"}
+        check("every scaled textured golden sample answers three-way distinct (the fake green the fourth audit flagged; the 1:1 samples legitimately agree under the upright mapping)",
               all(len({manifest[s].get(leg) for leg in ("gdi", "gl", "d3d")}) == 3
                   for s in manifest
-                  if s not in solid_exempt)
+                  if s not in solid_exempt and s not in one_to_one_exempt)
               if manifest else False)
     else:
         if in_git_checkout:

@@ -104,8 +104,6 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"&Rate", // LOCALIZATION_ID_RATE,
 	"&Decrease Rate", // LOCALIZATION_ID_DECREASE_RATE,
 	"&Increase Rate", // LOCALIZATION_ID_INCREASE_RATE,
-	"250 Milliseconds", // LOCALIZATION_ID_RATE_250_MILLISECONDS,
-	"500 Milliseconds", // LOCALIZATION_ID_RATE_500_MILLISECONDS,
 	"&1 Second", // LOCALIZATION_ID_RATE_1_SECOND,
 	"&2 Seconds", // LOCALIZATION_ID_RATE_2_SECONDS,
 	"&3 Seconds", // LOCALIZATION_ID_RATE_3_SECONDS,
@@ -273,7 +271,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Windows Metafile Image", // LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_WMF
 
 	// zoom controls (touch / floating)
-	"Zoom &Controls", // LOCALIZATION_ID_ZOOM_CONTROLS,
+	"Floating &Control Bar", // LOCALIZATION_ID_ZOOM_CONTROLS,
 	"Zoom Out", // LOCALIZATION_ID_TOOLBAR_ZOOM_OUT_BUTTON,
 	"Zoom In", // LOCALIZATION_ID_TOOLBAR_ZOOM_IN_BUTTON,
 	"Zoom out", // LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_OUT,
@@ -357,4 +355,12 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Off", // LOCALIZATION_ID_SETTINGS_COUNT_OFF
 	"1 image", // LOCALIZATION_ID_SETTINGS_COUNT_ONE
 	"%d images", // LOCALIZATION_ID_SETTINGS_COUNT_MANY
+	"Rendering", // LOCALIZATION_ID_SETTINGS_SECTION_RENDERING
+	"Window and Full Screen", // LOCALIZATION_ID_SETTINGS_SECTION_WINDOW
+	"Animation and Slideshow", // LOCALIZATION_ID_SETTINGS_SECTION_ANIMATION
+	"Performance", // LOCALIZATION_ID_SETTINGS_SECTION_PERFORMANCE
+	"Floating control bar", // LOCALIZATION_ID_SETTINGS_FLOATING_BAR
+	"Auto-hide the floating control bar in full screen", // LOCALIZATION_ID_SETTINGS_AUTO_HIDE_BAR
+	"Show pixel info in the status bar", // LOCALIZATION_ID_SETTINGS_PIXEL_INFO
+	"Ctrl+mouse wheel action:", // LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC
 };

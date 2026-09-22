@@ -123,16 +123,23 @@ static void _viv_timer_start(void)
 		_viv_animation_timer_tick_start = os_get_tick_count();
 		_viv_timer_tick = 0;
 		
+		// the queue timer is the precise clock, but a refusal is not a
+		// stopped clock: the callback would never fire and the
+		// animation would freeze on its first frame (the deferred
+		// report's fourth item). the window timer answers every
+		// refusal, and the flag the start actually set is what the
+		// stop dispatches on.
+		_viv_is_timer_queue_timer = 0;
+		
 		if ((os_CreateTimerQueueTimer) && (os_DeleteTimerQueueTimer))
 		{
-			_viv_is_timer_queue_timer = 0;
-			
 			if (os_CreateTimerQueueTimer(&_viv_timer_queue_timer_handle,NULL,_viv_timer_queue_timer_callback,NULL,1,1,0))
 			{
 				_viv_is_timer_queue_timer = 1;
 			}
 		}
-		else
+		
+		if (!_viv_is_timer_queue_timer)
 		{
 			SetTimer(_viv_hwnd,VIV_ID_ANIMATION_TIMER,USER_TIMER_MINIMUM,0);
 		}
@@ -229,14 +236,18 @@ void _viv_timer_stop(void)
 	{
 		_viv_is_animation_timer = 0;
 		
-		if ((os_CreateTimerQueueTimer) && (os_DeleteTimerQueueTimer))
+		// the stop dispatches on the flag the start set, not on the
+		// api's availability - the fallback runs on machines the api
+		// exists on too (a refused queue timer), and killing the wrong
+		// clock leaves either a frozen animation or a zombie timer.
+		if (_viv_is_timer_queue_timer)
 		{
-			if (_viv_is_timer_queue_timer)
+			if (os_DeleteTimerQueueTimer)
 			{
 				os_DeleteTimerQueueTimer(NULL,_viv_timer_queue_timer_handle,NULL);
-				
-				_viv_is_timer_queue_timer = 0;
 			}
+			
+			_viv_is_timer_queue_timer = 0;
 		}
 		else
 		{
@@ -586,6 +597,9 @@ int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 						break;
 				}
 				first_frame.is_low_res = 0;
+				// the bake this frame ran decides the backdrop fact
+				// (has_alpha pixels got the mat painted under them).
+				first_frame.alpha_baked = viv_webp->has_alpha ? 1 : 0;
 				first_frame.frame.hbitmap = hbitmap;
 				first_frame.frame.mipmap = NULL;
 				first_frame.frame.delay = 0;

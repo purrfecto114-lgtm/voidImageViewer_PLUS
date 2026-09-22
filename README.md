@@ -24,11 +24,13 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.12 — the report fusion round (the current release candidate):**
+**1.1.15-rc.13 — the field response round (the current release candidate):**
 
-- The third fusion report's ledger lands whole — the two P1 guard teeth (the rc.7 restore pinned as code a comment could satisfy, the picker's leaf-id arithmetic pinned by count) and the sixteen P2 line fixes: the chain walk's empty-slot refusal, the exit free's loaded count, the iconic apply, the hidden-window reveal, the msgbox clamp, the timer's duty hand-back, the paste's queued-next refusal, the menu/title/cursor/save-as faces answering the displayed slot, the delete's re-anchored scan, and the installer's runtime quote refusal.
-- The guard suite bites machines, not mentions — the census extends to case bindings (a case wired to the wrong key can no longer pass), the count ladder's boundaries extract from the source and replay, the golden ratchet and fail-closed exit gain their own pins, and the simulation word table covers the whole winuser show set.
-- CI and installer trust — every release and codeql job carries a timeout, the tests workflow grants no write token the bootstrap never spent, `sha256.txt` travels with LF endings, the zip channel ships the third-party notices, and the uninstaller's second stage deletes its own exe instead of leaving it in %TEMP%.
+- The nine-item field report lands whole — the upgrade's lost cache seat (the chain reserves the history seat; the effective promise is min(preload, cache)), the per-step folder rescans (the successor window: one scan serves the navigation and the preload chain alike), the animation toolbar that could never resume, and the flipped hardware launch (the getobject height sign is unrecoverable — one mapping for every top-down frame).
+- The pill renders through gdiplus antialiased paths into a premultiplied layered bitmap (per-pixel alpha kills the black corners, the arcs smooth out), the menu retires its dead rows (the win8-dead preview verb gated, the sub-second slideshow rates gone), and the settings page regroups (view sections, the floating-bar and pixel-info switches, the ctrl-wheel action, toolbar tooltips).
+- The status bar's frame counter owns a fast path, the rotate no longer blocks the ui thread on the shell's re-encode, and a backdrop change reloads only the images that baked it.
+
+**1.1.15-rc.12 — the report fusion round:** the third fusion report's ledger — the two P1 guard teeth, the sixteen P2 line fixes, and the ci/installer trust work. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.11 — the resume and chain round:** the resume switch's pill, the preload chain's seat gate, and the guard suite's control-machine matrix walk. See [Changes.txt](Changes.txt).
 

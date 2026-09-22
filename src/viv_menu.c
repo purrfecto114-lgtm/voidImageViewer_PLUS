@@ -243,7 +243,6 @@ void _viv_check_menus(HMENU hmenu)
 	EnableMenuItem(hmenu,VIV_ID_NAV_END,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_VIEW_SLIDESHOW,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_PAUSE,is_image_enabled);
-	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_STOP,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_DEC,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_INC,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_VIEW_ZOOM_IN,is_image_enabled);
@@ -303,8 +302,6 @@ void _viv_check_menus(HMENU hmenu)
 
 	switch(config_slideshow_rate)
 	{
-		case 250: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_250; break;
-		case 500: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_500; break;
 		case 1000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_1000; break;
 		case 2000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_2000; break;
 		case 3000: slideshow_rate_id = VIV_ID_SLIDESHOW_RATE_3000; break;
@@ -326,8 +323,6 @@ void _viv_check_menus(HMENU hmenu)
 			break;
 	}
 
-	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_250,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_250 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_500,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_500 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_1000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_1000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_2000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_2000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_3000,slideshow_rate_id == VIV_ID_SLIDESHOW_RATE_3000 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
@@ -656,6 +651,15 @@ HMENU _viv_create_menu(void)
 		
 		for(i=0;i<_VIV_COMMAND_COUNT;i++)
 		{
+			// the preview verb died with windows 8 - the context menu
+			// already gates it, and the menu bar wore the same dead row:
+			// a click that answered nothing (the field report's empty
+			// shell). win7 keeps it.
+			if ((_viv_commands[i].command_id == VIV_ID_FILE_PREVIEW) && (os_is_windows_8_or_later()))
+			{
+				continue;
+			}
+			
 			if (!(_viv_commands[i].flags & MF_OWNERDRAW))
 			{
 				int flags;

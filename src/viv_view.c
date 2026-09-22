@@ -68,7 +68,10 @@ void _viv_start_move_window(void);
 
 
 static int _viv_old_zoom_pos = 0; // restore this zoom level after leaving 1:1 mode.
-static WORD _viv_slideshow_rate_presets[] = {250,500,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,20000,30000,40000,50000,60000};
+// round-125: the sub-second presets retired with their menu rows
+// (the field report: nothing below one second belongs in a
+// slideshow ladder).
+static WORD _viv_slideshow_rate_presets[] = {1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,20000,30000,40000,50000,60000};
 typedef char _viv_slideshow_rate_presets_count_assert[(sizeof(_viv_slideshow_rate_presets) / sizeof(WORD) == _VIV_SLIDESHOW_RATE_PRESET_COUNT) ? 1 : -1]; // the count literal pins the table
 void _viv_command(int command_id)
 {
@@ -194,6 +197,10 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 		case VIV_ID_NAV_SHUFFLE:
 			config_shuffle = !config_shuffle;
 			
+			// the window ordered before the shuffle era must not
+			// answer a folder step after it.
+			_viv_nav_window_invalidate();
+			
 			if (!config_shuffle)
 			{
 				// create a new shuffle list.
@@ -227,6 +234,11 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			if (config_nav_sort == command_id - VIV_ID_NAV_SORT_NAME)
 			{
 				config_nav_sort_ascending = !config_nav_sort_ascending;
+				
+				// the reversed order makes every captured successor a
+				// stranger - the window cannot serve it (the
+				// verification round's catch).
+				_viv_nav_window_invalidate();
 			}
 			else
 			{
@@ -234,26 +246,41 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				{
 					case VIV_ID_NAV_SORT_NAME:
 						config_nav_sort = CONFIG_NAV_SORT_NAME;
+						// a window captured under the old order cannot
+						// serve a step under the new one.
+						_viv_nav_window_invalidate();
 						config_nav_sort_ascending = 1;
 						break;
 
 					case VIV_ID_NAV_SORT_FULL_PATH:
 						config_nav_sort = CONFIG_NAV_SORT_FULL_PATH_AND_FILENAME;
+						// a window captured under the old order cannot
+						// serve a step under the new one.
+						_viv_nav_window_invalidate();
 						config_nav_sort_ascending = 1;
 						break;
 						
 					case VIV_ID_NAV_SORT_DATE_MODIFIED:
 						config_nav_sort = CONFIG_NAV_SORT_DATE_MODIFIED;
+						// a window captured under the old order cannot
+						// serve a step under the new one.
+						_viv_nav_window_invalidate();
 						config_nav_sort_ascending = 0;
 						break;
 						
 					case VIV_ID_NAV_SORT_DATE_CREATED:
 						config_nav_sort = CONFIG_NAV_SORT_DATE_CREATED;
+						// a window captured under the old order cannot
+						// serve a step under the new one.
+						_viv_nav_window_invalidate();
 						config_nav_sort_ascending = 0;
 						break;
 						
 					case VIV_ID_NAV_SORT_SIZE:
 						config_nav_sort = CONFIG_NAV_SORT_SIZE;
+						// a window captured under the old order cannot
+						// serve a step under the new one.
+						_viv_nav_window_invalidate();
 						config_nav_sort_ascending = 0;
 						break;
 				}
@@ -269,6 +296,10 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 		case VIV_ID_NAV_SORT_ASCENDING:
 			config_nav_sort_ascending = 1;
 			
+			// the reversed order makes every captured successor a
+			// stranger - the window cannot serve it.
+			_viv_nav_window_invalidate();
+			
 			// clear preload and last
 			_viv_clear_loading_preload();
 			_viv_clear_preload();
@@ -278,6 +309,10 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			
 		case VIV_ID_NAV_SORT_DESCENDING:
 			config_nav_sort_ascending = 0;
+			
+			// the reversed order makes every captured successor a
+			// stranger - the window cannot serve it.
+			_viv_nav_window_invalidate();
 			
 			// clear preload and last
 			_viv_clear_loading_preload();
@@ -300,13 +335,6 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			}
 			break;
 		
-		case VIV_ID_SLIDESHOW_STOP:
-			if (_viv_is_slideshow)
-			{
-				_viv_pause();
-			}
-			break;
-
 		case VIV_ID_SLIDESHOW_PAUSE:
 			_viv_pause();
 			break;
@@ -442,8 +470,6 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			_viv_reset_animation_rate();
 			break;
 
-		case VIV_ID_SLIDESHOW_RATE_250: _viv_set_rate(250); break;
-		case VIV_ID_SLIDESHOW_RATE_500: _viv_set_rate(500); break;
 		case VIV_ID_SLIDESHOW_RATE_1000: _viv_set_rate(1000); break;
 		case VIV_ID_SLIDESHOW_RATE_2000: _viv_set_rate(2000); break;
 		case VIV_ID_SLIDESHOW_RATE_3000: _viv_set_rate(3000); break;
@@ -1019,6 +1045,10 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 			break;
 			
 		case VIV_ID_FILE_SAVE_AS:
+			// the save may drop a new file into the folder - the
+			// window's order does not know it yet.
+			_viv_nav_window_invalidate();
+			
 			_viv_save_image_as();
 			break;
 			
@@ -1037,6 +1067,10 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 		case VIV_ID_EDIT_COPY_TO:
 		case VIV_ID_EDIT_MOVE_TO:
 		{
+			// the copy may add and the move certainly removes - the
+			// window's universe changes either way.
+			_viv_nav_window_invalidate();
+			
 			// the displayed file, not the requested one (the rule lives at _viv_delete).
 			if (*_viv_slot_current.fd.cFileName)
 			{
@@ -1134,6 +1168,159 @@ int _viv_nav_neighbor_available(void)
 	// hoist above - random answers before the file gate now.)
 	return (_viv_nav_folder_neighbor != 0) ? 1 : 0;
 }
+
+// the successor window: one directory scan answers not just the next
+// image but the window of images behind it. the navigation pops the
+// head, the preload chain peeks the deeper entries, and the folder is
+// rescanned only when the window runs dry, the direction flips, or
+// the universe changes (a refresh, a delete, a sort or shuffle apply)
+// - the field report this answers paid one full scan for the click
+// and one more per preloaded image, every step, on the ui thread.
+#define _VIV_NAV_WINDOW_MAX 8
+static WIN32_FIND_DATA _viv_nav_window_fd[_VIV_NAV_WINDOW_MAX];
+static WIN32_FIND_DATA _viv_nav_window_anchor;
+static int _viv_nav_window_count;
+static int _viv_nav_window_prev;
+static int _viv_nav_window_generation;
+static int _viv_nav_window_used;
+
+// the universe version: a capture that survives a refresh, a delete
+// or a sort change belongs to a directory that no longer orders the
+// way the window remembers it.
+void _viv_nav_window_invalidate(void)
+{
+	_viv_nav_window_generation++;
+}
+
+// the capture runs inside the scan loop: every in-direction file
+// beyond the anchor slides into the direction-ordered window (the
+// head is always the nearest), and the tail falls off when the
+// window is full.
+static void _viv_nav_window_capture(WIN32_FIND_DATA *fd,int prev)
+{
+	int j;
+	int shifted;
+
+	j = _viv_nav_window_count;
+	if (j > _VIV_NAV_WINDOW_MAX - 1)
+	{
+		j = _VIV_NAV_WINDOW_MAX - 1;
+	}
+
+	shifted = 0;
+	while (j > 0)
+	{
+		int compare_ret;
+
+		compare_ret = _viv_fd_compare(fd,&_viv_nav_window_fd[j-1]);
+
+		if (prev ? (compare_ret > 0) : (compare_ret < 0))
+		{
+			_viv_nav_window_fd[j] = _viv_nav_window_fd[j-1];
+			j--;
+			shifted = 1;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	if ((_viv_nav_window_count < _VIV_NAV_WINDOW_MAX) || (shifted))
+	{
+		os_copy_memory(&_viv_nav_window_fd[j],fd,sizeof(WIN32_FIND_DATA));
+
+		if (_viv_nav_window_count < _VIV_NAV_WINDOW_MAX)
+		{
+			_viv_nav_window_count++;
+		}
+	}
+	else if (_viv_nav_window_count == _VIV_NAV_WINDOW_MAX)
+	{
+		// a full window still owes the tail a direct comparison:
+		// a newcomer that orders ahead of the last seat belongs
+		// in it (the slide never reached it - the seat ahead
+		// already refused). without this the nearer file is
+		// dropped whole and never shows in this window's pass
+		// (the verification round's random-replay catch: the
+		// size- and date-sorted folders arrive in name order).
+		int tail_ret;
+		
+		tail_ret = _viv_fd_compare(fd,&_viv_nav_window_fd[_VIV_NAV_WINDOW_MAX-1]);
+		
+		if (prev ? (tail_ret > 0) : (tail_ret < 0))
+		{
+			os_copy_memory(&_viv_nav_window_fd[_VIV_NAV_WINDOW_MAX-1],fd,sizeof(WIN32_FIND_DATA));
+		}
+	}
+}
+
+// the scan start re-hangs the window: the anchor is the file the scan
+// ordered against, the direction is the step's own, and the count
+// rebuilds from zero - a capture belongs to exactly one scan.
+static void _viv_nav_window_begin(WIN32_FIND_DATA *anchor,int prev)
+{
+	os_copy_memory(&_viv_nav_window_anchor,anchor,sizeof(WIN32_FIND_DATA));
+	_viv_nav_window_prev = prev;
+	_viv_nav_window_count = 0;
+	_viv_nav_window_used = _viv_nav_window_generation;
+}
+
+// a step serves from the window only when the window still hangs
+// from the current file, answers this direction, and belongs to this
+// universe.
+static int _viv_nav_window_serves(int prev)
+{
+	return ((_viv_nav_window_count > 0) && (_viv_nav_window_prev == prev) && (_viv_nav_window_used == _viv_nav_window_generation) && (string_compare(_viv_nav_window_anchor.cFileName,_viv_current_fd->cFileName) == 0));
+}
+
+// the navigation's pop: the head becomes the step's answer and the
+// anchor rides it to the file the step is landing on. a landing that
+// fails (the file went missing between the capture and the step)
+// leaves the anchor pointing past the current file, and the next step
+// rescans on its own - the anchor advance is the self-heal.
+static int _viv_nav_window_pop(WIN32_FIND_DATA *fd,int prev)
+{
+	int i;
+
+	if (!_viv_nav_window_serves(prev))
+	{
+		return 0;
+	}
+
+	os_copy_memory(fd,&_viv_nav_window_fd[0],sizeof(WIN32_FIND_DATA));
+	os_copy_memory(&_viv_nav_window_anchor,fd,sizeof(WIN32_FIND_DATA));
+
+	_viv_nav_window_count--;
+
+	for(i=0;i<_viv_nav_window_count;i++)
+	{
+		os_copy_memory(&_viv_nav_window_fd[i],&_viv_nav_window_fd[i+1],sizeof(WIN32_FIND_DATA));
+	}
+
+	return 1;
+}
+
+// the chain's peek: the entry at the chain's own depth is the next
+// image the walk has not promoted. the chain count is the cursor - a
+// landing resets it to zero at the same moment the window's head
+// moves to the landed file, so both point at the same next image.
+int _viv_nav_window_peek(int index,WIN32_FIND_DATA *fd)
+{
+	// a playlist changes the successor universe: the window's
+	// folder-order entries must not answer the chain while one is
+	// active (the add-family enters without a teardown - the
+	// verification round's catch).
+	if ((index < 0) || (index >= _viv_nav_window_count) || (_viv_playlist_start) || (!_viv_nav_window_serves(_viv_last_is_prev)))
+	{
+		return 0;
+	}
+
+	os_copy_memory(fd,&_viv_nav_window_fd[index],sizeof(WIN32_FIND_DATA));
+
+	return 1;
+}
+
 int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int wait_for_current_load)
 {
 	int ret;
@@ -1338,9 +1525,22 @@ debug_printf("FIND next\n");
 				string_copy(search_wbuf,path_wbuf);
 				string_cat_utf8(search_wbuf,(const utf8_t *)"\\*.*");
 				
+				// the successor window answers the step without a scan
+				// when it still hangs from the current file - the pop
+				// takes the head and the anchor rides it to the file
+				// the step is landing on.
+				if ((!is_preload) && (_viv_nav_window_pop(&best_fd,prev)))
+				{
+					got_best = 1;
+				}
+				
+				if (!got_best)
+				{
 				h = FindFirstFile(search_wbuf,&fd);
 				if (h != INVALID_HANDLE_VALUE)
 				{
+					_viv_nav_window_begin(_viv_current_fd,prev);
+					
 					for(;;)
 					{
 						if (_viv_is_valid_filename(&fd))
@@ -1359,6 +1559,16 @@ debug_printf("FIND next\n");
 							string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
 							
 							compare_ret = _viv_fd_compare(&fd,_viv_current_fd);
+
+							// the successor window keeps the nearest
+							// in-direction entries beyond the anchor - the
+							// head serves the next step, the deeper entries
+							// feed the preload chain, and the folder is
+							// rescanned only when the window runs dry.
+							if (prev ? (compare_ret < 0) : (compare_ret > 0))
+							{
+								_viv_nav_window_capture(&fd,prev);
+							}
 
 							if (compare_ret != 0)
 							{
@@ -1394,6 +1604,7 @@ debug_printf("FIND next\n");
 					}
 
 					FindClose(h);
+				}
 				}
 					if (!got_best)
 					{
@@ -1873,6 +2084,10 @@ static void _viv_delete(int permanently)
 		string_copy_double_null(filename_list,_viv_slot_current.fd.cFileName);
 		os_copy_memory(&fd,&_viv_slot_current.fd,sizeof(WIN32_FIND_DATA));
 		
+		// the successor window belongs to a directory that still
+		// contains the deleted file - it cannot serve the next step.
+		_viv_nav_window_invalidate();
+		
 		ZeroMemory(&fo,sizeof(SHFILEOPSTRUCT));
 		fo.hwnd = _viv_hwnd;
 		fo.wFunc = FO_DELETE;
@@ -2137,7 +2352,14 @@ static void _viv_edit_rotate(int counterclockwise)
 	{
 		if (_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count)
 		{
-			if (os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,1,counterclockwise ? "rotate270" : "rotate90",0))
+			// the verb launches without the blocking wait: the shell's
+			// re-encode runs its own course while the memory rotation
+			// answers the screen now (the wait used to freeze the ui
+			// thread for the whole re-encode - the field report's
+			// "rotate lags"). the gate keeps its synchronous half: a
+			// verb that will not resolve at all still refuses the
+			// memory rotation with it.
+			if (os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,counterclockwise ? "rotate270" : "rotate90",0))
 			{
 				int i;
 				int temp;

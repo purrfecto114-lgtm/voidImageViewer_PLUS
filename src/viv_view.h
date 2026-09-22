@@ -30,6 +30,8 @@
 void _viv_command(int command_id);
 void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat);
 int _viv_next(int prev,int reset_slideshow_timer,int is_preload,int wait_for_current_load);
+void _viv_nav_window_invalidate(void);
+int _viv_nav_window_peek(int index,WIN32_FIND_DATA *fd);
 void _viv_home(int end,int is_preload);
 int _viv_nav_neighbor_available(void);
 void _viv_view_set(int view_x,int view_y,int invalidate);

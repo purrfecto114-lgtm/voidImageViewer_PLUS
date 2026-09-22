@@ -352,6 +352,15 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 					const utf8_t *p;
 					
 					key_list = ini_get_string(ini,key_buf);
+					// the rc.13 rename changed this command's generated
+					// ini name (the english text drives it): a binding
+					// saved under the old name migrates rather than
+					// silently losing itself (the upgrade the field
+					// report already paid once for the cache seat).
+					if ((!key_list) && (_config_icompare_ascii(key_buf,"view_layout_floating_control_bar_keys") == 0))
+					{
+						key_list = ini_get_string(ini,(const utf8_t *)"view_layout_zoom_controls_keys");
+					}
 					
 					if (key_list)
 					{

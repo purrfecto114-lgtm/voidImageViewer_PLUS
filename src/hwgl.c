@@ -90,7 +90,6 @@ static int _viv_gl_max_texture;
 static int _viv_gl_bgra;
 static GLfloat _viv_gl_u;
 static GLfloat _viv_gl_v;
-static int _viv_gl_bottom_up;
 
 // the export harness readback state: a top-down bgra buffer armed before
 // the paint, filled by the render instead of a present.
@@ -475,7 +474,6 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	
 	_viv_gl_u = (GLfloat)wide / (GLfloat)pot_wide;
 	_viv_gl_v = (GLfloat)high / (GLfloat)pot_high;
-	_viv_gl_bottom_up = (ds->dsBmih.biHeight > 0) ? 1 : 0;
 	_viv_gl_last_hbitmap = hbitmap;
 	
 	return 1;
@@ -652,34 +650,25 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	
 	_viv_gl_begin(GL_QUADS);
 	
-	if (_viv_gl_bottom_up)
-	{
-		_viv_gl_texcoord2f(0.0f,_viv_gl_v);
-		_viv_gl_vertex2f((GLfloat)dst_x,(GLfloat)dst_y);
-		
-		_viv_gl_texcoord2f(_viv_gl_u,_viv_gl_v);
-		_viv_gl_vertex2f((GLfloat)(dst_x + dst_wide),(GLfloat)dst_y);
-		
-		_viv_gl_texcoord2f(_viv_gl_u,0.0f);
-		_viv_gl_vertex2f((GLfloat)(dst_x + dst_wide),(GLfloat)(dst_y + dst_high));
-		
-		_viv_gl_texcoord2f(0.0f,0.0f);
-		_viv_gl_vertex2f((GLfloat)dst_x,(GLfloat)(dst_y + dst_high));
-	}
-	else
-	{
-		_viv_gl_texcoord2f(0.0f,0.0f);
-		_viv_gl_vertex2f((GLfloat)dst_x,(GLfloat)dst_y);
-		
-		_viv_gl_texcoord2f(_viv_gl_u,0.0f);
-		_viv_gl_vertex2f((GLfloat)(dst_x + dst_wide),(GLfloat)dst_y);
-		
-		_viv_gl_texcoord2f(_viv_gl_u,_viv_gl_v);
-		_viv_gl_vertex2f((GLfloat)(dst_x + dst_wide),(GLfloat)(dst_y + dst_high));
-		
-		_viv_gl_texcoord2f(0.0f,_viv_gl_v);
-		_viv_gl_vertex2f((GLfloat)dst_x,(GLfloat)(dst_y + dst_high));
-	}
+	// every frame this app builds is a top-down dib, and the sign that
+	// says so is unrecoverable through getobject - it answers the
+	// absolute height for both orientations (the wine test suite
+	// asserts it, reactos implements it, and the r96 read believed it
+	// could tell: the flag was always 1 on a real machine and every
+	// image rode the flip - the field report's upside-down launch).
+	// the one mapping answers them all: the screen's top edge samples
+	// the texture's row zero, the image's own top.
+	_viv_gl_texcoord2f(0.0f,0.0f);
+	_viv_gl_vertex2f((GLfloat)dst_x,(GLfloat)dst_y);
+	
+	_viv_gl_texcoord2f(_viv_gl_u,0.0f);
+	_viv_gl_vertex2f((GLfloat)(dst_x + dst_wide),(GLfloat)dst_y);
+	
+	_viv_gl_texcoord2f(_viv_gl_u,_viv_gl_v);
+	_viv_gl_vertex2f((GLfloat)(dst_x + dst_wide),(GLfloat)(dst_y + dst_high));
+	
+	_viv_gl_texcoord2f(0.0f,_viv_gl_v);
+	_viv_gl_vertex2f((GLfloat)dst_x,(GLfloat)(dst_y + dst_high));
 	
 	_viv_gl_end();
 	

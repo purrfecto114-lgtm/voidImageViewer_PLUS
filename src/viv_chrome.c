@@ -1348,6 +1348,109 @@ static int _viv_status_nav_index(void)
 	return 0;
 }
 
+// the frame pane's text: the counter alone (or the countdown when the
+// frame-minus mode is on). the full update and the frame-level fast
+// path share the builder - the two can never drift apart.
+static void _viv_status_frame_text(wchar_t *frame_buf)
+{
+	wchar_t widebuf[STRING_SIZE];
+	wchar_t highbuf[STRING_SIZE];
+	
+	if (_viv_slot_current.frame_count > 1)
+	{
+		int frame_pos;
+		
+		string_format_number(highbuf,_viv_slot_current.frame_count);
+
+		string_copy_utf8_string(frame_buf,(const utf8_t *)"");
+		
+		if (config_frame_minus)
+		{
+			frame_pos = _viv_slot_current.frame_count - (_viv_frame_position);
+			string_cat_utf8(frame_buf,(const utf8_t *)"- ");
+		}
+		else
+		{
+			frame_pos = _viv_frame_position + 1;
+		}
+
+		string_format_number(widebuf,frame_pos);
+		
+		string_cat(frame_buf,widebuf);
+		string_cat_utf8(frame_buf,(const utf8_t *)" / ");
+		string_cat(frame_buf,highbuf);
+	}
+	else
+	{
+		string_copy_utf8_string(frame_buf,(const utf8_t *)"");
+	}
+}
+
+// the animation tick's pane: the frame counter is the only text that
+// changes per frame, and the full rebuild (nine buffers, the locale
+// date formatting, the measurements, the SETPARTS) used to run at the
+// frame rate - the field report read it as the whole toolbar going
+// sluggish. the fast path rebuilds the one pane and pays the layout
+// level only when the text outgrows the pane the layout gave it.
+static int _viv_status_frame_pane = -1;
+static int _viv_status_frame_wide = 0;
+
+void _viv_status_update_frame(void)
+{
+	wchar_t frame_buf[STRING_SIZE];
+	HDC hdc;
+	
+	if ((!_viv_status_hwnd) || (_viv_status_frame_pane < 0))
+	{
+		return;
+	}
+	
+	_viv_status_frame_text(frame_buf);
+	
+	if (!(*frame_buf))
+	{
+		return;
+	}
+	
+	hdc = GetDC(_viv_status_hwnd);
+	if (hdc)
+	{
+		HFONT hfont;
+		
+		hfont = (HFONT)SendMessage(_viv_status_hwnd,WM_GETFONT,0,0);
+		if (hfont)
+		{
+			SIZE size;
+			HGDIOBJ last_font;
+			
+			last_font = SelectObject(hdc,hfont);
+			
+			if (GetTextExtentPoint32(hdc,frame_buf,string_get_length(frame_buf),&size))
+			{
+				int frame_wide;
+				
+				frame_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+				
+				// the 9-to-10 boundary (and any growth): the pane the
+				// layout sized no longer fits the text - the layout level
+				// answers.
+				if (frame_wide > _viv_status_frame_wide)
+				{
+					_viv_status_update();
+				}
+				else
+				{
+					_viv_status_set(_viv_status_frame_pane,frame_buf);
+				}
+			}
+			
+			SelectObject(hdc,last_font);
+		}
+		
+		ReleaseDC(_viv_status_hwnd,hdc);
+	}
+}
+
 void _viv_status_update(void)
 {
 	if (_viv_status_hwnd)
@@ -1479,33 +1582,7 @@ void _viv_status_update(void)
 			}
 		}
 		
-		if (_viv_slot_current.frame_count > 1)
-		{
-			int frame_pos;
-			string_format_number(highbuf,_viv_slot_current.frame_count);
-
-			string_copy_utf8_string(frame_buf,(const utf8_t *)"");
-			
-			if (config_frame_minus)
-			{
-				frame_pos = _viv_slot_current.frame_count - (_viv_frame_position);
-				string_cat_utf8(frame_buf,(const utf8_t *)"- ");
-			}
-			else
-			{
-				frame_pos = _viv_frame_position + 1;
-			}
-
-			string_format_number(widebuf,frame_pos);
-			
-			string_cat(frame_buf,widebuf);
-			string_cat_utf8(frame_buf,(const utf8_t *)" / ");
-			string_cat(frame_buf,highbuf);
-		}
-		else
-		{
-			string_copy_utf8_string(frame_buf,(const utf8_t *)"");
-		}
+		_viv_status_frame_text(frame_buf);
 		
 		// this is just noise..
 		
@@ -1920,8 +1997,17 @@ else
 			
 			if ((frame_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
 			{
+				// the fast path's anchor: the pane index and the width
+				// the layout gave the counter.
+				_viv_status_frame_pane = parti;
+				_viv_status_frame_wide = frame_wide;
+				
 				_viv_status_set(parti,frame_buf);
 				parti++;
+			}
+			else
+			{
+				_viv_status_frame_pane = -1;
 			}
 
 			if ((date_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))

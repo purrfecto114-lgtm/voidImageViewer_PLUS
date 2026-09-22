@@ -1,4 +1,88 @@
-﻿Pre-release: Version 1.1.15-rc.12 (the report fusion round)
+﻿Pre-release: Version 1.1.15-rc.13 (the field response round)
+
+	the round answers a nine-item field report from the rc.12
+	release, each item diagnosed by a parallel agent and re-verified
+	on the main thread before a line moved - six diagnosis agents,
+	two implementation agents, and the web for the api semantics the
+	sign read and the layered window both leaned on.
+
+	the upgrade's lost seat: the chain walk's seat gate reserved the
+	ring's capacity but not its history - a preload raised past a
+	one-seat cache took the only seat and every direction change
+	paid the disk again. the gate now stops one seat short (the
+	effective promise is min(preload, cache)), and the apply coupling
+	raises the full cache a two-or-more preload costs - the old
+	off-by-one sanctioned the killer pair.
+
+	the per-step rescans: one directory scan answered one step and
+	the preload chain paid one more per image, every step, on the ui
+	thread. the successor window hangs from the same scan - the
+	navigation pops its head, the chain peeks deeper entries, and the
+	folder is rescanned only when the window runs dry, the direction
+	flips, or the universe changes (a refresh, a delete, a sort or
+	shuffle apply - the anchor riding every pop is the self-heal a
+	failed landing needs).
+
+	the dead animation toolbar: the play slot's resolution carried
+	the play flag, so a paused animation fell through to the slideshow
+	start - the face said resume, the click started a slideshow, and
+	the animation could never resume from the toolbar. the resolution
+	reads the frame count alone now, and the animation clock falls
+	back to the window timer when the queue timer refuses (the stop
+	dispatches on the flag the start actually set).
+
+	the stale menu rows: the slideshow stop's three-site dead code
+	retires, the menu bar gates the win8-dead preview verb the context
+	menu already gated, the sub-second rates leave the ladder with
+	their menu rows (the preset count follows), and the zoom controls
+	row names what it toggles - the floating control bar.
+
+	the flipped hardware launch: getobject answers the absolute
+	height for both dib orientations (the wine test suite asserts it,
+	reactos implements it), so the r96 sign read was always reading 1
+	on a real machine and every image rode the vertical flip on the
+	d3d and gl legs. the renderers draw the one mapping now, and the
+	clipboard - the one bottom-up publisher - normalizes to top-down
+	before its pixels become a frame.
+
+	the pill's black corners: the stadium tray's four crescents were
+	never painted and the constant-alpha blend let the layered
+	surface's black show through; gdi has no antialiasing for the
+	arcs. the pill rasterizes through gdiplus with antialiased paths
+	into a 32-bit premultiplied bitmap and uploads through
+	updatelayeredwindow - per-pixel alpha, smooth arcs, the fade
+	re-blitting the cache. the win7 leg keeps its gdi roundrect.
+
+	the status bar paid the frame rate: the animation tick rebuilt
+	nine buffers, the locale date formatting and the part layout
+	every frame. the frame counter owns a fast path now - the layout
+	level answers only when the text outgrows its pane.
+
+	the rotate blocked the ui thread for the shell's whole re-encode
+	(the wait's result was never read). the verb launches now and the
+	memory rotation answers the screen; the backdrop change reloads
+	only the images that actually baked it (the alpha flag rides the
+	reply).
+
+	the settings face: the view page grows its four section heads
+	(rendering, window and fullscreen, animation, performance), the
+	floating control bar, its fullscreen auto-hide and the pixel info
+	rows surface in the interface group, the ctrl-wheel action joins
+	the controls page, and the toolbar carries tooltips.
+
+	the verification round's own catches ride along: the settings
+	window clamps its height to the work area (the grown client
+	overran the small screens), the renamed floating bar row keeps
+	its saved hotkey (the legacy ini name answers until the next save
+	rewrites it), the pill's layered probe unpoisons the
+	updatelayeredwindow path it needs (the two apis are exclusive),
+	and the golden manifest re-bootstraps under a reworked
+	discrimination gate - the upright mapping answers 1:1 exactly, the
+	flip era's three-way distinctness on the native-size samples was
+	the bug's own signature, and the scaled samples carry the
+	fake-green refusal now.
+
+Pre-release: Version 1.1.15-rc.12 (the report fusion round)
 
 	the round answers the third fusion report - fourteen sweeps over
 	the rc.10 tree, the main thread re-verifying eight of eight

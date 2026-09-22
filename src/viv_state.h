@@ -99,11 +99,11 @@
 #define _VIV_ANIMATION_RATE_MAX	21
 #define _VIV_ANIMATION_RATE_ONE	10
 
-#define _VIV_SLIDESHOW_RATE_PRESET_COUNT	17
+#define _VIV_SLIDESHOW_RATE_PRESET_COUNT	15
 
 #define _VIV_OPTIONS_PAGE_COUNT	3
 
-#define _VIV_COMMAND_COUNT	159
+#define _VIV_COMMAND_COUNT	157
 
 #define _VIV_ASSOCIATION_COUNT	11
 
@@ -235,6 +235,11 @@ typedef struct _viv_image_slot_s
 	// and last roles leave it zero, and _viv_slot_take never moves it.
 	BYTE state;
 
+	// 1 = the frames baked the backdrop under transparent pixels at
+	// decode (alpha imagery). a backdrop change must reload these;
+	// opaque imagery wears the mat at paint and a reload buys
+	// nothing (the field report's lag family).
+	int alpha_baked;
 }_viv_image_slot_t;
 
 typedef struct _viv_reply_load_image_first_frame_s
@@ -244,6 +249,7 @@ typedef struct _viv_reply_load_image_first_frame_s
 	UINT frame_count;
 	_viv_frame_t frame;
 	BYTE is_low_res; // 1 = progressive preview frame (embedded thumbnail), the full frame follows
+	BYTE alpha_baked; // 1 = the decode baked the backdrop under transparent pixels (a backdrop change must reload these)
 	
 }_viv_reply_load_image_first_frame_t;
 
