@@ -839,8 +839,33 @@ def t_pill_scale_round127():
 # steps, and a stalled timer catches up in bounded jumps. the interval
 # itself is 30ms (a stable multiple of the 15.6ms system clock).
 # ---------------------------------------------------------------------------
-FADE_MS = 225
+# rc.16 (the parallel evaluation round): the constants are extracted from
+# zoomui.c itself - a mutation in the source (the stall threshold dropped
+# to 25, the budget edited) moves the model with it or fails the link,
+# instead of leaving a green model over changed arithmetic.
+def _zoomui_int(name):
+    import re as _re
+    with open("src/zoomui.c", "r", encoding="utf-8", errors="replace") as f:
+        z = f.read().replace("\r\n", "\n")
+    m = _re.search(r"#define " + name + r"\s+(\d+)", z)
+    if m is None:
+        raise SystemExit("zoomui.c lost the " + name + " define")
+    return int(m.group(1))
+
+
+FADE_MS = _zoomui_int("_ZOOMUI_FADE_MS")
 ALPHA_OPAQUE = 255
+with open("src/zoomui.c", "r", encoding="utf-8", errors="replace") as _f:
+    _z = _f.read().replace("\r\n", "\n")
+_m = __import__("re").search(r"if \(now_ms - _zoomui_fade_tick > (\d+)\)", _z)
+if _m is None:
+    raise SystemExit("zoomui.c lost the stall threshold")
+STALL_MS = int(_m.group(1))
+
+# the stall threshold must outrun the whole sweep budget by a guard band
+# (25ms would finish every normal 30ms tick in one submit - the rc.15
+# flicker at full strength).
+assert STALL_MS >= FADE_MS + 25, f"stall {STALL_MS} vs budget {FADE_MS}"
 
 
 def fade_run(tick_times, start, target):
@@ -855,7 +880,7 @@ def fade_run(tick_times, start, target):
             break
         if fade_tick == 0:
             advance = 1
-        elif now - fade_tick > 250:
+        elif now - fade_tick > STALL_MS:
             advance = ALPHA_OPAQUE
         else:
             advance = ((now - fade_tick) * ALPHA_OPAQUE) // FADE_MS

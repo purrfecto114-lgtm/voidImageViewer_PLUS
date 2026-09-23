@@ -1996,15 +1996,6 @@ ITEMIDLIST *os_ILCreateFromPath(const wchar_t *path)
 	return ret;
 }
 
-void os_edit_move_caret_to_end(HWND hwnd)
-{
-	SetWindowRedraw(hwnd,FALSE);
-	SendMessage(hwnd,EM_SETSEL,0,(LPARAM)-1); 
-	SendMessage(hwnd,EM_SETSEL,(WPARAM)-1,(LPARAM)-1); 
-	SetWindowRedraw(hwnd,TRUE);
-	InvalidateRect(hwnd,0,FALSE);				
-}
-
 void os_make_sure_path_exists(const wchar_t *filename)
 {
 	wchar_t *p;
@@ -2719,21 +2710,6 @@ int os_get_static_wide(HWND hwnd,int id)
 	
 	return wide;
 }
-
-int os_expand_static_wide(HWND hwnd,int id,int static_wide)
-{
-	int wide;
-	
-	wide = os_get_static_wide(hwnd,id);
-	
-	if (wide > static_wide)
-	{
-		return wide;
-	}
-	
-	return static_wide;
-}
-
 
 void os_set_window_rect(HWND hwnd,int x,int y,int wide,int high)
 {

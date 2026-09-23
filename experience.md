@@ -79,9 +79,9 @@ after.
   alike); the dead ids retired by name only, because renumbering live
   constants is its own regression.
 - **a pinned window needs remeasuring every structural round.** the
-  splice window has been recalibrated at least eleven times (30548 → 31129
+  splice window has been recalibrated at least thirteen times (30548 → 31129
   → 31138 → 31170 → 31410 → 31613 → 30523 → 30741 → 30961 → 31081 → 31118
-  → 31221), each time with the
+  → 31221 → 32740 → the view cap's own move this round), each time with the
   measurement written into the comment. measure, then pin; never pin a
   hope.
 
@@ -191,6 +191,55 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.16 — the parallel evaluation round (2026-09-24, build 95)
+
+- Commit: (this round); four read-only agents (the ledger, the review,
+  the census, the hygiene walk) plus a main thread that re-read every
+  load-bearing claim. five lessons worth keeping:
+
+- **an agent's verdict is a claim until the main thread re-reads it.**
+  the ledger's fd-identity family carried five members (refresh,
+  jump-to x3, the nav predicate, the delete queue); the re-read retired
+  two of them as intentional semantics - the refresh retries the
+  requested file because a retry that answers the held file is not a
+  retry, and the jump-to lists the requested directory because a failed
+  load still owns a directory worth listing. only the delete queue was
+  a real double decode. the evaluation fixed five things and declined
+  two with reasons, which is the shape a judged evaluation should
+  leave.
+- **constants, tables and bindings are the unpinned three.** the
+  mutation census bit seven times and every survivor was a constant
+  (the 250 stall threshold), a table (the pill's command and glyph
+  seats - a swapped prev/next fired the wrong way with every suite
+  green), or a binding (the dropdown label and run faces). the machine
+  pins of the last rounds pinned that a machine exists; the census
+  taught that its arithmetic, its wiring and its label are three more
+  faces each deserving their own pin. the settings census now carries
+  five faces, and the fade and scroll models extract their constants
+  from the source instead of agreeing with it by coincidence.
+- **the version sweep is a pipeline with its own failure shape, and the
+  freeze table is its brake.** the sweep dragged round-123's docstring
+  from rc.12 to rc.14 across two rounds - the fifth recurrence - and
+  the fix is not care, it is a pin: the round guards now freeze every
+  historical docstring at its own version and any future sweep that
+  drags one goes red. (the sweep also answers for the readme twins, the
+  changelog tops and the build nails - each has its own shape and its
+  own count, and this round learned to sweep them all in one pass
+  instead of discovering them four failures at a time.)
+- **the edit tool's tab appetite is a three-time offender.** the byte
+  surgery discipline exists for the c files; this round proved the
+  python test files need it too - a single edit-tool touch rewrote
+  three tab-formed shape pins into space-formed lookalikes, exactly the
+  rc.27 (pill round) incident again. the rule is now unconditional:
+  byte-level surgery for every tracked file, no exceptions for tests.
+- **a hygiene walk is a round, not a chore.** the dead-residue sweep
+  (five enum ids, two os functions), the rc.12 section's return to the
+  arc, and the terminology alignment (the view menu vs the view page)
+  each carried their own archaeology - which round introduced the id,
+  which sweep dragged the docstring, which translation conflated two
+  names. dead code without a birth certificate stays; dead code with
+  one goes, and the certificate is the diff.
+
 ### 1.1.15-rc.15 — the pill field round (2026-09-23, build 94)
 
 - Commit: (this round); the 90 percent pill (one scale pair drives every
@@ -288,6 +337,41 @@ after.
   - **a guard must pin the machine's output, not the machine's
     absence.** the uv-mapping flip mutation passed all five suites; the
     byte teeth the round added pin the mapping rows themselves.
+
+### 1.1.15-rc.12 — the report fusion round (2026-09-21, build 91)
+
+the third fusion report arrived as a fourteen-sweep audit of the rc.10
+tree with the main thread re-verifying eight of eight headline claims.
+the round took its whole ledger: two p1 guard teeth, sixteen p2 line
+fixes, the p3/p4 debts the deferrals kept, and the account corrections.
+five lessons worth keeping:
+
+- **a pin satisfied by a comment is not a pin.** the rc.7 restore pin
+  matched a comment that explains the line; reverting the code alone
+  passed every suite. the fusion report's E4 proved it with a live
+  mutation. the replacement pins whole code shapes - a ternary with its
+  own arms - that no prose can satisfy.
+- **a census of instances needs a census of bindings.** round 122's
+  matrix walk proved every control had its machines; the fusion report
+  then swapped two label ids and the walk stayed green. a case is not a
+  binding: the round's census now demands each activate body and each
+  pill body carry its own config variable.
+- **the version sweep has its own failure shape.** the rc.11 sweep
+  renamed assertions and dragged four historical round docstrings along
+  (round 114/118/120/121 all claimed to be rc.11), and one check name
+  kept an old build number its assertion had already left. the sweep
+  now carries two rules: the name and the assertion move together, and
+  history's docstrings stay as their rounds wrote them.
+- **write-token hygiene is measurable.** the tests workflow carried
+  actions:write on both matrix legs for a step that never needed any
+  grant - upload-artifact runs on the default token. the fusion round
+  removed the grant entirely; the pin refuses its return.
+- **same-family fixes travel in packs.** the request-fd family (menu
+  face, title bar, cursor gate, save-as seed, delete scan anchor), the
+  stop pair (paste and blank), the exit codes (init, debug_fatal) -
+  each family had one member fixed in an earlier round while its
+  siblings kept the defect. the report's matrix audit found them by
+  class, and the round fixed them by class.
 
 ### 1.1.15-rc.11 — the resume and chain round (2026-09-21, build 90)
 
@@ -799,38 +883,3 @@ full per-version narrative at each tag in `Changes.txt`.
   strip, the bilingual localization with the live language switcher,
   and the field-fix rounds (the full per-version narrative lives in
   `Changes.txt` at each tag).
-
-## round 123 - the report fusion round (1.1.15-rc.12)
-
-the third fusion report arrived as a fourteen-sweep audit of the rc.10
-tree with the main thread re-verifying eight of eight headline claims.
-the round took its whole ledger: two p1 guard teeth, sixteen p2 line
-fixes, the p3/p4 debts the deferrals kept, and the account corrections.
-five lessons worth keeping:
-
-- **a pin satisfied by a comment is not a pin.** the rc.7 restore pin
-  matched a comment that explains the line; reverting the code alone
-  passed every suite. the fusion report's E4 proved it with a live
-  mutation. the replacement pins whole code shapes - a ternary with its
-  own arms - that no prose can satisfy.
-- **a census of instances needs a census of bindings.** round 122's
-  matrix walk proved every control had its machines; the fusion report
-  then swapped two label ids and the walk stayed green. a case is not a
-  binding: the round's census now demands each activate body and each
-  pill body carry its own config variable.
-- **the version sweep has its own failure shape.** the rc.11 sweep
-  renamed assertions and dragged four historical round docstrings along
-  (round 114/118/120/121 all claimed to be rc.11), and one check name
-  kept an old build number its assertion had already left. the sweep
-  now carries two rules: the name and the assertion move together, and
-  history's docstrings stay as their rounds wrote them.
-- **write-token hygiene is measurable.** the tests workflow carried
-  actions:write on both matrix legs for a step that never needed any
-  grant - upload-artifact runs on the default token. the fusion round
-  removed the grant entirely; the pin refuses its return.
-- **same-family fixes travel in packs.** the request-fd family (menu
-  face, title bar, cursor gate, save-as seed, delete scan anchor), the
-  stop pair (paste and blank), the exit codes (init, debug_fatal) -
-  each family had one member fixed in an earlier round while its
-  siblings kept the defect. the report's matrix audit found them by
-  class, and the round fixed them by class.

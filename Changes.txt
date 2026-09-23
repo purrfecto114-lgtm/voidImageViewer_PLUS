@@ -1,4 +1,29 @@
-﻿Pre-release: Version 1.1.15-rc.15 (the pill field round)
+﻿Pre-release: Version 1.1.15-rc.16 (the parallel evaluation round)
+
+	four read-only agents swept the rc.15 tree (the deferred ledger, the
+	six-dimension review, the mutation census, the hygiene walk) and the
+	main thread re-read every load-bearing claim before anything moved.
+	the behavior layer takes the five survivors: the settings scrollbar's
+	ghost drag (the capture-lost handler cleared three press states and
+	forgot the scroll thumb - an alt-tab mid drag left the list following
+	the mouse), the delete path retiring a queued next file (a queued
+	decode landing over the post-delete reload answered two files for one
+	step), the silent ini saves (both failure paths told only a debug
+	build - the box names the outcome now), the rotate ask (the verb
+	rewrites the source file while the wallpaper asked first), and the
+	usage pair (/everything and /random shipped implemented but commented
+	out of the help). the claims that did not survive stayed code: the
+	refresh and the jump-to read the requested identity on purpose.
+	the teeth layer pins the mutation census's survivors: the fade stall
+	threshold, the pill's two tables (a swapped prev/next fired the wrong
+	way with every suite green), the fade retire, and the dropdown label
+	and run bindings - the census gains its fourth and fifth faces. the
+	hygiene layer freezes the round docstrings against the version sweep
+	(it dragged round-123 from rc.12 to rc.14 across two rounds), retires
+	five dead enum ids and two dead os functions, and restores the
+	experience ledger's rc.12 section to the arc.
+
+Pre-release: Version 1.1.15-rc.15 (the pill field round)
 
 	the field report read three symptoms on the floating bar, and
 	the three answers land together. the oversized pill: the whole

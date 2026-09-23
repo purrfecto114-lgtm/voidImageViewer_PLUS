@@ -4933,6 +4933,11 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 			if ((HWND)lParam != hwnd)
 			{
+				// rc.16: the thumb rode the same capture as the buttons
+				// - losing it must park the thumb too, or the mouse
+				// ghost-drives the list (the alt-tab spill).
+				_viv_settings_scroll_drag = 0;
+
 				if (_viv_settings_pressed != -1)
 				{
 					_viv_settings_pressed = -1;

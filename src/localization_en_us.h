@@ -304,6 +304,10 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Clear Recent &Files", // LOCALIZATION_ID_RECENT_FILES_CLEAR
 	"Set Desktop Wallpaper", // LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_CAPTION
 	"Set the current image as the desktop wallpaper?", // LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_MESSAGE
+	"Rotate Image", // LOCALIZATION_ID_ROTATE_IMAGE_CAPTION
+	"Rotate the image file on disk?", // LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE
+	"Settings Not Saved", // LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION
+	"Writing the settings file failed. The previous settings were kept.", // LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE
 	"%s B", // LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT
 	" KB", // LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT
 	" MB", // LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT

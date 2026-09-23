@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.15.94",
-          (major, minor, rev, build) == (1, 1, 15, 94), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.15",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.15", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.16.95",
+          (major, minor, rev, build) == (1, 1, 15, 95), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.16",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.16", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -878,7 +878,7 @@ def t_sim_field_round48():
           "smoke_test.ps1" in ty and "-ExePath" in ty)
     check("the release ci smoke-tests before packaging",
           "smoke_test.ps1" in ry and "Build installers" in ry and
-          ry.find("smoke_test.ps1") < ry.find("Build installers"))
+          0 <= ry.find("smoke_test.ps1") < ry.find("Build installers"))
 
 
 def t_sim_field_round47():
@@ -1008,7 +1008,7 @@ def t_sim_field_round47():
     if not check("the notify handler is extractable", notify is not None):
         return
     check("the notify leads with the dark gate (light keeps native painting)",
-          notify.find("_viv_is_dark()") < notify.find("NM_CUSTOMDRAW"))
+          0 <= notify.find("_viv_is_dark()") < notify.find("NM_CUSTOMDRAW"))
     check("the notify filters on the button class (the tree and tabs pass through)",
           'string_compare(class_name,L"Button")' in notify and
           "GetClassNameW(header->hwndFrom" in notify)
@@ -2429,7 +2429,16 @@ def t_sim_settings_round126():
     # B. the scroll math. the viewport is the client under the footer;
     # the content needs its bottom plus a breathing margin; the scroll
     # range is the shortfall, clamped at zero.
-    ROW_HIGH, FOOTER_HIGH, MARGIN = 34, 76, 4
+    # rc.16 (the parallel evaluation round): the three layout numbers
+    # are extracted from viv_settings.c - this was the suite's only
+    # model with no source link (the mutation census caught the wheel
+    # step living twice), and now a layout edit moves the model or
+    # breaks the link.
+    ss = read("src/viv_settings.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    ROW_HIGH = int(re.search(r"#define _VIV_SETTINGS_ROW_HIGH\s+(\d+)", ss).group(1))
+    FOOTER_HIGH = int(re.search(r"#define _VIV_SETTINGS_FOOTER_HIGH\s+(\d+)", ss).group(1))
+    MARGIN = int(re.search(r"content_bottom = y \+ _viv_settings_dip\((\d+)\);", ss).group(1))
+    WHEEL_ROWS = int(re.search(r"ROW_HIGH\) \* (\d+);", ss).group(1))
 
     def scroll_max(content_bottom, client_high):
         return max(0, content_bottom + MARGIN - (client_high - FOOTER_HIGH))
@@ -2444,8 +2453,9 @@ def t_sim_settings_round126():
     check("a half-height work area scrolls every page but stays clamped",
           0 < scroll_max(664, 500) < 664 and scroll_max(526, 500) > 0)
 
-    # the wheel: one notch is three rows, clamped at both ends.
-    STEP = ROW_HIGH * 3
+    # the wheel: one notch is WHEEL_ROWS rows, clamped at both ends
+    # (the row count itself rides the extract above).
+    STEP = ROW_HIGH * WHEEL_ROWS
 
     def wheel(y, notches, mx):
         return max(0, min(mx, y - (notches * STEP)))

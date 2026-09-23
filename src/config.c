@@ -22,6 +22,7 @@
 // customizable settings
 
 #include "viv.h"
+#include "viv_state.h"
 
 static int _config_icompare_ascii(const utf8_t *s1,const char *lowercase_ascii_s2);
 static void _config_load_settings_by_location(const wchar_t *path,int is_root);
@@ -696,6 +697,19 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			// evidence, and the log line answers the "where did my
 			// settings go" question the silent path never could.
 			debug_printf("config save: a write failed (error %u) - keeping the previous ini\r\n",GetLastError());
+			
+			// rc.16: the silent keeper was the mystery - the failed save
+			// reached no one outside a debug build. the box names the
+			// keeper so the question has an answer in a release build.
+			{
+				wchar_t caption_wbuf[STRING_SIZE];
+				wchar_t message_wbuf[STRING_SIZE];
+				
+				string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION));
+				string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE));
+				
+				viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OK | MB_ICONWARNING);
+			}
 		}
 		else
 		if (!MoveFileExW(tempname,filename,MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
@@ -715,6 +729,16 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			else
 			{
 				debug_printf("config save: replace failed (move %u, copy %u) - the temp file keeps the save\r\n",move_error,GetLastError());
+				
+				{
+					wchar_t caption_wbuf[STRING_SIZE];
+					wchar_t message_wbuf[STRING_SIZE];
+					
+					string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION));
+					string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE));
+					
+					viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OK | MB_ICONWARNING);
+				}
 			}
 		}
 	}

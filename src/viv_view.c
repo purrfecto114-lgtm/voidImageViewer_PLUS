@@ -2104,6 +2104,17 @@ static void _viv_delete(int permanently)
 
 				_viv_playlist_delete(&fd);
 			
+				// rc.16: a next file queued while a load was in flight
+				// belongs to the pre-delete world - letting it land over
+				// the post-delete reload would decode two files for one
+				// step (the paste and blank paths set the shape).
+				if (_viv_load_image_next_fd)
+				{
+					mem_free(_viv_load_image_next_fd);
+					
+					_viv_load_image_next_fd = NULL;
+				}
+			
 				// the scan must start from the deleted file's own seat:
 				// the request fd can name an in-flight file nothing shows
 				// yet, and a scan from that stranger would answer the wrong
@@ -2352,6 +2363,21 @@ static void _viv_edit_rotate(int counterclockwise)
 	{
 		if (_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count)
 		{
+			wchar_t caption_wbuf[STRING_SIZE];
+			wchar_t message_wbuf[STRING_SIZE];
+			
+			// rc.16: the verb rewrites the source file on disk - the
+			// wallpaper asks before it touches the desktop, the rotation
+			// asks before it touches the source (the evaluation round's
+			// asymmetry find).
+			string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_CAPTION));
+			string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE));
+			
+			if (viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OKCANCEL | MB_ICONQUESTION) != IDOK)
+			{
+				return;
+			}
+			
 			// the verb launches without the blocking wait: the shell's
 			// re-encode runs its own course while the memory rotation
 			// answers the screen now (the wait used to freeze the ui

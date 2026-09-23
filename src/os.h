@@ -65,7 +65,6 @@ int os_choose_color(HWND parent,COLORREF *colorref);
 void os_init(void);
 void os_kill(void);
 ITEMIDLIST *os_ILCreateFromPath(const wchar_t *path);
-void os_edit_move_caret_to_end(HWND hwnd);
 void os_make_sure_path_exists(const wchar_t *filename);
 int os_get_special_folder_path(wchar_t *wbuf,int nFolder);
 void os_create_shell_link(const wchar_t *exe_filename_wbuf,const wchar_t *lnk_wbuf);
@@ -89,7 +88,6 @@ int os_get_orientation(const wchar_t *filename);
 DWORD os_get_window_style(HWND hwnd);
 DWORD os_get_window_ex_style(HWND hwnd);
 int os_get_static_wide(HWND hwnd,int id);
-int os_expand_static_wide(HWND hwnd,int id,int static_wide);
 void os_set_window_rect(HWND hwnd,int x,int y,int wide,int high);
 void os_set_dialog_item_x_wide(HWND hwnd,int id,int x,int wide);
 

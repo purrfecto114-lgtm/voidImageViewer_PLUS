@@ -280,7 +280,8 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 	
 	return ret;
 }
-// _viv_load_image_thread will be NULL if is_preload is 1.
+// rc.16: the stale will-be-null claim retired - the queued
+// reality answers below (a preload parks a request and waits).
 void _viv_open(WIN32_FIND_DATA *fd,int is_preload)
 {
 int cache_hit;

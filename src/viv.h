@@ -252,17 +252,15 @@ enum
 	VIV_ID_STATUS_TEMP_TEXT_TIMER,
 	VIV_ID_ANIMATION_TIMER,
 	VIV_ID_DARK_RECHECK_TIMER,
-	VIV_ID_DARK_DIALOG_ASSERT_TIMER,
 	VIV_ID_RECENT_SAVE_TIMER,
 
 	VIV_ID_STATUS,
-	VIV_ID_REBAR,
 	VIV_ID_TOOLBAR,
 	VIV_ID_MENUBAR,
 	
-	VIV_ID_OPTIONS_GENERAL,
-	VIV_ID_OPTIONS_VIEW,
-	VIV_ID_OPTIONS_CONTROLS,
+	// rc.16: five ids retired - the classic options pages, the rebar and
+	// the dark-dialog assert timer outlived their callers (the hygiene
+	// walk's dead-residue find).
 
 	VIV_ID_FILE_OPEN_FILE,
 	VIV_ID_FILE_OPEN_FOLDER,

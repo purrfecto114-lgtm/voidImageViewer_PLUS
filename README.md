@@ -24,11 +24,14 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.15 — the pill field round (the current release candidate):**
+**1.1.15-rc.16 — the parallel evaluation round (the current release candidate):**
 
-- The floating bar scales to **90 percent** — the 48×44 dip capsules become 43×39, and every tray metric (margins, gaps, separator rule, percent padding) rides the same scale pair.
-- The fullscreen **flicker** is gone at the mechanism, not the guess: the reporter blamed a focus fight with screen recorders, but the code owns no foreground grab — the 15ms fade timer was fighting the 15.6ms system clock, its fixed steps clumping into visible jumps at 66 layered submits a second. The fade is wall-clock driven now (the step follows the real tick spacing) and the interval rides a stable 30ms multiple, halving the submit rate the capture hooks race.
-- The **windowed ghost** is fixed — the fade machinery only ran in the fullscreen autohide mode, so a windowed show that started at alpha zero hung invisible forever. The windowed row starts opaque, and every re-entry (leaving fullscreen mid fade, toggling the bar back on) snaps the stale alpha to the opaque face.
+- Four read-only agents swept the rc.15 tree — the deferred ledger, the six-dimension review, the mutation census, the hygiene walk — and the main thread re-read every claim before anything moved.
+- **Behavior fixes** (the five survivors): the settings scrollbar no longer ghost-drags after an Alt-Tab steals the capture; deleting an image retires a queued next-file decode; failed settings saves now answer with a dialog instead of silence (release builds included); rotating asks before rewriting the file on disk (the wallpaper asked first); `/everything` and `/random` rejoin the usage help.
+- **Guard teeth** (the mutation census's seven survivors): the fade stall threshold, the pill's command and glyph tables, the fade retire, and the dropdown label/run bindings — the settings census gains its fourth and fifth faces, and the fade/scroll models now extract their constants from the source.
+- **Hygiene**: the round docstrings are frozen against the version sweep, five dead enum ids and two dead os functions retire, and the experience ledger's rc.12 section returns to the arc.
+
+**1.1.15-rc.15 — the pill field round:** the floating bar at 90 percent, the wall-clock fade (flicker gone at the mechanism, not the guess), and the windowed ghost fix. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.14 — the settings footer round:** the 4K-300% report — the silently dropped footer buttons (the capacity now counts forty with a per-page census), the settings content scroll under the pinned footer, the Apply button with its dirty lamp, and the keyboard repairs. See [Changes.txt](Changes.txt).
 
@@ -87,7 +90,7 @@ Canvas, backdrop & dark mode
 - **Windowed / fullscreen background color** — Settings → View, or the View menu picker; the mat around the image and the empty-window canvas.
 - **Backdrop under transparency** — View → Transparency backdrop: follow the window background color, black, white, custom color, or checkerboard. Alpha images (PNG/GIF/WEBP) composite over it at load time. This is *not* the canvas around the image — that color is the windowed background above.
 - **Dark UI rule** — the light UI always shows your exact colors. In the dark UI a light mat keeps its hue but drops into the dark range (the default white maps to the dark palette canvas), and the same rule applies to the custom backdrop, so nothing glares out of the dark chrome. The Win11 caption tint follows the mat.
-- **The dark UI is complete** — dialogs, options pages and the menu bar all follow the theme (owner-drawn where the theme API falls short on older builds); light dialogs stay light.
+- **The dark UI is complete** — dialogs, Settings pages and the menu bar all follow the theme (owner-drawn where the theme API falls short on older builds); light dialogs stay light.
 - Dark mode itself: Settings → General → Theme — automatic (follow Windows), light, or dark. Theme flips repaint the whole window and re-assert the dark chrome unconditionally (a delayed re-check heals any system-side light repaint), and the open dialogs re-theme live.
 
 Recent files
