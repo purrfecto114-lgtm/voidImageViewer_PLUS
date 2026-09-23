@@ -24,12 +24,13 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.14 — the settings footer round (the current release candidate):**
+**1.1.15-rc.15 — the pill field round (the current release candidate):**
 
-- The 4K-300% report lands whole — the general page's footer buttons were silently dropped (thirty-three live controls on a thirty-seat array; the capacity now counts forty and the census guards every page against it), and the window height clamps to its own monitor's work area.
-- The settings content scrolls under the pinned footer when the work area is short (720p@100%, 1080p@150%, 4K@300%) — wheel, page keys, a draggable thumb, and the keyboard walker scrolls its target into view.
-- The footer gains **Apply** — commit without closing, grey while nothing differs (the dirty lamp); a later Esc or Cancel answers with the applied state, not the state the window opened on. The floating bar hot-switches for real now — the rc.13 sinks were live all along, the missing buttons were the break.
-- The keyboard repairs: an arrow wrap onto the navigation column no longer teleports the page, Enter answers the focused button before the global OK, the navigation column draws its focus ring, and the File menu entry finally says Settings like its window.
+- The floating bar scales to **90 percent** — the 48×44 dip capsules become 43×39, and every tray metric (margins, gaps, separator rule, percent padding) rides the same scale pair.
+- The fullscreen **flicker** is gone at the mechanism, not the guess: the reporter blamed a focus fight with screen recorders, but the code owns no foreground grab — the 15ms fade timer was fighting the 15.6ms system clock, its fixed steps clumping into visible jumps at 66 layered submits a second. The fade is wall-clock driven now (the step follows the real tick spacing) and the interval rides a stable 30ms multiple, halving the submit rate the capture hooks race.
+- The **windowed ghost** is fixed — the fade machinery only ran in the fullscreen autohide mode, so a windowed show that started at alpha zero hung invisible forever. The windowed row starts opaque, and every re-entry (leaving fullscreen mid fade, toggling the bar back on) snaps the stale alpha to the opaque face.
+
+**1.1.15-rc.14 — the settings footer round:** the 4K-300% report — the silently dropped footer buttons (the capacity now counts forty with a per-page census), the settings content scroll under the pinned footer, the Apply button with its dirty lamp, and the keyboard repairs. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.13 — the field response round:** the nine-item field report — the upgrade's lost cache seat, the successor window, the animation toolbar, the renderer flip, the pill's layered-window rework, the menu retirements and the settings regrouping. See [Changes.txt](Changes.txt).
 

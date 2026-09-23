@@ -191,6 +191,46 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.15 — the pill field round (2026-09-23, build 94)
+
+- Commit: (this round); the 90 percent pill (one scale pair drives every
+  tray metric), the windowed ghost snap (the show, the re-entry and the
+  fullscreen exit all own their alpha now), and the wall clock fade (the
+  fixed step retired, the advance follows the real tick spacing, the
+  interval rides a stable 30ms multiple).
+- Lessons:
+  - **a machine that only runs in one mode is a trapdoor for every other
+    mode.** the fade state machine existed for the fullscreen autohide
+    bar and only there: the fade timer is armed solely inside that
+    branch, so a windowed show that started at alpha zero (the shared
+    first-show code) hung invisible forever - the state had an entry
+    path in both modes and an advance path in one. "the windowed row
+    runs no fade" was the design's own comment, written three lines
+    above the code that still started the fade. every shared entry into
+    a mode-gated machine must own its exit from that machine's state.
+  - **a fixed-step animation on a 15.6ms clock is a flicker machine.**
+    settimer(15) fires on the system clock's 15.6ms quantum, so the
+    steps landed in 15..31ms clumps and a 17-unit alpha jump read as a
+    visible pop at 66 submits a second. the fix is not a faster timer -
+    it is making the step follow the measured spacing (wall clock
+    advance), so jitter cancels itself out; the interval then moves to a
+    stable multiple of the quantum (30ms) and the submit rate halves for
+    free. same sweep time, no clumps, half the layered submits.
+  - **a reporter's blame is a hypothesis, not a diagnosis.** "it fights
+    the screen recorder for focus" was concrete, plausible - and
+    refuted in five minutes of code: no setforegroundwindow anywhere,
+    the pill is a ws_child (clicks never move the foreground), the
+    tooltip never activates. the recorder observation was still real
+    evidence, it just pointed at the composition race the submit rate
+    feeds, not at focus. verify the mechanism the blame names before
+    fixing what the blame implies.
+  - **one scale pair, not eleven literals.** shrinking the pill could
+    have meant editing eleven numbers; the round introduced
+    _zoomui_pill_scale_num/den and every metric derives from the pair,
+    so the next retune (or a user-facing size setting) moves one define.
+    the hairline separator keeps its unscaled pixel on purpose - a
+    scaled hairline rounds to zero and vanishes.
+
 ### 1.1.15-rc.14 — the settings footer round (2026-09-22, build 93)
 
 - Commit: (this round); the capacity lift with the per-page census guard,

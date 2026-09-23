@@ -1,4 +1,26 @@
-﻿Pre-release: Version 1.1.15-rc.14 (the settings footer round)
+﻿Pre-release: Version 1.1.15-rc.15 (the pill field round)
+
+	the field report read three symptoms on the floating bar, and
+	the three answers land together. the oversized pill: the whole
+	row scales to 90 percent (the 48x44 dip capsules become 43x39,
+	the tray margins, the cell gaps, the separator rule and the
+	percent padding ride the same scale pair - one define retunes
+	the row). the fullscreen flicker the reporter blamed on a focus
+	fight with screen recorders: the code owns no foreground grab
+	at all, so the blame shifts to the real mechanism - the 15ms
+	fade timer fought the 15.6ms system clock resolution, its fixed
+	steps clumping into visible jumps at 66 layered submits a
+	second. the fade is wall clock driven now (the step follows the
+	real tick spacing) and the interval rides a stable 30ms
+	multiple, halving the submit rate the capture hooks race. the
+	windowed ghost: the fade machinery only runs in the fullscreen
+	autohide mode, so a show that started at alpha zero with no
+	timer to advance it left the pill an invisible window - the
+	windowed row starts opaque, and every re-entry (leaving
+	fullscreen mid fade, toggling the bar back on) snaps the stale
+	alpha to the opaque face.
+
+Pre-release: Version 1.1.15-rc.14 (the settings footer round)
 
 	the 4k 300 percent report: the settings window showed no footer
 	at all. the remake's rows had pushed the general page to

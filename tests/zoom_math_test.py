@@ -14,6 +14,7 @@ position _viv_zoom_pos_max() is the first ladder entry that reaches
 the cap.
 """
 import math
+import random
 import re
 import sys
 
@@ -779,6 +780,127 @@ def t_ladder_step_extracted():
               f"{step}")
 
 
+# ---------------------------------------------------------------------------
+# zoomui.c _zoomui_calc_metrics() (the rc.15 pill diet): every metric is
+# (dip * 9 * logical) / (10 * 96) - the row rides the 90 percent scale,
+# the hairline separator keeps its one pixel, the floors shrink with the
+# row (29/25/2/1/11/7).
+# ---------------------------------------------------------------------------
+def pill_metric(dip, logical, floor):
+    value = (dip * 9 * logical) // (10 * 96)
+    return value if value > floor else floor
+
+
+def pill_metrics(logical):
+    return {
+        "cell_wide": pill_metric(48, logical, 29),
+        "cell_high": pill_metric(44, logical, 25),
+        "margin": pill_metric(6, logical, 0),
+        "gap": pill_metric(4, logical, 2),
+        "sep_wide": max((1 * logical) // 96, 1),
+        "sep_high": pill_metric(24, logical, 11),
+        "pct_pad": pill_metric(16, logical, 7),
+    }
+
+
+def t_pill_scale_round127():
+    """The 90 percent pill: 48x44 dip capsules become 43x39 at 100
+    percent, 64x59 at 150, and the row shrinks against the old metrics
+    at every dpi the field runs (96..288)."""
+    m96 = pill_metrics(96)
+    check("the 100 percent capsule is 43x39",
+          (m96["cell_wide"], m96["cell_high"]) == (43, 39), str(m96))
+    check("the 100 percent tray metrics are margin 5, gap 3, rule 21, pad 14",
+          (m96["margin"], m96["gap"], m96["sep_high"], m96["pct_pad"]) == (5, 3, 21, 14),
+          str(m96))
+    m144 = pill_metrics(144)
+    check("the 150 percent capsule is 64x59",
+          (m144["cell_wide"], m144["cell_high"]) == (64, 59), str(m144))
+    check("the floors catch a sub-96 dpi without a zero metric",
+          pill_metrics(60)["cell_wide"] == 29 and pill_metrics(60)["cell_high"] == 25,
+          str(pill_metrics(60)))
+    shrinks_everywhere = True
+    for dpi in (96, 120, 144, 168, 192, 240, 288):
+        old_w = max((48 * dpi) // 96, 32)
+        old_h = max((44 * dpi) // 96, 28)
+        m = pill_metrics(dpi)
+        if not (m["cell_wide"] < old_w and m["cell_high"] < old_h):
+            shrinks_everywhere = False
+    check("the diet holds at every dpi the field reports",
+          shrinks_everywhere, "96..288")
+    src = open("src/zoomui.c", "rb").read().decode("utf-8", errors="replace")
+    check("the source rides the same scale pair the model does",
+          "_ZOOMUI_PILL_SCALE_NUM 9" in src and "_ZOOMUI_PILL_SCALE_DEN 10" in src)
+
+
+# ---------------------------------------------------------------------------
+# zoomui.c _zoomui_on_timer() (the rc.15 wall clock fade): the advance
+# is (real tick spacing * 255) / 225 - a jittery timer cannot clump the
+# steps, and a stalled timer catches up in bounded jumps. the interval
+# itself is 30ms (a stable multiple of the 15.6ms system clock).
+# ---------------------------------------------------------------------------
+FADE_MS = 225
+ALPHA_OPAQUE = 255
+
+
+def fade_run(tick_times, start, target):
+    """Mirror of the rc.15 fade loop: alpha, fade_tick, the first-tick
+    creep and the stalled-timer catch-up, over a supplied wall-clock
+    tick sequence."""
+    alpha = start
+    fade_tick = 0
+    submits = 0
+    for now in tick_times:
+        if alpha == target:
+            break
+        if fade_tick == 0:
+            advance = 1
+        elif now - fade_tick > 250:
+            advance = ALPHA_OPAQUE
+        else:
+            advance = ((now - fade_tick) * ALPHA_OPAQUE) // FADE_MS
+            if advance < 1:
+                advance = 1
+        fade_tick = now
+        if target > start:
+            alpha = min(target, alpha + advance)
+        else:
+            alpha = max(target, alpha - advance)
+        submits += 1
+    return alpha, submits, fade_tick
+
+
+def t_wall_clock_fade_round127():
+    """The flicker fix in numbers: a clean 30ms cadence completes inside
+    the 225ms budget; a jittery 15..47ms cadence (the old clock fight)
+    completes just as fast without ever doubling a step; a stalled gap
+    jumps at most one budget's worth and still converges."""
+    alpha, submits, last = fade_run(list(range(30, 300, 30)), 0, 255)
+    check("a clean cadence fades in inside the budget",
+          alpha == 255 and last <= 270, f"alpha {alpha} last {last}")
+
+    random.seed(127)
+    now, ticks = 0, []
+    while now < 400:
+        now += random.choice((15, 16, 31, 47))
+        ticks.append(now)
+    alpha, submits, last = fade_run(ticks, 0, 255)
+    check("a jittery cadence lands the same sweep",
+          alpha == 255 and last <= 300, f"alpha {alpha} last {last}")
+
+    alpha, submits, last = fade_run([30, 60, 320, 350, 380], 0, 255)
+    check("a stalled timer converges instead of crawling",
+          alpha == 255, f"alpha {alpha}")
+
+    alpha, submits, last = fade_run(list(range(30, 300, 30)), 255, 0)
+    check("the fade out rides the same math",
+          alpha == 0 and last <= 270, f"alpha {alpha} last {last}")
+
+    src = open("src/zoomui.c", "rb").read().decode("utf-8", errors="replace")
+    check("the source owns the wall clock the model mirrors",
+          "_zoomui_fade_tick" in src and "_ZOOMUI_FADE_MS 225" in src)
+
+
 if __name__ == "__main__":
     t_ladder_step_extracted()
     t_aspect_invariant()
@@ -795,6 +917,8 @@ if __name__ == "__main__":
     t_percent_stepping()
     t_below_fit_range()
     t_field_report_first_click()
+    t_pill_scale_round127()
+    t_wall_clock_fade_round127()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

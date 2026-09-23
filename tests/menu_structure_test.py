@@ -368,10 +368,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.15-rc.14.93 (the field response round)",
-          (major, minor, rev, build) == ("1", "1", "15", "93") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.15-rc.14 tag)",
-          vstr == "1.1.15-rc.14")
+    check("version.h = 1.1.15-rc.15.94 (the field response round)",
+          (major, minor, rev, build) == ("1", "1", "15", "94") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.15-rc.15 tag)",
+          vstr == "1.1.15-rc.15")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -1561,7 +1561,7 @@ def t_modernization_round6():
           "~WS_EX_LAYERED" in zc)
     check("the fade timer steps the alpha",
           "SetTimer(_zoomui_hwnd,_ZOOMUI_TIMER_ID,_ZOOMUI_FADE_INTERVAL,0)" in zc
-          and "#define _ZOOMUI_ALPHA_STEP 17" in zc
+          and "#define _ZOOMUI_FADE_MS 225" in zc  # rc.15: the fixed step is retired, the sweep is wall clock
           and "#define _ZOOMUI_IDLE_MS 2000" in zc)
     check("a fully transparent bar is hidden for real (it still eats clicks)",
           zc.find("ShowWindow(_zoomui_hwnd,SW_HIDE);",
@@ -3104,7 +3104,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the reentry state round sweeps the pin)",
-          "#define VERSION_BUILD 93" in version)
+          "#define VERSION_BUILD 94" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3175,8 +3175,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the reentry state round sweeps them)",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3436,9 +3436,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3496,8 +3496,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the reentry state round sweeps them)",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4059,9 +4059,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4232,9 +4232,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3** \u2014" in experience and
           "**1.1.13-rc.3 \u2014" not in readme)
@@ -4336,9 +4336,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4** \u2014" in experience and
           "**1.1.13-rc.4 \u2014" not in readme)
@@ -4413,9 +4413,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014 the current stable**" in readme)
     # 6. the changelog carries the round.
@@ -4511,9 +4511,9 @@ def t_peripheral_residue_round92():
           os.path.exists("scripts/extract-theme.mjs") and
           os.path.exists("sim/theme-tokens.ts"))
     # 6. the version and the readme slot.
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014 the current stable**" in readme)
     # 7. the changelog carries the round.
@@ -4628,9 +4628,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4842,9 +4842,9 @@ def t_todo_closure_round96():
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the readme carries the closure round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.1** \u2014" in experience)
-    check("the version is 1.1.15-rc.14 build 93 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -4986,9 +4986,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.14 \u2014 the current stable**" in readme)
     check("the rc.6 entry rides the one-line list",
@@ -5214,9 +5214,9 @@ def t_fixture_round98():
           "**1.1.14-rc.2** \u2014" in experience)
     check("the readme one-liner carries the todo closure round (demoted)",
           "**1.1.14-rc.1** \u2014" in experience)
-    check("the version is 1.1.15-rc.14 build 93 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5291,9 +5291,9 @@ def t_navigation_visibility_round99():
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the readme carries the navigation visibility round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.3** \u2014" in experience)
-    check("the version is 1.1.15-rc.14 build 93 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
 
 def t_audit_response_round101():
@@ -5411,9 +5411,9 @@ def t_audit_response_round101():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the readme carries the corner and audit response round as a one-liner (demoted from the candidate slot)",
           "**1.1.14-rc.4** \u2014" in experience and
           "**1.1.14-rc.3** \u2014" in experience)
@@ -5526,10 +5526,10 @@ def t_pixel_oracle_round102():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the field response round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.14 (the settings footer round)", top)
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.15 (the pill field round)", top)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the current stable**" in readme and
           "**1.1.14-rc.4** \u2014" in experience)
@@ -5854,10 +5854,10 @@ def t_input_ceiling_round104():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the field response round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.14 (the settings footer round)", top)
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.15 (the pill field round)", top)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the current stable**" in readme and
           "**1.1.14-rc.7** \u2014" in experience)
@@ -6029,10 +6029,10 @@ def t_renderer_parity_round105():
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the field response round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.14 (the settings footer round)", top)
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.15 (the pill field round)", top)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the current stable**" in readme and
           "**1.1.14-rc.7** \u2014" in experience)
@@ -6148,10 +6148,10 @@ def t_navigation_faces_round106():
     # 6. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the field response round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.14 (the settings footer round)", top)
-    check("the version is 1.1.15-rc.14 build 93",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.15 (the pill field round)", top)
+    check("the version is 1.1.15-rc.15 build 94",
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.14 \u2014 the current stable**" in readme and
           "**1.1.14-rc.8** \u2014" in experience)
@@ -6360,8 +6360,8 @@ def t_stable_promotion_round108():
     # 1. the version marks the stable promotion (the rc phase suffix
     #    is gone; the plain tag form is the stable release form).
     check("version.h = 1.1.15-rc.11.90 (the stable promotion round pins ride the slot architecture round)",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version and
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the defaults the promotion promises, pinned as facts: both
@@ -6462,7 +6462,7 @@ def t_stable_promotion_round108():
 
     # 8. the changelog, the readme and the demotion ride the promotion
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.14 (the settings footer round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.15 (the pill field round)"))
     check("the readme current-stable line says 1.1.14",
           "**1.1.14 \u2014 the current stable**" in readme)
     check("the 1.1.13 full section demotes to the one-line list",
@@ -6499,8 +6499,8 @@ def t_slot_architecture_round109():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the slot architecture round's pins ride the audit response round)",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
     # 2. the type: one held image - the file identity, the frames,
     #    both counts, the dimensions and the preload role's state -
@@ -6612,7 +6612,7 @@ def t_slot_architecture_round109():
 
     # 12. the changelog, the readme and the candidate block
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.14 (the settings footer round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.15 (the pill field round)"))
     check("the readme carries the new candidate block",
           "**1.1.15-rc.6 \u2014" in readme and
           readme.count("(the current release candidate):**") == 1)
@@ -6650,8 +6650,8 @@ def t_audit_response_round110():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the fourth audit response round)",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
     # 2. the neighbor predicate: one helper in the navigation domain,
     #    declared on the navigation's own export face, carrying the
@@ -6716,7 +6716,7 @@ def t_audit_response_round110():
 
     # 6. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fourth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.14 (the settings footer round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.15 (the pill field round)"))
     check("the readme carries the new candidate block and the rc.1 one-liner",
           "**1.1.15-rc.6 \u2014" in readme and
           "### 1.1.15-rc.1 \u2014" in experience and
@@ -6769,8 +6769,8 @@ def t_audit_response_round111():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the fifth audit response round)",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
     # 2. the navigation trio - the sort pollution: the path completes
     #    before the first compare, at all three scan sites, and the six
@@ -6871,7 +6871,7 @@ def t_audit_response_round111():
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fifth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.14 (the settings footer round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.15 (the pill field round)"))
     check("the changelog carries the round's own ledger",
           "the navigation trio first, because two of the three are ordering defects" in changes and
           "the ladder step is extracted, not self-written" in changes and
@@ -7177,7 +7177,7 @@ def t_audit_response_round113():
           "phoboslab.org" in notices)
     check("the security table rides the shipped lines",
           "| 1.1.14 | latest stable | yes |" in security and
-          "1.1.15-rc.14 at the time of writing" in security)
+          "1.1.15-rc.15 at the time of writing" in security)
 
     # 8. the pill's keyboard exit and the suite's own two defects.
     check("the pill answers escape with focus back to the viewer",
@@ -7192,8 +7192,8 @@ def t_audit_response_round113():
 
     # 9. the version mark.
     check("version.h = 1.1.15-rc.11.90 (the sixth audit response round)",
-          '#define VERSION_BUILD 93' in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          '#define VERSION_BUILD 94' in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
 
 def t_command_picker_round112():
@@ -7223,8 +7223,8 @@ def t_command_picker_round112():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the command picker round)",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
     # 2. the command dropdown answers through the cascade picker, and
     #    the flat call that used to feed it retired.
@@ -7284,7 +7284,7 @@ def t_command_picker_round112():
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the command picker round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.14 (the settings footer round)"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.15-rc.15 (the pill field round)"))
     check("the changelog carries the round's own ledger",
           "eighty-six commands\r\n\twere unreachable" in changes and
           "the cascade is the real menu tree" in changes and
@@ -7573,8 +7573,8 @@ def t_memory_and_cache_round120():
 
     # 12. the version moved to rc.11 build 90 (the sweep that renamed this round's pins).
     check("the version moved to 1.1.15-rc.11 build 90",
-          "#define VERSION_BUILD 93" in vh and
-          '#define VERSION_STRING "1.1.15-rc.14"' in vh)
+          "#define VERSION_BUILD 94" in vh and
+          '#define VERSION_STRING "1.1.15-rc.15"' in vh)
 
 
 def t_gui_limits_round121():
@@ -7695,10 +7695,10 @@ def t_gui_limits_round121():
     # 10. the version and the changelog.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the field response round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.14 (the settings footer round)", top)
-    check("the version is 1.1.15-rc.14 build 93",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.15 (the pill field round)", top)
+    check("the version is 1.1.15-rc.15 build 94",
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
 
 
 
@@ -7836,13 +7836,13 @@ def t_resume_and_chain_round122():
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the field response round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.14 (the settings footer round)", top)
-    check("the version is 1.1.15-rc.14 build 93",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.15 (the pill field round)", top)
+    check("the version is 1.1.15-rc.15 build 94",
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the readme twins carry the round as the candidate",
-          "**1.1.15-rc.14 \u2014 the settings footer round (the current release candidate):**" in readme and
-          "**1.1.15-rc.14 \u2014 \u8bbe\u7f6e\u9875\u811a\u8f6e\uff08\u5f53\u524d\u5019\u9009\u7248\uff09\uff1a**" in readme_cn)
+          "**1.1.15-rc.15 \u2014 the pill field round (the current release candidate):**" in readme and
+          "**1.1.15-rc.15 \u2014 \u836f\u4e38\u5b9e\u5730\u8f6e\uff08\u5f53\u524d\u5019\u9009\u7248\uff09\uff1a**" in readme_cn)
 
 
 def t_field_response_round124():
@@ -8344,13 +8344,13 @@ def t_report_fusion_round123():
     # 22. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the field response round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.14 (the settings footer round)", top)
-    check("the version is 1.1.15-rc.14 build 93",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.15 (the pill field round)", top)
+    check("the version is 1.1.15-rc.15 build 94",
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the readme twins carry the round as the candidate",
-          "**1.1.15-rc.14 \u2014 the settings footer round (the current release candidate):**" in readme and
-          "**1.1.15-rc.14 \u2014 \u8bbe\u7f6e\u9875\u811a\u8f6e\uff08\u5f53\u524d\u5019\u9009\u7248\uff09\uff1a**" in readme_cn)
+          "**1.1.15-rc.15 \u2014 the pill field round (the current release candidate):**" in readme and
+          "**1.1.15-rc.15 \u2014 \u836f\u4e38\u5b9e\u5730\u8f6e\uff08\u5f53\u524d\u5019\u9009\u7248\uff09\uff1a**" in readme_cn)
 
 
 
@@ -8530,13 +8530,106 @@ def t_settings_capacity_round126():
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the settings footer round pre-release",
-          top == "Pre-release: Version 1.1.15-rc.14 (the settings footer round)", top)
-    check("the version is 1.1.15-rc.14 build 93",
-          "#define VERSION_BUILD 93" in version and
-          '#define VERSION_STRING "1.1.15-rc.14"' in version)
+          top == "Pre-release: Version 1.1.15-rc.15 (the pill field round)", top)
+    check("the version is 1.1.15-rc.15 build 94",
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
     check("the readme twins carry the round as the candidate",
-          "**1.1.15-rc.14 \u2014 the settings footer round (the current release candidate):**" in readme and
-          "**1.1.15-rc.14 \u2014 \u8bbe\u7f6e\u9875\u811a\u8f6e\uff08\u5f53\u524d\u5019\u9009\u7248\uff09\uff1a**" in readme_cn)
+          "**1.1.15-rc.15 \u2014 the pill field round (the current release candidate):**" in readme and
+          "**1.1.15-rc.15 \u2014 \u836f\u4e38\u5b9e\u5730\u8f6e\uff08\u5f53\u524d\u5019\u9009\u7248\uff09\uff1a**" in readme_cn)
+
+
+def t_pill_field_round127():
+    """Guards for the pill field round (1.1.15-rc.15). the report read
+    three symptoms on the floating bar. one: the pill oversized on the
+    desktop - the whole row scales to 90 percent (the 48x44 touch
+    capsules become 43x39 dip). two: a fullscreen flicker the reporter
+    blamed on a focus fight with screen recorders - the code owns no
+    foreground grab at all (no SetForegroundWindow, the pill is a
+    WS_CHILD), so the blame shifts to the real mechanism: the 15ms fade
+    timer fought the 15.6ms system clock resolution, its fixed 17-unit
+    steps clumping into visible jumps at 66 layered submits a second,
+    right where capture hooks race the composition. three: the pill
+    never showing in windowed mode - the fade machinery only runs in
+    the fullscreen autohide mode, so a show that started at alpha zero
+    left the pill an invisible window (the rc.14 hot-switch fix
+    uncovered it: the toggle now works, the windowed pill it reveals
+    was a ghost)."""
+    print("the pill field round (1.1.15-rc.15)")
+    zc = read("src/zoomui.c").decode("utf-8", errors="replace")
+    zh_ = read("src/zoomui.h").decode()
+    viv = read("src/viv.c").decode("utf-8", errors="replace")
+    version = read("src/version.h").decode()
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    readme = read("README.md").decode("utf-8", errors="replace")
+    readme_cn = read("README_CN.md").decode("utf-8", errors="replace")
+
+    # 1. THE 90 PERCENT PILL - one scale pair drives every metric so a
+    #    later retune moves one define, not eleven literals.
+    check("the pill scale pair is declared",
+          "#define _ZOOMUI_PILL_SCALE_NUM 9" in zc and
+          "#define _ZOOMUI_PILL_SCALE_DEN 10" in zc)
+    check("the capsule metrics ride the scale pair",
+          "_zoomui_cell_wide = (48 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96);" in zc and
+          "_zoomui_cell_high = (44 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);" in zc)
+    check("the margin, the gap, the separator and the text pad ride the scale too",
+          "(6 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc and
+          "(4 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc and
+          "(24 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc and
+          "(16 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc)
+    check("the hairline separator stays one pixel (a scaled hairline vanishes)",
+          "_zoomui_sep_wide = (1 * os_logical_wide) / 96;" in zc)
+    check("the metric floors shrink with the row (29/25/11/7)",
+          "_zoomui_cell_wide < 29" in zc and "_zoomui_cell_high < 25" in zc and
+          "_zoomui_sep_high < 11" in zc and "_zoomui_pct_pad < 7" in zc)
+    check("the old unscaled 48x44 metrics are gone",
+          "_zoomui_cell_wide = (48 * os_logical_wide) / 96;" not in zc and
+          "_zoomui_cell_high = (44 * os_logical_high) / 96;" not in zc)
+
+    # 2. THE WINDOWED SNAP - the ghost pill. the fade timer only runs in
+    #    the fullscreen autohide mode; every other show must own its
+    #    alpha directly.
+    check("a windowed show starts opaque (a zero start with no fade timer behind it was the ghost)",
+          "((_zoomui_layered_ok) && (_zoomui_autohide_enabled())) ? 0 : _ZOOMUI_ALPHA_OPAQUE" in zc)
+    check("the windowed show branch snaps a stale fade alpha back to opaque",
+          "the windowed row runs no fade timer" in zc and
+          zc.count("_zoomui_set_alpha(_ZOOMUI_ALPHA_OPAQUE);") >= 2)
+    check("leaving fullscreen snaps an in-flight fade (the mode switch is the ghost's other door)",
+          "leaving fullscreen while a fade is in flight" in zc)
+
+    # 3. THE WALL CLOCK FADE - the flicker. the fixed step is retired;
+    #    the advance follows the real tick spacing so a jittery timer
+    #    cannot clump the steps, and the submit rate halves.
+    check("the fade interval rides the stable 30ms clock multiple",
+          "#define _ZOOMUI_FADE_INTERVAL 30" in zc and
+          "#define _ZOOMUI_FADE_MS 225" in zc)
+    check("the fixed step constant is retired",
+          "#define _ZOOMUI_ALPHA_STEP" not in zc)
+    check("the fade keeps a wall clock of its own ticks",
+          "static DWORD _zoomui_fade_tick" in zc and
+          "(now_ms - _zoomui_fade_tick) * _ZOOMUI_ALPHA_OPAQUE) / _ZOOMUI_FADE_MS" in zc)
+    check("a first tick creeps and a stalled timer catches up in one submit",
+          "advance = 1;" in zc and "creep" in zc and
+          "advance = _ZOOMUI_ALPHA_OPAQUE;" in zc)
+
+    # 4. the pill stays one row in both modes (the round shrinks it, it
+    #    does not fork it).
+    check("the seven cell row survives the diet",
+          "#define _ZOOMUI_CELL_COUNT 7" in zc and
+          "void zoomui_set_fullscreen(int fullscreen);" in zh_)
+    check("viv.c keeps feeding the activity hook",
+          "zoomui_activity();" in viv)
+
+    # 5. the version, the changelog and the readme twins.
+    top = changes.lstrip("\ufeff").split("\r\n")[0]
+    check("the changelog top entry is the pill field round pre-release",
+          top == "Pre-release: Version 1.1.15-rc.15 (the pill field round)", top)
+    check("the version is 1.1.15-rc.15 build 94",
+          "#define VERSION_BUILD 94" in version and
+          '#define VERSION_STRING "1.1.15-rc.15"' in version)
+    check("the readme twins carry the round as the candidate",
+          "**1.1.15-rc.15 \u2014 the pill field round (the current release candidate):**" in readme and
+          "**1.1.15-rc.15 \u2014 \u836f\u4e38\u5b9e\u5730\u8f6e\uff08\u5f53\u524d\u5019\u9009\u7248\uff09\uff1a**" in readme_cn)
 
 
 if __name__ == "__main__":
@@ -8627,6 +8720,7 @@ if __name__ == "__main__":
     t_report_fusion_round123()
     t_field_response_round124()
     t_settings_capacity_round126()
+    t_pill_field_round127()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

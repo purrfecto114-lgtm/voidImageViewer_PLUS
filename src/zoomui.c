@@ -29,8 +29,9 @@
 // the current position with the same nearest integer rounding the status
 // bar zoom pane uses, has no hover, no click and no tooltip, and is only
 // HTCLIENT so clicks on it never fall through to the image. after two
-// idle seconds in fullscreen the bar fades out in 15ms alpha steps and
-// any mouse, key or command activity fades it back in. on windows 7,
+// idle seconds in fullscreen the bar fades out in wall clock steps (the
+// rc.15 diet: the advance follows the real tick spacing on a 30ms tick)
+// and any mouse, key or command activity fades it back in. on windows 7,
 // where layered child windows are not supported, the bar hides without
 // the fade.
 //
@@ -132,12 +133,24 @@ static const int _zoomui_cell_glyph_ids[_ZOOMUI_CELL_COUNT] =
 	GLYPH_ZOOMIN,
 };
 
-// fade parameters.
+// fade parameters. rc.15: the old 15ms interval fought the 15.6ms system
+// clock resolution - the fixed 17-unit steps clumped into visible jumps
+// and read as flicker at 66 layered submits a second, right where screen
+// capture hooks race the composition. the 30ms interval rides a stable
+// clock multiple (halving the submit rate) and the fade itself is wall
+// clock driven: see _zoomui_on_timer.
 #define _ZOOMUI_TIMER_ID 1
-#define _ZOOMUI_FADE_INTERVAL 15     // ms per alpha step.
-#define _ZOOMUI_ALPHA_STEP 17        // ~240ms for a full 0..255 fade.
+#define _ZOOMUI_FADE_INTERVAL 30     // ms per fade tick.
+#define _ZOOMUI_FADE_MS 225          // the full 0..255 sweep, wall clock.
 #define _ZOOMUI_ALPHA_OPAQUE 255
 #define _ZOOMUI_IDLE_MS 2000         // idle before the fade out starts.
+
+// rc.15: the field report read the 48x44 touch capsules as oversized on
+// the desktop - the whole row scales to 90 percent (43x39 dip at 100
+// percent). one pair drives every metric so a later retune moves one
+// define, not eleven literals.
+#define _ZOOMUI_PILL_SCALE_NUM 9
+#define _ZOOMUI_PILL_SCALE_DEN 10
 
 // percent / play state poll. zoom changes that do not pass through the
 // pill (mouse wheel, pinch, the zoom pane editor) leave no message trace
@@ -150,13 +163,13 @@ static HWND _zoomui_hwnd = 0;
 static HWND _zoomui_parent_hwnd = 0;
 static HWND _zoomui_tooltip_hwnd = 0;
 
-static int _zoomui_cell_wide = 0; // button capsule width (48 dip).
-static int _zoomui_cell_high = 0; // button capsule height (44 dip).
-static int _zoomui_cell_gap = 0; // spacing between the row cells (4 dip).
-static int _zoomui_margin = 0; // breathing room inside the tray (6 dip).
-static int _zoomui_sep_wide = 0; // separator rule width (1 dip).
-static int _zoomui_sep_high = 0; // separator rule height (24 dip).
-static int _zoomui_pct_pad = 0; // total padding around the percent text (16 dip).
+static int _zoomui_cell_wide = 0; // button capsule width (48 dip before the 90 percent diet).
+static int _zoomui_cell_high = 0; // button capsule height (44 dip before the 90 percent diet).
+static int _zoomui_cell_gap = 0; // spacing between the row cells (4 dip before the diet).
+static int _zoomui_margin = 0; // breathing room inside the tray (6 dip before the diet).
+static int _zoomui_sep_wide = 0; // separator rule width (1 dip, the hairline keeps its pixel).
+static int _zoomui_sep_high = 0; // separator rule height (24 dip before the diet).
+static int _zoomui_pct_pad = 0; // total padding around the percent text (16 dip before the diet).
 static int _zoomui_pct_wide = 0; // percent cell width: text width + pad.
 static int _zoomui_pct_percent = 100; // the percent the text cell shows.
 static int _zoomui_is_slideshow_cached = 0; // the play/pause face follows this.
@@ -173,6 +186,7 @@ static int _zoomui_is_fullscreen = 0; // 1 = the fullscreen overlay (idle fade).
 static int _zoomui_layered_ok = 0; // WS_EX_LAYERED child support (win8+).
 static int _zoomui_alpha = _ZOOMUI_ALPHA_OPAQUE; // current alpha value.
 static int _zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;
+static DWORD _zoomui_fade_tick = 0; // wall clock of the last fade step (rc.15); 0 = the next step creeps.
 static DWORD _zoomui_last_activity = 0; // GetTickCount of the last user input.
 static int _zoomui_visible_wanted = 0; // the state zoomui_show() latched.
 
@@ -470,27 +484,30 @@ static void _zoomui_set_alpha(int alpha)
 
 static void _zoomui_calc_metrics(void)
 {
-	// touch friendly sizing: 48x44 logical units per capsule.
-	_zoomui_cell_wide = (48 * os_logical_wide) / 96;
-	_zoomui_cell_high = (44 * os_logical_high) / 96;
-	_zoomui_margin = (6 * os_logical_high) / 96;
+	// touch friendly sizing, rc.15 diet: every metric rides the 90 percent
+	// scale pair (the 48x44 dip capsules become 43x39 at 100 percent) - the
+	// field report read the row as oversized on the desktop.
+	_zoomui_cell_wide = (48 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96);
+	_zoomui_cell_high = (44 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
+	_zoomui_margin = (6 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
 	// breathing room between the row cells: the gaps keep the capsule
 	// borders from reading as one double line in the middle of the row.
-	_zoomui_cell_gap = (4 * os_logical_high) / 96;
-	// the separator rule: one logical unit wide, 24 tall.
+	_zoomui_cell_gap = (4 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
+	// the separator rule: one logical unit wide (a scaled hairline
+	// vanishes), 24 tall before the diet.
 	_zoomui_sep_wide = (1 * os_logical_wide) / 96;
-	_zoomui_sep_high = (24 * os_logical_high) / 96;
-	// total padding around the percent text: 8 dip a side.
-	_zoomui_pct_pad = (16 * os_logical_wide) / 96;
+	_zoomui_sep_high = (24 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
+	// total padding around the percent text: 8 dip a side before the diet.
+	_zoomui_pct_pad = (16 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96);
 
-	if (_zoomui_cell_wide < 32)
+	if (_zoomui_cell_wide < 29)
 	{
-		_zoomui_cell_wide = 32;
+		_zoomui_cell_wide = 29;
 	}
 
-	if (_zoomui_cell_high < 28)
+	if (_zoomui_cell_high < 25)
 	{
-		_zoomui_cell_high = 28;
+		_zoomui_cell_high = 25;
 	}
 
 	if (_zoomui_cell_gap < 2)
@@ -503,19 +520,19 @@ static void _zoomui_calc_metrics(void)
 		_zoomui_sep_wide = 1;
 	}
 
-	if (_zoomui_sep_high < 12)
+	if (_zoomui_sep_high < 11)
 	{
-		_zoomui_sep_high = 12;
+		_zoomui_sep_high = 11;
 	}
 
-	if (_zoomui_pct_pad < 8)
+	if (_zoomui_pct_pad < 7)
 	{
-		_zoomui_pct_pad = 8;
+		_zoomui_pct_pad = 7;
 	}
 }
 
-// the width of one row cell: capsules are 48 dip, the separator is its
-// hairline and the percent cell hugs its measured text.
+// the width of one row cell: capsules ride the 90 percent scale, the
+// separator is its hairline and the percent cell hugs its measured text.
 static int _zoomui_cell_width(int celli)
 {
 	if (celli == _ZOOMUI_CELL_SEP)
@@ -1347,6 +1364,21 @@ void zoomui_set_fullscreen(int fullscreen)
 
 		if (_zoomui_hwnd)
 		{
+			// leaving fullscreen while a fade is in flight: the windowed
+			// row runs no fade timer, so the half faded pill would hang as
+			// a ghost - snap it to the opaque face the windowed contract
+			// promises (the rc.15 ghost report).
+			if ((!_zoomui_is_fullscreen) && (IsWindowVisible(_zoomui_hwnd)) && (_zoomui_alpha != _ZOOMUI_ALPHA_OPAQUE))
+			{
+				_zoomui_alpha = _ZOOMUI_ALPHA_OPAQUE;
+
+				_zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;
+
+				_zoomui_fade_tick = 0;
+
+				_zoomui_set_alpha(_ZOOMUI_ALPHA_OPAQUE);
+			}
+
 			if ((GetCapture() == _zoomui_hwnd) && (_zoomui_hwnd))
 			{
 				ReleaseCapture();
@@ -1394,6 +1426,8 @@ void zoomui_activity(void)
 	{
 		_zoomui_alpha = 0;
 
+		_zoomui_fade_tick = 0;
+
 		ShowWindow(_zoomui_hwnd,SW_SHOW);
 
 		_zoomui_set_alpha(0);
@@ -1423,9 +1457,13 @@ void zoomui_show(int show)
 			_zoomui_clear_hover_press(0);
 
 			// the fade in starts from fully transparent (or is skipped
-			// when the layered child support is missing).
-			_zoomui_alpha = _zoomui_layered_ok ? 0 : _ZOOMUI_ALPHA_OPAQUE;
+			// when the layered child support is missing). the windowed row
+			// never runs the fade timer, so it starts opaque: a zero start
+			// with no timer to advance it left the pill an invisible window
+			// (the rc.15 ghost report).
+			_zoomui_alpha = ((_zoomui_layered_ok) && (_zoomui_autohide_enabled())) ? 0 : _ZOOMUI_ALPHA_OPAQUE;
 			_zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;
+			_zoomui_fade_tick = 0;
 			_zoomui_last_activity = GetTickCount();
 
 			// pre-render the per-pixel surface while the pill is still hidden:
@@ -1451,6 +1489,23 @@ void zoomui_show(int show)
 		if (_zoomui_autohide_enabled())
 		{
 			_zoomui_ensure_timer();
+		}
+		else
+		{
+			// the windowed row runs no fade timer: a pill that re-enters
+			// this mode mid fade (or after a fullscreen idle hide) would
+			// hang at the stale alpha forever - the show snaps it back to
+			// the opaque face (rc.15).
+			if (_zoomui_alpha != _ZOOMUI_ALPHA_OPAQUE)
+			{
+				_zoomui_alpha = _ZOOMUI_ALPHA_OPAQUE;
+
+				_zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;
+
+				_zoomui_fade_tick = 0;
+
+				_zoomui_set_alpha(_ZOOMUI_ALPHA_OPAQUE);
+			}
 		}
 
 		if (_zoomui_tooltip_hwnd)
@@ -1478,6 +1533,7 @@ void zoomui_show(int show)
 		_zoomui_kill_poll_timer();
 		_zoomui_alpha = 0;
 		_zoomui_alpha_target = 0;
+		_zoomui_fade_tick = 0;
 
 		ShowWindow(_zoomui_hwnd,SW_HIDE);
 
@@ -1510,6 +1566,8 @@ static void _zoomui_on_timer(void)
 
 			_zoomui_set_alpha(_zoomui_alpha);
 		}
+
+		_zoomui_fade_tick = 0;
 
 		_zoomui_kill_timer();
 
@@ -1547,26 +1605,74 @@ static void _zoomui_on_timer(void)
 
 	if (_zoomui_alpha != _zoomui_alpha_target)
 	{
-		if (_zoomui_alpha > _zoomui_alpha_target)
-		{
-			_zoomui_alpha -= _ZOOMUI_ALPHA_STEP;
+		// wall clock advance (rc.15): the step follows the real tick
+		// spacing, so a jittery timer cannot clump the steps into
+		// visible jumps (the old fixed 17-per-15ms fought the 15.6ms
+		// system clock and read as flicker, right where screen capture
+		// hooks race the composition).
+		DWORD now_ms;
+		int dir;
+		int advance;
 
-			if (_zoomui_alpha < _zoomui_alpha_target)
-			{
-				_zoomui_alpha = _zoomui_alpha_target;
-			}
+		now_ms = GetTickCount();
+
+		dir = (_zoomui_alpha < _zoomui_alpha_target) ? 1 : -1;
+
+		if (_zoomui_fade_tick == 0)
+		{
+			// the first step after a (re)start creeps: the show must
+			// never land one giant submit before the composition has
+			// seen the pill at all.
+			advance = 1;
 		}
 		else
 		{
-			_zoomui_alpha += _ZOOMUI_ALPHA_STEP;
-
-			if (_zoomui_alpha > _zoomui_alpha_target)
+			if (now_ms - _zoomui_fade_tick > 250)
 			{
-				_zoomui_alpha = _zoomui_alpha_target;
+				// a gap wider than the whole fade budget (a stalled
+				// timer, a resumed sleep): the sweep is late, finish
+				// it in one submit instead of crawling.
+				advance = _ZOOMUI_ALPHA_OPAQUE;
+			}
+			else
+			{
+				advance = (int)((now_ms - _zoomui_fade_tick) * _ZOOMUI_ALPHA_OPAQUE) / _ZOOMUI_FADE_MS;
+
+				if (advance < 1)
+				{
+					advance = 1;
+				}
 			}
 		}
 
+		_zoomui_fade_tick = now_ms;
+
+		_zoomui_alpha += dir * advance;
+
+		if (dir > 0)
+		{
+			if (_zoomui_alpha > _zoomui_alpha_target)
+				{
+					_zoomui_alpha = _zoomui_alpha_target;
+				}
+		}
+		else
+		{
+			if (_zoomui_alpha < _zoomui_alpha_target)
+				{
+					_zoomui_alpha = _zoomui_alpha_target;
+				}
+		}
+
 		_zoomui_set_alpha(_zoomui_alpha);
+
+		if (_zoomui_alpha == _zoomui_alpha_target)
+		{
+			// the sweep is done: retire the wall clock so the next
+			// sweep (the idle fade out) starts from a creep, not from
+			// a two-second-old tick.
+			_zoomui_fade_tick = 0;
+		}
 
 		// a fully transparent layered window still eats mouse clicks:
 		// hide it for real once the fade has finished.
@@ -1583,6 +1689,8 @@ static void _zoomui_on_timer(void)
 
 			_zoomui_kill_timer();
 			_zoomui_kill_poll_timer();
+
+			_zoomui_fade_tick = 0;
 
 			return;
 		}
