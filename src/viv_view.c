@@ -438,7 +438,7 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 				_viv_animation_play = 0;
 			}
 
-			if (_viv_slot_current.frame_count > 1)
+			if ((_viv_slot_current.frame_count > 1) && (_viv_frame_state_guard("frame end")))
 			{
 				_viv_frame_position = _viv_slot_current.frame_loaded_count - 1;
 				_viv_animation_timer_tick_start = os_get_tick_count();

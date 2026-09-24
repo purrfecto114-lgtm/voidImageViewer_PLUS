@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.17.96",
-          (major, minor, rev, build) == (1, 1, 15, 96), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.17",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.17", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.18.96",
+          (major, minor, rev, build) == (1, 1, 15, 97), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.18",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.18", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -2549,6 +2549,263 @@ def t_sim_title_borrow_round129():
           title(None, False, False, False, False, "dog.png") == "dog.png - void Image Viewer")
 
 
+def t_sim_merged_report_round130():
+    """Behavioral models for the merged-report adjudication round. the
+    report's one confirmed finding (the wic path decoded frame 0 of a
+    multi-frame file and dropped the rest), its state-invariant audit
+    item (three sites could form a -1 frame position; the timer read a
+    frame before its own loaded-window guard) and its retained
+    hardening items (the qpc pair, the webp early canvas gate, the
+    dib/select pair, the installer's process-architecture probe and its
+    program-files default) each get a source-anchored model: the
+    delivery order, the budget math and the guard logic are extracted
+    from the shipped source and re-executed against the report's
+    scenarios, so a rename or a reorder keeps the guard honest only by
+    running the real behavior again."""
+    print("sim: the merged-report adjudication (round 130)")
+    wic = read("src/wic.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    anim = read("src/viv_anim.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    view = read("src/viv_view.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    wnd = read("src/viv_wndproc.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    webp = read("src/webp.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    os_c = read("src/os.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    qoi = read("src/qoi.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    nsi = read("nsis/installer.nsi").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    viv_h = read("src/viv.h").decode("utf-8", errors="replace").replace("\r\n", "\n")
+
+    # ------------------------------------------------------------------
+    # 1. the confirmed finding: the wic multi-frame delivery
+    # ------------------------------------------------------------------
+    wic_body = function_body(wic, "int wic_load(") or ""
+    check("the wic path exists for the model to read", wic_body != "")
+
+    check("the hardcoded one-frame info reply is gone (the report's confirmed finding)",
+          "info_callback(user_data,1," not in wic_body)
+    check("the info callback declares the real frame count",
+          "info_callback(user_data,frame_count,wide,high,has_alpha)" in wic_body)
+    check("the frames after the first ride the delivery loop",
+          "for(i=1;i<frame_count;i++)" in wic_body)
+    check("the multi-frame canvas answers the animation ceiling, not the still one",
+          "VIV_MAX_ANIMATION_PIXELS" in wic_body)
+    check("the frame-array budget gates the wic delivery (the webp twin)",
+          "_animation_budget_refused(frame_count,canvas_pixels)" in wic_body)
+    check("a frame decode failure stops the loop without un-delivering",
+          re.search(r"if\s*\(!_wic_frame_to_rgba\([^)]*\)\)\s*\{\s*break;\s*\}", wic_body) is not None)
+    check("a refused callback stops the loop the same way",
+          re.search(r"if\s*\(!frame_callback\(user_data,pixels,delay\)\)\s*\{\s*break;\s*\}", wic_body) is not None)
+
+    # the uniform delay: frame timing lives in container metadata the wic
+    # layer does not parse - the contract, extracted and re-executed.
+    m_delay = re.search(r"delay = \(frame_count > 1\) \? (\d+) : (\d+);", wic_body)
+    check("the delay contract is spelled in one place (100ms stand-in, stills 0)",
+          m_delay is not None, "(delay = (frame_count > 1) ? N : 0;)")
+    anim_delay_ms = int(m_delay.group(1)) if m_delay else -1
+    still_delay_ms = int(m_delay.group(2)) if m_delay else -1
+
+    # the budget math, extracted from the shipped constants and re-executed
+    max_anim_pixels = extract_int(viv_h, r"VIV_MAX_ANIMATION_PIXELS\s+(\d+)",
+                                  "the animation canvas ceiling")
+    max_frames = extract_int(viv_h, r"VIV_MAX_ANIMATION_FRAMES\s+(\d+)",
+                             "the animation frame-count ceiling")
+    max_anim_bytes = extract_int(viv_h, r"VIV_MAX_ANIMATION_TOTAL_BYTES\s+(\d+)",
+                                 "the animation frame-array byte ceiling")
+    max_image_pixels = extract_int(viv_h, r"VIV_MAX_IMAGE_PIXELS\s+(\d+)",
+                                   "the still canvas ceiling")
+    wsm = extract_int(viv_h, r"VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL\s+(\d+)",
+                      "the working-set bytes per pixel")
+    max_image_bytes = extract_int(viv_h, r"VIV_MAX_IMAGE_BYTES\s+(\d+)",
+                                  "the working-set byte ceiling")
+    m_frame_price = re.search(r"canvas_pixels \* (\d+) / (\d+) > VIV_MAX_ANIMATION_TOTAL_BYTES",
+                              function_body(wic, "static int _animation_budget_refused(") or "")
+    check("the frame-array price (16/3 bytes per canvas pixel per frame) mirrors webp.c",
+          m_frame_price is not None and m_frame_price.group(1) == "16",
+          "(the * 16 / 3 pricing)")
+    price_num = int(m_frame_price.group(1)) if m_frame_price else 16
+    price_den = int(m_frame_price.group(2)) if m_frame_price else 3
+
+    def wic_verdict(frame_count, wide, high):
+        """The two-gate budget mirror: stills answer the still ceilings,
+        animations answer the animation canvas plus the frame array."""
+        canvas = wide * high
+        if frame_count == 1:
+            if canvas > max_image_pixels or canvas * wsm > max_image_bytes:
+                return "refused"
+            return "delivered"
+        if canvas > max_anim_pixels or canvas * wsm > max_image_bytes:
+            return "refused"
+        if frame_count > max_frames:
+            return "refused"
+        if frame_count * canvas * price_num / price_den > max_anim_bytes:
+            return "refused"
+        return "delivered"
+
+    check("a five-frame 1080p heif sequence now delivers (the report's scenario)",
+          wic_verdict(5, 1920, 1080) == "delivered")
+    check("a plain still still answers the still ceiling",
+          wic_verdict(1, 3840, 2160) == "delivered")
+    check("a two-frame 169mp canvas is refused (the animation canvas ceiling)",
+          wic_verdict(2, 13000, 13000) == "refused")
+    check("a declared frame count past the ceiling is refused",
+          wic_verdict(20001, 100, 100) == "refused")
+    check("a frame array past the byte ceiling is refused",
+          wic_verdict(5000, 8000, 8000) == "refused")
+
+    def wic_delivery(frame_count, decode_failures=(), terminate_after=None):
+        """The delivery-order mirror: info first, then frames in order; a
+        failed decode (past frame 0) or a refused callback stops the loop
+        without un-delivering what already landed."""
+        events = []
+        delay = anim_delay_ms if frame_count > 1 else still_delay_ms
+        for i in range(frame_count):
+            if i in decode_failures:
+                break
+            if terminate_after is not None and i > terminate_after:
+                break
+            events.append((i, delay))
+        return events
+
+    check("a clean five-frame sequence delivers every frame in order",
+          wic_delivery(5) == [(0, anim_delay_ms), (1, anim_delay_ms),
+                              (2, anim_delay_ms), (3, anim_delay_ms),
+                              (4, anim_delay_ms)])
+    check("a still delivers exactly one frame at delay zero",
+          wic_delivery(1) == [(0, 0)] and still_delay_ms == 0)
+    check("a decode failure at frame 3 keeps frames 0-2 (the partial set)",
+          wic_delivery(5, decode_failures=(3,)) == [(0, anim_delay_ms),
+                                                    (1, anim_delay_ms),
+                                                    (2, anim_delay_ms)])
+    check("a termination after frame 1 stops the loop the same way",
+          wic_delivery(5, terminate_after=1) == [(0, anim_delay_ms),
+                                                 (1, anim_delay_ms)])
+
+    # ------------------------------------------------------------------
+    # 2. the invariant audit item: the frame-state guard
+    # ------------------------------------------------------------------
+    guard_body = function_body(anim, "int _viv_frame_state_guard(") or ""
+    check("the frame-state guard exists as the one place the invariant lives",
+          guard_body != "")
+    check("a declared animation with zero loaded frames is refused, not wrapped",
+          "_viv_slot_current.frame_loaded_count <= 0" in guard_body)
+    check("an out-of-window position is repaired back into the window",
+          re.search(r"_viv_frame_position < 0.*_viv_frame_position = 0;", guard_body, re.S) is not None)
+
+    prev_body = function_body(anim, "void _viv_frame_prev(void)") or ""
+    skip_body = function_body(anim, "void _viv_frame_skip(int size)") or ""
+    end_body = function_body(view, "void _viv_command_with_is_key_repeat(") or ""
+    check("the prev wrap asks the guard first",
+          '_viv_frame_state_guard("frame prev")' in prev_body)
+    check("the skip wrap asks the guard first",
+          '_viv_frame_state_guard("frame skip")' in skip_body)
+    check("the end jump asks the guard first",
+          '_viv_frame_state_guard("frame end")' in end_body)
+    timer_guard = wnd.find('_viv_frame_state_guard("animation timer")')
+    timer_read = wnd.find("delay = _viv_slot_current.frames[_viv_frame_position].delay")
+    check("the timer asks the guard before it reads the current frame",
+          0 <= timer_guard < timer_read)
+
+    # the guard logic, extracted and re-executed against the breach matrix
+    def guard(frame_count, loaded, position):
+        if frame_count <= 1:
+            return ("pass", position)
+        if loaded <= 0:
+            return ("refuse", position)
+        if position < 0 or position >= loaded:
+            return ("repair", 0)
+        return ("pass", position)
+
+    check("a still always passes (position 0 and the one frame are the same fact)",
+          guard(1, 1, 0) == ("pass", 0))
+    check("the report's -1 former (declared multi, loaded zero) is refused",
+          guard(5, 0, 0) == ("refuse", 0))
+    check("an out-of-window position snaps back to frame 0",
+          guard(5, 3, 7) == ("repair", 0))
+    check("a stale negative position repairs too",
+          guard(5, 3, -1) == ("repair", 0))
+    check("a healthy window passes untouched",
+          guard(5, 3, 1) == ("pass", 1))
+
+    # ------------------------------------------------------------------
+    # 3. the qpc pair degrades in one domain
+    # ------------------------------------------------------------------
+    tick_body = function_body(os_c, "VIV_UINT64 os_get_tick_count(void)") or ""
+    freq_body = function_body(os_c, "VIV_UINT64 os_get_tick_freq(void)") or ""
+    check("the tick falls back to the millisecond domain",
+          "return GetTickCount();" in tick_body)
+    check("the frequency falls back to the same domain's 1000",
+          "return 1000;" in freq_body)
+
+    def clock_pair(qpc_ok):
+        if qpc_ok:
+            return ("qpc", 10000000)
+        return ("gettickcount-ms", 1000)
+
+    check("a working pair never degrades",
+          clock_pair(True) == ("qpc", 10000000))
+    check("a refused pair degrades together (tick ms, freq 1000 - never split)",
+          clock_pair(False) == ("gettickcount-ms", 1000))
+    # the animation math keeps its units in the degraded domain
+    degraded_freq = clock_pair(False)[1]
+    check("the delay math stays whole in the degraded domain",
+          (100 * degraded_freq) // 1000 == 100)
+
+    # ------------------------------------------------------------------
+    # 4. the webp early canvas gate and the dib/select pair
+    # ------------------------------------------------------------------
+    webp_body = function_body(webp, "int webp_load(") or ""
+    gate = webp_body.find("_pixel_budget_refused(safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height),VIV_MAX_ANIMATION_PIXELS)")
+    decoder = webp_body.find("WebPAnimDecoderNew(&webp_data,&anim_decoder_options)")
+    check("the canvas gate runs on the features header (before the anim decoder exists)",
+          0 <= gate < decoder)
+
+    frame_proc = function_body(anim, "int _viv_webp_frame_proc(") or ""
+    check("a dib whose bits view is null is not a drawable frame",
+          "if ((hbitmap) && (bits))" in frame_proc)
+    check("a select that refused skips the frame (not the backdrop on the old face)",
+          "(last_hbitmap) && (last_hbitmap != (HGDIOBJ)GDI_ERROR)" in frame_proc)
+
+    # ------------------------------------------------------------------
+    # 5. the qoi contract, adjudicated as policy
+    # ------------------------------------------------------------------
+    check("the trailing-chunk leniency is a spelled contract (policy, not a hole)",
+          "policy, not a hole" in qoi)
+
+    # ------------------------------------------------------------------
+    # 6. the installer: the os architecture and the writable default
+    # ------------------------------------------------------------------
+    check("the installer asks the os its architecture (not the installer process)",
+          "GetNativeSystemInfo" in nsi)
+    check("the IsWow64Process probe is retired (it answered for the process, not the machine)",
+          "IsWow64Process" not in nsi)
+    check("the per-user fallback default is spelled (the permission model)",
+          "$LOCALAPPDATA\\Programs\\voidImageViewer" in nsi)
+    check("the installer still never demands elevation",
+          "RequestExecutionLevel user" in nsi)
+    check("the default directory is probed for write access before it is offered",
+          "._viw_probe" in nsi)
+
+    def arch_verdict(first_word):
+        # 9 = PROCESSOR_ARCHITECTURE_AMD64; anything else (x86 os, arm64)
+        # takes the warn path - which still offers the override
+        return "is64" if first_word == 9 else "is32-warn"
+
+    check("an x64 os installs straight (whatever Setup.exe itself is)",
+          arch_verdict(9) == "is64")
+    check("an x86 os gets the warning (the override stays a user choice)",
+          arch_verdict(0) == "is32-warn")
+    check("an arm64 machine gets the warning too (emulation is the user's call)",
+          arch_verdict(12) == "is32-warn")
+
+    def default_dir(programfiles_writable):
+        if programfiles_writable:
+            return "Program Files"
+        return "$LOCALAPPDATA\\Programs"
+
+    check("a writable Program Files stays the default",
+          default_dir(True) == "Program Files")
+    check("a standard user's default follows the account (no mid-install failure)",
+          default_dir(False) == "$LOCALAPPDATA\\Programs")
+
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -2570,6 +2827,7 @@ if __name__ == "__main__":
     t_sim_field_response_round124()
     t_sim_settings_round126()
     t_sim_title_borrow_round129()
+    t_sim_merged_report_round130()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

@@ -194,6 +194,42 @@ void _viv_frame_step(void)
 	
 	_viv_update_ontop();
 }
+// the frame-state invariant (the merged report's audit item): a slot
+// that declares animation (frame_count > 1) must always show at least
+// one loaded frame and a position inside the loaded window - the
+// first-frame delivery sets the count and the loaded window together,
+// and the clear zeroes them together, so a breach is a state bug, not
+// a user action. the guard lives in this one place instead of
+// scattered ifs: every reader that indexes frames[] asks here first.
+// a loaded-window breach is repaired (the position snaps back into the
+// window) and logged; an empty animation refuses the operation
+// outright - there is nothing to draw, advance or wrap to. stills (a
+// single frame) always pass: position 0 and the one loaded frame are
+// the same fact.
+int _viv_frame_state_guard(const char *site)
+{
+		if (_viv_slot_current.frame_count <= 1)
+		{
+				return 1;
+		}
+		
+		if (_viv_slot_current.frame_loaded_count <= 0)
+		{
+				debug_printf("frame state breach at %s: %u frames declared, none loaded\r\n",site,(unsigned int)_viv_slot_current.frame_count);
+				
+				return 0;
+		}
+		
+		if ((_viv_frame_position < 0) || (_viv_frame_position >= _viv_slot_current.frame_loaded_count))
+		{
+				debug_printf("frame state breach at %s: position %d outside the %d loaded frames\r\n",site,_viv_frame_position,_viv_slot_current.frame_loaded_count);
+				
+				_viv_frame_position = 0;
+		}
+		
+		return 1;
+}
+
 void _viv_frame_prev(void)
 {
 	_viv_frame_looped = 0;
@@ -203,7 +239,7 @@ void _viv_frame_prev(void)
 		_viv_animation_play = 0;
 	}
 
-	if (_viv_slot_current.frame_count > 1)
+	if ((_viv_slot_current.frame_count > 1) && (_viv_frame_state_guard("frame prev")))
 	{
 		if (_viv_frame_position > 0)
 		{
@@ -394,7 +430,7 @@ void _viv_update_frame(void)
 }
 void _viv_frame_skip(int size)
 {
-	if (_viv_slot_current.frame_count > 1)
+	if ((_viv_slot_current.frame_count > 1) && (_viv_frame_state_guard("frame skip")))
 	{
 		if (size > 0)
 		{
@@ -493,8 +529,18 @@ int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 		
 		hbitmap = CreateDIBSection(viv_webp->screen_hdc,&bmi,DIB_RGB_COLORS,&bits,NULL,0);
 
+		// the dib's two faces must both land (the merged report's hardening
+		// pair): a bitmap whose bits view is null owns nothing to write
+		// through - release the empty handle and skip the frame the way a
+		// failed createdibsection always has.
+		if ((hbitmap) && (!bits))
+		{
+			DeleteObject(hbitmap);
+			hbitmap = NULL;
+		}
+
 		// Set RGB data to the bitmap
-		if (hbitmap) 
+		if ((hbitmap) && (bits)) 
 		{
 			int mip_wide;
 			int mip_high;
@@ -505,154 +551,167 @@ int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 			int stride;
 
 			last_hbitmap = SelectObject(viv_webp->mem_hdc,hbitmap);
-			
-			if (viv_webp->has_alpha)
+			// a select that refused (null or gdi_error) leaves the dib
+			// unselected - the backdrop fill would paint the previous frame's
+			// face and the blend's writes would land in a bitmap nobody
+			// shows. skip the frame the way a failed dib always has (the
+			// animation machinery downstream already tolerates a partial
+			// set: loaded stays below the declared count).
+			if ((last_hbitmap) && (last_hbitmap != (HGDIOBJ)GDI_ERROR))
 			{
-				// fill the backdrop under the transparent pixels (cached
-				// brushes, a single FillRect).
-				_viv_fill_backdrop(viv_webp->mem_hdc,viv_webp->wide,viv_webp->high);
-			}
 			
-			// blend the rgba frame over the dib pixels. the webp scan0 is
-			// rgba, the dib is bgr with 4 byte aligned rows: the source is
-			// read ahead of the write cursor so the shared webp canvas
-			// buffer is left untouched.
-			stride = ((viv_webp->wide * 3) + 3) / 4 * 4;
-			p = pixels;
-			d = (BYTE *)bits;
-			high_run = viv_webp->high;
-			
-			while(high_run)
-			{
-				BYTE *wd;
-				DWORD wide_run;
-				
-				wide_run = viv_webp->wide;
-				wd = d;
-			
-				while(wide_run)
+				if (viv_webp->has_alpha)
 				{
-					int r;
-					int g;
-					int b;
-					int a;
-					
-					r = p[0];
-					g = p[1];
-					b = p[2];
-					a = p[3];
-					
-					p += 4;
-					
-					// alpha 255 fully replaces the backdrop pixel, alpha 0
-					// keeps it.
-					wd[0] = b + ((wd[0] - b) * (255 - a)) / 255;
-					wd[1] = g + ((wd[1] - g) * (255 - a)) / 255;
-					wd[2] = r + ((wd[2] - r) * (255 - a)) / 255;
-					wd += 3;
-					
-					wide_run--;
+					// fill the backdrop under the transparent pixels (cached
+					// brushes, a single FillRect).
+					_viv_fill_backdrop(viv_webp->mem_hdc,viv_webp->wide,viv_webp->high);
 				}
-				
-				d += stride;
-				high_run--;
-			}
 			
-			SelectObject(viv_webp->mem_hdc,last_hbitmap);
-			if (viv_webp->orientation > 1)
-			{
-				HBITMAP new_hbitmap;
-				
-				new_hbitmap = _viv_orientate_hbitmap(hbitmap,viv_webp->orientation);
-				if (new_hbitmap)
+				// blend the rgba frame over the dib pixels. the webp scan0 is
+				// rgba, the dib is bgr with 4 byte aligned rows: the source is
+				// read ahead of the write cursor so the shared webp canvas
+				// buffer is left untouched.
+				stride = ((viv_webp->wide * 3) + 3) / 4 * 4;
+				p = pixels;
+				d = (BYTE *)bits;
+				high_run = viv_webp->high;
+			
+				while(high_run)
 				{
-					DeleteObject(hbitmap);
-					hbitmap = new_hbitmap;
-				}
-			}
+					BYTE *wd;
+					DWORD wide_run;
+				
+					wide_run = viv_webp->wide;
+					wd = d;
 			
-			if (viv_webp->frame_index == 0)
-			{
-				_viv_reply_load_image_first_frame_t first_frame;
+					while(wide_run)
+					{
+						int r;
+						int g;
+						int b;
+						int a;
+					
+						r = p[0];
+						g = p[1];
+						b = p[2];
+						a = p[3];
+					
+						p += 4;
+					
+						// alpha 255 fully replaces the backdrop pixel, alpha 0
+						// keeps it.
+						wd[0] = b + ((wd[0] - b) * (255 - a)) / 255;
+						wd[1] = g + ((wd[1] - g) * (255 - a)) / 255;
+						wd[2] = r + ((wd[2] - r) * (255 - a)) / 255;
+						wd += 3;
+					
+						wide_run--;
+					}
+				
+					d += stride;
+					high_run--;
+				}
+			
+				SelectObject(viv_webp->mem_hdc,last_hbitmap);
+				if (viv_webp->orientation > 1)
+				{
+					HBITMAP new_hbitmap;
+				
+					new_hbitmap = _viv_orientate_hbitmap(hbitmap,viv_webp->orientation);
+					if (new_hbitmap)
+					{
+						DeleteObject(hbitmap);
+						hbitmap = new_hbitmap;
+					}
+				}
+			
+				if (viv_webp->frame_index == 0)
+				{
+					_viv_reply_load_image_first_frame_t first_frame;
 
-				first_frame.wide = viv_webp->wide;
-				first_frame.high = viv_webp->high;
+					first_frame.wide = viv_webp->wide;
+					first_frame.high = viv_webp->high;
 				
-				// apply orientation: transposed orientations (5-8) swap the axes.
-				// the hbitmap above was already rotated to match, so the reported
-				// dimensions swap with it. mirrors the gdi+ path.
-				switch (viv_webp->orientation)
-				{
-					case 5: // #define PHOTO_ORIENTATION_TRANSPOSE         5u
-					case 6: // #define PHOTO_ORIENTATION_ROTATE270         6u
-					case 7: // #define PHOTO_ORIENTATION_TRANSVERSE        7u
-					case 8: // #define PHOTO_ORIENTATION_ROTATE90          8u
+					// apply orientation: transposed orientations (5-8) swap the axes.
+					// the hbitmap above was already rotated to match, so the reported
+					// dimensions swap with it. mirrors the gdi+ path.
+					switch (viv_webp->orientation)
+					{
+						case 5: // #define PHOTO_ORIENTATION_TRANSPOSE         5u
+						case 6: // #define PHOTO_ORIENTATION_ROTATE270         6u
+						case 7: // #define PHOTO_ORIENTATION_TRANSVERSE        7u
+						case 8: // #define PHOTO_ORIENTATION_ROTATE90          8u
 						
-						{
-							int temp;
-							temp = first_frame.wide;
-							first_frame.wide = first_frame.high;
-							first_frame.high = temp;
-						}
-						break;
-				}
-				first_frame.is_low_res = 0;
-				// the bake this frame ran decides the backdrop fact
-				// (has_alpha pixels got the mat painted under them).
-				first_frame.alpha_baked = viv_webp->has_alpha ? 1 : 0;
-				first_frame.frame.hbitmap = hbitmap;
-				first_frame.frame.mipmap = NULL;
-				first_frame.frame.delay = 0;
-				first_frame.frame_count = viv_webp->frame_count;
+							{
+								int temp;
+								temp = first_frame.wide;
+								first_frame.wide = first_frame.high;
+								first_frame.high = temp;
+							}
+							break;
+					}
+					first_frame.is_low_res = 0;
+					// the bake this frame ran decides the backdrop fact
+					// (has_alpha pixels got the mat painted under them).
+					first_frame.alpha_baked = viv_webp->has_alpha ? 1 : 0;
+					first_frame.frame.hbitmap = hbitmap;
+					first_frame.frame.mipmap = NULL;
+					first_frame.frame.delay = 0;
+					first_frame.frame_count = viv_webp->frame_count;
 				
-				if (viv_webp->frame_count > 1)
-				{
-					first_frame.frame.delay = delay;
+					if (viv_webp->frame_count > 1)
+					{
+						first_frame.frame.delay = delay;
+					}
+
+					// preload first mipmap
+					_viv_get_mipmap(hbitmap,first_frame.wide,first_frame.high,_viv_load_render_wide/2,_viv_load_render_high/2,&mip_wide,&mip_high,&first_frame.frame.mipmap);
+
+					_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_FIRST_FRAME,sizeof(_viv_reply_load_image_first_frame_t),&first_frame);
 				}
+				else
+				{
+					_viv_frame_t frame;
+					int frame_wide;
+					int frame_high;
+				
+					frame.hbitmap = hbitmap;
+					frame.mipmap = NULL;
+					frame.delay = delay;
+				
+	//printf("DELAY %d\n",delay)				;
 
-				// preload first mipmap
-				_viv_get_mipmap(hbitmap,first_frame.wide,first_frame.high,_viv_load_render_wide/2,_viv_load_render_high/2,&mip_wide,&mip_high,&first_frame.frame.mipmap);
-
-				_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_FIRST_FRAME,sizeof(_viv_reply_load_image_first_frame_t),&first_frame);
+					frame_wide = viv_webp->wide;
+					frame_high = viv_webp->high;
+				
+					// apply orientation: transposed orientations (5-8) swap the axes
+					// for the mipmap too (the hbitmap above is already rotated).
+					switch (viv_webp->orientation)
+					{
+						case 5:
+						case 6:
+						case 7:
+						case 8:
+						
+								frame_wide = viv_webp->high;
+								frame_high = viv_webp->wide;
+								break;
+					}
+				
+					// the mipmap chain stays lazy here: the paint path builds it
+					// for the frame on screen when the scaling wants it - the
+					// eager build's thousand chains nobody looked at were the
+					// memory spike the animation budget never priced.
+				
+					_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_ADDITIONAL_FRAME,sizeof(_viv_frame_t),&frame);
+				}
+			
+				viv_webp->frame_index++;
 			}
 			else
 			{
-				_viv_frame_t frame;
-				int frame_wide;
-				int frame_high;
-				
-				frame.hbitmap = hbitmap;
-				frame.mipmap = NULL;
-				frame.delay = delay;
-				
-//printf("DELAY %d\n",delay)				;
-
-				frame_wide = viv_webp->wide;
-				frame_high = viv_webp->high;
-				
-				// apply orientation: transposed orientations (5-8) swap the axes
-				// for the mipmap too (the hbitmap above is already rotated).
-				switch (viv_webp->orientation)
-				{
-					case 5:
-					case 6:
-					case 7:
-					case 8:
-						
-							frame_wide = viv_webp->high;
-							frame_high = viv_webp->wide;
-							break;
-				}
-				
-				// the mipmap chain stays lazy here: the paint path builds it
-				// for the frame on screen when the scaling wants it - the
-				// eager build's thousand chains nobody looked at were the
-				// memory spike the animation budget never priced.
-				
-				_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_ADDITIONAL_FRAME,sizeof(_viv_frame_t),&frame);
+				DeleteObject(hbitmap);
 			}
-			
-			viv_webp->frame_index++;
 		}
 	}
 	

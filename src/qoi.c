@@ -164,6 +164,11 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 								// a qoi stream always closes with the end marker; the
 								// trailing-chunk leniency below matches the reference
 								// (chunks after the canvas fills are ignored).
+								// the merged report adjudicated this as policy, not a hole: a
+								// viewer's job is to show the picture the encoder wrote, and
+								// the reference decoder stops at the end marker the same way
+								// - a strict tail check would refuse files the reference
+								// itself accepts.
 								decode_ok = (memcmp(chunks_end,_qoi_end_marker,8) == 0);
 								
 								while ((decode_ok) && (d < d_end))

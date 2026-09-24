@@ -1182,7 +1182,10 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			
 		case VIV_ID_ANIMATION_TIMER:
 		{
-			if ((_viv_is_animation_timer) && (_viv_slot_current.frame_count))
+			// the frame-state guard (the merged report's invariant item): the
+			// delay read below indexes frames[] - the guard repairs a stale
+			// position and refuses an empty animation before the read runs.
+			if ((_viv_is_animation_timer) && (_viv_slot_current.frame_count) && (_viv_frame_state_guard("animation timer")))
 			{
 				VIV_UINT64 elapsed;
 				VIV_UINT64 tick;

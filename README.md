@@ -24,15 +24,16 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.17 — the default-app honesty round (the current release candidate):**
+**1.1.15-rc.18 — the merged-report adjudication round (the current release candidate):**
 
-- The association checkbox goes honest: Windows 10/11 keep the default app behind the UserChoice hash a third party cannot sign, so ticking an extension now registers the viewer in the Open With list (both registry homes) and, when the system default stays with another app, says so and offers the Settings > Default Apps page.
-- The shell hears the registration the moment it lands (SHChangeNotify — the docs say the Explorer may not notice until reboot otherwise), and the uninstall sweeps the new homes symmetrically.
-- A failed load has a face in every preset: the minimal and compact modes hide the status bar, so the failure line (not found, over-limit, over-budget, plain failure) now rides the title bar until the next successful load.
+- The WIC path now delivers every frame the codec reports: multi-frame HEIF/AVIF sequences animate instead of showing frame 0 forever, gated by the animation budgets (the webp pair) and carried on the uniform 100ms stand-in delay.
+- The frame-state invariant lives in one guard: every frame-array reader asks it first, an empty animation is refused and a stale position is repaired and logged — the -1 former (prev wrap, skip wrap, end jump, timer read) is closed.
+- The installer asks the machine, not itself (GetNativeSystemInfo replaces the process-scoped wow64 probe), and a standard user's default directory follows the account: a failed Program Files write probe moves the default to the per-user Programs directory instead of failing mid-install.
+- The hardening set: the QPC clock pair degrades in one domain, the webp canvas budget runs before the animation decoder exists, a null-bits dib or a refused select skips the frame, and the QOI trailing-chunk leniency is a spelled contract.
+
+**1.1.15-rc.17 — the default-app honesty round:** the association checkbox registers both Open With homes and tells the shell (SHChangeNotify), the honest read admits what a UserChoice lock means and offers the settings page, and a failed load rides the title bar in the status-bar-less presets. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.16 — the parallel evaluation round:** four read-only agents swept the rc.15 tree, the main thread re-read every claim, and the five behavior survivors landed (the ghost drag, the delete queue, the silent-ini boxes, the rotate ask, the usage pair) with seven guard-teeth closures. See [Changes.txt](Changes.txt).
-
-**1.1.15-rc.15 — the pill field round:** the floating bar at 90 percent, the wall-clock fade (flicker gone at the mechanism, not the guess), and the windowed ghost fix. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.14 — the settings footer round:** the 4K-300% report — the silently dropped footer buttons (the capacity now counts forty with a per-page census), the settings content scroll under the pinned footer, the Apply button with its dirty lamp, and the keyboard repairs. See [Changes.txt](Changes.txt).
 

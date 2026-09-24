@@ -1,4 +1,52 @@
-﻿Pre-release: Version 1.1.15-rc.17 (the default-app honesty round)
+﻿Pre-release: Version 1.1.15-rc.18 (the merged-report adjudication round)
+
+	the merged review's one confirmed finding: the wic path decoded
+	frame 0 of a multi-frame file and dropped the rest - a still of an
+	animation. the system codecs (heif and avif sequences wherever the
+	os carries the store extensions) can report real frame counts, and
+	the old code answered every one of them with the first frame. the
+	info callback now declares the count the codec reported and every
+	frame rides the same generic delivery the webp path uses - the
+	animation machinery downstream loads, times and plays them. frame
+	timing lives in container metadata this layer does not parse, so
+	the frames carry the uniform 100ms gif-default delay (an honest
+	stand-in, spelled in the source). a multi-frame canvas answers the
+	animation budgets, not the still ones: the 150mp animation canvas
+	ceiling plus the frame-array budget (the same pair the webp path
+	runs - frame count, then frames-times-canvas bytes).
+	
+	the report's invariant audit item: three sites could form a -1
+	frame position (the prev wrap, the skip wrap, the end jump) and the
+	animation timer read the current frame before its own loaded-window
+	guard. the invariant now lives in one place - every reader that
+	indexes the frame array asks the frame-state guard first: an empty
+	animation is refused (nothing to draw, advance or wrap to), an
+	out-of-window position is repaired and logged, and the timer's
+	delay read runs only behind the guard.
+	
+	the installer asks the machine, not itself: the old x64 probe asked
+	the wow64 question about the installer process - correct only while
+	Setup.exe stays a 32-bit build. GetNativeSystemInfo answers for
+	the machine from any process architecture, and the warn path keeps
+	its override (an arm64 machine gets the user's call on the x64
+	emulation). the permission model gets its missing half: the
+	installer never demands elevation, so the default directory now
+	follows the account - a standard user whose Program Files probe
+	fails starts in the per-user Programs directory instead of meeting
+	the failure mid-install.
+	
+	the retained hardening set: the queryperformancecounter pair
+	degrades in one domain (both fall back to the millisecond clock if
+	the counter ever refuses - the pair never splits units), the webp
+	canvas budget runs on the features header before the animation
+	decoder exists, a dib whose bits view is null is not a drawable
+	frame, and a select that refused skips the frame instead of
+	painting the backdrop on the previous frame's face. the qoi
+	trailing-chunk leniency is now a spelled contract: the reference
+	decoder stops at the end marker the same way, and a strict tail
+	check would refuse files the reference itself accepts.
+
+Pre-release: Version 1.1.15-rc.17 (the default-app honesty round)
 
 	the association checkbox goes honest. windows 10/11 keep the
 	default app behind the UserChoice hash - a signature a third

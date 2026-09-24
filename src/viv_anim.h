@@ -36,6 +36,7 @@ void _viv_frame_prev(void);
 void _viv_timer_stop(void);
 void _viv_update_frame(void);
 void _viv_frame_skip(int size);
+int _viv_frame_state_guard(const char *site);
 int _viv_webp_info_proc(_viv_webp_t *viv_webp,DWORD frame_count,DWORD wide,DWORD high,int has_alpha);
 int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay);
 void _viv_start_first_frame(void);

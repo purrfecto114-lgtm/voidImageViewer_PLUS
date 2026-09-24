@@ -113,7 +113,14 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 					WebPAnimDecoderOptions anim_decoder_options;
 					WebPAnimDecoder *anim_decoder;
 					
-					if (WebPAnimDecoderOptionsInit(&anim_decoder_options))
+					// the early canvas gate (the merged report's retained review
+					// item): the features header already carries the canvas
+					// dimensions, so a hostile canvas is refused before the anim
+					// decoder exists - libwebp's own allocations inside
+					// webpanimdecodernew deserve the answer first. the full
+					// frame-count budget still runs below, where the real count
+					// is known.
+					if ((WebPAnimDecoderOptionsInit(&anim_decoder_options)) && (!_pixel_budget_refused(safe_size_mul((SIZE_T)features.width,(SIZE_T)features.height),VIV_MAX_ANIMATION_PIXELS)))
 					{
 						WebPData webp_data;
 

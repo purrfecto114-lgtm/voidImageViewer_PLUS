@@ -232,8 +232,34 @@ probe_done:
         IfErrors no_existing_install_dir
         
         StrCpy $INSTDIR $R2
+        goto skip_default_probe
 
 no_existing_install_dir:
+
+        ; the per-user permission model (the merged report's retained
+        ; risk): RequestExecutionLevel user means the installer never
+        ; asks for elevation, so the default directory must follow the
+        ; account it runs on - a standard user cannot write Program
+        ; Files, and a mid-install file-copy failure is the worst place
+        ; to learn it. the default is probed with a write; a refusal
+        ; moves it to the per-user Programs directory (the same place
+        ; per-user browser installs live). the browse button still
+        ; offers any directory, and an admin keeps Program Files.
+        CreateDirectory "$INSTDIR"
+        ClearErrors
+        FileOpen $0 "$INSTDIR\._viw_probe" w
+        IfErrors viw_probe_failed
+        FileClose $0
+        Delete "$INSTDIR\._viw_probe"
+        goto viw_probe_done
+
+viw_probe_failed:
+
+        StrCpy $INSTDIR "$LOCALAPPDATA\Programs\voidImageViewer"
+
+viw_probe_done:
+
+skip_default_probe:
 
         ; get the existing ini filename.
         StrCpy $existing_ini_filename "$APPDATA\voidImageViewer\voidImageViewer.ini"
@@ -254,11 +280,23 @@ skip_check_app_data:
 
 !ifdef x64
 
-        ; check if OS is x64 capable.
-        System::Call "kernel32::GetCurrentProcess() i .s"
-        System::Call "kernel32::IsWow64Process(i s, *i .r0)"
-        IntCmp $0 0 is32
-        goto is64
+        ; check the native os architecture. the old probe asked the
+        ; wow64 question about the installer process itself: correct
+        ; only while Setup.exe stays a 32-bit build - a native 64-bit
+        ; installer answers "not emulated" on a 64-bit os and the check
+        ; would misreport every x64 machine as 32-bit.
+        ; GetNativeSystemInfo answers for the machine from any process
+        ; architecture, so the verdict survives whichever Setup.exe we
+        ; ship.
+        System::Alloc 48
+        Pop $1
+        System::Call "kernel32::GetNativeSystemInfo(i r1)"
+        System::Call "*$1(i .r0)"
+        System::Free $1
+        IntOp $0 $0 & 0xFFFF
+        ; 9 = PROCESSOR_ARCHITECTURE_AMD64; anything else (an x86 os,
+        ; arm64) takes the warn path - the override stays a user choice.
+        IntCmp $0 9 is64 is32 is32
 
 is32:
         

@@ -2314,7 +2314,12 @@ VIV_UINT64 os_get_tick_count(void)
 		return tick.QuadPart;
 	}
 	
-	return 0;
+	// the defensive pair (the merged report kept its withdrawn claim as
+	// the cheap belt): if the counter ever refuses, the tick and its
+	// frequency must degrade together - both fall back to the
+	// gettickcount millisecond domain, so the animation math keeps its
+	// units.
+	return GetTickCount();
 }
 
 VIV_UINT64 os_get_tick_freq(void)
@@ -2327,7 +2332,10 @@ VIV_UINT64 os_get_tick_freq(void)
 		return freq.QuadPart;
 	}
 	
-	return 0;
+	// the tick fallback's other half: gettickcount counts milliseconds,
+	// so the frequency the animation math divides by is 1000. the
+	// pair never splits domains.
+	return 1000;
 }
 
 // The cool Win95 hack, so the compiler can launch on it, even compiled with VS2005
