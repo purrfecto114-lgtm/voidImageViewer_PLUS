@@ -191,6 +191,60 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.18 — the merged-report adjudication round (2026-09-24, build 97, ae6f732)
+
+- Commit: ae6f732; the user's merged report (an initial sweep, then a
+  retraction pass, then a merge protocol) adjudicated by the main
+  thread against the source before a byte moved. six lessons:
+
+- **a claim's weight is the call path walked, not the function read.**
+  the first report's six "confirmed crashes" (a webp dc leak, a win7
+  divide-by-zero, a keyboard-dead menu, more) all dissolved in the
+  retraction pass for the same reason: conclusions drawn at function
+  scope, without asking who releases the dc, who receives the key, or
+  what architecture the binary actually is. the merge protocol is
+  worth keeping as a shape: withdrawn stays withdrawn, unproven but
+  unneglected stays an audit item, and only source-provable behavior
+  is a confirmed finding. suspicious code is not a user-triggerable
+  fault.
+- **a comment documenting an assumption is not a guard for it.** the
+  wic path carried a design note - "multi-frame containers answer
+  through gdi+" - and the note was even true for gif and tiff. but
+  the assumption had silent exceptions (heif and avif sequences,
+  wherever the os carries the store codecs) and the frame count was
+  already in hand when the code chose frame 0 forever. the contract
+  now spells what a count above one means, and the budgets answer the
+  animation ceilings, not the still ones.
+- **a spelled approximation beats silent incorrect precision.** frame
+  timing for wic sequences lives in container metadata the layer does
+  not parse; the options were a half-parse (right for some codecs,
+  wrong for others), a refusal, or the uniform 100ms gif-default
+  stand-in with the tradeoff spelled in the source. the stand-in won:
+  an animation at an honest default beats a still, and a documented
+  approximation can be improved without anyone unlearning a promise.
+- **four sites that can form a -1 want one guard, not four ifs.** the
+  report's phase-4 advice (converge the state checks into central
+  interfaces) applied at its smallest scale: the frame-state guard is
+  the one place the invariant lives, the sites ask it by name, and
+  the empty-animation refusal and the position repair share one
+  logged face. scattered ifs would each have chosen their own
+  behavior for the same broken state.
+- **assert the outcome, not the match.** the round's surgery scripts
+  failed in two different ways and only one of them was loud: a
+  sub_once whose replacement equaled its input (a slicing mistake)
+  passed its count assertion silently - the anchor matched, the write
+  changed nothing. the post-state check (the guard must appear three
+  times) is what caught it. a match proves the anchor exists; only
+  the written state proves the edit happened.
+- **a pin that forbids a word forbids it in your comments too.** the
+  installer's wow64 probe was retired and the guard pinned its name
+  absent - and the replacement's own explanatory comment named it,
+  failing the pin honestly. the same round, the same class: an escape
+  sequence is text until the compiler reads it, and a replace that
+  turns \r\n text into control bytes inside a string literal
+  breaks the build the byte suite catches. the discipline is the same
+  one the tab disease taught, one abstraction up: pins and escapes
+  are made of bytes, and so are the words you explain them with.
 ### 1.1.15-rc.17 — the default-app honesty round (2026-09-24, build 96)
 
 - Commit: (this round); one research agent (the web read on
