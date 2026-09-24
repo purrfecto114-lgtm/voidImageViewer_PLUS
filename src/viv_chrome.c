@@ -388,6 +388,43 @@ static RECT _viv_fullscreen_rect;
 static int _viv_fullscreen_zoom_offset = 0;
 static BYTE _viv_prevent_on_size = 0; // don't process WM_SIZE changes.
 static BYTE _viv_is_prevent_sleep = 0;
+// rc.17: the failure line the status panes show - not found, the load
+// failure and its two budget refusals - lifted out of the status
+// assembly so the title bar can borrow it: the minimal and compact
+// presets hide the status bar, and a load that fails there had no
+// face anywhere (the review's "the failure is all black"). returns 0
+// when nothing failed.
+static const wchar_t *_viv_status_failure_line(wchar_t *buf)
+{
+	if (_viv_file_not_found)
+	{
+		string_copy_utf8_string(buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_FILE_NOT_FOUND));
+		
+		return buf;
+	}
+	
+	if (_viv_load_failed)
+	{
+		// the budget refusals carry their own line.
+		if (_VIV_LOAD_REFUSED_READ(_viv_load_refused_input_size))
+		{
+			string_copy_utf8_string(buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_INPUT_OVER_LIMIT));
+		}
+		else
+		if (_VIV_LOAD_REFUSED_READ(_viv_load_refused_budget))
+		{
+			string_copy_utf8_string(buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET));
+		}
+		else
+		{
+			string_copy_utf8_string(buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_FAILED_TO_LOAD_IMAGE));
+		}
+		
+		return buf;
+	}
+	
+	return 0;
+}
 void _viv_update_title(void)
 {
 	wchar_t window_title[STRING_SIZE+STRING_SIZE];
@@ -413,6 +450,21 @@ void _viv_update_title(void)
 			
 		case 2: // none
 			break;
+	}
+	
+	// rc.17: a hidden status bar moves the failure line to the title
+	// bar - the one strip every preset keeps. the line reads the same
+	// state the panes do, and the next successful load rewrites the
+	// title without it (the borrow clears itself).
+	if (!_viv_status_hwnd)
+	{
+		wchar_t failure_buf[STRING_SIZE];
+		
+		if (_viv_status_failure_line(failure_buf))
+		{
+			// a failed load has no file on screen; the strip says why.
+			filename = failure_buf;
+		}
 	}
 	
 	if (*filename)
@@ -1284,6 +1336,10 @@ void _viv_status_show(int show)
 	}
 	
 	_viv_on_size();
+	
+	// rc.17: the borrow follows the bar live - hiding the strip moves
+	// the failure line into the title the same moment.
+	_viv_update_title();
 }
 void _viv_controls_show(int show)
 {
@@ -1889,31 +1945,10 @@ void _viv_status_update(void)
 				text = text_buf;
 			}
 			else
-			if (_viv_file_not_found)
+			if (_viv_status_failure_line(text_buf))
 			{
-				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_FILE_NOT_FOUND));
-				text = text_buf;
-			}
-			else
-			if (_viv_load_failed)
-			{
-				// the budget refusals carry their own line: "failed to load"
-// hides the one failure the user can actually act on.
-if (_VIV_LOAD_REFUSED_READ(_viv_load_refused_input_size))
-{
-	string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_INPUT_OVER_LIMIT));
-}
-else
-if (_VIV_LOAD_REFUSED_READ(_viv_load_refused_budget))
-{
-	string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET));
-}
-else
-{
-	string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_FAILED_TO_LOAD_IMAGE));
-}
-
-
+				// rc.17: the lifted line - the title bar borrows the same
+				// chain when the strip is gone (see _viv_update_title).
 				text = text_buf;
 			}
 			else
@@ -2022,6 +2057,13 @@ else
 				parti++;
 			}
 		}
+	}
+	else
+	{
+		// rc.17: no status bar - the failure line rides the title bar
+		// instead (every load settles through here, so the borrow
+		// follows the same beats the panes do).
+		_viv_update_title();
 	}
 }
 static void _viv_status_set(int part,const wchar_t *text)

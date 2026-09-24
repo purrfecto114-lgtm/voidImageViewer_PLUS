@@ -28,6 +28,11 @@
 
 // exported to other domains / the viv.c core
 int _viv_process_install_command_line_options(wchar_t *cl);
+
+// rc.17: the honest read - does the shell's default for this
+// extension actually point at us (win10/11 keep it behind the
+// UserChoice hash; see viv_install.c).
+int _viv_default_app_locked_elsewhere(const char *association);
 void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location);
 void _viv_uninstall_association_by_extension(const char *association);
 int _viv_is_association(const char *association);

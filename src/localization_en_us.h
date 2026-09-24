@@ -368,4 +368,6 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Show pixel info in the status bar", // LOCALIZATION_ID_SETTINGS_PIXEL_INFO
 	"Ctrl+mouse wheel action:", // LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC
 	"Apply", // LOCALIZATION_ID_SETTINGS_APPLY
+	"Default App", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION
+	"Windows keeps the default app choice. voidImageViewer was added to the Open With list for .%s, but the default stays with the app you picked.\n\nOpen Settings to choose voidImageViewer as the default?", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE
 };

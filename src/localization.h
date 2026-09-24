@@ -416,6 +416,11 @@ enum
 	LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC,
 	// round-126: the apply button's face.
 	LOCALIZATION_ID_SETTINGS_APPLY,
+
+	// rc.17: the default-app honesty box (win10/11 keep the default
+	// behind the UserChoice hash; the box says so and offers the page)
+	LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION,
+	LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE,
 	LOCALIZATION_ID_COUNT,
 };
 

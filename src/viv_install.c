@@ -483,6 +483,64 @@ static int _viv_is_foreign_association(const char *association,const wchar_t *cl
 	return 0;
 }
 
+// rc.17: the honest read the checkbox never had. the per-user class
+// registration answers "did we write our keys" (always true right
+// after the install); the question the user asks is "does a double
+// click open the viewer" - and on windows 10/11 that answer lives in
+// the UserChoice hash, not in the keys we wrote. this reads the
+// choice the shell honors: the ProgId under FileExts\.ext\UserChoice.
+//
+// the two blind spots of the raw read both answer the right way for
+// this ask: a missing UserChoice means no lock exists (the per-user
+// takeover above is in force - nothing to warn about), and a dangling
+// ProgId (an uninstalled app the user once picked) reads as "locked
+// elsewhere", which points the user at the settings page - exactly
+// where a broken default gets fixed. the QueryCurrentDefault com
+// call would close neither gap better: it resolves a dangling ProgId
+// to itself, and it needs com initialized on paths that run before
+// os_init.
+int _viv_default_app_locked_elsewhere(const char *association)
+{
+	wchar_t dot_association[STRING_SIZE];
+	wchar_t class_name[STRING_SIZE];
+	wchar_t key[STRING_SIZE];
+	HKEY hkey;
+	
+	string_copy_utf8_string(dot_association,(const utf8_t *)".");
+	string_cat_utf8(dot_association,association);
+	
+	string_copy_utf8_string(class_name,(const utf8_t *)"voidImageViewer");
+	string_cat(class_name,dot_association);
+	
+	string_copy_utf8_string(key,(const utf8_t *)"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\");
+	string_cat(key,dot_association);
+	string_cat_utf8(key,"\\UserChoice");
+	
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
+	{
+		wchar_t wbuf[STRING_SIZE];
+		int ret;
+		
+		ret = 0;
+		
+		// the ProgId value names the app the shell launches for a
+		// double click; the comparison is case insensitive (the
+		// registry preserves case, the shell does not honor it).
+		if ((_viv_get_registry_string(hkey,(const utf8_t *)"ProgId",wbuf,STRING_SIZE)) && (*wbuf))
+		{
+			if (string_icompare_lowercase_ascii(wbuf,class_name) != 0)
+			{
+				ret = 1;
+			}
+		}
+		
+		RegCloseKey(hkey);
+		
+		return ret;
+	}
+	
+	return 0;
+}
 void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location)
 {
 	HKEY hkey;
@@ -606,12 +664,49 @@ void _viv_install_association_by_extension(const char *association,const char *d
 	{
 		debug_printf("RegCreateKeyExW failed %u\n",reg_ret);
 	}
+	// rc.17: win10/11 keep the default app behind the UserChoice
+	// hash - a signature a third party cannot write. the per-user
+	// class takeover above moves the default on windows 7 and stays
+	// cosmetic on windows 10 and 11; the OpenWithProgids registration
+	// is the part we can sign, and it is what puts the viewer in the
+	// Open With list (and so within the default apps page's reach).
+	// both homes carry it: the class view and the FileExts view the
+	// explorer reads per user.
+	string_copy_utf8_string(key,"SOFTWARE\\Classes\\");
+	string_cat(key,dot_association);
+	string_cat_utf8(key,"\\OpenWithProgids");
+	
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		// the shell's own entries sit beside ours as REG_NONE with
+		// no data - the unsigned empty shape matches them.
+		RegSetValueExW(hkey,class_name,0,REG_NONE,(const BYTE *)"",0);
+		
+		RegCloseKey(hkey);
+	}
+	
+	string_copy_utf8_string(key,"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\");
+	string_cat(key,dot_association);
+	string_cat_utf8(key,"\\OpenWithProgids");
+	
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		RegSetValueExW(hkey,class_name,0,REG_NONE,(const BYTE *)"",0);
+		
+		RegCloseKey(hkey);
+	}
+	
+	// the official docs: without the notify the explorer may not
+	// notice the change until the next reboot.
+	SHChangeNotify(SHCNE_ASSOCCHANGED,SHCNF_IDLIST,0,0);
 }
 void _viv_uninstall_association_by_extension(const char *association)
 {
 	long reg_ret;
 	HKEY hkey;
 	wchar_t key[STRING_SIZE];
+	wchar_t class_name[STRING_SIZE];
+	wchar_t dot_association[STRING_SIZE];
 	
 	string_copy_utf8_string(key,(const utf8_t *)"SOFTWARE\\Classes\\.");
 	string_cat_utf8(key,association);
@@ -646,6 +741,40 @@ void _viv_uninstall_association_by_extension(const char *association)
 	string_cat_utf8(key,association);
 	
 	RegDeleteKey(HKEY_CURRENT_USER,key);
+	
+	// rc.17: sweep the two OpenWithProgids homes the install wrote.
+	// the keys may carry the shell's own entries beside ours, so
+	// only our value goes - the keys stay.
+	string_copy_utf8_string(dot_association,(const utf8_t *)".");
+	string_cat_utf8(dot_association,association);
+	
+	string_copy_utf8_string(class_name,(const utf8_t *)"voidImageViewer");
+	string_cat(class_name,dot_association);
+	
+	string_copy_utf8_string(key,"SOFTWARE\\Classes\\.");
+	string_cat_utf8(key,association);
+	string_cat_utf8(key,"\\OpenWithProgids");
+	
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
+	{
+		RegDeleteValueW(hkey,class_name);
+		
+		RegCloseKey(hkey);
+	}
+	
+	string_copy_utf8_string(key,"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.");
+	string_cat_utf8(key,association);
+	string_cat_utf8(key,"\\OpenWithProgids");
+	
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
+	{
+		RegDeleteValueW(hkey,class_name);
+		
+		RegCloseKey(hkey);
+	}
+	
+	// the explorer hears the sweep the same moment.
+	SHChangeNotify(SHCNE_ASSOCCHANGED,SHCNF_IDLIST,0,0);
 }
 int _viv_is_association(const char *association)
 {

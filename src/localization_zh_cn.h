@@ -342,4 +342,6 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"状态栏显示像素信息", // LOCALIZATION_ID_SETTINGS_PIXEL_INFO
 	"Ctrl+滚轮操作:", // LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC
 	"应用", // LOCALIZATION_ID_SETTINGS_APPLY
+	"默认应用", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION
+	"Windows 保护默认应用的设置。voidImageViewer 已加入 .%s 的“打开方式”列表，默认应用仍保持你选择的应用。\n\n现在打开系统设置，将 voidImageViewer 设为默认应用吗？", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE
 };

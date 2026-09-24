@@ -191,6 +191,58 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.17 — the default-app honesty round (2026-09-24, build 96)
+
+- Commit: (this round); one research agent (the web read on
+  UserChoice, OpenWithProgids, ms-settings and the com api surface)
+  and a main thread that re-read the research against the context.
+  five lessons worth keeping:
+
+- **a read-back that only sees your own writes answers a question
+  nobody asked.** the association checkbox compared the registry keys
+  the install had just written and called the result "associated" -
+  on windows 10/11 the shell resolves the default app through the
+  UserChoice hash, a signature a third party cannot write, so the
+  honest answer to "is the viewer the default" lived in a key the
+  read-back never visited. the fix has three parts, and only one of
+  them is code: register what we may sign (both OpenWithProgids
+  homes), read what the shell honors (the UserChoice ProgId), and ask
+  what the user wants (the box that says so and offers the settings
+  page). a feature whose success indicator is self-reported is a
+  promise, not a report.
+- **research informs, the context decides.** the web read closed with
+  three reinforcements - write both registry homes, call SHChangeNotify
+  or the explorer may not notice until reboot, and prefer
+  QueryCurrentDefault as the ruler over the raw UserChoice read. the
+  main thread took the first two whole and declined the third: the
+  raw read's two blind spots (a missing key reads "not locked", a
+  dangling ProgId reads "locked") both answer the right way for this
+  particular ask, and the com call drags an iid link dependency onto
+  a build path that runs before com exists. research without the
+  context is a shopping list; the context without research is a
+  guess.
+- **the edit tool's tab appetite is a four-time offender, and the
+  fourth round widened the indictment.** this time the tool flattened
+  tab pins in lines the round never touched - the disease is not in
+  the edited region, it is in the save. the byte-level surgery rule
+  now covers every tracked file unconditionally, including the test
+  files, including files that only receive an insertion.
+- **a bom is bytes, not characters.** writing the changelog top entry
+  from python with a `\xef\xbb\xbf` string escape and a utf-8
+  encode produced the six-byte mojibake that every `lstrip("\ufeff")`
+  in the suite sailed past - the guards failed not because they were
+  wrong but because the file's first character was ï, not the zero
+  width no-break space. bom constants travel as bytes
+  (`b"\xef\xbb\xbf"`) or they do not travel at all.
+- **a fresh helper inherits the old traps.** the round's body
+  extractor matched the first signature occurrence - the forward
+  declaration at the top of the file - and sliced the wrong function
+  body out of three files, green-to-red on guards that were correct
+  all along. the simulation suite's `function_body` learned the
+  skip-the-declaration walk in an earlier round; the new local copy
+  started without it. every helper that re-implements a solved
+  problem re-imports its solved bugs - copy the veteran, or call it.
+
 ### 1.1.15-rc.16 — the parallel evaluation round (2026-09-24, build 95)
 
 - Commit: (this round); four read-only agents (the ledger, the review,

@@ -1043,6 +1043,31 @@ static void _viv_settings_layout(void)
 	_viv_settings_key_index_clamp();
 }
 
+// rc.17: the honest ask. the association checkbox used to answer its
+// own question - the read-back compared the keys the install had
+// just written. on windows 10/11 the default app lives behind the
+// UserChoice hash (a signature a third party cannot write); when the
+// shell honors another app, this box says so and offers the one page
+// that can change it (SetAppAsDefault died with windows 8, and the
+// association UI only points there too).
+static void _viv_settings_association_locked_box(int exti)
+{
+	wchar_t caption_wbuf[STRING_SIZE];
+	wchar_t message_wbuf[STRING_SIZE];
+	wchar_t ext_wbuf[STRING_SIZE];
+	
+	string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION));
+	
+	string_copy_utf8_string(ext_wbuf,(const utf8_t *)_viv_association_extensions[exti]);
+	
+	string_printf(message_wbuf,localization_get_string(LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE),ext_wbuf);
+	
+	if (viv_msgbox(_viv_settings_hwnd,caption_wbuf,message_wbuf,MB_YESNO|MB_ICONINFORMATION) == IDYES)
+	{
+		// the one path windows 10/11 leave open.
+		ShellExecuteW(_viv_settings_hwnd,NULL,L"ms-settings:defaultapps",NULL,NULL,SW_SHOWNORMAL);
+	}
+}
 static void _viv_settings_invalidate(void)
 {
 	if (_viv_settings_hwnd)
@@ -2876,11 +2901,13 @@ static void _viv_settings_activate(int index,int x,int y)
 		{
 			int exti;
 			int target;
+			int locked_exti;
 
 			if (ctl->id == _VIV_SETTINGS_ID_SELECT_ALL)
 			{
 				// all checked? then the select all clears, else it sets.
 				target = 1;
+				locked_exti = -1;
 
 				for(exti=0;exti<_VIV_ASSOCIATION_COUNT;exti++)
 				{
@@ -2904,6 +2931,13 @@ static void _viv_settings_activate(int index,int x,int y)
 							if (!_viv_is_association(_viv_association_extensions[exti]))
 							{
 								_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti]);
+								
+								// rc.17: the honest read - the first extension the lock
+								// beats names the box (one ask for the whole batch).
+								if ((locked_exti < 0) && _viv_default_app_locked_elsewhere(_viv_association_extensions[exti]))
+								{
+									locked_exti = exti;
+								}
 							}
 						}
 						else
@@ -2917,6 +2951,12 @@ static void _viv_settings_activate(int index,int x,int y)
 						_viv_settings_assoc[exti] = _viv_is_association(_viv_association_extensions[exti]) ? 1 : 0;
 					}
 				}
+
+				// one ask for the whole batch.
+				if (locked_exti >= 0)
+				{
+					_viv_settings_association_locked_box(locked_exti);
+				}
 			}
 			else
 			{
@@ -2929,6 +2969,13 @@ static void _viv_settings_activate(int index,int x,int y)
 					if (!_viv_is_association(_viv_association_extensions[exti]))
 					{
 						_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti]);
+						
+						// rc.17: the honest read - after the install, does the
+						// shell's default still point elsewhere?
+						if (_viv_default_app_locked_elsewhere(_viv_association_extensions[exti]))
+						{
+							_viv_settings_association_locked_box(exti);
+						}
 					}
 				}
 				else

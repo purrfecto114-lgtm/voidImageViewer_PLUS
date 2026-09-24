@@ -24,12 +24,13 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.16 — the parallel evaluation round (the current release candidate):**
+**1.1.15-rc.17 — the default-app honesty round (the current release candidate):**
 
-- Four read-only agents swept the rc.15 tree — the deferred ledger, the six-dimension review, the mutation census, the hygiene walk — and the main thread re-read every claim before anything moved.
-- **Behavior fixes** (the five survivors): the settings scrollbar no longer ghost-drags after an Alt-Tab steals the capture; deleting an image retires a queued next-file decode; failed settings saves now answer with a dialog instead of silence (release builds included); rotating asks before rewriting the file on disk (the wallpaper asked first); `/everything` and `/random` rejoin the usage help.
-- **Guard teeth** (the mutation census's seven survivors): the fade stall threshold, the pill's command and glyph tables, the fade retire, and the dropdown label/run bindings — the settings census gains its fourth and fifth faces, and the fade/scroll models now extract their constants from the source.
-- **Hygiene**: the round docstrings are frozen against the version sweep, five dead enum ids and two dead os functions retire, and the experience ledger's rc.12 section returns to the arc.
+- The association checkbox goes honest: Windows 10/11 keep the default app behind the UserChoice hash a third party cannot sign, so ticking an extension now registers the viewer in the Open With list (both registry homes) and, when the system default stays with another app, says so and offers the Settings > Default Apps page.
+- The shell hears the registration the moment it lands (SHChangeNotify — the docs say the Explorer may not notice until reboot otherwise), and the uninstall sweeps the new homes symmetrically.
+- A failed load has a face in every preset: the minimal and compact modes hide the status bar, so the failure line (not found, over-limit, over-budget, plain failure) now rides the title bar until the next successful load.
+
+**1.1.15-rc.16 — the parallel evaluation round:** four read-only agents swept the rc.15 tree, the main thread re-read every claim, and the five behavior survivors landed (the ghost drag, the delete queue, the silent-ini boxes, the rotate ask, the usage pair) with seven guard-teeth closures. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.15 — the pill field round:** the floating bar at 90 percent, the wall-clock fade (flicker gone at the mechanism, not the guess), and the windowed ghost fix. See [Changes.txt](Changes.txt).
 

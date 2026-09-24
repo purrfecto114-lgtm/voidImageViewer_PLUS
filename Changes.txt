@@ -1,4 +1,26 @@
-﻿Pre-release: Version 1.1.15-rc.16 (the parallel evaluation round)
+﻿Pre-release: Version 1.1.15-rc.17 (the default-app honesty round)
+
+	the association checkbox goes honest. windows 10/11 keep the
+	default app behind the UserChoice hash - a signature a third
+	party cannot write - so the old checkbox answered its own question
+	(the read-back compared the keys the install had just written)
+	while the system default never moved. the install now registers
+	the viewer in the Open With list in both registry homes (the
+	class view and the FileExts view the explorer reads), tells the
+	shell the moment it lands (SHChangeNotify - the official docs say
+	the explorer may not notice until reboot otherwise), and the
+	uninstall sweeps both homes symmetrically. a new honest read asks
+	the UserChoice ProgId the shell honors: a checkbox that installs
+	under a lock says so and offers the settings page (the
+	ms-settings:defaultapps trip is the one path windows 10/11 leave
+	open).
+	
+	a failed load has a face in every preset: the minimal and compact
+	modes hide the status bar, so the failure line (not found, the
+	two budget refusals, the plain failure) now rides the title bar
+	until the next successful load - the same chain the status panes
+	show, lifted into its own function.
+Pre-release: Version 1.1.15-rc.16 (the parallel evaluation round)
 
 	four read-only agents swept the rc.15 tree (the deferred ledger, the
 	six-dimension review, the mutation census, the hygiene walk) and the

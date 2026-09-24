@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.16.95",
-          (major, minor, rev, build) == (1, 1, 15, 95), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.16",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.16", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.17.96",
+          (major, minor, rev, build) == (1, 1, 15, 96), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.17",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.17", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -2472,6 +2472,83 @@ def t_sim_settings_round126():
           (lambda y: 0)(wheel(50, 0, mx)) == 0)
 
 
+def t_sim_title_borrow_round129():
+    """Behavioral model for the default-app honesty round's title
+    borrow: the failure line's priority chain (not found > the load
+    failure's two refusals > the generic failure) and the borrow
+    condition (the line rides the title only when the status bar is
+    gone - the minimal and compact presets). the model mirrors the
+    two lifted chrome functions; the source anchors pin the branch
+    order the model walks. the model also carries its own honesty
+    check: a borrow that outlived the failure would strand the
+    message on a healthy title."""
+    print("sim: the title bar borrows the failure line (round 129)")
+    chrome = read("src/viv_chrome.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+
+    failure_body = function_body(chrome, "static const wchar_t *_viv_status_failure_line(") or ""
+    title_body = function_body(chrome, "void _viv_update_title(") or ""
+
+    check("the failure line exists as its own function", failure_body != "")
+    check("the title update borrows it", failure_body != "" and
+          "_viv_status_failure_line(failure_buf)" in title_body)
+
+    # the branch order the model walks
+    a = failure_body.find("LOCALIZATION_ID_STATUS_BAR_FILE_NOT_FOUND")
+    b = failure_body.find("_viv_load_failed")
+    c = failure_body.find("LOCALIZATION_ID_STATUS_BAR_INPUT_OVER_LIMIT")
+    d = failure_body.find("LOCALIZATION_ID_STATUS_BAR_IMAGE_OVER_BUDGET")
+    e = failure_body.find("LOCALIZATION_ID_STATUS_BAR_FAILED_TO_LOAD_IMAGE")
+    check("not found outranks the load failure", 0 <= a < b)
+    check("the input refusal outranks the budget refusal", b < c < d)
+    check("the generic failure is the last resort", d < e)
+    check("a healthy state returns nothing (the borrow must be able to clear)",
+          "return 0;" in failure_body)
+
+    # the borrow asks for a missing status bar before it asks for a line
+    t = title_body.find("if (!_viv_status_hwnd)")
+    check("the borrow asks for a missing status bar first",
+          0 <= t < title_body.find("_viv_status_failure_line"))
+
+    # the model: a python mirror of the priority chain + the borrow
+    def failure_line(not_found, failed, refused_input, refused_budget):
+        if not_found:
+            return "not found"
+        if failed:
+            if refused_input:
+                return "input over limit"
+            if refused_budget:
+                return "image over budget"
+            return "failed to load"
+        return None
+
+    def title(status_hwnd, not_found, failed, refused_input, refused_budget, filename):
+        line = failure_line(not_found, failed, refused_input, refused_budget)
+        if status_hwnd is None and line is not None:
+            filename = line
+        if filename:
+            return filename + " - void Image Viewer"
+        return "void Image Viewer"
+
+    # the borrow matrix: only the missing status bar borrows
+    check("a hidden bar borrows the not-found line",
+          title(None, True, False, False, False, "") == "not found - void Image Viewer")
+    check("a live bar keeps the plain title (the panes carry the line)",
+          title("hwnd", True, False, False, False, "") == "void Image Viewer")
+    check("the input refusal names itself in the title",
+          title(None, False, True, True, False, "") == "input over limit - void Image Viewer")
+    check("the budget refusal outranks the generic line",
+          title(None, False, True, False, True, "") == "image over budget - void Image Viewer")
+    check("a plain failure still has a face",
+          title(None, False, True, False, False, "") == "failed to load - void Image Viewer")
+    check("a healthy load never borrows (the title answers the image)",
+          title(None, False, False, False, False, "cat.png") == "cat.png - void Image Viewer")
+    check("not found outranks a failed load in the title",
+          title(None, True, True, True, True, "") == "not found - void Image Viewer")
+    # the borrow clears itself: the state the next load settles with
+    check("the borrow clears on the next successful load",
+          title(None, False, False, False, False, "dog.png") == "dog.png - void Image Viewer")
+
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -2492,6 +2569,7 @@ if __name__ == "__main__":
     t_sim_report_fusion_round123()
     t_sim_field_response_round124()
     t_sim_settings_round126()
+    t_sim_title_borrow_round129()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))
