@@ -191,6 +191,44 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15 — the stable promotion round (2026-09-25, build 99, fa72bc7)
+
+- Commit: fa72bc7; the user's instruction was three moves in one breath -
+  promote to stable, release, then retire every rc from the remote while
+  keeping them locally. the promotion itself was a version batch (the
+  string drops the rc suffix, the build ticks to 99, the changelog's top
+  entry presents itself as what it is) - no C code moved, and the arc's
+  nineteen candidates converged on the mark they had already earned.
+- **The promotion is a routing fact the workflow already knew.** the
+  release pipeline's prerelease case matches `*-rc.*` and `*-beta.*`
+  tags only, so the bare `1.1.15` tag ships as a full release and takes
+  the latest slot without a single workflow edit - the round-133 guard
+  pins that routing so a future edit that forgets the distinction goes
+  red. the stable banner, the title and the notes all derive from the
+  changelog's top line, so the promotion's whole surface was written
+  once, in Changes.txt, before anything shipped.
+- **The archive precedes the deletion.** retiring 34 releases (170
+  assets, 63 MB) from the remote is irreversible from the public side;
+  the local copy was downloaded first and verified against each
+  release's own sha256.txt (34/34 all-match, zero failures) plus a git
+  bundle carrying all 47 tags before the first deletion call ran. a
+  destructive remote operation earns a byte-verified local copy first -
+  and in a sandbox that resets, "local retention" means a download link
+  on the mirror (the 66 MB rc-archive.zip), not a directory that the
+  next reset erases.
+- **The pin inventory is asserted, not trusted.** the sweep script's
+  exact-count assertions caught two miscounts in the maintainer's own
+  inventory (a 14 that was 13, a 6 that was 5) before a single byte
+  moved - the replace protocol fails safe when every operation carries
+  its expected count, and the two corrections cost one assertion
+  message each instead of a silent partial sweep.
+- **The sweep's first step is enumerating what must not move.** the
+  docstring scan found zero historical sections carrying rc.19 (the
+  freeze table needed no new rows), so the generic replace could run
+  unguarded - but only because the scan proved it, not because it was
+  assumed. the r130 lesson runs both ways: the table guards what it
+  lists, and the sweep touches what the scan clears.
+
 ### 1.1.15-rc.19 — the toolbar paging round (2026-09-25, build 98, b7308c8)
 
 - Commit: b7308c8; the user's field report carried two gui observations
