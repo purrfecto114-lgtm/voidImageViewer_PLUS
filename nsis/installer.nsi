@@ -293,8 +293,8 @@ no_app_data:
 skip_app_data:  
 
         ; the application language is intentionally NOT forwarded from the
-        ; installer any more: a fresh install starts in "auto" (follows the
-        ; system language; the viewer options offer auto/english/chinese).
+        ; installer: the viewer follows the system ui language (simplified
+        ; chinese on chinese locales, english otherwise).
         ; the installer language only localizes the installer itself.
 
         ; startmenu

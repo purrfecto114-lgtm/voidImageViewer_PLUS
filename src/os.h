@@ -78,7 +78,6 @@ WNDPROC os_set_window_proc(HWND hwnd,WNDPROC proc);
 int os_statusbar_index_from_x(HWND statusbar_hwnd,int x);
 int os_is_windows_7_or_later(void);
 int os_is_windows_8_or_later(void);
-int os_dark_controls_supported(void);
 HRGN os_CreateRectRgn(int left,int top,int right,int bottom);
 HRGN os_mirror_region(HRGN hrgn,int wide);
 void os_fill_clamped_rect(HDC hdc,int left,int top,int right,int bottom,int clamp_left,int clamp_top,int clamp_right,int clamp_bottom,HBRUSH hbrush);
@@ -135,20 +134,6 @@ extern BOOL (WINAPI *os_DeleteTimerQueueTimer)(HANDLE TimerQueue,HANDLE Timer,HA
 extern BOOL (WINAPI *os_GetFileAttributesExW)(LPCWSTR lpFileName,GET_FILEEX_INFO_LEVELS fInfoLevelId,LPVOID lpFileInformation);
 extern BOOL (STDAPICALLTYPE *os_IsUserAnAdmin)(void);
 extern HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags);
-// windows dark mode support. every function quietly does nothing on windows
-// versions without the dark mode apis (older than windows 10 1809).
-// mode 0 = light, 1 = dark, 2 = follow the system theme.
-extern int os_dark_system_dark(void);
-extern void os_dark_set_app_mode(int mode);
-extern void os_dark_titlebar(HWND hwnd,int dark);
-extern void os_dark_refresh(void);
-// drop the cached system dark state so the next os_dark_system_dark()
-// call re-reads it (WM_SETTINGCHANGE / WM_THEMECHANGED).
-// set the DarkMode_Explorer visual style on a window (dialog controls and
-// tabs draw dark with it). returns 1 when the style was applied.
-extern int os_dark_window_theme(HWND hwnd);
-extern int os_allow_dark_mode_for_window(HWND hwnd,int allow);
-extern void os_dark_invalidate(void);
 extern BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct);
 extern DWORD (WINAPI *os_GetLayout)(HDC hdc);
 extern EXECUTION_STATE (WINAPI *os_SetThreadExecutionState)(  EXECUTION_STATE esFlags);
@@ -162,10 +147,6 @@ int os_window_update_dpi(HWND hwnd);
 
 // the system menu font at the current window dpi (menu bar owner draw).
 int os_menu_font(LOGFONTW *lf);
-
-// windows 11 chrome: rounded corners + a caption color matching the canvas.
-// silently ignored on windows 10 and older.
-void os_window_modern_chrome(HWND hwnd,COLORREF caption_color);
 
 // touch / gesture support (Windows 7+)
 // self-declared, binary compatible structures.

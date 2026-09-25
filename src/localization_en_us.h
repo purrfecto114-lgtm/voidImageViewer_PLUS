@@ -194,8 +194,6 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"General", // LOCALIZATION_ID_OPTIONS_GENERAL_DIALOG,
 	"View", // LOCALIZATION_ID_OPTIONS_VIEW_DIALOG,
 	"Controls", // LOCALIZATION_ID_OPTIONS_CONTROLS_DIALOG,
-	"Langua&ge:", // LOCALIZATION_ID_OPTIONS_LANGUAGE_STATIC,
-	"Auto (system)", // LOCALIZATION_ID_LANGUAGE_AUTO,
 	"OK", // LOCALIZATION_ID_OK_BUTTON,
 	"Cancel", // LOCALIZATION_ID_CANCEL_BUTTON,
 	"&Store settings in %APPDATA%\\voidImageViewer", // LOCALIZATION_ID_STORE_SETTINGS_APPDATA,
@@ -298,10 +296,6 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"PNG Image", // LOCALIZATION_ID_SAVE_AS_PNG,
 	"JPEG Image", // LOCALIZATION_ID_SAVE_AS_JPEG,
 	"BMP Image", // LOCALIZATION_ID_SAVE_AS_BMP,
-	"Dark &mode:", // LOCALIZATION_ID_OPTIONS_DARK_MODE_STATIC,
-	"Automatic (follow Windows)", // LOCALIZATION_ID_DARK_MODE_AUTO,
-	"Light", // LOCALIZATION_ID_DARK_MODE_LIGHT,
-	"Dark", // LOCALIZATION_ID_DARK_MODE_DARK,
 
 	// backdrop shown under transparent pixels
 	"Back&drop", // LOCALIZATION_ID_BACKDROP,

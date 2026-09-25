@@ -582,8 +582,6 @@ static void _viv_controls_show(int show);
 static void _viv_status_show(int show);
 static void _viv_status_update(void);
 static void _viv_status_set(int part,const wchar_t *text);
-static HBRUSH _viv_dark_chrome_brush(int which);
-static int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item);
 static int _viv_get_status_high(void);
 static int _viv_get_controls_high(void);
 static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
@@ -599,20 +597,8 @@ static void _viv_set_zoom_dialog(void);
 static INT_PTR CALLBACK _viv_set_zoom_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 static void _viv_status_update_temp_animation_rate(void);
 static int _viv_zoom_pos_max(void);
-static int _viv_is_dark(void);
-static void _viv_apply_dark_mode(int repaint);
-static void _viv_dark_dialogs_refresh(void);
-static HFONT _viv_menu_font(void);
-static void _viv_menu_font_drop(void);
 static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item);
 static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item);
-static void _viv_menu_bar_nc_fill(void);
-static void _viv_menu_bar_fill_gap(HDC hdc,int left,int top,int right,int bottom);
-static void _viv_menu_bar_theme(void);
-static RECT _viv_menu_bar_items_rect; // the union of the drawn item rects (window coordinates)
-static int _viv_menu_bar_items_valid = 0; // an item was drawn since the last layout reset
-static int _viv_menu_bar_nc_force = 0; // reentrancy guard for the no item repaint path
-static void _viv_menu_bar_remeasure(void);
 static COLORREF _viv_windowed_background(void);
 static void _viv_zoom_in(int out,int have_xy,int x,int y);
 static void _viv_status_update_slideshow_rate(void);
@@ -634,11 +620,6 @@ static int _viv_vk_to_text(wchar_t *wbuf,int vk);
 static void _viv_cat_key_mod(wchar_t *wbuf,int vk,const utf8_t *default_keytext);
 static void _viv_get_key_text(wchar_t *wbuf,DWORD keyflags);
 static HMENU _viv_create_menu(void);
-static void _viv_key_add(struct _viv_key_list_s *key_list,int command_index,DWORD keyflags);
-static void _viv_key_clear(struct _viv_key_list_s *key_list,int command_index);
-static void _viv_key_list_copy(struct _viv_key_list_s *dst,const struct _viv_key_list_s *src);
-static void _viv_key_clear_all(struct _viv_key_list_s *list);
-static void _viv_key_list_init(struct _viv_key_list_s *list);
 static void _viv_options_key_list_sel_change(HWND hwnd,int previous_key_index);
 static void _viv_options_remove_key(HWND hwnd);
 static void _viv_options_edit_key(HWND hwnd,int key_index);
@@ -647,8 +628,6 @@ static LRESULT CALLBACK _viv_edit_key_edit_proc(HWND hwnd,UINT msg,WPARAM wParam
 static int _viv_get_current_key_mod_flags(void);
 static void _viv_options_edit_key_changed(HWND hwnd);
 static void _viv_edit_key_set_key(HWND hwnd,DWORD key_flags);
-static void _viv_key_remove(struct _viv_key_list_s *keylist,int command_index,DWORD keyflags);
-static void _viv_edit_key_remove_currently_used_by(struct _viv_key_list_s *keylist,DWORD keyflags);
 static void _viv_close_existing_process(void);
 static void _viv_uninstall_delete_file(const wchar_t *path,const utf8_t *filename);
 static int _viv_is_start_menu_shortcuts(void);
@@ -667,7 +646,7 @@ static void _viv_jumpto_on_search(HWND hwnd);
 static void _viv_jumpto_open_sel(HWND hwnd);
 static void _viv_nav_item_free_all(void);
 static void _viv_nav_item_add(WIN32_FIND_DATA *fd);
-static int _viv_nav_compare(const _viv_nav_item_t *a,const _viv_nav_item_t *b);
+static int _viv_nav_compare(const void *va,const void *vb);
 static void _viv_add_current_path_to_playlist(void);
 static void _viv_search_everything(int add);
 static int _viv_send_everything_search(HWND parent,int add,int randomize,const wchar_t *search);
@@ -743,11 +722,11 @@ static HWND _viv_hwnd = 0;
 static HWND _viv_status_hwnd = 0;
 static HWND _viv_toolbar_hwnd = 0;
 
-// the status pane texts. the panes are owner drawn (dark ui support):
-// the control hands the pane index back in each WM_DRAWITEM item data
-// and the text is drawn from this store. declared here: the status bar
-// creation (_viv_status_show) flushes it long before _viv_status_set is
-// reached in the file.
+// the status pane texts. the store lets _viv_status_set skip the
+// SB_SETTEXTW for texts that did not change (a fresh bar starts with
+// empty panes, so _viv_status_show flushes it on create and destroy).
+// declared here: _viv_status_show and _viv_status_set live far below
+// in the file.
 #define _VIV_STATUS_PART_MAX 7
 static wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];
 static HWND _viv_rebar_hwnd = 0;
@@ -1057,6 +1036,19 @@ static _viv_command_t _viv_commands[] =
 };
 
 #define _VIV_COMMAND_COUNT	(sizeof(_viv_commands) / sizeof(_viv_command_t))
+typedef struct _viv_key_list_s
+{
+	config_key_t *start[_VIV_COMMAND_COUNT];
+	config_key_t *last[_VIV_COMMAND_COUNT];
+	
+}_viv_key_list_t;
+static void _viv_key_add(_viv_key_list_t *key_list,int command_index,DWORD keyflags);
+static void _viv_key_clear(_viv_key_list_t *key_list,int command_index);
+static void _viv_key_list_copy(_viv_key_list_t *dst,const _viv_key_list_t *src);
+static void _viv_key_clear_all(_viv_key_list_t *list);
+static void _viv_key_list_init(_viv_key_list_t *list);
+static void _viv_key_remove(_viv_key_list_t *keylist,int command_index,DWORD keyflags);
+static void _viv_edit_key_remove_currently_used_by(_viv_key_list_t *keylist,DWORD keyflags);
 
 _viv_default_key_t _viv_default_keys[] =
 {
@@ -1201,12 +1193,6 @@ WORD _viv_context_menu_items[] =
 
 #define _VIV_CONEXT_MENU_ITEM_COUNT	(sizeof(_viv_context_menu_items) / sizeof(WORD))
 
-typedef struct _viv_key_list_s
-{
-	config_key_t *start[_VIV_COMMAND_COUNT];
-	config_key_t *last[_VIV_COMMAND_COUNT];
-	
-}_viv_key_list_t;
 
 _viv_key_list_t *_viv_key_list = 0;
 
@@ -2664,32 +2650,6 @@ static int _viv_paint_high = 0;
 // instead of one per paint.
 static HBRUSH _viv_background_hbrush = 0;
 static COLORREF _viv_background_hbrush_color = 0;
-static HBRUSH _viv_dialog_dark_hbrush = 0; // dark dialog background brush, lazy created
-// a cached dark chrome brush for the toolbar strip. which: 0 = the strip
-// face (0x252525, one step above the canvas), 1 = the separator shadow
-// line (0x454545), 2 = the separator highlight line (0x707070),
-// 3 = the menu bar face (0x202020: the canvas and dark system menu
-// color). the zoom bar uses the same palette. created lazily, released
-// in _viv_kill with the other cached brushes.
-static HBRUSH _viv_dark_chrome_hbrushes[4];
-
-static HBRUSH _viv_dark_chrome_brush(int which)
-{
-	static const COLORREF colors[4] = {RGB(0x25,0x25,0x25),RGB(0x45,0x45,0x45),RGB(0x70,0x70,0x70),RGB(0x20,0x20,0x20)};
-	
-	if ((which < 0) || (which > 3))
-	{
-		return 0;
-	}
-	
-	if (!_viv_dark_chrome_hbrushes[which])
-	{
-		_viv_dark_chrome_hbrushes[which] = CreateSolidBrush(colors[which]);
-	}
-	
-	return _viv_dark_chrome_hbrushes[which];
-}
-
 static HBRUSH _viv_backdrop_solid_hbrush = 0; // backdrop solid color brush, cached
 static COLORREF _viv_backdrop_solid_color = 0; // the color the solid brush was created with
 static HBRUSH _viv_backdrop_checker_hbrush = 0; // checkerboard pattern brush, cached
@@ -3992,6 +3952,14 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			break;
 		}
 		
+		case 0x2C4: // WM_TABLET_QUERYSYSTEMGESTURESTATUS (winuser.h)
+		{
+			// disable press-and-hold (0x1, the wait circle) and flicks
+			// (0x10000, the navigation gestures): both fight the touch pan
+			// and the two finger tap. tap and pen feedback stay enabled.
+			return 0x00000001 | 0x00010000;
+		}
+		
 		case WM_COPYDATA:
 		{
 			COPYDATASTRUCT *cds;
@@ -4208,9 +4176,6 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			if (dpi_changed)
 			{
 				glyphs_flush_cache();
-				
-				// the menu bar font follows the new dpi.
-				_viv_menu_font_drop();
 			}
 			
 			// accept the suggested rectangle: it keeps the window at its
@@ -4223,10 +4188,6 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			{
 				// rebuild the dpi scaled toolbar icons and relayout.
 				_viv_toolbar_build_image_list();
-				
-				// the menu bar items re-measure at the new label size (the
-				// system keeps the old widths until the item types change).
-				_viv_menu_bar_remeasure();
 				
 				_viv_on_size();
 			}
@@ -4254,135 +4215,6 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 			
 			break;
 		}
-			
-		case WM_DRAWITEM:
-		{
-			// the top level menu items are owner drawn in the dark ui: draw
-			// them first (a menu message carries no control id).
-			if ((wParam == 0) && (_viv_menu_draw_root_item((DRAWITEMSTRUCT *)lParam)))
-			{
-				return TRUE;
-			}
-			
-			// the status panes are owner drawn: draw them (dark ui support).
-			if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))
-			{
-				return TRUE;
-			}
-			
-			break;
-		}
-		
-		case WM_MEASUREITEM:
-		{
-			// the owner drawn menu bar items report their extent: the width
-			// from the label at the menu font, the height from the system
-			// menu metrics.
-			if ((wParam == 0) && (((MEASUREITEMSTRUCT *)lParam)->CtlType == ODT_MENU))
-			{
-				_viv_menu_measure_root_item((MEASUREITEMSTRUCT *)lParam);
-				
-				return TRUE;
-			}
-			
-			break;
-		}
-		
-		case WM_NCPAINT:
-		{
-			// the system paints the frame and the owner drawn menu bar items.
-			// the empty menu bar strip keeps the system light color on builds
-			// whose menu bars ignore the immersive dark app mode (windows 11,
-			// pre 1903): finish the pass with the dark fill.
-			DefWindowProc(hwnd,msg,wParam,lParam);
-			
-			if (_viv_is_dark())
-			{
-				_viv_menu_bar_nc_fill();
-			}
-			
-			return 0;
-		}
-		
-		case WM_SETTINGCHANGE:
-		
-			// system settings changed (theme, high contrast, ...). the uxtheme
-			// color policy is only current after a refresh and the menus only
-			// re-theme after a flush, so do both when the immersive color set
-			// changed.
-			if ((lParam) && (string_compare((const wchar_t *)lParam,L"ImmersiveColorSet") == 0))
-			{
-				os_dark_refresh();
-			}
-			
-			// re-read the dark state (the theme itself or the high contrast
-			// accessibility switch may flip it) and re-apply the chrome only
-			// when it actually changed: unrelated broadcasts are frequent and
-			// must not cause chrome churn.
-			{
-				int was_dark;
-				int is_dark;
-				
-				was_dark = _viv_is_dark();
-				
-				os_dark_invalidate();
-				
-				is_dark = _viv_is_dark();
-				
-				if (was_dark != is_dark)
-				{
-					if (config_dark_mode == 2)
-					{
-						os_dark_refresh();
-					}
-					
-					_viv_apply_dark_mode(1);
-				}
-			}
-			
-			break;
-		
-		case WM_THEMECHANGED:
-		
-			// the system font metrics may follow the theme: drop the cached
-			// menu font and force a re-measure of the menu bar.
-			_viv_menu_font_drop();
-			
-			// the item extents may follow the font: the recorded union is
-			// stale until the bar redraws.
-			SetRectEmpty(&_viv_menu_bar_items_rect);
-			_viv_menu_bar_items_valid = 0;
-			
-			if (GetMenu(hwnd))
-			{
-				DrawMenuBar(hwnd);
-			}
-			
-			// the visual style changed (classic, high contrast or a theme
-			// switch). the dark state may flip with it: re-read and re-apply
-			// the chrome the same way.
-			{
-				int was_dark;
-				int is_dark;
-				
-				was_dark = _viv_is_dark();
-				
-				os_dark_invalidate();
-				
-				is_dark = _viv_is_dark();
-				
-				if (was_dark != is_dark)
-				{
-					if (config_dark_mode == 2)
-					{
-						os_dark_refresh();
-					}
-					
-					_viv_apply_dark_mode(1);
-				}
-			}
-			
-			break;
 			
 		case WM_SETCURSOR:
 		
@@ -4416,34 +4248,6 @@ debug_printf("NEXT AFTER LOAD %S\n",fd->cFileName);
 
 						switch(((NMHDR *)lParam)->code)
 						{
-							case NM_CUSTOMDRAW:
-							{
-								NMCUSTOMDRAW *custom_draw;
-								
-								// dark status bar: the comctl32 status bar has no dark
-								// theme, so the parts are painted dark here. (the size grip
-								// is theme drawn and stays light.)
-								custom_draw = (NMCUSTOMDRAW *)lParam;
-								
-								if (custom_draw->dwDrawStage == CDDS_PREPAINT)
-								{
-									return CDRF_NOTIFYITEMDRAW;
-								}
-								
-								if (custom_draw->dwDrawStage == CDDS_ITEMPREPAINT)
-								{
-									if (_viv_is_dark())
-									{
-										SetTextColor(custom_draw->hdc,RGB(0xE8,0xE8,0xE8));
-										SetBkColor(custom_draw->hdc,RGB(0x20,0x20,0x20));
-									}
-									
-									return CDRF_DODEFAULT;
-								}
-								
-								break;
-							}
-							
 							case NM_CLICK:
 							{
 								int item;
@@ -4979,22 +4783,6 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
-static void _viv_apply_config_language(void)
-{
-	// apply the language setting from the config file.
-	// config_language: 0 = auto (keep the detected system language), 1 = english, 2 = simplified chinese.
-	
-	if (config_language == 1)
-	{
-		localization_set_language(LOCALIZATION_LANGUAGE_ENGLISH);
-	}
-	else
-	if (config_language == 2)
-	{
-		localization_set_language(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED);
-	}
-}
-
 static int _viv_process_install_command_line_options(wchar_t *cl)
 {
 	wchar_t *p;
@@ -5007,8 +4795,6 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 	wchar_t install_options[STRING_SIZE];
 	wchar_t uninstall_path[STRING_SIZE];
 	int startmenu;
-	int language;
-	int language_set;
 	wchar_t *cl_start;
 	int is_admin_install;
 	int is_standard_user_install;
@@ -5020,8 +4806,6 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 	is_runas = 0;
 	is_admin_install = 0;
 	is_standard_user_install = 0;
-	language = config_language;
-	language_set = 0;
 	install_path[0] = 0;
 	install_options[0] = 0;
 	uninstall_path[0] = 0;
@@ -5128,36 +4912,6 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 				is_admin_install = 1;
 			}
 			else
-			if (string_icompare_lowercase_ascii(bufstart,"language") == 0)
-			{
-				wchar_t language_wbuf[STRING_SIZE];
-				
-				p = string_get_word(p,language_wbuf,STRING_SIZE);
-				p = string_skip_ws(p);
-				
-				// map the language name to a config_language value.
-				// 0 = auto (system), 1 = english, 2 = simplified chinese.
-				// this does not require admin rights, the setting is stored in the ini.
-				
-				if (string_icompare_lowercase_ascii(language_wbuf,"english") == 0)
-				{
-					language = 1;
-					language_set = 1;
-				}
-				else
-				if (string_icompare_lowercase_ascii(language_wbuf,"chinese") == 0)
-				{
-					language = 2;
-					language_set = 1;
-				}
-				else
-				if (string_icompare_lowercase_ascii(language_wbuf,"auto") == 0)
-				{
-					language = 0;
-					language_set = 1;
-				}
-			}
-			else
 			if (string_icompare_lowercase_ascii(bufstart,"isrunas") == 0)
 			{
 				is_runas = 1;
@@ -5235,14 +4989,7 @@ static int _viv_process_install_command_line_options(wchar_t *cl)
 		}
 	}
 	
-	if (language_set)
-	{
-		config_language = language;
-		
-		// save the language selection to the current settings location.
-		// (before the appdata handling below so that its saves include the new language)
-		config_save_settings(config_appdata);
-	}
+
 	
 	if (appdata > 0)
 	{	
@@ -5841,13 +5588,6 @@ static int _viv_init(int nCmdShow)
 	// load settings
 	config_load_settings();
 	
-	// apply the language setting (config can override the system language).
-	_viv_apply_config_language();
-	
-	// set the menu theme (light/dark) before any menu or window is created,
-	// so the dark mode applies from the very first draw.
-	os_dark_set_app_mode(config_dark_mode);
-	
 	// config_maximized will be overwritten when we show are normal window
 	// so save it now and apply it later.
 	show_maximized = config_maximized;
@@ -5998,20 +5738,11 @@ static int _viv_init(int nCmdShow)
 		// MSGFLT_ALLOW = 1
 		os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_CLOSE,1,0);
 		
-		// theme change broadcasts come from unelevated system processes:
-		// allow them through the uipi filter so an elevated viewer still
-		// follows the windows theme live.
-		os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_SETTINGCHANGE,1,0);
-		os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_THEMECHANGED,1,0);
-	}
+		}
 		
 	_viv_status_show(config_show_status);
 	_viv_controls_show(config_show_controls);
 	_viv_zoomui_update();
-	
-	// apply the dark chrome (title bar, status bar, zoom controls) to the
-	// freshly created window.
-	_viv_apply_dark_mode(0);
 	
 	DragAcceptFiles(_viv_hwnd,TRUE);
 
@@ -6178,27 +5909,6 @@ static void _viv_kill(void)
 		DeleteObject(_viv_background_hbrush);
 		
 		_viv_background_hbrush = 0;
-	}
-	
-	if (_viv_dialog_dark_hbrush)
-	{
-		DeleteObject(_viv_dialog_dark_hbrush);
-		
-		_viv_dialog_dark_hbrush = 0;
-	}
-	
-	{
-		int i;
-		
-		for(i=0;i<4;i++)
-		{
-			if (_viv_dark_chrome_hbrushes[i])
-			{
-				DeleteObject(_viv_dark_chrome_hbrushes[i]);
-				
-				_viv_dark_chrome_hbrushes[i] = 0;
-			}
-		}
 	}
 	
 	if (_viv_backdrop_solid_hbrush)
@@ -7878,585 +7588,18 @@ static int _viv_zoom_pos_max(void)
 	return max_pos;
 }
 
-// is the dark ui active? config: 0 = light, 1 = dark, 2 = follow the windows theme.
-static int _viv_is_dark(void)
-{
-	if (config_dark_mode == 1)
-	{
-		return 1;
-	}
-	
-	if (config_dark_mode == 0)
-	{
-		return 0;
-	}
-	
-	return os_dark_system_dark();
-}
-
-// the windowed background color. when the dark ui is active and the user kept
-// the default white, use a dark canvas instead. a customized color always wins.
 static COLORREF _viv_windowed_background(void)
 {
-	if (_viv_is_dark())
-	{
-		if ((config_windowed_background_color_r == 255) && (config_windowed_background_color_g == 255) && (config_windowed_background_color_b == 255))
-		{
-			return RGB(0x20,0x20,0x20);
-		}
-	}
-	
 	return RGB(config_windowed_background_color_r,config_windowed_background_color_g,config_windowed_background_color_b);
 }
 
-static HFONT _viv_menu_font_handle = 0; // the cached menu bar font
-static int _viv_menu_font_dpi = 0; // the dpi the menu bar font was created for
-static int _viv_menu_bar_state = -1; // the owner draw state of the bar items
-
-// the menu bar font: the system menu font at the window's current dpi,
-// cached until the dpi or the theme changes. freed with the process.
-static HFONT _viv_menu_font(void)
-{
-	if ((!_viv_menu_font_handle) || (_viv_menu_font_dpi != os_logical_wide))
-	{
-		LOGFONTW lf;
-		
-		if (_viv_menu_font_handle)
-		{
-			DeleteObject(_viv_menu_font_handle);
-			
-			_viv_menu_font_handle = 0;
-		}
-		
-		if (os_menu_font(&lf))
-		{
-			_viv_menu_font_handle = CreateFontIndirectW(&lf);
-			
-			_viv_menu_font_dpi = os_logical_wide;
-		}
-	}
-	
-	return _viv_menu_font_handle;
-}
-
-// drop the cached menu font (the dpi or the theme changed: the system
-// metrics may have followed).
-static void _viv_menu_font_drop(void)
-{
-	if (_viv_menu_font_handle)
-	{
-		DeleteObject(_viv_menu_font_handle);
-		
-		_viv_menu_font_handle = 0;
-	}
-	
-	_viv_menu_font_dpi = 0;
-}
-
-// draw one owner drawn top level menu item. dark mode paints the dark
-// chrome face (selected items lift one step); a stale owner draw state
-// during a theme flip falls back to the system menu colors so the item
-// never goes blank.
-static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)
-{
-	wchar_t text[STRING_SIZE];
-	RECT rect;
-	HFONT font;
-	HFONT old_font;
-	COLORREF text_color;
-	HBRUSH face_brush;
-	int inactive;
-	
-	if ((draw_item->CtlType != ODT_MENU) || (!draw_item->itemData))
-	{
-		return 0;
-	}
-	
-	string_copy_utf8_string(text,localization_get_string((int)draw_item->itemData));
-	
-	// selected = hover or the open menu; inactive windows dim the label
-	// like the classic menu bar.
-	inactive = (draw_item->itemState & ODS_INACTIVE) || (GetActiveWindow() != _viv_hwnd);
-	
-	if (_viv_is_dark())
-	{
-		face_brush = (draw_item->itemState & ODS_SELECTED) ? _viv_dark_chrome_brush(1) : _viv_dark_chrome_brush(3);
-		text_color = inactive ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
-	}
-	else
-	{
-		face_brush = GetSysColorBrush((draw_item->itemState & ODS_SELECTED) ? COLOR_HIGHLIGHT : COLOR_MENU);
-		text_color = GetSysColor(inactive ? COLOR_GRAYTEXT : ((draw_item->itemState & ODS_SELECTED) ? COLOR_HIGHLIGHTTEXT : COLOR_MENUTEXT));
-	}
-	
-	FillRect(draw_item->hDC,&draw_item->rcItem,face_brush);
-	
-	font = _viv_menu_font();
-	old_font = 0;
-	
-	if (font)
-	{
-		old_font = SelectObject(draw_item->hDC,font);
-	}
-	
-	SetBkMode(draw_item->hDC,TRANSPARENT);
-	SetTextColor(draw_item->hDC,text_color);
-	
-	CopyRect(&rect,&draw_item->rcItem);
-	
-	// ODS_NOACCEL mirrors the system underline policy (hidden until alt).
-	DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER | ((draw_item->itemState & ODS_NOACCEL) ? DT_HIDEPREFIX : 0));
-	
-	if (old_font)
-	{
-		SelectObject(draw_item->hDC,old_font);
-	}
-	
-	// record the item extent for the non client fill: the union of
-	// the drawn items marks the bar area the system actually painted
-	// (the getmenubarinfo item rects can be stale after a layout change).
-	if (_viv_menu_bar_items_valid)
-	{
-		UnionRect(&_viv_menu_bar_items_rect,&_viv_menu_bar_items_rect,&draw_item->rcItem);
-	}
-	else
-	{
-		CopyRect(&_viv_menu_bar_items_rect,&draw_item->rcItem);
-		_viv_menu_bar_items_valid = 1;
-	}
-	
-	return 1;
-}
-
-// measure one owner drawn top level menu item: the label extent at the
-// menu font plus the classic top level padding. the height keeps the
-// system provided bar height unless it is missing.
-static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)
-{
-	wchar_t text[STRING_SIZE];
-	SIZE size;
-	HDC hdc;
-	HFONT font;
-	HFONT old_font;
-	int pad;
-	
-	if ((measure_item->CtlType != ODT_MENU) || (!measure_item->itemData))
-	{
-		return;
-	}
-	
-	string_copy_utf8_string(text,localization_get_string((int)measure_item->itemData));
-	
-	size.cx = 0;
-	size.cy = 0;
-	
-	hdc = GetDC(_viv_hwnd);
-	
-	font = _viv_menu_font();
-	old_font = 0;
-	
-	if (font)
-	{
-		old_font = SelectObject(hdc,font);
-	}
-	
-	GetTextExtentPoint32W(hdc,text,string_get_length(text),&size);
-	
-	if (old_font)
-	{
-		SelectObject(hdc,old_font);
-	}
-	
-	ReleaseDC(_viv_hwnd,hdc);
-	
-	// air on both sides of the label (the classic top level padding).
-	pad = (8 * os_logical_wide) / 96;
-	
-	measure_item->itemWidth = size.cx + (pad * 2);
-	
-	if (!measure_item->itemHeight)
-	{
-		measure_item->itemHeight = size.cy + ((4 * os_logical_high) / 96);
-	}
-}
-
-// fill one menu bar gap with the dark chrome face. degenerate gaps are
-// skipped.
-static void _viv_menu_bar_fill_gap(HDC hdc,int left,int top,int right,int bottom)
-{
-	RECT rect;
-	
-	if ((right > left) && (bottom > top))
-	{
-		rect.left = left;
-		rect.top = top;
-		rect.right = right;
-		rect.bottom = bottom;
-		
-		FillRect(hdc,&rect,_viv_dark_chrome_brush(3));
-	}
-}
-
-// fill the menu bar area the system leaves in its light color: the empty
-// strip right of the last item (and any left inset). the item extents come
-// from the rects recorded while the items were drawn (the getmenubarinfo
-// item rects can be stale after a layout change, which left the right half
-// of the bar white after a theme switch - the field report).
-static void _viv_menu_bar_nc_fill(void)
-{
-	MENUBARINFO mbi;
-	RECT rect;
-	RECT window_rect;
-	HDC hdc;
-	int force;
-	
-	if ((!_viv_hwnd) || (!_viv_hmenu) || (!GetMenu(_viv_hwnd)))
-	{
-		return;
-	}
-	
-	if (IsIconic(_viv_hwnd))
-	{
-		return;
-	}
-	
-	os_zero_memory(&mbi,sizeof(mbi));
-	mbi.cbSize = sizeof(mbi);
-	
-	if (!GetMenuBarInfo(_viv_hwnd,OBJID_MENU,0,&mbi))
-	{
-		return;
-	}
-	
-	if ((mbi.rcBar.right <= mbi.rcBar.left) || (mbi.rcBar.bottom <= mbi.rcBar.top))
-	{
-		// a degenerate bar rect means the layout is not available yet.
-		return;
-	}
-	
-	GetWindowRect(_viv_hwnd,&window_rect);
-	
-	// the bar strip in window coordinates (this fill runs on the window dc).
-	rect.left = mbi.rcBar.left - window_rect.left;
-	rect.top = mbi.rcBar.top - window_rect.top;
-	rect.right = mbi.rcBar.right - window_rect.left;
-	rect.bottom = mbi.rcBar.bottom - window_rect.top;
-	
-	force = 0;
-	
-	hdc = GetWindowDC(_viv_hwnd);
-	
-	if (_viv_menu_bar_items_valid)
-	{
-		RECT items;
-		RECT clip;
-		
-		CopyRect(&items,&_viv_menu_bar_items_rect);
-		
-		// the union rides in the item draw dc space (the window dc): a
-		// record that does not overlap the bar strip at all is treated as
-		// unusable rather than filling a wrong area.
-		if ((items.left >= rect.right) || (items.right <= rect.left) ||
-		(items.top >= rect.bottom) || (items.bottom <= rect.top))
-		{
-			force = 1;
-		}
-		
-		if (!force)
-		{
-			// clamp the recorded union into the bar strip: the fill must never
-			// leave the bar (a stale or partial record stays contained).
-		
-		if (items.left < rect.left)
-		{
-			items.left = rect.left;
-		}
-		
-		if (items.top < rect.top)
-		{
-			items.top = rect.top;
-		}
-		
-		if (items.right > rect.right)
-		{
-			items.right = rect.right;
-		}
-		
-		if (items.bottom > rect.bottom)
-		{
-			items.bottom = rect.bottom;
-		}
-		
-		if ((items.right > items.left) && (items.bottom > items.top))
-		{
-			// the empty strip left of the first item.
-			_viv_menu_bar_fill_gap(hdc,rect.left,rect.top,items.left,rect.bottom);
-			
-			// the empty strip right of the last item.
-			_viv_menu_bar_fill_gap(hdc,items.right,rect.top,rect.right,rect.bottom);
-			
-			// the rows above and below the items (a single row bar: none).
-			clip.left = (items.left > rect.left) ? items.left : rect.left;
-			clip.right = (items.right < rect.right) ? items.right : rect.right;
-				_viv_menu_bar_fill_gap(hdc,clip.left,rect.top,clip.right,items.top);
-				_viv_menu_bar_fill_gap(hdc,clip.left,items.bottom,clip.right,rect.bottom);
-			}
-		}
-	}
-	else
-	{
-		// no item was drawn in this paint pass: the update region skipped
-		// the menu bar, so the system kept its light strip and the recorded
-		// rects are stale. paint the whole strip dark right here (the items
-		// draw over it on the next pass) and then ask for one full frame
-		// repaint: the retry alone can leave the strip light when the next
-		// update region skips the bar again, which is the white slab the
-		// field screenshots caught (the guard keeps the repaint to one
-		// extra pass, no repaint storm).
-		_viv_menu_bar_fill_gap(hdc,rect.left,rect.top,rect.right,rect.bottom);
-		
-		force = 1;
-	}
-	
-	ReleaseDC(_viv_hwnd,hdc);
-	
-	if ((force) && (!_viv_menu_bar_nc_force))
-	{
-		_viv_menu_bar_nc_force = 1;
-		
-		RedrawWindow(_viv_hwnd,0,0,RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW);
-		
-		_viv_menu_bar_nc_force = 0;
-	}
-}
-
-// toggle the owner draw on the top level menu items. dark ui draws them
-// with the dark chrome palette (windows 11 and pre 1903 builds never
-// darken a win32 menu bar), light ui hands them back to the system. a
-// fresh menu (the language rebuild) resets the state so the types are
-// re-applied.
-static void _viv_menu_bar_theme(void)
-{
-	MENUITEMINFOW mii;
-	int dark;
-	int index;
-	int count;
-	int changed;
-	
-	if ((!_viv_hwnd) || (!_viv_hmenu))
-	{
-		return;
-	}
-	
-	dark = _viv_is_dark();
-	
-	if (_viv_menu_bar_state == dark)
-	{
-		return;
-	}
-	
-	changed = 0;
-	count = GetMenuItemCount(_viv_hmenu);
-	
-	for (index = 0; index < count; index++)
-	{
-		os_zero_memory(&mii,sizeof(mii));
-		mii.cbSize = sizeof(mii);
-		mii.fMask = MIIM_FTYPE | MIIM_SUBMENU;
-		
-		if (!GetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii))
-		{
-			continue;
-		}
-		
-		// only the top level popups (the bar items) are owner drawn.
-		if (!mii.hSubMenu)
-		{
-			continue;
-		}
-		
-		if (dark)
-		{
-			if (!(mii.fType & MFT_OWNERDRAW))
-			{
-				mii.fType = MFT_OWNERDRAW;
-				mii.fMask = MIIM_FTYPE;
-				
-				if (SetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii))
-				{
-					changed = 1;
-				}
-			}
-		}
-		else
-		{
-			if (mii.fType & MFT_OWNERDRAW)
-			{
-				mii.fType = MFT_STRING;
-				mii.fMask = MIIM_FTYPE;
-				
-				if (SetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii))
-				{
-					changed = 1;
-				}
-			}
-		}
-	}
-	
-	_viv_menu_bar_state = dark;
-	
-	if (changed)
-	{
-		// the item layout is about to change: the recorded union is stale.
-		SetRectEmpty(&_viv_menu_bar_items_rect);
-		_viv_menu_bar_items_valid = 0;
-		
-		DrawMenuBar(_viv_hwnd);
-	}
-}
-
-// force the system to re-measure the owner drawn menu bar items: a dpi
-// change rescales the labels, but the bar keeps the old widths until the
-// item types change, so flip them off and back on.
-static void _viv_menu_bar_remeasure(void)
-{
-	MENUITEMINFOW mii;
-	int index;
-	int count;
-	
-	if ((!_viv_hwnd) || (!_viv_hmenu))
-	{
-		return;
-	}
-	
-	count = GetMenuItemCount(_viv_hmenu);
-	
-	for (index = 0; index < count; index++)
-	{
-		os_zero_memory(&mii,sizeof(mii));
-		mii.cbSize = sizeof(mii);
-		mii.fMask = MIIM_FTYPE | MIIM_SUBMENU;
-		
-		if (!GetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii))
-		{
-			continue;
-		}
-		
-		if ((!mii.hSubMenu) || (!(mii.fType & MFT_OWNERDRAW)))
-		{
-			continue;
-		}
-		
-		mii.fType = MFT_STRING;
-		mii.fMask = MIIM_FTYPE;
-		SetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii);
-		
-		mii.fType = MFT_OWNERDRAW;
-		SetMenuItemInfoW(_viv_hmenu,index,TRUE,&mii);
-	}
-	
-	// the item widths are about to change: the recorded union is stale.
-	SetRectEmpty(&_viv_menu_bar_items_rect);
-	_viv_menu_bar_items_valid = 0;
-	
-	DrawMenuBar(_viv_hwnd);
-}
-
-// apply the dark chrome to the main window: frame (title bar), status bar
-// and zoom controls. the menu theme was set app wide before the first
-// window was created (os_dark_set_app_mode).
-static void _viv_apply_dark_mode(int repaint)
-{
-	int dark;
-	
-	dark = _viv_is_dark();
-	
-	os_dark_titlebar(_viv_hwnd,dark);
-	
-	// windows 11 chrome: rounded corners and a caption color that
-	// matches the canvas. a silent no-op on windows 10 and older.
-	os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());
-	
-	// the common controls follow the immersive dark flag per window:
-	// flag the control windows too so the status bar and the toolbars
-	// retheme natively (pre windows 10 1903 the flags are no-ops and the
-	// owner drawn panes / our strip painting carry the dark ui alone).
-	if (_viv_status_hwnd)
-	{
-		os_dark_titlebar(_viv_status_hwnd,dark);
-		
-		os_dark_window_theme(_viv_status_hwnd);
-		
-		InvalidateRect(_viv_status_hwnd,0,FALSE);
-	}
-	
-	if (_viv_rebar_hwnd)
-	{
-		os_dark_titlebar(_viv_rebar_hwnd,dark);
-		
-		InvalidateRect(_viv_rebar_hwnd,0,FALSE);
-	}
-	
-	if (_viv_toolbar_hwnd)
-	{
-		os_dark_titlebar(_viv_toolbar_hwnd,dark);
-		
-		InvalidateRect(_viv_toolbar_hwnd,0,FALSE);
-	}
-	
-	// the menu bar follows the theme: the top level items are owner drawn
-	// in the dark ui (windows 11 and pre 1903 menu bars never darken).
-	_viv_menu_bar_theme();
-	
-	// the toolbar glyphs bake the theme color into the icons: rebuild
-	// the image list so the palette follows the theme.
-	_viv_toolbar_build_image_list();
-	
-	// the open dialogs re-theme live: the options dialog is usually on
-	// screen when its own dark mode combo changes the setting.
-	_viv_dark_dialogs_refresh();
-	
-	// retheme the menu bar: a frame change repaints the non client area
-	// after the app mode switch (the menus retheme on the next open).
-	SetWindowPos(_viv_hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE|SWP_FRAMECHANGED);
-	
-	zoomui_set_dark(dark);
-	
-	// the toolbar tooltip control has no dark theme of its own: tint it
-	// with the palette so the hover hints match the ui.
-	if (_viv_toolbar_hwnd)
-	{
-		HWND tooltip_hwnd;
-		
-		tooltip_hwnd = (HWND)SendMessage(_viv_toolbar_hwnd,TB_GETTOOLTIPS,0,0);
-		
-		if (tooltip_hwnd)
-		{
-			if (dark)
-			{
-				SendMessage(tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);
-				SendMessage(tooltip_hwnd,TTM_SETTIPTEXTCOLOR,RGB(0xE8,0xE8,0xE8),0);
-			}
-			else
-			{
-				SendMessage(tooltip_hwnd,TTM_SETTIPBKCOLOR,GetSysColor(COLOR_INFOBK),0);
-				SendMessage(tooltip_hwnd,TTM_SETTIPTEXTCOLOR,GetSysColor(COLOR_INFOTEXT),0);
-			}
-		}
-	}
-	
-	if (repaint)
-	{
-		InvalidateRect(_viv_hwnd,0,FALSE);
-	}
-}
 
 // the backdrop shown under transparent pixels.
 
 // the solid backdrop brush (follow/black/white/custom), cached like the
 // window background brush: the load thread paints it for every frame that
 // has alpha, so it must not allocate per frame. the follow mode reads the
-// dark-aware windowed background so the backdrop tracks the dark ui.
+// windowed background color so the backdrop tracks it.
 static HBRUSH _viv_backdrop_solid_brush(void)
 {
 	COLORREF color;
@@ -8476,7 +7619,7 @@ static HBRUSH _viv_backdrop_solid_brush(void)
 			break;
 		
 		default:
-			// follow: the windowed background (dark palette aware).
+			// follow: the windowed background color.
 			color = _viv_windowed_background();
 			break;
 	}
@@ -8613,516 +7756,6 @@ static void _viv_backdrop_apply(void)
 	_viv_check_menus(_viv_hmenu);
 	
 	_viv_refresh();
-}
-
-// dark dialog support: the common dialogs (options and its pages, about,
-// rename, edit key, custom rate and the everything search) get the dark
-// chrome when the dark ui is active. the app mode is already dark app wide
-// (the comctl controls draw dark), so what is missing is the dialog title
-// bar, the control visual style, the control color replies and the
-// background fill.
-
-// the dark dialog background brush (lazy created, deleted at kill).
-static HBRUSH _viv_dialog_dark_brush(void)
-{
-	if (!_viv_dialog_dark_hbrush)
-	{
-		_viv_dialog_dark_hbrush = CreateSolidBrush(RGB(0x20,0x20,0x20));
-	}
-	
-	return _viv_dialog_dark_hbrush;
-}
-
-// give a dialog the dark chrome: a dark title bar and the dark explorer
-// control style. call from WM_INITDIALOG.
-// the dark explorer style does not cascade from a dialog to its child
-// controls: every button, combobox, listbox and edit must opt in
-// individually (allow dark mode, then the dark theme class) or it keeps
-// drawing with the light visual style on the dark background. this is
-// what made the options pages look half themed (dark background, light
-// comboboxes and check glyphs).
-// the owner drawn combo item height at the control font.
-static int _viv_dialog_dark_combo_item_height(HWND hwnd)
-{
-	HDC hdc;
-	HFONT font;
-	HFONT old_font;
-	TEXTMETRICW tm;
-	int high;
-	
-	high = (16 * os_logical_high) / 96;
-	
-	hdc = GetDC(hwnd);
-	
-	if (hdc)
-	{
-		font = (HFONT)SendMessage(hwnd,WM_GETFONT,0,0);
-		
-		old_font = font ? (HFONT)SelectObject(hdc,font) : 0;
-		
-		os_zero_memory(&tm,sizeof(tm));
-		
-		if (GetTextMetricsW(hdc,&tm))
-		{
-			high = tm.tmHeight + ((6 * os_logical_high) / 96);
-		}
-		
-		if (old_font)
-		{
-			SelectObject(hdc,old_font);
-		}
-		
-		ReleaseDC(hwnd,hdc);
-	}
-	
-	return high;
-}
-
-// the property that marks the controls this module flipped to owner
-// drawn (the flip is undone when the ui goes back to light).
-#define _VIV_DARK_OWNERDRAW_PROP L"VIV_DARK_OD"
-
-static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)
-{
-	wchar_t class_name[64];
-	LONG_PTR style;
-	
-	(void)lParam;
-	
-	os_allow_dark_mode_for_window(hwnd,1);
-	
-	os_dark_window_theme(hwnd);
-	
-	class_name[0] = 0;
-	
-	if (GetClassNameW(hwnd,class_name,64))
-	{
-		if (_viv_is_dark())
-		{
-			if ((string_compare(class_name,L"Button") == 0) && (!os_dark_controls_supported()))
-			{
-				style = GetWindowLongPtr(hwnd,GWL_STYLE);
-				
-				// only the classic text controls: the bitmap color swatches keep
-				// their own painting.
-				switch ((UINT)style & BS_TYPEMASK)
-				{
-					case BS_AUTOCHECKBOX:
-					case BS_AUTORADIOBUTTON:
-					case BS_PUSHBUTTON:
-					case BS_DEFPUSHBUTTON:
-						if ((style & BS_TYPEMASK) != BS_OWNERDRAW)
-						{
-							SetWindowLongPtr(hwnd,GWL_STYLE,(style & ~((LONG_PTR)BS_TYPEMASK)) | BS_OWNERDRAW);
-							
-							// the prop carries the original button type (the owner draw bit
-							// overwrites the type field, so the way back needs it). the guard
-							// keeps a re-run from overwriting it with the owner draw type.
-							SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)((style & BS_TYPEMASK) + 1));
-							InvalidateRect(hwnd,0,TRUE);
-						}
-						break;
-				}
-			}
-			else
-			if ((string_compare(class_name,L"ComboBox") == 0) && (!os_dark_controls_supported()))
-			{
-				style = GetWindowLongPtr(hwnd,GWL_STYLE);
-				
-				if (!(style & CBS_OWNERDRAWFIXED))
-				{
-					SetWindowLongPtr(hwnd,GWL_STYLE,style | CBS_OWNERDRAWFIXED);
-					
-					// a runtime flip does not resend the measure item message: set
-					// the item height directly (the selected field and the list rows).
-					SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)-1,_viv_dialog_dark_combo_item_height(hwnd));
-					SendMessage(hwnd,CB_SETITEMHEIGHT,(WPARAM)0,_viv_dialog_dark_combo_item_height(hwnd));
-					
-					SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)0x100);
-					
-					InvalidateRect(hwnd,0,TRUE);
-				}
-			}
-		}
-		else
-		{
-			// the ui went back to light: restore the system painting on the
-			// controls this module flipped.
-			if (GetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP))
-			{
-				style = GetWindowLongPtr(hwnd,GWL_STYLE);
-				
-				if ((string_compare(class_name,L"Button") == 0) && (((int)(LONG_PTR)GetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP)) < 0x100))
-				{
-					LONG_PTR type;
-					
-					type = (LONG_PTR)GetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP) - 1;
-					
-					// restore the original button type (the owner draw bit sat in
-					// the type field).
-					SetWindowLongPtr(hwnd,GWL_STYLE,(style & ~((LONG_PTR)BS_TYPEMASK)) | type);
-				}
-				else
-				if ((string_compare(class_name,L"ComboBox") == 0) && (((int)(LONG_PTR)GetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP)) >= 0x100))
-				{
-					SetWindowLongPtr(hwnd,GWL_STYLE,style & ~((LONG_PTR)CBS_OWNERDRAWFIXED));
-				}
-				
-				RemovePropW(hwnd,_VIV_DARK_OWNERDRAW_PROP);
-				
-				InvalidateRect(hwnd,0,TRUE);
-			}
-		}
-	}
-	
-	return TRUE;
-}
-
-// give a dialog the dark chrome: a dark title bar, the dark explorer
-// control style and the same style on every child control. call from
-// WM_INITDIALOG (the dialog manager creates the children before it).
-static void _viv_dark_dialog(HWND hwnd)
-{
-	if (_viv_is_dark())
-	{
-		os_dark_titlebar(hwnd,1);
-		
-		os_dark_window_theme(hwnd);
-		
-		EnumChildWindows(hwnd,_viv_dark_dialog_children,0);
-	}
-	else
-	{
-		// the light ui hands the flipped controls back to the system.
-		EnumChildWindows(hwnd,_viv_dark_dialog_children,0);
-	}
-}
-
-// re-theme the open dialogs when the dark state changes: the options
-// dialog itself is usually on screen when its own dark mode combo
-// changes the setting (the field report: the open dialog kept its
-// light controls after the switch).
-static BOOL CALLBACK _viv_dark_dialogs_enum(HWND hwnd,LPARAM lParam)
-{
-	wchar_t class_name[16];
-	
-	(void)lParam;
-	
-	// the thread enumerator guarantees these windows belong to us: only
-	// the dialog windows need the refresh.
-	if ((GetClassNameW(hwnd,class_name,16)) && (string_compare(class_name,L"#32770") == 0))
-	{
-		_viv_dark_dialog(hwnd);
-		
-		InvalidateRect(hwnd,0,TRUE);
-	}
-	
-	return TRUE;
-}
-
-static void _viv_dark_dialogs_refresh(void)
-{
-	EnumThreadWindows(GetCurrentThreadId(),_viv_dark_dialogs_enum,0);
-}
-
-// dark color reply for the dialog control color messages (statics, edits
-// and lists). returns the brush, or 0 to keep the default light painting.
-static INT_PTR _viv_dialog_dark_ctlcolor(HDC hdc)
-{
-	if (_viv_is_dark())
-	{
-		SetTextColor(hdc,RGB(0xE8,0xE8,0xE8));
-		SetBkColor(hdc,RGB(0x20,0x20,0x20));
-		
-		return (INT_PTR)_viv_dialog_dark_brush();
-	}
-	
-	return 0;
-}
-
-// erase a dialog background with the dark palette. call from
-// WM_ERASEBKGND; returns 1 when the background was painted.
-static int _viv_dialog_dark_erase(HWND hwnd,HDC hdc)
-{
-	if (_viv_is_dark())
-	{
-		RECT rect;
-		
-		GetClientRect(hwnd,&rect);
-		
-		FillRect(hdc,&rect,_viv_dialog_dark_brush());
-		
-		return 1;
-	}
-	
-	return 0;
-}
-
-// shared dark handling for the dialog messages: WM_CTLCOLORSTATIC,
-// WM_CTLCOLOREDIT, WM_CTLCOLORLISTBOX and WM_ERASEBKGND. returns the
-// dialog proc reply, or -1 when the caller should run its own switch.
-// owner drawn dialog controls (the pre 1903 dark fallback): paint the
-// buttons and combo boxes with the dark palette. the light ui never
-// flips the owner draw styles (and unflips them on the way back), so
-// this only runs while the dark ui is active.
-static INT_PTR _viv_dialog_dark_draw_item(HWND hwnd,DRAWITEMSTRUCT *draw_item)
-{
-	wchar_t text[STRING_SIZE];
-	
-	if (!_viv_is_dark())
-	{
-		return 0;
-	}
-	
-	(void)hwnd;
-	
-	switch(draw_item->CtlType)
-	{
-		case ODT_BUTTON:
-		{
-			UINT style;
-			RECT rect;
-			HBRUSH face_brush;
-			HGDIOBJ old_pen;
-			COLORREF text_color;
-			int pressed;
-			int box;
-			int left;
-			int top;
-			
-			// the original button type rides in the flip property (the owner
-			// draw bit occupies the type field while it is set).
-			style = (UINT)((LONG_PTR)GetPropW(draw_item->hwndItem,_VIV_DARK_OWNERDRAW_PROP) - 1);
-			
-			// only the classic text controls were flipped.
-			if ((style != BS_AUTOCHECKBOX) && (style != BS_AUTORADIOBUTTON) && (style != BS_PUSHBUTTON) && (style != BS_DEFPUSHBUTTON))
-			{
-				return 0;
-			}
-			
-			text[0] = 0;
-			GetWindowTextW(draw_item->hwndItem,text,STRING_SIZE);
-			
-			CopyRect(&rect,&draw_item->rcItem);
-			
-			pressed = (draw_item->itemState & ODS_SELECTED) ? 1 : 0;
-			
-			if ((style == BS_AUTOCHECKBOX) || (style == BS_AUTORADIOBUTTON))
-			{
-				// the control background is the dialog face.
-				FillRect(draw_item->hDC,&rect,_viv_dialog_dark_brush());
-				
-				box = (13 * os_logical_high) / 96;
-				
-				if (rect.bottom - rect.top < box)
-				{
-					box = rect.bottom - rect.top;
-				}
-				
-				left = rect.left;
-				top = rect.top + ((rect.bottom - rect.top - box) / 2);
-				
-				// the glyph box: a dark fill with a light frame.
-				if (style == BS_AUTORADIOBUTTON)
-				{
-					old_pen = SelectObject(draw_item->hDC,GetStockObject(DC_PEN));
-					
-					SetDCPenColor(draw_item->hDC,RGB(0x70,0x70,0x70));
-					
-					SelectObject(draw_item->hDC,_viv_dialog_dark_brush());
-					
-					Ellipse(draw_item->hDC,left,top,left + box,top + box);
-					
-					SelectObject(draw_item->hDC,old_pen);
-				}
-				else
-				{
-					RECT box_rect;
-					
-					box_rect.left = left;
-					box_rect.top = top;
-					box_rect.right = left + box;
-					box_rect.bottom = top + box;
-					
-					FillRect(draw_item->hDC,&box_rect,_viv_dark_chrome_brush(3));
-					FrameRect(draw_item->hDC,&box_rect,_viv_dark_chrome_brush(2));
-				}
-				
-				// the check mark.
-				if (draw_item->itemState & ODS_CHECKED)
-				{
-					old_pen = SelectObject(draw_item->hDC,CreatePen(PS_SOLID,(2 * os_logical_wide) / 96,RGB(0xE8,0xE8,0xE8)));
-					
-					MoveToEx(draw_item->hDC,left + ((box * 3) / 13),top + ((box * 7) / 13),0);
-					LineTo(draw_item->hDC,left + ((box * 5) / 13),top + ((box * 9) / 13));
-					LineTo(draw_item->hDC,left + ((box * 10) / 13),top + ((box * 3) / 13));
-					
-					DeleteObject(SelectObject(draw_item->hDC,old_pen));
-				}
-				
-				// the label right of the box.
-				rect.left = left + box + ((6 * os_logical_wide) / 96);
-				text_color = (draw_item->itemState & ODS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
-				
-				SetBkMode(draw_item->hDC,TRANSPARENT);
-				SetTextColor(draw_item->hDC,text_color);
-				
-				DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER);
-				
-				if (draw_item->itemState & ODS_FOCUS)
-				{
-					DrawFocusRect(draw_item->hDC,&draw_item->rcItem);
-				}
-				
-				return TRUE;
-			}
-			
-			// push buttons: the lifted face with a light frame.
-			face_brush = _viv_dark_chrome_brush(1);
-			
-			FillRect(draw_item->hDC,&rect,face_brush);
-			FrameRect(draw_item->hDC,&rect,_viv_dark_chrome_brush(2));
-			
-			if (style == BS_DEFPUSHBUTTON)
-			{
-				RECT outer;
-				
-				CopyRect(&outer,&draw_item->rcItem);
-				
-				InflateRect(&outer,-2,-2);
-				
-				FrameRect(draw_item->hDC,&outer,_viv_dark_chrome_brush(2));
-			}
-			
-			if (pressed)
-			{
-				OffsetRect(&rect,1,1);
-			}
-			
-			text_color = (draw_item->itemState & ODS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
-			
-			SetBkMode(draw_item->hDC,TRANSPARENT);
-			SetTextColor(draw_item->hDC,text_color);
-			
-			DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER);
-			
-			return TRUE;
-		}
-		
-		case ODT_COMBOBOX:
-		{
-			RECT rect;
-			HBRUSH face_brush;
-			COLORREF text_color;
-			int selected;
-			
-			text[0] = 0;
-			
-			if (draw_item->itemID == (UINT)-1)
-			{
-				// the closed field: the current selection.
-				int cur;
-				
-				cur = (int)SendMessage(draw_item->hwndItem,CB_GETCURSEL,0,0);
-				
-				if (cur != -1)
-				{
-					SendMessageW(draw_item->hwndItem,CB_GETLBTEXT,cur,(LPARAM)text);
-				}
-			}
-			else
-			{
-				SendMessageW(draw_item->hwndItem,CB_GETLBTEXT,draw_item->itemID,(LPARAM)text);
-			}
-			
-			CopyRect(&rect,&draw_item->rcItem);
-			
-			// the closed field and the highlighted list rows take the hover
-			// tone, the plain rows take the dialog face.
-			selected = (draw_item->itemState & (ODS_SELECTED | ODS_COMBOBOXEDIT)) ? 1 : 0;
-			
-			face_brush = selected ? _viv_dark_chrome_brush(1) : _viv_dark_chrome_brush(3);
-			text_color = (draw_item->itemState & ODS_DISABLED) ? RGB(0x9A,0x9A,0x9A) : RGB(0xE8,0xE8,0xE8);
-			
-			FillRect(draw_item->hDC,&rect,face_brush);
-			
-			SetBkMode(draw_item->hDC,TRANSPARENT);
-			SetTextColor(draw_item->hDC,text_color);
-			
-			DrawTextW(draw_item->hDC,text,-1,&rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER);
-			
-			if ((draw_item->itemState & ODS_FOCUS) && (!(draw_item->itemState & ODS_COMBOBOXEDIT)))
-			{
-				DrawFocusRect(draw_item->hDC,&rect);
-			}
-			
-			return TRUE;
-		}
-	}
-	
-	return 0;
-}
-
-static INT_PTR _viv_dialog_dark_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
-	switch(msg)
-	{
-		case WM_DRAWITEM:
-		{
-			INT_PTR dark_reply;
-			
-			// the owner drawn fallback controls (pre 1903 builds): the
-			// buttons and combo boxes paint here.
-			dark_reply = _viv_dialog_dark_draw_item(hwnd,(DRAWITEMSTRUCT *)lParam);
-			
-			if (dark_reply)
-			{
-				return dark_reply;
-			}
-			
-			break;
-		}
-		
-		case WM_MEASUREITEM:
-		{
-			if ((((MEASUREITEMSTRUCT *)lParam)->CtlType == ODT_COMBOBOX) && (_viv_is_dark()))
-			{
-				((MEASUREITEMSTRUCT *)lParam)->itemHeight = _viv_dialog_dark_combo_item_height(GetDlgItem(hwnd,(int)wParam));
-				
-				return TRUE;
-			}
-			
-			break;
-		}
-		case WM_CTLCOLORSTATIC:
-		case WM_CTLCOLOREDIT:
-		case WM_CTLCOLORLISTBOX:
-		{
-			INT_PTR dark_reply;
-			
-			dark_reply = _viv_dialog_dark_ctlcolor((HDC)wParam);
-			
-			if (dark_reply)
-			{
-				return dark_reply;
-			}
-			
-			break;
-		}
-		
-		case WM_ERASEBKGND:
-		
-			if (_viv_dialog_dark_erase(hwnd,(HDC)wParam))
-			{
-				return 1;
-			}
-			
-			break;
-	}
-	
-	(void)lParam;
-	
-	return -1;
 }
 
 static void _viv_set_custom_rate(void)
@@ -9345,23 +7978,9 @@ static void _viv_delete(int permanently)
 
 static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-			
 		{
 			wchar_t name[STRING_SIZE];
 			
@@ -10416,23 +9035,9 @@ static void _viv_blank(void)
 
 static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-			
 		{
 			int exti;
 
@@ -10443,22 +9048,6 @@ static INT_PTR CALLBACK _viv_options_general_proc(HWND hwnd,UINT msg,WPARAM wPar
 			os_SetDlgItemText_localization_id(hwnd,IDC_CHECKALL,LOCALIZATION_ID_CHECK_ALL);
 			os_SetDlgItemText_localization_id(hwnd,IDC_CHECKNONE,LOCALIZATION_ID_CHECK_NONE);
 			
-			// language selection. entries: auto, english, simplified chinese.
-			// (language names are always shown in their own language)
-			os_SetDlgItemText_localization_id(hwnd,IDC_LANGUAGE_STATIC,LOCALIZATION_ID_OPTIONS_LANGUAGE_STATIC);
-			os_ComboBox_AddString_localization_id(hwnd,IDC_LANGUAGE,LOCALIZATION_ID_LANGUAGE_AUTO);
-			os_ComboBox_AddString(hwnd,IDC_LANGUAGE,localization_get_language_name(LOCALIZATION_LANGUAGE_ENGLISH));
-			os_ComboBox_AddString(hwnd,IDC_LANGUAGE,localization_get_language_name(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED));
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_LANGUAGE),config_language);
-
-			// dark mode selection: automatic (follow the windows theme), light or dark.
-			os_SetDlgItemText_localization_id(hwnd,IDC_DARKMODE_STATIC,LOCALIZATION_ID_OPTIONS_DARK_MODE_STATIC);
-			os_ComboBox_AddString_localization_id(hwnd,IDC_DARKMODE,LOCALIZATION_ID_DARK_MODE_AUTO);
-			os_ComboBox_AddString_localization_id(hwnd,IDC_DARKMODE,LOCALIZATION_ID_DARK_MODE_LIGHT);
-			os_ComboBox_AddString_localization_id(hwnd,IDC_DARKMODE,LOCALIZATION_ID_DARK_MODE_DARK);
-			// combo order: automatic, light, dark.
-			ComboBox_SetCurSel(GetDlgItem(hwnd,IDC_DARKMODE),config_dark_mode == 1 ? 2 : (config_dark_mode == 0 ? 1 : 0));
-
 			if (config_appdata) 
 			{
 				CheckDlgButton(hwnd,IDC_APPDATA,BST_CHECKED);
@@ -10626,23 +9215,9 @@ static void _viv_options_remove_key(HWND hwnd)
 
 static INT_PTR CALLBACK _viv_edit_key_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-			
 		{
 			WNDPROC last_proc;
 			wchar_t caption_wbuf[STRING_SIZE];
@@ -10751,23 +9326,9 @@ static void _viv_options_edit_key(HWND hwnd,int key_index)
 
 static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-			
 		{
 			os_SetDlgItemText_localization_id(hwnd,IDC_LEFT_CLICK_ACTION_STATIC,LOCALIZATION_ID_LEFT_CLICK_ACTION_STATIC);
 			os_ComboBox_AddString_localization_id(hwnd,IDC_LEFTCLICKACTION_COMBOBOX,LOCALIZATION_ID_OPTIONS_ACTION_SCROLL_COMBOBOXITEM);
@@ -10882,23 +9443,9 @@ static INT_PTR CALLBACK _viv_options_controls_proc(HWND hwnd,UINT msg,WPARAM wPa
 
 static INT_PTR CALLBACK _viv_options_view_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-			
 			
 			os_SetDlgItemText_localization_id(hwnd,IDC_SHRINK_BLIT_MODE_STATIC,LOCALIZATION_ID_SHRINK_BLIT_MODE_STATIC);
 			os_ComboBox_AddString_localization_id(hwnd,IDC_SHRINK_BLIT_MODE_COMBOBOX,LOCALIZATION_ID_BLIT_MODE_NEAREST_COMBOBOXITEM);
@@ -11091,102 +9638,8 @@ static void _viv_options_update_sheild(HWND hwnd)
 	}
 }
 
-// the dark options tab body: the tab control never follows the dark
-// explorer style (no dark variant on any build), so the body face is
-// painted here. the tab items draw in the custom draw pass.
-static LRESULT CALLBACK _viv_options_tab_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
-{
-	WNDPROC last_proc;
-	
-	if ((msg == WM_ERASEBKGND) && (_viv_is_dark()))
-	{
-		RECT rect;
-		
-		GetClientRect(hwnd,&rect);
-		
-		FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(3));
-		
-		return 1;
-	}
-	
-	last_proc = (WNDPROC)GetWindowLongPtr(hwnd,GWLP_USERDATA);
-	
-	if (last_proc)
-	{
-		return CallWindowProc(last_proc,hwnd,msg,wParam,lParam);
-	}
-	
-	return DefWindowProc(hwnd,msg,wParam,lParam);
-}
-
-// paint one options tab item with the dark palette: the selected tab
-// takes the body face (it reads as connected to the page), the others
-// sit one step darker and lift on hover.
-static INT_PTR _viv_options_tab_draw(NMCUSTOMDRAW *draw)
-{
-	TCITEM tcitem;
-	wchar_t text[STRING_SIZE];
-	RECT rect;
-	HBRUSH face_brush;
-	
-	switch(draw->dwDrawStage)
-	{
-		case CDDS_PREPAINT:
-			return CDRF_NOTIFYITEMDRAW;
-		
-		case CDDS_ITEMPREPAINT:
-			break;
-		
-		default:
-			return CDRF_DODEFAULT;
-	}
-	
-	os_zero_memory(&tcitem,sizeof(tcitem));
-	tcitem.mask = TCIF_TEXT;
-	tcitem.pszText = text;
-	tcitem.cchTextMax = STRING_SIZE;
-	
-	text[0] = 0;
-	
-	if ((!TabCtrl_GetItem(draw->hdr.hwndFrom,(int)draw->dwItemSpec,&tcitem)) || (!text[0]))
-	{
-		return CDRF_DODEFAULT;
-	}
-	
-	CopyRect(&rect,&draw->rc);
-	
-	if (draw->uItemState & CDIS_SELECTED)
-	{
-		face_brush = _viv_dark_chrome_brush(3);
-	}
-	else
-	{
-		face_brush = (draw->uItemState & CDIS_HOT) ? _viv_dark_chrome_brush(1) : _viv_dark_chrome_brush(0);
-	}
-	
-	FillRect(draw->hdc,&rect,face_brush);
-	
-	SetBkMode(draw->hdc,TRANSPARENT);
-	SetTextColor(draw->hdc,RGB(0xE8,0xE8,0xE8));
-	
-	DrawTextW(draw->hdc,text,-1,&rect,DT_SINGLELINE | DT_CENTER | DT_VCENTER);
-	
-	return CDRF_SKIPDEFAULT;
-}
-
 static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_NOTIFY:
@@ -11196,13 +9649,6 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				case IDC_TAB1:
 				case IDC_TAB2:
 				case IDC_TAB3:
-				
-					// the tab strip never follows the dark explorer style (the class
-					// has no dark variant on any build): the items paint here.
-					if ((((NMHDR *)lParam)->code == NM_CUSTOMDRAW) && (_viv_is_dark()))
-					{
-						return _viv_options_tab_draw((NMCUSTOMDRAW *)lParam);
-					}
 				
 				break;
 				
@@ -11227,44 +9673,6 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			return 0;
 			
 		case WM_INITDIALOG:
-			// dark chrome: title bar, dark explorer control style and the
-			// options navigation (tree + tabs).
-			_viv_dark_dialog(hwnd);
-			
-			if (_viv_is_dark())
-			{
-				HWND tree_hwnd;
-				int tabi;
-				
-				tree_hwnd = GetDlgItem(hwnd,IDC_TREE1);
-				
-				if (tree_hwnd)
-				{
-					os_dark_window_theme(tree_hwnd);
-					
-					SendMessage(tree_hwnd,TVM_SETBKCOLOR,0,RGB(0x20,0x20,0x20));
-					SendMessage(tree_hwnd,TVM_SETTEXTCOLOR,0,RGB(0xE8,0xE8,0xE8));
-				}
-				
-				for(tabi=0;tabi<(int)_VIV_OPTIONS_PAGE_COUNT;tabi++)
-				{
-					HWND tab_hwnd;
-					WNDPROC last_proc;
-					
-					tab_hwnd = GetDlgItem(hwnd,_viv_options_tab_ids[tabi]);
-					
-					os_dark_window_theme(tab_hwnd);
-					
-					// the tab body never follows the dark style: subclass the tab so
-					// the dark body face paints (the items paint in the custom draw
-					// pass in the dialog proc).
-					last_proc = (WNDPROC)SetWindowLongPtr(tab_hwnd,GWLP_WNDPROC,(LONG_PTR)_viv_options_tab_proc);
-					
-					SetWindowLongPtr(tab_hwnd,GWLP_USERDATA,(LONG_PTR)last_proc);
-				}
-			}
-			
-
 			// update text.
 			os_SetWindowText_localization_id(hwnd,LOCALIZATION_ID_OPTIONS_CAPTION);
 			os_SetDlgItemText_localization_id(hwnd,IDOK,LOCALIZATION_ID_OK_BUTTON);
@@ -11316,11 +9724,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					
 					if (os_EnableThemeDialogTexture)
 					{
-						// the light tab texture would clash with the dark chrome.
-						if (!_viv_is_dark())
-						{
-							os_EnableThemeDialogTexture(page_hwnd,ETDT_ENABLETAB);
-						}
+						os_EnableThemeDialogTexture(page_hwnd,ETDT_ENABLETAB);
 					}
 
 					SetWindowPos(page_hwnd,HWND_TOP,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,SWP_NOSIZE|SWP_NOACTIVATE);
@@ -11348,10 +9752,7 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						int exti;
 						COLORREF colorref;
 						wchar_t params[STRING_SIZE];
-						int language_changed;
-						
 						params[0] = 0;
-						language_changed = 0;
 						
 						general_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_GENERAL);
 						view_page = GetDlgItem(hwnd,VIV_ID_OPTIONS_VIEW);
@@ -11379,63 +9780,6 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						if (IsDlgButtonChecked(general_page,IDC_MULTIPLE_INSTANCES) == BST_CHECKED) 
 						{
 							config_multiple_instances = 1;
-						}
-						
-						// language.
-						{
-							int language;
-							
-							language = ComboBox_GetCurSel(GetDlgItem(general_page,IDC_LANGUAGE));
-							
-							if (language != config_language)
-							{
-								config_language = language;
-								language_changed = 1;
-								
-								if (language == 1)
-								{
-									localization_set_language(LOCALIZATION_LANGUAGE_ENGLISH);
-								}
-								else
-								if (language == 2)
-								{
-									localization_set_language(LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED);
-								}
-								else
-								{
-									// auto: follow the system language again.
-									localization_init();
-								}
-							}
-						}
-						// dark mode.
-						{
-							int dark_mode;
-							
-							dark_mode = ComboBox_GetCurSel(GetDlgItem(general_page,IDC_DARKMODE));
-							
-							if (dark_mode < 0)
-							{
-								dark_mode = 0;
-							}
-							
-							// combo order: automatic, light, dark.
-							if (dark_mode == 1)
-							{
-								config_dark_mode = 0;
-							}
-							else
-							if (dark_mode == 2)
-							{
-								config_dark_mode = 1;
-							}
-							else
-							{
-								config_dark_mode = 2;
-							}
-							
-							os_dark_set_app_mode(config_dark_mode);
-							_viv_apply_dark_mode(1);
 						}
 						
 						if (IsDlgButtonChecked(general_page,IDC_STARTMENU) == BST_CHECKED) 
@@ -11561,27 +9905,6 @@ static INT_PTR CALLBACK _viv_options_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						
 						_viv_hmenu = new_hmenu;
 						
-						// the fresh menu needs the dark bar owner draw re-applied.
-						_viv_menu_bar_theme();
-					}
-					
-					// refresh the visible controls when the language has changed.
-					if (language_changed)
-					{
-						// recreate the toolbar so its texts and tooltips use the new language.
-						_viv_controls_show(0);
-						_viv_controls_show(config_show_controls);
-						
-						// the recreated toolbar has a fresh (light) tooltip control:
-						// re-apply the dark chrome to it.
-						_viv_apply_dark_mode(0);
-						
-						// update the floating zoom control tooltips.
-						zoomui_localize();
-						
-						// relayout and redraw. (the title bar and status bar update here too)
-						_viv_on_size();
-						InvalidateRect(_viv_hwnd,0,FALSE);
 					}
 					
 					// do admin commands.
@@ -12450,23 +10773,9 @@ static int _viv_is_window_maximized(HWND hwnd)
 
 static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-			
 
 			{
 				int static_wide;
@@ -12529,17 +10838,6 @@ static INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,L
 
 static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_CTLCOLOREDIT:	
@@ -12565,14 +10863,7 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			GetClientRect(hwnd,&rect);
 			BeginPaint(hwnd,&ps);
 			rect.bottom -= (48 * os_logical_high) / 96;
-			if (_viv_is_dark())
-			{
-				FillRect(ps.hdc,&rect,_viv_dialog_dark_brush());
-			}
-			else
-			{
-				FillRect(ps.hdc,&rect,(HBRUSH)GetStockObject(WHITE_BRUSH));
-			}
+			FillRect(ps.hdc,&rect,(HBRUSH)GetStockObject(WHITE_BRUSH));
 			rect.top = rect.bottom;
 			rect.bottom++;
 			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_BTNSHADOW + 1));
@@ -12587,9 +10878,6 @@ static INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 		}
 			
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-			
 		{
 			HFONT hfont;
 			LOGFONT lf;
@@ -13653,7 +11941,9 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 				viv_webp.last_delay = 0;
 				viv_webp.orientation = orientation;
 				
-				if (webp_load(stream,&viv_webp,_viv_webp_info_proc,_viv_webp_frame_proc))
+				if (webp_load(stream,&viv_webp,
+					(int (*)(void *,DWORD,DWORD,DWORD,int))_viv_webp_info_proc,
+					(int (*)(void *,BYTE *,int))_viv_webp_frame_proc))
 				{
 					ret = 1;
 				}
@@ -13817,14 +12107,6 @@ static void _viv_status_show(int show)
 			// enough).
 			os_zero_memory(_viv_status_part_text,sizeof(_viv_status_part_text));
 			
-			// pick up the current dark flags: the bar can be created long
-			// after the last theme switch.
-			if (_viv_is_dark())
-			{
-				os_dark_titlebar(_viv_status_hwnd,1);
-				
-				os_dark_window_theme(_viv_status_hwnd);
-			}
 		}
 	}
 	else
@@ -13874,10 +12156,8 @@ static void _viv_toolbar_build_image_list(void)
 	{
 		int icon_wide;
 		int icon_high;
-		int dark;
 		
-		dark = _viv_is_dark();
-		
+
 		// the bitmap order matches the button table: prev, play, pause,
 		// next, bestfit, 1to1, zoom out, zoom in.
 		if (ImageList_GetIconSize(_viv_toolbar_image_list,&icon_wide,&icon_high))
@@ -13889,7 +12169,7 @@ static void _viv_toolbar_build_image_list(void)
 			
 			for(glyphi=0;glyphi<GLYPH_COUNT;glyphi++)
 			{
-				ImageList_AddIcon(_viv_toolbar_image_list,glyphs_icon(glyphi,dark,glyph_size));
+				ImageList_AddIcon(_viv_toolbar_image_list,glyphs_icon(glyphi,0,glyph_size));
 			}
 		}
 		
@@ -14501,82 +12781,10 @@ static void _viv_status_set(int part,const wchar_t *text)
 	
 	if (string_compare(_viv_status_part_text[part],text) != 0)
 	{
-		// SBT_OWNERDRAW: the pane text lives in our store; the item data
-		// carries the pane index to WM_DRAWITEM.
 		string_copy(_viv_status_part_text[part],text);
 		
-		SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);
+		SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)part,(LPARAM)text);
 	}
-}
-
-// owner draw one status pane: the dark palette for the dark ui, a
-// faithful light replica otherwise. the texts come from the pane store;
-// an overlong text (a capped resolution pane) ellipsizes instead of
-// bleeding into the next pane.
-static int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
-{
-	HDC hdc;
-	RECT text_rect;
-	HFONT hfont;
-	HGDIOBJ last_font;
-	COLORREF text_color;
-	int part;
-	
-	if (!draw_item)
-	{
-		return 0;
-	}
-	
-	hdc = draw_item->hDC;
-	
-	if (!hdc)
-	{
-		return 0;
-	}
-	
-	part = (int)draw_item->itemData;
-	
-	if ((part < 0) || (part >= _VIV_STATUS_PART_MAX))
-	{
-		return 0;
-	}
-	
-	if (_viv_is_dark())
-	{
-		FillRect(hdc,&draw_item->rcItem,_viv_dialog_dark_brush());
-		
-		text_color = RGB(0xE8,0xE8,0xE8);
-	}
-	else
-	{
-		FillRect(hdc,&draw_item->rcItem,(HBRUSH)(COLOR_BTNFACE + 1));
-		
-		text_color = GetSysColor(COLOR_BTNTEXT);
-	}
-	
-	// draw the text inset like the native panes.
-	text_rect = draw_item->rcItem;
-	text_rect.left += GetSystemMetrics(SM_CXEDGE) * 2;
-	
-	hfont = (HFONT)SendMessage(_viv_status_hwnd,WM_GETFONT,0,0);
-	last_font = 0;
-	
-	if (hfont)
-	{
-		last_font = SelectObject(hdc,hfont);
-	}
-	
-	SetBkMode(hdc,TRANSPARENT);
-	SetTextColor(hdc,text_color);
-	
-	DrawTextW(hdc,_viv_status_part_text[part],-1,&text_rect,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS);
-	
-	if (last_font)
-	{
-		SelectObject(hdc,last_font);
-	}
-	
-	return 1;
 }
 
 static int _viv_get_status_high(void)
@@ -14641,39 +12849,9 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 									{
 										RECT rect;
 										GetClientRect(_viv_toolbar_hwnd,&rect);
-										// the strip follows the theme: a light button face, or the dark chrome face.
-										FillRect(((NMTBCUSTOMDRAW *)lParam)->nmcd.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));
+										// the strip face behind the transparent toolbar buttons.
+										FillRect(((NMTBCUSTOMDRAW *)lParam)->nmcd.hdc,&rect,(HBRUSH)(COLOR_BTNFACE+1));
 										return CDRF_NOTIFYITEMDRAW;
-									}
-									case CDDS_ITEMPREPAINT:
-									{
-										NMTBCUSTOMDRAW *draw;
-										DWORD state;
-										
-										draw = (NMTBCUSTOMDRAW *)lParam;
-										
-										// the button states (hover, pressed, checked) draw with the light
-										// toolbar theme on every build: the comctl toolbar has no dark
-										// explorer variant, so the play/pause toggle showed the light
-										// blue highlight over the dark strip (the field report). paint
-										// the states ourselves and hand the icon back to the control.
-										if ((_viv_is_dark()) && (draw->nmcd.dwItemSpec))
-										{
-											state = draw->nmcd.uItemState;
-											
-											if (state & (CDIS_HOT | CDIS_SELECTED | CDIS_CHECKED))
-											{
-												FillRect(draw->nmcd.hdc,&draw->nmcd.rc,_viv_dark_chrome_brush(1));
-											}
-											
-											// TBCDRF_NOEDGES (0x00010000) | TBCDRF_NOMARK (0x00080000) |
-											// TBCDRF_NOBACKGROUND (0x00400000): keep the control from drawing
-											// its light edges, highlight mark and button background over
-											// the dark strip. the icon draws on our fill.
-											return CDRF_DODEFAULT | 0x00010000 | 0x00080000 | 0x00400000;
-										}
-										
-										break;
 									}
 								}
 								
@@ -14704,16 +12882,15 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 
 			BeginPaint(hwnd,&ps);
 			
-			// the strip and its two separator lines follow the theme. the
-			// dark palette matches the zoom bar (face 0x252525, lines
-			// 0x454545 shadow / 0x707070 highlight).
+			// the strip and its two separator lines follow the system
+			// colors.
 			rect.left = 0;
 			rect.top = 0;
 			rect.right = wide;
 			rect.bottom = 1;
 			
 //			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(1) : (HBRUSH)(COLOR_3DSHADOW + 1));
+			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_3DSHADOW + 1));
 			
 			rect.left = 0;
 			rect.top = 1;
@@ -14721,7 +12898,7 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			rect.bottom = 2;
 			
 //			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(2) : (HBRUSH)(COLOR_3DHIGHLIGHT + 1));
+			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_3DHIGHLIGHT + 1));
 			
 			rect.left = 0;
 			rect.top = 2;
@@ -14729,7 +12906,7 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			rect.bottom = high;
 			
 //			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_WINDOW + 1));
-			FillRect(ps.hdc,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE + 1));
+			FillRect(ps.hdc,&rect,(HBRUSH)(COLOR_BTNFACE + 1));
 			
 			EndPaint(hwnd,&ps);
 			
@@ -14746,7 +12923,7 @@ static LRESULT CALLBACK _viv_rebar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 			// leave a fresh white buffer behind the buttons).
 			GetClientRect(hwnd,&rect);
 			
-			FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));
+			FillRect((HDC)wParam,&rect,(HBRUSH)(COLOR_BTNFACE+1));
 			
 			return 1;
 		}
@@ -14759,16 +12936,6 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 {
 	switch (msg) 
 	{	
-		case WM_DRAWITEM:
-		
-			// the owner drawn panes (defensive route: see _viv_status_draw_item).
-			if (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam))
-			{
-				return 1;
-			}
-		
-			break;
-		
 		case WM_LBUTTONDOWN:
 		
 			if (config_toolbar_move_window)
@@ -15242,23 +13409,9 @@ static void _viv_set_zoom_dialog(void)
 
 static INT_PTR CALLBACK _viv_set_zoom_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-			
 			{
 				int static_wide;
 				RECT rect;
@@ -15458,7 +13611,6 @@ static void _viv_command_line_options(void)
 		"/nostartmenu\tRemove Start menu shortcuts.\n"
 		"/install <path>\tInstall to the specified path.\n"
 		"/install-options <...> Run with the specified options after installation.\n"
-		"/language <lang>\tSet the interface language: auto, english or chinese.\n"
 		"/uninstall <path>\tUninstall from the specified path.\n");
 		
 	string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_APP_NAME));
@@ -15931,19 +14083,6 @@ static HMENU _viv_create_menu(void)
 						
 						AppendMenu(menus[_viv_commands[i].menu_id],_viv_commands[i].flags & (~MF_DELETE),(UINT_PTR)menus[_viv_commands[i].command_id],text_wbuf);
 						
-						// the top level items carry their label id for the dark ui owner
-						// draw (the wm_drawitem menu route reads it back).
-						if (_viv_commands[i].menu_id == _VIV_MENU_ROOT)
-						{
-							MENUITEMINFOW mii;
-							
-							os_zero_memory(&mii,sizeof(mii));
-							mii.cbSize = sizeof(mii);
-							mii.fMask = MIIM_DATA;
-							mii.dwItemData = _viv_commands[i].localization_id;
-							
-							SetMenuItemInfoW(menus[_VIV_MENU_ROOT],GetMenuItemCount(menus[_VIV_MENU_ROOT]) - 1,TRUE,&mii);
-						}
 					}
 					else
 					{
@@ -15976,9 +14115,6 @@ static HMENU _viv_create_menu(void)
 			}
 		}
 	}
-	
-	// a fresh menu: the bar owner draw state must be re-applied.
-	_viv_menu_bar_state = -1;
 	
 	return hmenu;
 }
@@ -16798,23 +14934,9 @@ static void _viv_jumpto_open_sel(HWND hwnd)
 			
 static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-		
 
 			{
 				int cur_index;
@@ -17135,30 +15257,22 @@ static void _viv_nav_item_add(WIN32_FIND_DATA *fd)
 	_viv_nav_item_count++;				
 }
 
-static int _viv_nav_compare(const _viv_nav_item_t *a,const _viv_nav_item_t *b)
+static int _viv_nav_compare(const void *va,const void *vb)
 {
+	const _viv_nav_item_t *a;
+	const _viv_nav_item_t *b;
+
+	a = (_viv_nav_item_t *)va;
+	b = (_viv_nav_item_t *)vb;
+
 	return _viv_fd_compare_name(&a->fd,&b->fd);
 }
 
 static INT_PTR CALLBACK _viv_search_everything_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	{
-		INT_PTR dark_dialog_reply;
-		
-		dark_dialog_reply = _viv_dialog_dark_proc(hwnd,msg,wParam,lParam);
-		
-		if (dark_dialog_reply != -1)
-		{
-			return dark_dialog_reply;
-		}
-	}
-	
 	switch(msg)
 	{
 		case WM_INITDIALOG:
-			// dark chrome: title bar and dark explorer control style.
-			_viv_dark_dialog(hwnd);
-			
 			
 			os_center_dialog(hwnd);
 			
@@ -17830,12 +15944,13 @@ static int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 	switch(gesture_info.dwID)
 	{
 		case 1: // GID_BEGIN
-			_viv_gesture_reset();
-			break;
-
 		case 2: // GID_END
+			// msdn: application behavior is undefined when gid_begin and
+			// gid_end are consumed. resetting the gesture state is all we need,
+			// so hand the message to defwindowproc (which also owns the info
+			// handle for anything we do not consume).
 			_viv_gesture_reset();
-			break;
+			return 0;
 
 		case 3: // GID_ZOOM
 		{

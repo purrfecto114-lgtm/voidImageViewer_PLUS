@@ -101,7 +101,6 @@ static int _zoomui_button_gap = 0; // spacing between the capsule buttons.
 static int _zoomui_margin = 0;
 static int _zoomui_is_registered = 0;
 static int _zoomui_hot_index = -1; // active button under the cursor, or -1.
-static int _zoomui_dark = 0; // 1 = draw with the dark mode palette.
 static int _zoomui_is_fullscreen = 0; // 1 = six button fullscreen bar.
 
 static int _zoomui_layered_ok = 0; // WS_EX_LAYERED child support (win8+).
@@ -390,46 +389,17 @@ void zoomui_kill(void)
 	_zoomui_parent_hwnd = 0;
 }
 
-// tint the tooltip control with the palette: comctl tooltips have no dark
-// theme of their own, the colors are set by message.
+// tint the tooltip control with the system tooltip colors: comctl
+// tooltips take their colors by message, not from the theme.
 static void _zoomui_apply_tooltip_colors(void)
 {
     if (_zoomui_tooltip_hwnd)
     {
-        if (_zoomui_dark)
-        {
-            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);
-            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,RGB(0xE8,0xE8,0xE8),0);
-        }
-        else
-        {
-            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,GetSysColor(COLOR_INFOBK),0);
-            SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,GetSysColor(COLOR_INFOTEXT),0);
-        }
+        SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPBKCOLOR,GetSysColor(COLOR_INFOBK),0);
+        SendMessage(_zoomui_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,GetSysColor(COLOR_INFOTEXT),0);
     }
 }
 
-// switch the palette between light and dark. called after creating and
-// whenever the app dark mode or the windows theme changes.
-void zoomui_set_dark(int dark)
-{
-    if (_zoomui_dark != (dark ? 1 : 0))
-    {
-        _zoomui_dark = dark ? 1 : 0;
-
-        // the glyph colors are baked into the cached icons.
-        glyphs_flush_cache();
-
-        if (_zoomui_hwnd)
-        {
-            InvalidateRect(_zoomui_hwnd,0,FALSE);
-        }
-    }
-
-    // the tooltip control may exist before the first palette flip and a
-    // fresh control always starts light: tint it on every call.
-    _zoomui_apply_tooltip_colors();
-}
 
 int zoomui_is_created(void)
 {
@@ -753,15 +723,15 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
 
 		if (is_selected || is_hot)
 		{
-			fill_color = _zoomui_dark ? RGB(0x38,0x38,0x38) : GetSysColor(COLOR_3DLIGHT);
+			fill_color = GetSysColor(COLOR_3DLIGHT);
 		}
 		else
 		{
-			fill_color = _zoomui_dark ? RGB(0x25,0x25,0x25) : GetSysColor(COLOR_BTNFACE);
+			fill_color = GetSysColor(COLOR_BTNFACE);
 		}
 
 		brush = CreateSolidBrush(fill_color);
-		pen = CreatePen(PS_SOLID,1,_zoomui_dark ? (is_selected ? RGB(0x80,0x80,0x80) : RGB(0x45,0x45,0x45)) : GetSysColor(is_selected ? COLOR_3DDKSHADOW : COLOR_3DSHADOW));
+		pen = CreatePen(PS_SOLID,1,GetSysColor(is_selected ? COLOR_3DDKSHADOW : COLOR_3DSHADOW));
 
 		old_pen = SelectObject(hdc,pen);
 		old_brush = SelectObject(hdc,brush);
@@ -778,11 +748,11 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int buttoni,int is_sele
 
 	if (is_disabled)
 	{
-		SetTextColor(hdc,_zoomui_dark ? RGB(0x90,0x90,0x90) : GetSysColor(COLOR_3DSHADOW));
+		SetTextColor(hdc,GetSysColor(COLOR_3DSHADOW));
 	}
 	else
 	{
-		SetTextColor(hdc,_zoomui_dark ? RGB(0xE8,0xE8,0xE8) : GetSysColor(COLOR_BTNTEXT));
+		SetTextColor(hdc,GetSysColor(COLOR_BTNTEXT));
 	}
 
 	SetBkMode(hdc,TRANSPARENT);
@@ -813,7 +783,7 @@ static void _zoomui_draw_icon(HDC hdc,const RECT *rect,int buttoni,int offset)
 		size = 8;
 	}
 
-	icon = glyphs_icon(_zoomui_glyph_ids[_zoomui_button_first + buttoni],_zoomui_dark,size);
+	icon = glyphs_icon(_zoomui_glyph_ids[_zoomui_button_first + buttoni],0,size);
 
 	if (icon)
 	{
@@ -991,8 +961,8 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 				HGDIOBJ old_brush;
 				int corner;
 
-				brush = CreateSolidBrush(_zoomui_dark ? RGB(0x20,0x20,0x20) : GetSysColor(COLOR_BTNFACE));
-				pen = CreatePen(PS_SOLID,1,_zoomui_dark ? RGB(0x45,0x45,0x45) : GetSysColor(COLOR_3DSHADOW));
+				brush = CreateSolidBrush(GetSysColor(COLOR_BTNFACE));
+				pen = CreatePen(PS_SOLID,1,GetSysColor(COLOR_3DSHADOW));
 
 				old_pen = SelectObject(hdc,pen);
 				old_brush = SelectObject(hdc,brush);

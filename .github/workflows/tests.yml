@@ -1,7 +1,7 @@
 name: tests
 
-# Continuous verification of the zoom math, menu structure, dark mode wiring
-# and localization alignment invariants. Runs on every push (branches and
+# Continuous verification of the zoom math, menu structure, localization
+# alignment and version consistency invariants. Runs on every push (branches and
 # tags) and every pull request.
 #
 # The daily schedule (04:00 UTC = 12:00 Asia/Shanghai) intentionally runs
@@ -34,7 +34,7 @@ jobs:
       - name: Zoom math regression tests
         run: python3 tests/zoom_math_test.py
 
-      - name: Menu structure, dark mode wiring and version consistency tests
+      - name: Menu structure, localization alignment and version consistency tests
         run: python3 tests/menu_structure_test.py
 
   # Compile both shipping configurations on every push (since rc.2), pull

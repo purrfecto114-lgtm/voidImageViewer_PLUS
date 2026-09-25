@@ -118,10 +118,6 @@
 #define IDC_TITLE_BAR_FORMAT_STATIC             1064
 #define IDC_WINDOWEDBACKGROUNDCOLOR_STATIC      1065
 #define IDC_FULLSCREENBACKGROUNDCOLOR_STATIC    1066
-#define IDC_LANGUAGE_STATIC                     1067
-#define IDC_LANGUAGE                            1068
-#define IDC_DARKMODE_STATIC                     1069
-#define IDC_DARKMODE                            1070
 #define IDC_SET_ZOOM_EDIT                1071
 #define IDC_SET_ZOOM_STATIC              1072
 

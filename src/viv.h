@@ -21,6 +21,9 @@
 //
 // VoidImageViewer
 
+#ifndef _VIV_H
+#define _VIV_H
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -46,8 +49,18 @@ extern "C" {
 #define COBJMACROS // c object interface please
 #define CINTERFACE // c interface only
 
+// the UI64 suffix is msvc only: mingw and zig cc spell it ULL.
+#ifdef _MSC_VER
 #define VIV_UINT64_MAX	0xFFFFFFFFFFFFFFFFUI64
+#else
+#define VIV_UINT64_MAX	0xFFFFFFFFFFFFFFFFULL
+#endif
 #define VIV_DWORD_MAX	0xffffffff
+
+// __int64 is msvc only: mingw and zig cc spell it long long.
+#ifndef _MSC_VER
+#define __int64 long long
+#endif
 
 // single image pixel budget: a corrupted or hostile header can
 // claim dimensions that decode to gigabytes of rgba (a 428 kb png
@@ -83,7 +96,7 @@ typedef unsigned __int64 VIV_UINT64;
 //#include <shlobj.h>
 //#include <istream>
 #include <commdlg.h> // OPENFILENAME
-#include <Shellapi.h> // ShellExecute
+#include <shellapi.h> // ShellExecute
 #include <uxtheme.h>
 //#include <process.h> // _beginthreadex
 #include <shlobj.h> // DROPFILES
@@ -267,3 +280,5 @@ config_key_t *viv_key_get_start(int command_index);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // _VIV_H

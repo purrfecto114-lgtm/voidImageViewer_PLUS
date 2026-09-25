@@ -16,13 +16,10 @@
 </trustInfo>
 <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
 <application>
-<!-- the supported os list. the windows 8.1 and windows 10 entries are
-     the gate for the immersive dark menus: without the windows 10 guid
-     the system treats the app as a win7 app and the uxtheme app mode
-     calls no-op, leaving the menu bar light while everything else is
-     dark. declaring 7 / 8 / 8.1 / 10 keeps getversionex honest too (the
-     os.c version checks are all >= / > style and stay correct either
-     way). -->
+<!-- the supported os list. the windows 8.1 and windows 10 entries keep
+     getversionex honest: without them every newer system answers 6.2
+     (the os.c version checks are all >= / > style and stay correct
+     either way). -->
 <!--The ID below indicates application support for Windows 7 -->
 <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}"/>
 <!--The ID below indicates application support for Windows 8 -->

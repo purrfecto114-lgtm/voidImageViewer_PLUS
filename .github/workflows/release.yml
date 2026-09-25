@@ -146,7 +146,7 @@ jobs:
       - name: Zoom math regression tests
         run: python3 tests/zoom_math_test.py
 
-      - name: Menu structure, dark mode wiring and version consistency tests
+      - name: Menu structure, localization alignment and version consistency tests
         run: python3 tests/menu_structure_test.py
 
   build:
@@ -370,9 +370,9 @@ jobs:
           # the banner follows the phase: pre-releases say so, the stable
           # line presents itself as what it is.
           if phase:
-              banner = "> **Pre-release**: this is an experimental fork of voidtools/voidImageViewer adding touch optimizations, on-screen zoom controls and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker."
+              banner = "> **Pre-release**: this is an experimental fork of voidtools/voidImageViewer adding touch optimizations, on-screen zoom controls and a bilingual installer. Feedback is welcome in the issue tracker."
           else:
-              banner = "> A stable fork of voidtools/voidImageViewer: touch optimizations, on-screen zoom controls, a dark UI, and a bilingual installer with a UI language switcher. Feedback is welcome in the issue tracker."
+              banner = "> A stable fork of voidtools/voidImageViewer: touch optimizations, on-screen zoom controls, and a bilingual installer. Feedback is welcome in the issue tracker."
           notes = textwrap.dedent("""\
               # voidImageViewer {v} - Touch, Zoom & Languages{p}
 

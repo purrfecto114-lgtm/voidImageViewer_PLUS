@@ -156,37 +156,7 @@ HRESULT (__stdcall *os_EnableThemeDialogTexture)(HWND hwnd, DWORD dwFlags) = 0;
 static unsigned int (__cdecl *_os_controlfp)(unsigned int _NewValue,unsigned int _Mask) = 0;
 BOOL (WINAPI *os_ChangeWindowMessageFilterEx)(HWND hWnd,UINT message,DWORD action,void *pChangeFilterStruct) = 0;
 DWORD (WINAPI *os_GetLayout)(HDC hdc) = 0;
-// windows 10 (1809+) dark mode exports, resolved by ordinal at runtime.
-typedef int (__stdcall *OS_SetPreferredAppMode_fn)(int mode);
-typedef void (__stdcall *OS_FlushMenuThemes_fn)(void);
-typedef void (__stdcall *OS_RefreshImmersiveColorPolicyState_fn)(void);
-typedef int (__stdcall *OS_ShouldAppsUseDarkMode_fn)(void);
-typedef int (__stdcall *OS_AllowDarkModeForWindow_fn)(HWND hwnd,int allow);
-typedef HRESULT (__stdcall *OS_DwmSetWindowAttribute_fn)(HWND hwnd,DWORD attribute,const void *value,DWORD size);
-static OS_SetPreferredAppMode_fn _os_SetPreferredAppMode = 0;
-static OS_FlushMenuThemes_fn _os_FlushMenuThemes = 0;
-static OS_RefreshImmersiveColorPolicyState_fn _os_RefreshImmersiveColorPolicyState = 0;
-static OS_ShouldAppsUseDarkMode_fn _os_ShouldAppsUseDarkMode = 0;
-static OS_AllowDarkModeForWindow_fn _os_AllowDarkModeForWindow = 0;
-static OS_DwmSetWindowAttribute_fn _os_DwmSetWindowAttribute = 0;
-
 typedef HRESULT (__stdcall *OS_SetWindowTheme_fn)(HWND hwnd,const wchar_t *sub_app_name,const wchar_t *sub_id_list);
-static OS_SetWindowTheme_fn _os_SetWindowTheme = 0;// registry reads for a stable dark mode detection: the undocumented uxtheme
-// probe returns wrong values on some windows 10 1903+ builds, the personalize
-// registry value is the documented source the shell itself follows.
-typedef LONG (__stdcall *OS_RegOpenKeyExW_fn)(HKEY key,const wchar_t *name,DWORD options,DWORD access,HKEY *result);
-typedef LONG (__stdcall *OS_RegQueryValueExW_fn)(HKEY key,const wchar_t *name,DWORD *reserved,DWORD *type,unsigned char *data,DWORD *size);
-typedef LONG (__stdcall *OS_RegCloseKey_fn)(HKEY key);
-static OS_RegOpenKeyExW_fn _os_RegOpenKeyExW = 0;
-static OS_RegQueryValueExW_fn _os_RegQueryValueExW = 0;
-static OS_RegCloseKey_fn _os_RegCloseKey = 0;
-static HMODULE _os_advapi32_hmodule = 0;
-
-// cached dark state: the ui queries the dark mode in paint paths, so the
-// system is probed once and the cache is dropped on setting changes.
-static int _os_dark_cache_valid = 0;
-static int _os_dark_cache_dark = 0;
-
 static HMONITOR (WINAPI *_os_MonitorFromWindow)(HWND hwnd,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromRect)(LPCRECT lprc,DWORD dwFlags) = 0;
 static HMONITOR (WINAPI *_os_MonitorFromPoint)(POINT pt,DWORD dwFlags) = 0;
@@ -214,7 +184,6 @@ static HMODULE _os_UxTheme_hmodule = 0;
 static HMODULE _os_gdiplus_hmodule = 0;
 static HMODULE _os_ucrtbase_hmodule = 0;
 static HMODULE _os_gdi32_hmodule = 0;
-static HMODULE _os_dwmapi_hmodule = 0;
 
 void os_zero_memory(void *data,int size)
 {
@@ -922,33 +891,6 @@ void os_init(void)
 	if (_os_UxTheme_hmodule)
 	{
 		os_EnableThemeDialogTexture = (void *)GetProcAddress(_os_UxTheme_hmodule,"EnableThemeDialogTexture");
-		
-		// the dark explorer visual style for dialog controls (named export).
-		_os_SetWindowTheme = (void *)GetProcAddress(_os_UxTheme_hmodule,"SetWindowTheme");
-		
-		// windows 10 dark mode: uxtheme exports these by ordinal only. on
-		// windows 7/8 and pre-1809 builds they do not resolve and every dark
-		// function below quietly does nothing.
-		_os_SetPreferredAppMode = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(135));
-		_os_FlushMenuThemes = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(136));
-		_os_RefreshImmersiveColorPolicyState = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(104));
-		_os_ShouldAppsUseDarkMode = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(132));
-		_os_AllowDarkModeForWindow = (void *)GetProcAddress(_os_UxTheme_hmodule,MAKEINTRESOURCEA(133));
-	}
-	
-	_os_dwmapi_hmodule = LoadLibraryA("dwmapi.dll");
-	if (_os_dwmapi_hmodule)
-	{
-		_os_DwmSetWindowAttribute = (void *)GetProcAddress(_os_dwmapi_hmodule,"DwmSetWindowAttribute");
-	}
-	
-	// advapi32: registry reads for the dark mode detection.
-	_os_advapi32_hmodule = LoadLibraryA("advapi32.dll");
-	if (_os_advapi32_hmodule)
-	{
-		_os_RegOpenKeyExW = (void *)GetProcAddress(_os_advapi32_hmodule,"RegOpenKeyExW");
-		_os_RegQueryValueExW = (void *)GetProcAddress(_os_advapi32_hmodule,"RegQueryValueExW");
-		_os_RegCloseKey = (void *)GetProcAddress(_os_advapi32_hmodule,"RegCloseKey");
 	}
 	
 	// set "floating point to int mode" to truncate
@@ -1021,8 +963,12 @@ int os_is_touch_available(void)
 		return 0;
 	}
 
-	// NID_READY = 0x80, NID_EXTERNAL_INPUT = 0x04, NID_INTEGRATED_TOUCH = 0x01
-	return (sm & 0x80) ? 1 : 0;
+	// NID_READY = 0x80, NID_EXTERNAL_TOUCH = 0x04, NID_INTEGRATED_TOUCH = 0x01.
+	// nid_ready alone is set by any ready digitizer (pens included): ask for
+	// an actual touch screen, and only while the digitizer is ready. msdn
+	// also warns sm_digitizer has no plug-and-play awareness, so callers
+	// treat this as a first-run default, never a permanent configuration.
+	return ((sm & 0x80) && (sm & (0x01 | 0x04))) ? 1 : 0;
 }
 
 // GDI+ encoder parameter structures. (locally defined, mirrors the gdiplus ABI)
@@ -1202,172 +1148,6 @@ int os_save_hbitmap(HBITMAP hbitmap,const wchar_t *filename,int format)
 	return ret;
 }
 
-// is the system windows theme dark? never in high contrast mode: dark
-// overrides would break accessibility color themes. the result is cached:
-// the ui queries the dark state in paint paths, so the system is probed
-// once and the cache is dropped on WM_SETTINGCHANGE / WM_THEMECHANGED.
-int os_dark_system_dark(void)
-{
-	HIGHCONTRASTW high_contrast;
-	
-	if (_os_dark_cache_valid)
-	{
-		return _os_dark_cache_dark;
-	}
-	
-	_os_dark_cache_dark = 0;
-	
-	high_contrast.cbSize = sizeof(high_contrast);
-	
-	if (SystemParametersInfoW(SPI_GETHIGHCONTRAST,sizeof(high_contrast),&high_contrast,0))
-	{
-		if (high_contrast.dwFlags & HCF_HIGHCONTRASTON)
-		{
-			_os_dark_cache_valid = 1;
-			
-			return _os_dark_cache_dark;
-		}
-	}
-	
-	// primary source: the personalize registry value. 0 means the apps
-	// theme is dark. this documented value behaves identically on every
-	// windows 10/11 build, unlike the uxtheme ordinal probe.
-	if (_os_RegOpenKeyExW && _os_RegQueryValueExW && _os_RegCloseKey)
-	{
-		HKEY key;
-		
-		if (_os_RegOpenKeyExW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",0,KEY_QUERY_VALUE,&key) == 0)
-		{
-			DWORD type;
-			DWORD apps_use_light;
-			DWORD size;
-			
-			size = sizeof(apps_use_light);
-			
-			if (_os_RegQueryValueExW(key,L"AppsUseLightTheme",0,&type,(unsigned char *)&apps_use_light,&size) == 0)
-			{
-				if (type == REG_DWORD)
-				{
-					_os_dark_cache_dark = (apps_use_light == 0) ? 1 : 0;
-					_os_dark_cache_valid = 1;
-					
-					_os_RegCloseKey(key);
-					
-					return _os_dark_cache_dark;
-				}
-			}
-			
-			_os_RegCloseKey(key);
-		}
-	}
-	
-	// fallback when the registry value is missing or unreadable: the
-	// undocumented uxtheme probe.
-	if (_os_ShouldAppsUseDarkMode)
-	{
-		_os_dark_cache_dark = _os_ShouldAppsUseDarkMode() ? 1 : 0;
-	}
-	
-	_os_dark_cache_valid = 1;
-	
-	return _os_dark_cache_dark;
-}
-
-// drop the cached dark state. call when the system settings may have
-// changed (WM_SETTINGCHANGE, WM_THEMECHANGED) so the next query re-reads.
-void os_dark_invalidate(void)
-{
-	_os_dark_cache_valid = 0;
-}
-
-// set the dark explorer visual style on a window (dialog controls and tab
-// controls draw dark with it). returns 1 when the style was applied.
-int os_dark_window_theme(HWND hwnd)
-{
-	if (_os_SetWindowTheme)
-	{
-		if (_os_SetWindowTheme(hwnd,L"DarkMode_Explorer",0) == 0)
-		{
-			return 1;
-		}
-	}
-	
-	return 0;
-}
-
-// opt a single window (usually a dialog child control) into the dark
-// comctl styles. must be called before os_dark_window_theme for the
-// control. returns 1 when the dark mode api is available.
-int os_allow_dark_mode_for_window(HWND hwnd,int allow)
-{
-	if (_os_AllowDarkModeForWindow)
-	{
-		_os_AllowDarkModeForWindow(hwnd,allow);
-		
-		return 1;
-	}
-	
-	return 0;
-}
-// set the app menu theme. mode 0 = light, 1 = dark, 2 = follow the system.
-void os_dark_set_app_mode(int mode)
-{
-	if (_os_SetPreferredAppMode)
-	{
-		// PreferredAppMode: Default = 0, AllowDark = 1, ForceDark = 2, ForceLight = 3.
-		switch(mode)
-		{
-			case 0:
-				_os_SetPreferredAppMode(3);
-				break;
-				
-			case 1:
-				_os_SetPreferredAppMode(2);
-				break;
-				
-			default:
-				_os_SetPreferredAppMode(1);
-				break;
-		}
-	}
-	
-	os_dark_refresh();
-}
-
-// draw a window frame (title bar) in dark or light colors.
-void os_dark_titlebar(HWND hwnd,int dark)
-{
-	BOOL value;
-	HRESULT result;
-	
-	if (!hwnd)
-	{
-		return;
-	}
-	
-	value = dark ? TRUE : FALSE;
-	
-	if (_os_AllowDarkModeForWindow)
-	{
-		_os_AllowDarkModeForWindow(hwnd,dark);
-	}
-	
-	if (!_os_DwmSetWindowAttribute)
-	{
-		return;
-	}
-	
-	// DWMWA_USE_IMMERSIVE_DARK_MODE is 20 on windows 10 2004 and newer;
-	// windows 10 1809-1909 used 19 and fails with E_INVALIDARG for 20.
-	result = _os_DwmSetWindowAttribute(hwnd,20,&value,sizeof(value));
-	
-	if (result == (HRESULT)0x80070057)
-	{
-		// E_INVALIDARG: retry with the older attribute.
-		_os_DwmSetWindowAttribute(hwnd,19,&value,sizeof(value));
-	}
-}
-
 // refresh os_logical_wide / os_logical_high from the window's current
 // monitor dpi (per monitor v2). returns 1 when the values changed.
 // when the api is missing (pre windows 10 1607) or reports nothing the
@@ -1443,45 +1223,6 @@ int os_menu_font(LOGFONTW *lf)
 	return 0;
 }
 
-// windows 11 chrome: rounded window corners (attribute 33, round)
-// and a caption color that matches the canvas (attribute 35). both
-// attributes fail with E_INVALIDARG on windows 10 and older and are
-// silently ignored: the classic title bar stays.
-void os_window_modern_chrome(HWND hwnd,COLORREF caption_color)
-{
-	DWORD corner;
-	COLORREF color;
-	
-	if ((!hwnd) || (!_os_DwmSetWindowAttribute))
-	{
-		return;
-	}
-	
-	// DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2.
-	corner = 2;
-	_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner));
-	
-	// DWMWA_CAPTION_COLOR = 35: the windowed canvas color gives a
-	// seamless title bar in both themes (the dark mode attribute above
-	// keeps the caption text readable).
-	color = caption_color;
-	_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));
-}
-
-// re-read the system theme after a WM_SETTINGCHANGE.
-void os_dark_refresh(void)
-{
-	if (_os_RefreshImmersiveColorPolicyState)
-	{
-		_os_RefreshImmersiveColorPolicyState();
-	}
-	
-	if (_os_FlushMenuThemes)
-	{
-		_os_FlushMenuThemes();
-	}
-}
-
 void os_kill(void)
 {
 	if (_os_user32_hmodule)
@@ -1507,16 +1248,6 @@ void os_kill(void)
 	if (_os_UxTheme_hmodule)
 	{
 		FreeLibrary(_os_UxTheme_hmodule);
-	}
-	
-	if (_os_dwmapi_hmodule)
-	{
-		FreeLibrary(_os_dwmapi_hmodule);
-	}
-	
-	if (_os_advapi32_hmodule)
-	{
-		FreeLibrary(_os_advapi32_hmodule);
 	}
 	
 	if (_os_gdiplus_hmodule)
@@ -1981,30 +1712,6 @@ int os_is_windows_8_or_later(void)
 	
 	return 0;
 }
-// true when the comctl dark explorer control classes actually render dark:
-// windows 10 1903 (build 18362) and later. older builds accept the calls
-// but keep the light control rendering, so the dialog fallbacks (owner
-// drawn buttons and combos) carry the dark ui alone on those builds.
-int os_dark_controls_supported(void)
-{
-	if (!os_is_nt)
-	{
-		return 0;
-	}
-	
-	if (os_major_version > 10)
-	{
-		return 1;
-	}
-	
-	if (os_major_version == 10)
-	{
-		return (os_build_number >= 18362) ? 1 : 0;
-	}
-	
-	return 0;
-}
-
 
 // windows creates funky regions if left > right
 HRGN os_CreateRectRgn(int left,int top,int right,int bottom)
@@ -2142,8 +1849,10 @@ int os_get_orientation(const wchar_t *filename)
 	
 	ret = 0;
 	
+#ifdef _MSC_VER
 	__try
 	{
+#endif
 		if (_os_SHGetPropertyStoreFromIDList)
 		{
 			ITEMIDLIST *pidl;
@@ -2210,11 +1919,13 @@ int os_get_orientation(const wchar_t *filename)
 		{
 			debug_printf((const utf8_t *)"no SHGetPropertyStoreFromIDList\n")	;
 		}
+#ifdef _MSC_VER
 	}
 	__except(EXCEPTION_EXECUTE_HANDLER)
 	{
 		debug_printf((const utf8_t *)"IPropertyStore::GetValue exception %08x\n",GetExceptionCode());
 	}
+#endif
 	
 	return ret;
 }

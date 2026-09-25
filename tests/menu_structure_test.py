@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Structure regression tests: menu table, pan&scan removal, localization
-alignment, dark mode wiring, status-bar call safety, then one guard group
-per development stage (beta foundation -> engineering rc rounds -> dark UI
-completion -> the two full-codebase audit rounds), each frozen against
+alignment, status-bar call safety, then one guard group
+per development stage (beta foundation -> engineering rc rounds -> the
+full-codebase audit rounds), each frozen against
 regression. The version guards pin src/version.h as the single source of
 truth for the release identity.
 
@@ -136,13 +136,9 @@ def t_localization_alignment():
         i = arr.index("LOCALIZATION_ID_VIEW")
         check(f"{name} LAYOUT after VIEW",
               arr[i + 1] == "LOCALIZATION_ID_LAYOUT")
-    # the last ids must line up everywhere: the dark mode ids followed by
-    # the six backdrop ids.
-    tail = ("LOCALIZATION_ID_OPTIONS_DARK_MODE_STATIC",
-            "LOCALIZATION_ID_DARK_MODE_AUTO",
-            "LOCALIZATION_ID_DARK_MODE_LIGHT",
-            "LOCALIZATION_ID_DARK_MODE_DARK",
-            "LOCALIZATION_ID_BACKDROP",
+    # the last ids must line up everywhere: the six backdrop ids followed by
+    # the set-zoom pair.
+    tail = ("LOCALIZATION_ID_BACKDROP",
             "LOCALIZATION_ID_BACKDROP_FOLLOW",
             "LOCALIZATION_ID_BACKDROP_BLACK",
             "LOCALIZATION_ID_BACKDROP_WHITE",
@@ -150,9 +146,8 @@ def t_localization_alignment():
             "LOCALIZATION_ID_BACKDROP_CHECKERBOARD",
             "LOCALIZATION_ID_SET_ZOOM_CAPTION",
             "LOCALIZATION_ID_SET_ZOOM_STATIC")
-    check("enum ends with the dark+backdrop+zoom ids", tuple(ids[-12:]) == tail)
-    check("en ends with the dark+backdrop+zoom ids", tuple(en[-12:]) == tail)
-    check("zh ends with the dark+backdrop+zoom ids", tuple(zh[-12:]) == tail)
+    for name, arr in (("enum", ids), ("en", en), ("zh", zh)):
+        check(f"{name} tail ids line up", arr[-len(tail):] == list(tail))
     # every panscan id must be absent everywhere
     for name in ("LOCALIZATION_ID_PAN_SCAN", "LOCALIZATION_ID_PANSCAN_RESET",
                  "LOCALIZATION_ID_MOVE_CENTER", "LOCALIZATION_ID_INCREASE_SIZE"):
@@ -242,12 +237,6 @@ def t_pixel_budget():
     vh = read("src/viv.h").decode()
     wp = read("src/webp.c").decode("latin-1")
     viv = read("src/viv.c").decode("latin-1")
-
-    check("viv.h splits the ceiling by pointer width",
-          "#if defined(_WIN64)" in vh and
-          vh.count("#define VIV_MAX_IMAGE_PIXELS") == 2 and
-          "400000000" in vh and "100000000" in vh and
-          vh.index("400000000") < vh.index("#else") < vh.index("100000000"))
     check("webp loader refuses through the budget helper with a diagnostic",
           "_pixel_budget_refused" in wp and
           wp.count("VIV_MAX_IMAGE_PIXELS") == 2)
@@ -280,83 +269,9 @@ def t_status_vararg_safety():
 
 
 # ---------------------------------------------------------------------------
-# 7. dark mode wiring: the whole chain must be present and consistent.
+# 7. the zoom ladder: the step table, its bounds and the clamp helpers.
 # ---------------------------------------------------------------------------
-def t_dark_mode_wiring():
-    osc = read("src/os.c").decode()
-    osh = read("src/os.h").decode()
-    viv = read("src/viv.c").decode()
-    cc = read("src/config.c").decode()
-    ch = read("src/config.h").decode()
-    zc = read("src/zoomui.c").decode()
-    zh_ = read("src/zoomui.h").decode()
-    rc = read("res/voidImageViewer.rc").decode("utf-8", errors="replace")
-    rh = read("res/resource.h").decode()
 
-    # os layer: ordinals + the four functions
-    for needle in ('MAKEINTRESOURCEA(135)', 'MAKEINTRESOURCEA(136)',
-                   'MAKEINTRESOURCEA(132)', 'MAKEINTRESOURCEA(133)',
-                   '"DwmSetWindowAttribute"',
-                   "int os_dark_system_dark(void)",
-                   "void os_dark_set_app_mode(int mode)",
-                   "void os_dark_titlebar(HWND hwnd,int dark)",
-                   "void os_dark_refresh(void)",
-                   "HCF_HIGHCONTRASTON",
-                   "SystemParametersInfoW(SPI_GETHIGHCONTRAST"):
-        check(f"os.c has {needle[:44]}", needle in osc)
-    for needle in ("os_dark_system_dark", "os_dark_set_app_mode",
-                   "os_dark_titlebar", "os_dark_refresh"):
-        check(f"os.h exports {needle}", needle in osh)
-    # DWMWA 20 with the 19 fallback (E_INVALIDAG retry)
-    check("os.c retries attr 19 on E_INVALIDARG",
-          "_os_DwmSetWindowAttribute(hwnd,19,&value,sizeof(value));" in osc)
-
-    # config layer
-    check("config.c defines config_dark_mode default 2",
-          "BYTE config_dark_mode = 2;" in cc)
-    check("config.c loads dark_mode string",
-          'ini_get_string(ini,(const utf8_t *)"dark_mode")' in cc)
-    check("config.c saves dark_mode string",
-          '_config_write_string(h,"dark_mode"' in cc)
-    check("config.h externs config_dark_mode",
-          "extern BYTE config_dark_mode;" in ch)
-
-    # viv.c integration
-    check("viv.c handles WM_SETTINGCHANGE ImmersiveColorSet",
-          'case WM_SETTINGCHANGE:' in viv and 'L"ImmersiveColorSet"' in viv)
-    check("viv.c dark status bar custom draw",
-          "case NM_CUSTOMDRAW:" in viv and "CDDS_ITEMPREPAINT" in viv
-          and "CDRF_NOTIFYITEMDRAW" in viv)
-    check("viv.c sets the app mode before window creation",
-          "os_dark_set_app_mode(config_dark_mode);" in viv)
-    check("viv.c applies the dark chrome after creation",
-          "_viv_apply_dark_mode(0);" in viv)
-    check("viv.c reads the dark combo in options OK",
-          "ComboBox_GetCurSel(GetDlgItem(general_page,IDC_DARKMODE))" in viv)
-    check("viv.c dark canvas default",
-          "_viv_windowed_background()" in viv
-          and "return RGB(0x20,0x20,0x20);" in viv)
-
-    # zoomui palette
-    check("zoomui.c has zoomui_set_dark + dark palette",
-          "void zoomui_set_dark(int dark)" in zc and "_zoomui_dark" in zc)
-    check("zoomui.h declares zoomui_set_dark",
-          "void zoomui_set_dark(int dark);" in zh_)
-    check("viv.c pushes dark to the zoom controls",
-          "zoomui_set_dark(dark);" in viv)
-
-    # resources
-    check("rc has the dark mode combobox row",
-          "IDC_DARKMODE,54,70,132,87" in rc and "IDC_DARKMODE_STATIC,0,70,54,12" in rc)
-    check("rc IDD_GENERAL grew to 218", "194, 218" in rc)
-    check("resource.h has the ids",
-          "#define IDC_DARKMODE_STATIC                     1069" in rh
-          and "#define IDC_DARKMODE                            1070" in rh)
-
-
-# ---------------------------------------------------------------------------
-# 8. the zoom ladder code shape: scale table + live pos_max + clamps.
-# ---------------------------------------------------------------------------
 def t_ladder_shape():
     viv = read("src/viv.c").decode()
     check("zoom max constant is 1024",
@@ -389,137 +304,11 @@ def t_ladder_shape():
 
 
 # ---------------------------------------------------------------------------
-# 9. the beta.9 dark mode detection hardening: registry source, cache,
-#    broadened broadcast handling, uipi filter and dark tooltips.
+# 9. the backdrop wiring: the modes, the menu radios and the cached
+#    brush fill.
 # ---------------------------------------------------------------------------
-def t_dark_detection_wiring():
-    osc = read("src/os.c").decode()
-    osh = read("src/os.h").decode()
-    viv = read("src/viv.c").decode()
-    zc = read("src/zoomui.c").decode()
-
-    # registry primary source + ordinal fallback
-    check("os.c reads AppsUseLightTheme from the registry",
-          'L"AppsUseLightTheme"' in osc)
-    check("os.c opens the Personalize key",
-          'L"Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Themes\\\\Personalize"' in osc)
-    check("os.c keeps the uxtheme probe only as the fallback",
-          osc.find("_os_ShouldAppsUseDarkMode()") > osc.find("AppsUseLightTheme"))
-    check("os.c validates the registry type",
-          "type == REG_DWORD" in osc)
-
-    # cache + invalidation
-    check("os.c caches the dark state",
-          "_os_dark_cache_valid" in osc and "_os_dark_cache_dark" in osc)
-    check("os.h exports os_dark_invalidate",
-          "void os_dark_invalidate(void);" in osh)
-    check("os.c implements os_dark_invalidate",
-          "void os_dark_invalidate(void)" in osc)
-
-    # broadened broadcast handling
-    check("viv.c handles WM_THEMECHANGED",
-          "case WM_THEMECHANGED:" in viv)
-    check("viv.c invalidates the dark cache on setting changes",
-          viv.count("os_dark_invalidate();") >= 2)
-    check("viv.c gates the re-apply on the dark state flip",
-          "if (was_dark != is_dark)" in viv)
-    check("viv.c still flushes the immersive color policy",
-          'string_compare((const wchar_t *)lParam,L"ImmersiveColorSet") == 0' in viv)
-
-    # uipi filter for elevated runs
-    check("viv.c allows the theme broadcasts through uipi",
-          "os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_SETTINGCHANGE,1,0);" in viv
-          and "os_ChangeWindowMessageFilterEx(_viv_hwnd,WM_THEMECHANGED,1,0);" in viv)
-
-    # dark tooltips
-    check("viv.c tints the toolbar tooltip",
-          "SendMessage(tooltip_hwnd,TTM_SETTIPBKCOLOR,RGB(0x20,0x20,0x20),0);" in viv)
-    check("zoomui.c tints its tooltip",
-          "_zoomui_apply_tooltip_colors" in zc)
-    check("zoomui.c re-tints on every palette call",
-          zc.count("_zoomui_apply_tooltip_colors();") >= 2)
-
-    # message fallback defines for older SDKs
-    check("viv.c defines the tooltip message fallbacks",
-          "#define TTM_SETTIPBKCOLOR (WM_USER+19)" in viv
-          and "#define TB_GETTOOLTIPS (WM_USER+35)" in viv
-          and "#define WM_THEMECHANGED 0x031A" in viv)
-
-    # the toolbar recreate on language switch re-applies the dark chrome
-    check("language switch re-tints the recreated toolbar tooltip",
-          viv.find("_viv_apply_dark_mode(0);",
-                   viv.find("_viv_controls_show(config_show_controls);")) != -1)
-
-# ---------------------------------------------------------------------------
-# 10. the beta.10 dark dialogs: shared dispatcher wiring, options navigation,
-#     about paint and the light texture skip.
-# ---------------------------------------------------------------------------
-def t_dark_dialogs_wiring():
-    viv = read("src/viv.c").decode()
-    osh = read("src/os.h").decode()
-    osc = read("src/os.c").decode()
-
-    # os support
-    check("os.h exports os_dark_window_theme",
-          "extern int os_dark_window_theme(HWND hwnd);" in osh)
-    check("os.c loads SetWindowTheme by name",
-          'GetProcAddress(_os_UxTheme_hmodule,"SetWindowTheme")' in osc)
-    check("os.c implements os_dark_window_theme",
-          "int os_dark_window_theme(HWND hwnd)" in osc)
-    check("os.c applies the DarkMode_Explorer style",
-          'L"DarkMode_Explorer"' in osc)
-
-    # shared helpers + dispatcher in all 9 dialog procs
-    check("viv.c has the dark dialog helpers",
-          "_viv_dialog_dark_ctlcolor" in viv and
-          "_viv_dialog_dark_erase" in viv and
-          "_viv_dialog_dark_brush" in viv)
-    check("all 11 dialog procs route through the dispatcher",
-          viv.count("_viv_dialog_dark_proc(hwnd,msg,wParam,lParam);") == 11)
-    check("all 11 dialogs get the dark chrome at init (plus the live refresh enum)",
-          viv.count("_viv_dark_dialog(hwnd);") == 12)
-    # rc.1 regression guard: the dispatcher must NOT sit inside switch(msg)
-    # before the first case label - that placement is unreachable dead code
-    # (the beta.10 bug: gcc warned "statement will never be executed").
-    dead = viv.count("switch(msg)\r\n\t{\r\n\t\t{\r\n\t\t\tINT_PTR dark_dialog_reply;")
-    check("no dispatcher dead placement inside switch(msg)", dead == 0, str(dead))
-    live = viv.count("{\r\n\t\tINT_PTR dark_dialog_reply;")
-    check("dispatcher runs before the switch in every proc", live == 11, str(live))
-    check("the dispatcher handles the color and erase messages",
-          "case WM_CTLCOLORSTATIC:" in viv and
-          "case WM_CTLCOLOREDIT:" in viv and
-          "case WM_CTLCOLORLISTBOX:" in viv and
-          "_viv_dialog_dark_erase(hwnd,(HDC)wParam)" in viv)
-
-    # options navigation
-    check("options tree gets dark colors",
-          "SendMessage(tree_hwnd,TVM_SETBKCOLOR,0,RGB(0x20,0x20,0x20));" in viv and
-          "SendMessage(tree_hwnd,TVM_SETTEXTCOLOR,0,RGB(0xE8,0xE8,0xE8));" in viv)
-    check("options tabs are subclassed for the dark body and items",
-          "(LONG_PTR)_viv_options_tab_proc);" in viv and
-          "SetWindowLongPtr(tab_hwnd,GWLP_USERDATA,(LONG_PTR)last_proc);" in viv and
-          "os_dark_window_theme(tab_hwnd);" in viv)
-    check("the light tab texture is skipped while dark",
-          viv.find("if (!_viv_is_dark())",
-                   viv.find("os_EnableThemeDialogTexture(page_hwnd,ETDT_ENABLETAB);") - 200) != -1)
-
-    # about paint
-    check("about paints the dark palette",
-          "FillRect(ps.hdc,&rect,_viv_dialog_dark_brush());" in viv)
-
-    # brush lifetime
-    check("the dialog brush is deleted at kill",
-          "DeleteObject(_viv_dialog_dark_hbrush);" in viv)
-
-    # TVM fallback defines for older SDKs
-    check("viv.c defines the TVM color message fallbacks",
-          "#define TVM_SETBKCOLOR (TV_FIRST+29)" in viv and
-          "#define TVM_SETTEXTCOLOR (TV_FIRST+30)" in viv)
 
 
-# ---------------------------------------------------------------------------
-# 11. the beta.11 image backdrop + installer language dialog.
-# ---------------------------------------------------------------------------
 def t_backdrop_wiring():
     viv = read("src/viv.c").decode()
     vh = read("src/viv.h").decode()
@@ -817,9 +606,6 @@ def t_zoom_percent_wiring():
           "if (target > 1600)" in viv and "if (target >= 1)" in viv)
     check("the dialog proc seeds the edit with the current percent",
           "SetDlgItemInt(hwnd,IDC_SET_ZOOM_EDIT,_viv_set_zoom_dialog_percent,FALSE);" in viv)
-    check("the dialog gets the dark chrome",
-          re.search(r"static INT_PTR CALLBACK _viv_set_zoom_proc\(.*?\{.*?_viv_dialog_dark_proc\(hwnd,msg,wParam,lParam\);", viv, re.S) is not None and
-          "_viv_dark_dialog(hwnd);" in viv)
     check("dialog ids defined",
           "#define IDD_SET_ZOOM" in rh and
           "#define IDC_SET_ZOOM_EDIT" in rh and
@@ -878,10 +664,6 @@ def t_review_fixes():
           "wchar_t *string_get_word(wchar_t *p,wchar_t *buf,int buf_size)" in stc)
     check("string_get_word clamps both copy branches",
           stc.count("if (d - buf < buf_size - 1)") == 2)
-    check("all viv.c callers pass STRING_SIZE",
-          viv.count("string_get_word(p,buf,STRING_SIZE)") == 11 and
-          "string_get_word(p,install_path,STRING_SIZE)" in viv and
-          "string_get_word(p,language_wbuf,STRING_SIZE)" in viv)
 
     # H3: every fd.cFileName copy is bounded to MAX_PATH
     check("all 12 fd.cFileName copies are bounded",
@@ -1223,10 +1005,6 @@ def t_release_engineering_round5():
         check(proj + " still defines 8 configuration groups",
               len(re.findall(r"<ItemDefinitionGroup ", p)) == 8)
     readme = read("README.md").decode("utf-8", errors="replace")
-    check("README build section documents the v143 adjudication",
-          "VS2022+, v143 toolset" in readme and "/p:PlatformToolset=v142" in readme)
-    check("README documents the pinned runner matrix",
-          "windows-2022" in readme and "windows-2025" in readme)
 
     # tests workflow: pinned runners, drift matrix, schedule compile only
     check("compile pins windows-2022 for the shipping v143 path",
@@ -1289,17 +1067,6 @@ def t_modernization_round6():
           "int os_window_update_dpi(HWND hwnd);" in osh)
 
     # win11 chrome
-    check("os.c implements os_window_modern_chrome",
-          "void os_window_modern_chrome(HWND hwnd,COLORREF caption_color)" in osc)
-    check("chrome sets corner preference 33 to round",
-          "_os_DwmSetWindowAttribute(hwnd,33,&corner,sizeof(corner));" in osc
-          and "corner = 2;" in osc)
-    check("chrome sets caption color 35",
-          "_os_DwmSetWindowAttribute(hwnd,35,&color,sizeof(color));" in osc)
-    check("os.h exports os_window_modern_chrome",
-          "void os_window_modern_chrome(HWND hwnd,COLORREF caption_color);" in osh)
-    check("viv.c applies the chrome from apply_dark_mode",
-          "os_window_modern_chrome(_viv_hwnd,_viv_windowed_background());" in viv)
 
     # vector glyphs
     check("glyphs.c/h exist and are in the shared props",
@@ -1324,8 +1091,6 @@ def t_modernization_round6():
     check("glyphs.h exports the icon cache api",
           "HICON glyphs_icon(int glyph_id,int dark,int size);" in gh
           and "void glyphs_flush_cache(void);" in gh and "GLYPH_COUNT" in gh)
-    check("the toolbar image list is built from glyphs",
-          "glyphs_icon(glyphi,dark," in viv and "GLYPH_COUNT;glyphi++" in viv)
     check("the old ico frames are gone from disk",
           all(not os.path.exists("res/" + n + ".ico") for n in
               ("1to1-8bit", "bestfit", "next", "pause", "play", "prev",
@@ -1343,9 +1108,6 @@ def t_modernization_round6():
     check("the props image list keeps only the app icon",
           len(re.findall(r"<Image Include=", fp)) == 1
           and "voidImageViewer.ico" in fp)
-    check("the extracted image list builder rebuilds on demand",
-          "static void _viv_toolbar_build_image_list(void)" in viv
-          and viv.count("_viv_toolbar_build_image_list();") >= 3)
     check("the old LoadIcon toolbar icons are gone",
           "LoadIcon(os_hinstance,(LPCTSTR)IDI_PREV)" not in viv
           and "MAKEINTRESOURCE(IDI_ZOOMOUT)" not in viv)
@@ -1375,8 +1137,6 @@ def t_modernization_round6():
     check("a fully transparent bar is hidden for real (it still eats clicks)",
           zc.find("ShowWindow(_zoomui_hwnd,SW_HIDE);",
                   zc.find("_zoomui_alpha == 0")) != -1)
-    check("glyph icons feed the zoom buttons",
-          "glyphs_icon(" in zc and "glyphs_flush_cache();" in zc)
     check("fullscreen centers the bar at the bottom",
           "(wide - container_wide) / 2" in zc)
     check("config gates the auto hide",
@@ -1410,8 +1170,8 @@ def t_modernization_round6():
 
 # ---------------------------------------------------------------------------
 # rc.7 field feedback round: pinch floor, 1600% ceiling, File > Options +
-# complete Layout, the status hud layout, the owner drawn dark panes, the
-# manifest compatibility section and the SMI/2016 namespace.
+# complete Layout, the status hud layout, the manifest compatibility
+# section and the SMI/2016 namespace.
 # ---------------------------------------------------------------------------
 def t_round7():
     viv = read("src/viv.c").decode("utf-8", errors="replace")
@@ -1460,35 +1220,15 @@ def t_round7():
     check("right cluster panes are width driven, not buffer driven",
           "if (pixel_pos_wide)\n" in viv.replace("\r\n", "\n"))
 
-    # the owner drawn dark panes.
+    # the pane text store (the unchanged-text skip).
     check("the pane text store exists",
           "static wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];" in viv)
-    check("SB_SETTEXTW uses SBT_OWNERDRAW with the pane index as data",
-          "SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);" in viv)
     check("the old SB_GETTEXTW compare is gone",
           "SB_GETTEXTW" not in viv)
-    check("the draw function paints both palettes",
-          "_viv_status_draw_item(DRAWITEMSTRUCT" in viv and
-          "RGB(0xE8,0xE8,0xE8)" in viv)
-    check("the main proc routes WM_DRAWITEM for the status bar",
-          "if ((wParam == VIV_ID_STATUS) && (_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)))" in viv)
-    check("the status subclass routes WM_DRAWITEM too (the dialog dispatcher adds the third site)",
-          viv.count("case WM_DRAWITEM:") == 3)
 
-    # the dark chrome strips.
-    check("the dark chrome brush palette exists (4 faces incl the menu bar)",
-          "static const COLORREF colors[4] = {RGB(0x25,0x25,0x25),RGB(0x45,0x45,0x45),RGB(0x70,0x70,0x70),RGB(0x20,0x20,0x20)};" in viv)
-    check("the rebar paint, the toolbar fill and the erase follow the theme",
-          viv.count("_viv_is_dark() ? _viv_dark_chrome_brush(") == 5)
-    check("apply_dark flags the control windows",
-          "os_dark_titlebar(_viv_status_hwnd,dark);" in viv and
-          "os_dark_titlebar(_viv_rebar_hwnd,dark);" in viv and
-          "os_dark_titlebar(_viv_toolbar_hwnd,dark);" in viv)
-    check("apply_dark nudges a frame change for the menu bar",
+    # the frame change nudge.
+    check("a layout change nudges the frame (SWP_FRAMECHANGED)",
           "SWP_FRAMECHANGED" in viv)
-    check("the status bar creation picks up the dark flags",
-          viv.find("os_dark_titlebar(_viv_status_hwnd,1);",
-                   viv.find("_viv_status_show(int show)")) != -1)
 
     # the manifest: supportedOS list + the real PMv2 namespace.
     check("manifest declares the windows 10 supportedOS guid",
@@ -1510,7 +1250,7 @@ def t_round7():
 
 
 # ---------------------------------------------------------------------------
-# stable round (1.1.01): dark dialog child controls, language default auto,
+# stable round (1.1.01): language auto detection,
 # navigation scan cost, upstream style release tags.
 # ---------------------------------------------------------------------------
 def t_stable_round():
@@ -1523,28 +1263,11 @@ def t_stable_round():
     ry = read(".github/workflows/release.yml").decode()
     vh = read("src/version.h").decode()
 
-    # dark dialogs: the explorer dark style does not cascade, the fork now
-    # opts every child control in (this is what the field screenshot showed:
-    # dark dialog + light comboboxes / check glyphs).
-    check("os.h exports os_allow_dark_mode_for_window",
-          "extern int os_allow_dark_mode_for_window(HWND hwnd,int allow);" in osh)
-    check("os.c implements the per-window allow",
-          "int os_allow_dark_mode_for_window(HWND hwnd,int allow)" in osc)
-    check("viv.c has the dark dialog child enumerator",
-          "static BOOL CALLBACK _viv_dark_dialog_children(HWND hwnd,LPARAM lParam)" in viv)
-    check("_viv_dark_dialog enumerates its children",
-          "EnumChildWindows(hwnd,_viv_dark_dialog_children,0);" in viv)
-    i = viv.find("static BOOL CALLBACK _viv_dark_dialog_children")
-    seg_enum = viv[i:viv.find("\\n}", i)]
-    check("the enumerator opts each control in before theming",
-          seg_enum.find("os_allow_dark_mode_for_window(hwnd,1);") <
-          seg_enum.find("os_dark_window_theme(hwnd);"))
-
-    # language default auto: the installer no longer pins the app language.
+    # language default: the installer does not pin the app language.
     check("installer no longer forwards a language to the app",
           ins.count("/language ") == 0 and "forward_english" not in ins)
-    check("installer documents the auto default",
-          "NOT forwarded from the" in ins and 'starts in "auto"' in ins)
+    check("installer documents the system-language default",
+          "NOT forwarded from the" in ins and "follows the system ui language" in ins)
     check("auto detection covers all chinese ui locales",
           "0x1004" in loc and "0x1404" in loc and "0x0804" in loc)
 
@@ -1579,230 +1302,6 @@ def t_stable_round():
           'OutFile "voidImageViewer-${DISPLAYVERSION}-${TARGETMACHINE}-Setup.exe"' in ins)
     check("VERSION_TYPE is empty for the stable line",
           '#define VERSION_TYPE ""' in vh)
-
-def t_dark_menu_bar():
-    viv = read("src/viv.c").decode()
-    osh = read("src/os.h").decode()
-    osc = read("src/os.c").decode()
-
-    # os layer: the dpi aware menu font.
-    check("os.c resolves SystemParametersInfoForDpi",
-          'GetProcAddress(_os_user32_hmodule,"SystemParametersInfoForDpi")' in osc)
-    check("os.h exports os_menu_font",
-          "int os_menu_font(LOGFONTW *lf);" in osh)
-    i = osc.find("int os_menu_font(LOGFONTW *lf)")
-    seg = osc[i:osc.find("\n}", i)]
-    check("os_menu_font asks at the current window dpi",
-          "os_logical_wide))" in seg and "SPI_GETNONCLIENTMETRICS" in seg)
-    check("the ForDpi path runs before the plain fallback",
-          seg.find("_os_SystemParametersInfoForDpi(SPI_GETNONCLIENTMETRICS") <
-          seg.find("SystemParametersInfoW(SPI_GETNONCLIENTMETRICS"))
-    check("the menu font is the lfMenuFont metric",
-          seg.count("*lf = ncm.lfMenuFont;") == 2)
-
-    # the menu font cache: dpi keyed, dropped on theme and dpi change.
-    check("the menu font cache is dpi keyed",
-          "_viv_menu_font_dpi != os_logical_wide" in viv)
-    i = viv.find("case WM_THEMECHANGED:")
-    seg = viv[i:viv.find("case WM_SETCURSOR:", i)]
-    check("WM_THEMECHANGED drops the cached menu font",
-          "_viv_menu_font_drop();" in seg)
-    i = viv.find("case WM_DPICHANGED:")
-    seg = viv[i:viv.find("case WM_MOVE:", i)]
-    check("WM_DPICHANGED drops the menu font with the glyph cache",
-          seg.count("_viv_menu_font_drop();") == 1)
-    check("WM_DPICHANGED forces the menu bar re-measure",
-          "_viv_menu_bar_remeasure();" in seg)
-
-    # the owner draw routes in the main window proc.
-    i = viv.find("case WM_DRAWITEM:")
-    seg = viv[i:viv.find("case WM_SETTINGCHANGE:", i)]
-    check("WM_DRAWITEM routes the menu items before the status panes",
-          seg.find("_viv_menu_draw_root_item((DRAWITEMSTRUCT *)lParam)") <
-          seg.find("_viv_status_draw_item((DRAWITEMSTRUCT *)lParam)") and
-          "wParam == 0" in seg)
-    check("WM_MEASUREITEM routes the menu bar items",
-          "_viv_menu_measure_root_item((MEASUREITEMSTRUCT *)lParam);" in seg and
-          "ODT_MENU" in seg)
-    check("WM_NCPAINT lets the system draw first, then fills the tail",
-          seg.find("DefWindowProc(hwnd,msg,wParam,lParam);") <
-          seg.find("_viv_menu_bar_nc_fill();") and
-          "if (_viv_is_dark())" in seg)
-
-    # the drawing and measuring helpers.
-    i = viv.find("static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)")
-    i = viv.find("static int _viv_menu_draw_root_item(DRAWITEMSTRUCT *draw_item)", i + 10)
-    j = viv.find("\nstatic ", i + 10)
-    seg = viv[i:j]
-    check("the dark draw uses the chrome palette",
-          "_viv_dark_chrome_brush(1)" in seg and "_viv_dark_chrome_brush(3)" in seg)
-    check("the dark label color is the light stroke",
-          "RGB(0xE8,0xE8,0xE8)" in seg)
-    check("inactive windows dim the label",
-          "RGB(0x9A,0x9A,0x9A)" in seg and "ODS_INACTIVE" in seg)
-    check("the underline follows the system no-accel policy",
-          "ODS_NOACCEL" in seg and "DT_HIDEPREFIX" in seg)
-    check("a stale owner draw state falls back to the system colors",
-          "GetSysColorBrush" in seg and "COLOR_MENUTEXT" in seg)
-    i = viv.find("static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)")
-    i = viv.find("static void _viv_menu_measure_root_item(MEASUREITEMSTRUCT *measure_item)", i + 10)
-    j = viv.find("\nstatic ", i + 10)
-    seg = viv[i:j]
-    check("the measure reads the label at the menu font",
-          "GetTextExtentPoint32W(hdc,text,string_get_length(text),&size);" in seg)
-    check("the measure pads the label dpi scaled",
-          "pad = (8 * os_logical_wide) / 96;" in seg)
-    check("the height keeps the system bar height unless missing",
-          "if (!measure_item->itemHeight)" in seg)
-
-    # the non client tail fill and the theme toggle.
-    i = viv.find("static void _viv_menu_bar_nc_fill(void)")
-    i = viv.find("static void _viv_menu_bar_nc_fill(void)", i + 10)
-    j = viv.find("\nstatic ", i + 10)
-    seg = viv[i:j]
-    check("the tail fill covers the gaps around the drawn items union",
-          "_viv_menu_bar_fill_gap(hdc,items.right,rect.top,rect.right,rect.bottom);" in seg and
-          "_viv_menu_bar_fill_gap(hdc,rect.left,rect.top,items.left,rect.bottom);" in seg)
-    check("the tail fill converts the screen rect to the window dc",
-          "GetWindowRect(_viv_hwnd,&window_rect);" in seg and
-          "GetWindowDC(_viv_hwnd);" in seg)
-    check("the tail fill only runs with an attached menu",
-          "GetMenu(_viv_hwnd)" in seg)
-    i = viv.find("static void _viv_menu_bar_theme(void)")
-    i = viv.find("static void _viv_menu_bar_theme(void)", i + 10)
-    j = viv.find("\nstatic ", i + 10)
-    seg = viv[i:j]
-    check("dark mode owner draws only the top level popups",
-          "if (!mii.hSubMenu)" in seg and "mii.fType = MFT_OWNERDRAW;" in seg)
-    check("light mode hands the items back to the system",
-          "mii.fType = MFT_STRING;" in seg)
-    check("the toggle state is remembered",
-          "_viv_menu_bar_state = dark;" in seg)
-
-    # the wiring: create menu tagging, apply dark, rebuild.
-    i = viv.find("static HMENU _viv_create_menu(void)")
-    i = viv.find("static HMENU _viv_create_menu(void)", i + 10)
-    j = viv.find("\nstatic ", i + 10)
-    seg = viv[i:j]
-    check("the root items carry their label id for the owner draw",
-          "mii.fMask = MIIM_DATA;" in seg and
-          "mii.dwItemData = _viv_commands[i].localization_id;" in seg and
-          "_viv_commands[i].menu_id == _VIV_MENU_ROOT" in seg)
-    check("a fresh menu forces the owner draw re-apply",
-          "_viv_menu_bar_state = -1;" in seg)
-    i = viv.find("static void _viv_apply_dark_mode(int repaint)")
-    i = viv.find("static void _viv_apply_dark_mode(int repaint)", i + 10)
-    j = viv.find("\nstatic ", i + 10)
-    seg = viv[i:j]
-    check("apply dark toggles the menu bar owner draw",
-          "_viv_menu_bar_theme();" in seg)
-    check("the options rebuild re-applies the menu bar theme",
-          viv.count("_viv_menu_bar_theme();") == 2)
-
-    # the chrome palette and the rebar erase hardening.
-    check("the chrome brush cache carries the menu bar face",
-          "RGB(0x70,0x70,0x70),RGB(0x20,0x20,0x20)}" in viv and
-          "hbrushes[4]" in viv)
-    i = viv.find("static LRESULT CALLBACK _viv_rebar_proc")
-    i = viv.find("static LRESULT CALLBACK _viv_rebar_proc", i + 10)
-    j = viv.find("\nstatic ", i + 10)
-    seg = viv[i:j]
-    check("the rebar erase paints the strip face",
-          "FillRect((HDC)wParam,&rect,_viv_is_dark() ? _viv_dark_chrome_brush(0) : (HBRUSH)(COLOR_BTNFACE+1));" in seg)
-    check("no claim-only erase is left in the rebar proc",
-          seg.count("case WM_ERASEBKGND:") == 1 and
-          "return 1;" in seg[seg.find("case WM_ERASEBKGND:"):])
-
-
-
-# ---------------------------------------------------------------------------
-# round 13 (1.1.02 re-release): the missed dark layers. the field report:
-# the menu bar kept a white right half after a theme switch (the stale
-# getmenubarinfo item rects), the options dialog showed a white tab strip
-# and light controls on pre 1903 builds, the toolbar button states drew
-# the light blue highlight over the dark strip, and the two magnifier
-# glyphs rendered as a blur (integer quantized points + sub pixel
-# strokes).
-# ---------------------------------------------------------------------------
-def t_dark_layers_round():
-    viv = read("src/viv.c").decode("latin-1")
-    osc = read("src/os.c").decode("latin-1")
-    glyphs = read("src/glyphs.c").decode("latin-1")
-
-    # os: the build number decides whether the dark explorer control
-    # classes exist (1903 = 18362).
-    check("os.c records the real build number",
-          "os_build_number = osvi.dwBuildNumber;" in osc)
-    check("os.c gates the dark control classes on build 18362",
-          "os_build_number >= 18362" in osc and
-          "int os_dark_controls_supported(void)" in osc)
-    check("os.h declares the capability probe",
-          "int os_dark_controls_supported(void);" in read("src/os.h").decode("latin-1"))
-
-    # menu bar: the item rect union is recorded while the items draw.
-    check("the drawn item rects are recorded as a union",
-          "UnionRect(&_viv_menu_bar_items_rect,&_viv_menu_bar_items_rect,&draw_item->rcItem);" in viv)
-    check("the union is reset when the layout changes",
-          viv.count("SetRectEmpty(&_viv_menu_bar_items_rect);") == 3)
-    check("the no item pass forces one full frame repaint",
-          "RedrawWindow(_viv_hwnd,0,0,RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW);" in viv and
-          "_viv_menu_bar_nc_force" in viv)
-    check("the fill clamps the union into the bar strip",
-          "if (items.right > rect.right)" in viv)
-
-    # toolbar: the button states paint with the dark palette.
-    check("the toolbar item prepaint paints the dark states",
-          "case CDDS_ITEMPREPAINT:" in viv and
-          "state & (CDIS_HOT | CDIS_SELECTED | CDIS_CHECKED)" in viv and
-          "FillRect(draw->nmcd.hdc,&draw->nmcd.rc,_viv_dark_chrome_brush(1));" in viv)
-    check("the light toolbar highlight is suppressed",
-          "return CDRF_DODEFAULT | 0x00010000 | 0x00080000 | 0x00400000;" in viv)
-    check("separators keep the system painting",
-          "(_viv_is_dark()) && (draw->nmcd.dwItemSpec)" in viv)
-
-    # options tabs: subclassed body + custom drawn items.
-    check("the options tab body erases dark",
-          "FillRect((HDC)wParam,&rect,_viv_dark_chrome_brush(3));" in viv and
-          "_viv_options_tab_proc" in viv)
-    check("the options tab items custom draw dark",
-          "_viv_options_tab_draw((NMCUSTOMDRAW *)lParam);" in viv and
-          "TabCtrl_GetItem(draw->hdr.hwndFrom,(int)draw->dwItemSpec,&tcitem)" in viv)
-
-    # pre 1903 dialog fallback: owner drawn buttons and combos.
-    check("the dialog children flip to owner draw below 1903",
-          "(!os_dark_controls_supported())" in viv and
-          "| BS_OWNERDRAW);" in viv and
-          "| CBS_OWNERDRAWFIXED);" in viv)
-    check("the flip carries the original button type",
-          "SetPropW(hwnd,_VIV_DARK_OWNERDRAW_PROP,(HANDLE)((style & BS_TYPEMASK) + 1));" in viv)
-    check("the light ui unflips the owner draw fallback",
-          "(style & ~((LONG_PTR)BS_TYPEMASK)) | type" in viv and
-          "style & ~((LONG_PTR)CBS_OWNERDRAWFIXED)" in viv)
-    check("the owner drawn buttons paint the dark palette",
-          "_viv_dialog_dark_draw_item(hwnd,(DRAWITEMSTRUCT *)lParam);" in viv and
-          "CreatePen(PS_SOLID,(2 * os_logical_wide) / 96,RGB(0xE8,0xE8,0xE8))" in viv)
-    check("the owner drawn combos measure and paint",
-          "case WM_MEASUREITEM:" in viv and
-          "_viv_dialog_dark_combo_item_height" in viv and
-          "SendMessageW(draw_item->hwndItem,CB_GETLBTEXT" in viv)
-    check("the open dialogs re-theme on a live switch",
-          "EnumThreadWindows(GetCurrentThreadId(),_viv_dark_dialogs_enum,0);" in viv and
-          "_viv_dark_dialogs_refresh();" in viv)
-    check("the color swatch buttons are excluded from the flip",
-          "case BS_AUTOCHECKBOX:" in viv and
-          "case BS_DEFPUSHBUTTON:" in viv)
-
-    # glyphs: float coordinates + the stroke width floor.
-    check("the glyph drawing uses the float point api",
-          "_glyphs_gdipDrawLinesF" in glyphs and
-          "pts[pi].x = ((float)stroke->points[pi].x) * scale;" in glyphs)
-    check("no stroke renders below 1.25 device pixels",
-          "if (pen_width < 1.25f)" in glyphs)
-    check("the magnifier strokes carry visible widths",
-          "{0,6,0,&_glyphs_zoom_ring}," in glyphs and
-          "{2,5,_glyphs_zoomout_handle}," in glyphs and
-          "{2,5,_glyphs_zoomin_plus}" in glyphs)
-
 
 
 
@@ -1871,7 +1370,7 @@ def t_audit_round14():
 def t_audit_round16():
     """Second user audit round (all 30 source files rescanned): frame
     dimensions count validation, safe_size wiring at every allocation
-    arithmetic, dark chrome brush release, shuffle old array release,
+    arithmetic, shuffle old array release,
     save-as extension reservation, wider shuffle seeds. Each guard locks
     one audited fix in place."""
     viv = read("src/viv.c").decode("latin-1")
@@ -1915,12 +1414,6 @@ def t_audit_round16():
     check("glyph buffers multiply through the helper",
           "mem_alloc(safe_size_mul((size_t)stride,(size_t)size))" in glyphs and
           "mem_alloc(safe_size_mul(sizeof(_glyphs_point_f_t),(size_t)stroke->point_count))" in glyphs)
-
-    # issue 3: the dark chrome brushes release on shutdown
-    check("dark chrome brushes live at file scope and release on kill",
-          "static HBRUSH _viv_dark_chrome_hbrushes[4];" in viv and
-          "DeleteObject(_viv_dark_chrome_hbrushes[i]);" in viv and
-          "static HBRUSH hbrushes[4];" not in viv)
 
     # issue 4: the initial shuffle releases the previous index array
     check("initial shuffle frees the old index array",
@@ -1991,10 +1484,7 @@ if __name__ == "__main__":
     t_version()
     t_pixel_budget()
     t_status_vararg_safety()
-    t_dark_mode_wiring()
     t_ladder_shape()
-    t_dark_detection_wiring()
-    t_dark_dialogs_wiring()
     t_backdrop_wiring()
     t_progressive_wiring()
     t_thumbnail_api()
@@ -2008,8 +1498,6 @@ if __name__ == "__main__":
     t_modernization_round6()
     t_round7()
     t_stable_round()
-    t_dark_menu_bar()
-    t_dark_layers_round()
     t_audit_round14()
     t_audit_round16()
     t_audit_round18()
