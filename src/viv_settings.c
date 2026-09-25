@@ -332,7 +332,7 @@ static void _viv_settings_draw_switch(HDC hdc,const _viv_settings_ctl_t *ctl,int
 static void _viv_settings_draw_check(HDC hdc,const _viv_settings_ctl_t *ctl,int checked,int hot,int focus);
 static void _viv_settings_draw_color(HDC hdc,const _viv_settings_ctl_t *ctl,COLORREF colorref,int hot,int focus);
 static void _viv_settings_draw_button(HDC hdc,const _viv_settings_ctl_t *ctl,int hot,int pressed,int focus);
-static void _viv_settings_draw_focus_ring(HDC hdc,const RECT *rect);
+static void _viv_settings_draw_focus_ring(HDC hdc,const RECT *rect,int radius);
 static void _viv_settings_capture_used_by_text(wchar_t *wbuf);
 static void _viv_settings_fill_round(HDC hdc,const RECT *rect,int radius,COLORREF fill,COLORREF line);
 
@@ -3175,6 +3175,10 @@ static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int se
 
 	CopyRect(&rect,&ctl->rect);
 
+	// round-132: the pill insets two dips inside its row - two stacked
+	// pills never share an edge (the hit row stays whole for the mouse).
+	InflateRect(&rect,0,-_viv_settings_dip(2));
+
 	if (selected)
 	{
 		_viv_settings_fill_round(hdc,&rect,_viv_settings_dip(6),_viv_settings_color(_VIV_SETTINGS_C_ACCENT),_viv_settings_color(_VIV_SETTINGS_C_ACCENT));
@@ -3212,7 +3216,7 @@ static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int se
 	// finding: the tab wrap from ok landed invisible).
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&rect);
+		_viv_settings_draw_focus_ring(hdc,&rect,_viv_settings_dip(6));
 	}
 }
 
@@ -3229,7 +3233,7 @@ static void _viv_settings_draw_dropdown(HDC hdc,const _viv_settings_ctl_t *ctl,i
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&ctl->value);
+		_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(4));
 	}
 
 	// the value text.
@@ -3487,7 +3491,7 @@ static void _viv_settings_draw_switch(HDC hdc,const _viv_settings_ctl_t *ctl,int
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&ctl->value);
+		_viv_settings_draw_focus_ring(hdc,&ctl->value,(ctl->value.bottom - ctl->value.top) / 2);
 	}
 
 	// the knob: a 3 dip inset circle.
@@ -3561,7 +3565,7 @@ static void _viv_settings_draw_check(HDC hdc,const _viv_settings_ctl_t *ctl,int 
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&box);
+		_viv_settings_draw_focus_ring(hdc,&box,_viv_settings_dip(3));
 	}
 
 	if (checked)
@@ -3671,7 +3675,7 @@ static void _viv_settings_draw_color(HDC hdc,const _viv_settings_ctl_t *ctl,COLO
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&ctl->value);
+		_viv_settings_draw_focus_ring(hdc,&ctl->value,0);
 	}
 }
 
@@ -3720,7 +3724,7 @@ static void _viv_settings_draw_button(HDC hdc,const _viv_settings_ctl_t *ctl,int
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&ctl->rect);
+		_viv_settings_draw_focus_ring(hdc,&ctl->rect,_viv_settings_dip(6));
 	}
 
 	if (ctl->id == _VIV_SETTINGS_ID_OK)
@@ -3870,7 +3874,7 @@ static void _viv_settings_draw_scrollbar(HDC mem,const RECT *client)
 	}
 }
 
-static void _viv_settings_draw_focus_ring(HDC hdc,const RECT *rect)
+static void _viv_settings_draw_focus_ring(HDC hdc,const RECT *rect,int radius)
 {
 	HPEN pen;
 	HPEN old_pen;
@@ -3881,7 +3885,19 @@ static void _viv_settings_draw_focus_ring(HDC hdc,const RECT *rect)
 	old_pen = (HPEN)SelectObject(hdc,pen);
 	old_brush = SelectObject(hdc,GetStockObject(NULL_BRUSH));
 
-	Rectangle(hdc,rect->left - 1,rect->top - 1,rect->right + 1,rect->bottom + 1);
+	// round-132: the ring follows the face it frames. the square ring
+	// poked its corners out past every rounded face (the message box
+	// fixed this same shape for itself in rc.13); the radius rides the
+	// face's own, one wider on the one-pixel-outset ring. the square
+	// ring stays only where the face is square.
+	if (radius > 0)
+	{
+		RoundRect(hdc,rect->left - 1,rect->top - 1,rect->right + 1,rect->bottom + 1,(radius + 1) * 2,(radius + 1) * 2);
+	}
+	else
+	{
+		Rectangle(hdc,rect->left - 1,rect->top - 1,rect->right + 1,rect->bottom + 1);
+	}
 
 	SelectObject(hdc,old_brush);
 	SelectObject(hdc,old_pen);
@@ -4082,7 +4098,7 @@ static void _viv_settings_draw_accent(HDC hdc,const _viv_settings_ctl_t *ctl,int
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&ctl->rect);
+		_viv_settings_draw_focus_ring(hdc,&ctl->rect,0);
 	}
 }
 

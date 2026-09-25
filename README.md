@@ -24,12 +24,14 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.18 — the merged-report adjudication round (the current release candidate):**
+**1.1.15-rc.19 — the toolbar paging round (the current release candidate):**
 
-- The WIC path now delivers every frame the codec reports: multi-frame HEIF/AVIF sequences animate instead of showing frame 0 forever, gated by the animation budgets (the webp pair) and carried on the uniform 100ms stand-in delay.
-- The frame-state invariant lives in one guard: every frame-array reader asks it first, an empty animation is refused and a stale position is repaired and logged — the -1 former (prev wrap, skip wrap, end jump, timer read) is closed.
-- The installer asks the machine, not itself (GetNativeSystemInfo replaces the process-scoped wow64 probe), and a standard user's default directory follows the account: a failed Program Files write probe moves the default to the per-user Programs directory instead of failing mid-install.
-- The hardening set: the QPC clock pair degrades in one domain, the webp canvas budget runs before the animation decoder exists, a null-bits dib or a refused select skips the frame, and the QOI trailing-chunk leniency is a spelled contract.
+- A narrow window no longer amputates the toolbar: when the strip outgrows the window an arrow rides the right edge and a click pages one group (the separator's own unit — a button is never cut mid-glyph); once paged a second arrow rides the left edge, the open button never pages away, and widening past the overflow resets the page home.
+- The designed 8-dip button gap finally landed between adjacent faces — the constant was scaled and never spent, and the flush rounded hover faces read as one control bleeding into the next.
+- The settings focus ring follows the rounded faces it frames (the square ring poked its corners out past every rounded corner — the message box fixed this same shape for itself in rc.13), the nav pills inset inside their rows, and the floating bar's keyboard focus is an accent ring that follows the capsule.
+- The budget refusal family is one family: the pixel and animation gates live once in the load domain and every decoder (webp, wic, qoi) calls the exported pair.
+
+**1.1.15-rc.18 — the merged-report adjudication round:** the WIC path delivers every frame the codec reports (multi-frame HEIF/AVIF sequences animate behind the animation budgets), the frame-state guard closes the -1 family, and the installer asks the machine. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.17 — the default-app honesty round:** the association checkbox registers both Open With homes and tells the shell (SHChangeNotify), the honest read admits what a UserChoice lock means and offers the settings page, and a failed load rides the title bar in the status-bar-less presets. See [Changes.txt](Changes.txt).
 
@@ -45,7 +47,6 @@ What's new
 
 **1.1.15-rc.10 — the gui limits round:** the breathing bottom-right pair, the resurrected count dropdowns, the narrow-window give-way order, the four-digit zoom editor, and the full command-line usage page. See [Changes.txt](Changes.txt).
 
-**1.1.15-rc.9 — the memory and cache round:** the cache ring and the preload chain you size, the resume switch, the recent/rename identity fixes, and the animation memory work. See [Changes.txt](Changes.txt).
 - The image cache is a ring you size — Settings → View → **Cache count** (off / 1–8 images); walk back through what you just saw without reloading.
 - Every settings row applies live as you flip it; **OK** (or Enter) persists and closes, **Apply** persists and stays, **Cancel** (or Esc, or the title ✕) rewinds to the last persisted baseline. On short work areas the page scrolls under the footer — the wheel, the page keys and the scrollbar thumb all move it.
 - Preloading walks a chain you size — **Preload count** (off / 1–5 images ahead); the chain's images sit in the ring, ready before you arrive.

@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.18.96",
-          (major, minor, rev, build) == (1, 1, 15, 97), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.18",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.18", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15-rc.19.98",
+          (major, minor, rev, build) == (1, 1, 15, 98), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15-rc.19",
+          vstr is not None and vstr.group(1) == "1.1.15-rc.19", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -2572,6 +2572,7 @@ def t_sim_merged_report_round130():
     qoi = read("src/qoi.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
     nsi = read("nsis/installer.nsi").decode("utf-8", errors="replace").replace("\r\n", "\n")
     viv_h = read("src/viv.h").decode("utf-8", errors="replace").replace("\r\n", "\n")
+    load = read("src/viv_load.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
 
     # ------------------------------------------------------------------
     # 1. the confirmed finding: the wic multi-frame delivery
@@ -2616,8 +2617,8 @@ def t_sim_merged_report_round130():
     max_image_bytes = extract_int(viv_h, r"VIV_MAX_IMAGE_BYTES\s+(\d+)",
                                   "the working-set byte ceiling")
     m_frame_price = re.search(r"canvas_pixels \* (\d+) / (\d+) > VIV_MAX_ANIMATION_TOTAL_BYTES",
-                              function_body(wic, "static int _animation_budget_refused(") or "")
-    check("the frame-array price (16/3 bytes per canvas pixel per frame) mirrors webp.c",
+                              function_body(load, "int _viv_animation_budget_refused(") or "")
+    check("the frame-array price (16/3 bytes per canvas pixel per frame) is the one family's",
           m_frame_price is not None and m_frame_price.group(1) == "16",
           "(the * 16 / 3 pricing)")
     price_num = int(m_frame_price.group(1)) if m_frame_price else 16
@@ -2806,6 +2807,139 @@ def t_sim_merged_report_round130():
           default_dir(False) == "$LOCALAPPDATA\\Programs")
 
 
+
+
+def t_sim_paging_round132():
+    """Behavioral model for the toolbar paging round. the walk is
+    re-executed: the item table parses seat by seat from the shipped
+    source, the walk order / floor / clamp rules are pinned to the
+    source, and the model answers the narrow-window scenarios - the
+    fit that never pages, the overflow that hides groups behind an
+    arrow, the page that turns around the open button, the last page
+    that drops the right arrow, the stale page that goes home, and
+    the gap that keeps two adjacent faces from ever sharing an
+    edge."""
+    print("sim: the toolbar paging (round 132)")
+    tb = read("src/viv_toolbar.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
+
+    # the table, parsed seat by seat.
+    rows = re.findall(r"\{_VIV_TOOLBAR_TYPE_(BUTTON|SEP),[^{}]*?,(\d)\}", tb)
+    check("the item table parses to fifteen seats",
+          len(rows) == 15 and [t for t, g in rows].count("BUTTON") == 10 and
+          [t for t, g in rows].count("SEP") == 5, str(rows))
+    items = [(t, int(g)) for t, g in rows]
+
+    # the walk order and rules, pinned to the source.
+    check("the walk runs the fit before the left page before the right walk",
+          tb.find("the full-fit fast path") < tb.find("the left page") < tb.find("the right walk"))
+    check("the arrows reserve their slots before the right walk",
+          "avail = _viv_toolbar_wide - _viv_toolbar_arrow_wide;" in tb)
+
+    # the model: the walk, mirrored. synthetic widths stand in for the
+    # font pass (the runtime cannot run here); the arithmetic is the
+    # walk's own.
+    GAP = 8
+    AW = 40
+    GROUP_MAX = 5
+
+    def widths_for(scale):
+        return [scale + g if t == "BUTTON" else 17 for t, g in items]
+
+    def walk(wide, page, mask=0x3f, widths=None):
+        if widths is None:
+            widths = widths_for(60)
+        visible = [bool(mask >> g & 1) for t, g in items]
+
+        def total():
+            tot, prev_button = 0, False
+            for i, (t, g) in enumerate(items):
+                if visible[i]:
+                    if t == "BUTTON" and prev_button:
+                        tot += GAP
+                    prev_button = t == "BUTTON"
+                    tot += widths[i]
+            return tot
+
+        if total() <= wide:
+            return page, 0, 0, list(visible)
+
+        left_hidden = 0
+        if page > 0:
+            for i, (t, g) in enumerate(items):
+                if visible[i] and 1 <= g <= page:
+                    visible[i] = False
+                    left_hidden += 1
+            if not left_hidden:
+                page = 0
+        left_arrow = 1 if page > 0 else 0
+
+        avail = wide - AW - (AW if left_arrow else 0)
+        right_hidden = 0
+        group = GROUP_MAX
+        while total() > avail and group > 0:
+            for i, (t, g) in enumerate(items):
+                if visible[i] and g == group:
+                    visible[i] = False
+                    right_hidden += 1
+            group -= 1
+        right_arrow = 1 if right_hidden else 0
+        return page, left_arrow, right_arrow, list(visible)
+
+    def groups_shown(state):
+        return sorted({g for i, (t, g) in enumerate(items) if state[3][i]})
+
+    # 1. the fit never pages.
+    state = walk(10000, 0)
+    check("a fitting strip shows every group and no arrows",
+          state[1] == 0 and state[2] == 0 and groups_shown(state) == [0, 1, 2, 3, 4, 5])
+
+    # 2. the overflow hides from the right behind the arrow.
+    state = walk(240, 0)
+    check("the overflow keeps the early groups, hides the late ones, shows the arrow",
+          state[2] == 1 and state[1] == 0 and 0 in groups_shown(state) and
+          5 not in groups_shown(state))
+
+    # 3. the page turns around the open button.
+    state = walk(240, 1)
+    check("page one hides the nav group from the left and keeps the open button",
+          state[1] == 1 and 0 in groups_shown(state) and 1 not in groups_shown(state))
+
+    # 4. the last page drops the right arrow.
+    state = walk(240, 5)
+    check("the last page shows only the open group and the back arrow",
+          state[1] == 1 and state[2] == 0 and groups_shown(state) == [0])
+
+    # 5. the stale page goes home (its groups all hid behind the mask).
+    state = walk(200, 2, mask=0x31)
+    check("a page whose groups all hid clamps home",
+          state[0] == 0 and state[1] == 0 and state[2] == 1 and
+          groups_shown(state) == [0, 4])
+
+    # 6. group zero never hides, however narrow.
+    state = walk(10, 5)
+    check("the floor: the open group never hides",
+          0 in groups_shown(state))
+
+    # 7. the gap: two adjacent faces never share an edge.
+    widths = widths_for(60)
+    adj = None
+    for i in range(len(items) - 1):
+        if items[i][0] == "BUTTON" and items[i + 1][0] == "BUTTON":
+            adj = (i, i + 1)
+            break
+    if not check("the table seats two adjacent buttons (prev and next)", adj is not None):
+        return
+    xs, x, prev_button = {}, 0, False
+    for i, (t, g) in enumerate(items):
+        if t == "BUTTON" and prev_button:
+            x += GAP
+        prev_button = t == "BUTTON"
+        xs[i] = x
+        x += widths[i]
+    check("two adjacent buttons carry the design's gap between their faces",
+          xs[adj[1]] - (xs[adj[0]] + widths[adj[0]]) == GAP)
+
+
 if __name__ == "__main__":
     t_sim_mat_color()
     t_sim_recent_mru()
@@ -2828,6 +2962,7 @@ if __name__ == "__main__":
     t_sim_settings_round126()
     t_sim_title_borrow_round129()
     t_sim_merged_report_round130()
+    t_sim_paging_round132()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

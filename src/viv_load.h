@@ -26,6 +26,15 @@
 
 #include "viv.h"
 
+// round-132: the budget refusal family is one family. the pixel gate
+// and the frame-array gate lived as four (and three) byte-identical
+// copies across this loader and the webp, wic and qoi decoders; the
+// pair is exported here and every decoder calls the externs. on
+// refusal the shared budget flag lights and the load fails like any
+// unloadable file.
+int _viv_pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling);
+int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels);
+
 // exported to other domains / the viv.c core
 void _viv_clear(void);
 void _viv_process_pending_clear(void);

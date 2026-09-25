@@ -1,4 +1,54 @@
-﻿Pre-release: Version 1.1.15-rc.18 (the merged-report adjudication round)
+﻿Pre-release: Version 1.1.15-rc.19 (the toolbar paging round)
+
+	the narrow window no longer amputates the toolbar. the overflow
+	contract used to hide whole groups from the right and leave no
+	trace: rotate and info simply vanished, with no affordance and no
+	way back. the strip pages now. when the content outgrows the
+	window an arrow rides the right edge, a click pages one group (the
+	separator's own unit, so no button is ever cut mid-glyph), and
+	once paged a second arrow rides the left edge to page back. the
+	open button never pages away (the primary action stays put; the
+	pages turn around it), widening the window past the overflow
+	resets the page home, and a page whose groups all hide clamps
+	back. the walk keeps its floor - group zero is never hidden - the
+	arrows reuse the strip's own press, hover and capture machinery,
+	and no timer, no wrapping and no chevron popup joined the code.
+
+	the design's own button gap finally landed. the measure walked
+	buttons flush against each other while the separators carried all
+	the air: the 8-dip "between the buttons" constant was scaled, read
+	and never spent, so two adjacent rounded hover faces stacked edge
+	to edge and read as one control bleeding into the next (the field
+	report's rounded corners exceeding the button borders). the gap
+	between adjacent laid-out buttons is spent now - the same air the
+	separators always had.
+
+	the settings focus ring learned its faces' shapes. the ring drew a
+	square rectangle one pixel outside controls whose faces are
+	rounded - the buttons, the dropdowns, the switches, the checkboxes
+	and the nav pills - so the ring's corners poked out past every
+	rounded corner they framed (the message box fixed this same shape
+	for itself in rc.13; the settings window kept the square ring).
+	the ring is a rounded rect now, each site carrying its own face's
+	radius, and the square ring survives only where the face is square
+	(the color swatch, the accent row). the nav pills inset two dips
+	inside their rows so two stacked pills never share an edge, and
+	the floating bar's keyboard focus exchanged its dotted square -
+	whose corners cleared the capsule arc and floated over the gaps -
+	for an accent ring that follows the stadium.
+
+	the budget refusal family is one family. four byte-identical
+	copies of the pixel budget gate and three of the animation gate
+	lived across the gdi+ loader, the webp decoder, the wic decoder
+	and the qoi decoder - the audits kept finding them, and the r130
+	wic round added the newest member. a budget semantics change had
+	five homes to miss. viv_load.c owns the pair now and exports them
+	through viv_load.h; the decoders call the externs and carry no
+	copies of their own. the gdi+ call sites pass the still ceiling
+	explicitly (the implicit constant was the only signature
+	difference the copies ever had).
+
+Pre-release: Version 1.1.15-rc.18 (the merged-report adjudication round)
 
 	the merged review's one confirmed finding: the wic path decoded
 	frame 0 of a multi-frame file and dropped the rest - a still of an

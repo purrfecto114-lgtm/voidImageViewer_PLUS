@@ -1740,6 +1740,55 @@ static COLORREF _zoomui_button_face_color(int is_pressed,int is_disabled,int is_
 	return viv_theme_color(VIV_TK_FACE);
 }
 
+// the keyboard focus ring: the capsule's own silhouette, inset two
+// pixels, in the accent the settings ring wears (the two focus
+// conventions meet - the settings round landed the same ring shape).
+static void _zoomui_draw_focus_ring(HDC hdc,const RECT *rect)
+{
+	HPEN pen;
+	HPEN old_pen;
+	HGDIOBJ old_brush;
+	RECT ring;
+	int corner;
+	int pen_wide;
+
+	CopyRect(&ring,rect);
+
+	InflateRect(&ring,-2,-2);
+
+	if ((ring.right <= ring.left) || (ring.bottom <= ring.top))
+	{
+		return;
+	}
+
+	// the capsule geometry: the ellipse shrinks with the inset, so the
+	// ring parallels the body exactly (no corner ever clears the arc).
+	corner = ring.bottom - ring.top;
+
+	if (corner < 2)
+	{
+		corner = 2;
+	}
+
+	pen_wide = (2 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
+
+	if (pen_wide < 1)
+	{
+		pen_wide = 1;
+	}
+
+	pen = CreatePen(PS_SOLID,pen_wide,viv_theme_color(VIV_TK_ACCENT));
+	old_pen = (HPEN)SelectObject(hdc,pen);
+	old_brush = SelectObject(hdc,GetStockObject(NULL_BRUSH));
+
+	RoundRect(hdc,ring.left,ring.top,ring.right,ring.bottom,corner,corner);
+
+	SelectObject(hdc,old_brush);
+	SelectObject(hdc,old_pen);
+
+	DeleteObject(pen);
+}
+
 // the text color, the glyph and the focus ring on top of a capsule
 // body (both legs draw the body their own way, the content is shared).
 static void _zoomui_draw_button_content(HDC hdc,const RECT *rect,int celli,int is_pressed,int is_disabled,int is_hot,int has_focus)
@@ -1762,19 +1811,13 @@ static void _zoomui_draw_button_content(HDC hdc,const RECT *rect,int celli,int i
 	// the vector glyphs make the buttons unmistakable.
 	_zoomui_draw_icon(hdc,rect,celli,offset,is_disabled);
 
-	// keyboard focus: a dotted ring inside the hot capsule.
+	// keyboard focus: an accent ring inside the hot capsule, following
+	// the stadium (round-132: the dotted square's corners cleared the
+	// capsule arc and floated over the gaps - the ring keeps the face's
+	// own silhouette at every inset).
 	if ((has_focus) && (is_hot) && (!is_disabled))
 	{
-		RECT focus_rect;
-
-		CopyRect(&focus_rect,rect);
-
-		InflateRect(&focus_rect,-4,-4);
-
-		if ((focus_rect.right > focus_rect.left) && (focus_rect.bottom > focus_rect.top))
-		{
-			DrawFocusRect(hdc,&focus_rect);
-		}
+		_zoomui_draw_focus_ring(hdc,rect);
 	}
 }
 

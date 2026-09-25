@@ -32,6 +32,7 @@
 
 #include "viv.h"
 #include "viv_state.h"
+#include "viv_load.h"
 #include <string.h>
 
 // the qoi magic: "qoif", big endian on the wire. the constant reads
@@ -45,31 +46,6 @@
 // the reference end marker: seven zero bytes then 0x01.
 static const BYTE _qoi_end_marker[8] = {0,0,0,0,0,0,0,1};
 
-static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
-{
-	if (pixels > ceiling)
-	{
-		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(ceiling / 1000000));
-		
-		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
-		
-		return 1;
-	}
-	
-	// the working-set gate (the viv_load.c twin): the load holds the
-	// decode canvas, the display dib and the renderer staging at once -
-	// 12 bytes per pixel priced against the byte ceiling.
-	if ((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES)
-	{
-		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
-		
-		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
-		
-		return 1;
-	}
-	
-	return 0;
-}
 
 static DWORD _qoi_read_u32_be(const BYTE *p)
 {
@@ -120,7 +96,7 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 				{
 					// pixel budget: refuse a hostile canvas before the rgba
 					// buffer allocates.
-					if (!_pixel_budget_refused(safe_size_mul((SIZE_T)wide,(SIZE_T)high),VIV_MAX_IMAGE_PIXELS))
+					if (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)wide,(SIZE_T)high),VIV_MAX_IMAGE_PIXELS))
 					{
 						SIZE_T buffer_size;
 						

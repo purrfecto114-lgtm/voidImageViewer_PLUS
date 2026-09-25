@@ -60,9 +60,7 @@ static void _viv_cache_activate(int index);
 void _viv_clear_last(void);
 void _viv_refresh(void);
 void _viv_open_preload(void);
-static int _viv_pixel_budget_refused(SIZE_T pixels);
 static void _viv_cache_set_trim(void);
-static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels);
 int _viv_safe_copy_data(const void *base,SIZE_T src_size,SIZE_T offset,void *dst,SIZE_T dst_size);
 
 
@@ -781,7 +779,7 @@ BOOL _viv_paste_clipboard_image(void)
 							// apply the same decode-time pixel budget as the file loaders: a
 							// hostile clipboard dib must not force a giant allocation.
 							hbitmap = 0;
-							if (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)bih->biWidth,(SIZE_T)height)))
+							if (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)bih->biWidth,(SIZE_T)height),VIV_MAX_IMAGE_PIXELS))
 							{
 								hbitmap = CreateDIBSection(screen_hdc,(BITMAPINFO *)bih,DIB_RGB_COLORS,&bits,NULL,0);
 							}
@@ -832,7 +830,7 @@ BOOL _viv_paste_clipboard_image(void)
 			// clipboard bitmap replicated into the ui with no gate at
 			// all). the budget reads the source's numbers; the copy is
 			// re-validated through GetObject as before.
-			if ((GetObject(hbitmap,sizeof(BITMAP),&bm)) && (bm.bmWidth > 0) && (bm.bmHeight > 0) && (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)bm.bmWidth,(SIZE_T)bm.bmHeight))))
+			if ((GetObject(hbitmap,sizeof(BITMAP),&bm)) && (bm.bmWidth > 0) && (bm.bmHeight > 0) && (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)bm.bmWidth,(SIZE_T)bm.bmHeight),VIV_MAX_IMAGE_PIXELS)))
 			{
 				hbitmap_copy = (HBITMAP)CopyImage(hbitmap,IMAGE_BITMAP,0,0,LR_CREATEDIBSECTION);
 				
@@ -1402,7 +1400,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 						// a canvas that decodes to gigabytes of rgba. refuse the
 						// load before any frame allocation happens; the dispose
 						// below still runs so this fails like an unloadable file.
-						if ((os_GdipGetImageHeight(image,&first_frame.high) == 0) && (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high))))
+						if ((os_GdipGetImageHeight(image,&first_frame.high) == 0) && (!_viv_pixel_budget_refused(safe_size_mul((SIZE_T)first_frame.wide,(SIZE_T)first_frame.high),VIV_MAX_IMAGE_PIXELS)))
 						{
 							UINT count;
 							int load_wide;
@@ -2543,27 +2541,27 @@ void _viv_open_preload(void)
 		_viv_preload_next();
 	}	
 }
-// read the 10ms delay of frame i. returns 0 on any failure, the caller
-// falls back to 100ms. the gdi+ value pointer is validated against the
-// property buffer before it is used, and the delay array may hold fewer
-// entries than there are frames (the gif GCE block is optional), so delays
-// are reused modulo the available count.
-static int _viv_pixel_budget_refused(SIZE_T pixels)
+// round-132: the budget refusal family is one family. four copies of
+// this gate lived across the gdi+ loader, the webp decoder, the wic
+// decoder and the qoi decoder (the audits kept finding them) - a
+// budget semantics change had five homes to miss. the pair is exported
+// through viv_load.h and every decoder calls the externs.
+int _viv_pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
 {
-	if (pixels > VIV_MAX_IMAGE_PIXELS)
+	if (pixels > ceiling)
 	{
-		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(VIV_MAX_IMAGE_PIXELS / 1000000));
+		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(ceiling / 1000000));
 		
 		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
 		
 		return 1;
 	}
 	
-	// the working-set gate: the canvas ceiling bounds one buffer, but the
-	// load holds several at once (the decode canvas, the display dib, the
-	// renderer staging - 12 bytes per pixel priced). the refusal marks the
-	// status line so the reason reaches the user, not only the debug
-	// channel.
+	// the working-set gate (the one face every caller shares): the canvas
+	// ceiling bounds one buffer, but the load holds several at once (the
+	// decode canvas, the display dib, the renderer staging - 12 bytes per
+	// pixel priced). the refusal marks the status line so the reason
+	// reaches the user, not only the debug channel.
 	if ((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES)
 	{
 		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
@@ -2581,7 +2579,7 @@ static int _viv_pixel_budget_refused(SIZE_T pixels)
 // canvas gate never sees, so the frame count and the total frame bytes
 // carry their own ceilings (4 bytes per canvas pixel per frame - the
 // display bitmap size the gdi+ path builds per frame).
-static int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
+int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
 {
 	if (frame_count > VIV_MAX_ANIMATION_FRAMES)
 	{

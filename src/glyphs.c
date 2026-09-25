@@ -325,6 +325,20 @@ static const _glyphs_stroke_t _glyphs_gamepad_strokes[] =
 	{0,4,0,&_glyphs_pad_button2}
 };
 
+// chevron left: a single angled stroke (the strip's page-back arrow).
+static const _glyphs_point_t _glyphs_chevron_left_pts[] = { {30,12},{18,24},{30,36} };
+static const _glyphs_stroke_t _glyphs_chevron_left_strokes[] =
+{
+	{3,5,_glyphs_chevron_left_pts}
+};
+
+// chevron right: the mirror (the page-forward arrow).
+static const _glyphs_point_t _glyphs_chevron_right_pts[] = { {18,12},{30,24},{18,36} };
+static const _glyphs_stroke_t _glyphs_chevron_right_strokes[] =
+{
+	{3,5,_glyphs_chevron_right_pts}
+};
+
 static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
 {
 	{2,_glyphs_prev_strokes},
@@ -342,7 +356,9 @@ static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
 	{3,_glyphs_info_strokes},
 	{10,_glyphs_settings_strokes},
 	{3,_glyphs_picture_strokes},
-	{8,_glyphs_gamepad_strokes}
+	{8,_glyphs_gamepad_strokes},
+	{1,_glyphs_chevron_left_strokes},
+	{1,_glyphs_chevron_right_strokes}
 };
 
 // resolve the gdi+ flat api table. gdi+ must have been started before

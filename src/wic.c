@@ -30,33 +30,8 @@
 
 #include "viv.h"
 #include "viv_state.h"
+#include "viv_load.h"
 #include <wincodec.h>
-
-static int _pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)
-{
-	if (pixels > ceiling)
-	{
-		debug_printf("pixel budget: refusing a %u mp canvas (ceiling %u mp)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(ceiling / 1000000));
-		
-		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
-		
-		return 1;
-	}
-	
-	// the working-set gate (the viv_load.c twin): the load holds the
-	// decode canvas, the display dib and the renderer staging at once -
-	// 12 bytes per pixel priced against the byte ceiling.
-	if ((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL > VIV_MAX_IMAGE_BYTES)
-	{
-		debug_printf("working set budget: refusing a %u mp canvas (%u mb estimated, ceiling %u mb)\r\n",(unsigned int)(pixels / 1000000),(unsigned int)(((VIV_UINT64)pixels * VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL) / 1000000),(unsigned int)(VIV_MAX_IMAGE_BYTES / 1000000));
-		
-		_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
-		
-		return 1;
-	}
-	
-	return 0;
-}
 
 // self-defined guids (the os.c file-dialog precedent): the canonical bytes
 // come from the platform sdk's wincodec.h, spelled out here so neither
@@ -68,36 +43,6 @@ static const GUID _wic_iid_imaging_factory = {0xec5ec8a9,0xc395,0x4314,{0x9c,0x7
 // {6fddc324-4e03-4bfe-b185-3d77768dc90f} GUID_WICPixelFormat32bppBGRA
 static const GUID _wic_pixel_format_32bpp_bgra = {0x6fddc324,0x4e03,0x4bfe,{0xb1,0x85,0x3d,0x77,0x76,0x8d,0xc9,0x0f}};
 
-// the frame-array budget (the webp.c twin, standing beside this layer's
-// own pixel budget for the multi-frame delivery): every decoded frame is
-// held at once, so the count and the total frame bytes carry their own
-// ceilings beyond the canvas gate. on refusal the load fails like any
-// unloadable file.
-static int _animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)
-{
-		if (frame_count > VIV_MAX_ANIMATION_FRAMES)
-		{
-				debug_printf("animation budget: refusing %u frames (ceiling %u)\r\n",(unsigned int)frame_count,(unsigned int)VIV_MAX_ANIMATION_FRAMES);
-				
-				_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
-				
-				return 1;
-		}
-		
-		// 16/3 bytes per canvas pixel per frame: the 32bpp DIB frames the
-		// loader holds plus the mipmap chain's extra third the lazy build
-		// still fills in as the animation plays.
-		if ((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 16 / 3 > VIV_MAX_ANIMATION_TOTAL_BYTES)
-		{
-				debug_printf("animation budget: refusing %u frames of a %u mp canvas (%u mb of frames, ceiling %u mb)\r\n",(unsigned int)frame_count,(unsigned int)(canvas_pixels / 1000000),(unsigned int)(((VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 16 / 3) / 1000000),(unsigned int)(VIV_MAX_ANIMATION_TOTAL_BYTES / 1000000));
-				
-				_VIV_LOAD_REFUSED_SET(_viv_load_refused_budget);
-				
-				return 1;
-		}
-		
-		return 0;
-}
 
 // decode one wic frame into the shared rgba buffer (the copy lands bgra;
 // the swap pass turns it rgba in place). the alpha scan rides only the
@@ -232,13 +177,13 @@ int wic_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 						// flattened every one of them into a frame 0 still.
 						if (frame_count == 1)
 						{
-							budget_ok = !_pixel_budget_refused(canvas_pixels,VIV_MAX_IMAGE_PIXELS);
+							budget_ok = !_viv_pixel_budget_refused(canvas_pixels,VIV_MAX_IMAGE_PIXELS);
 						}
 						else
 						{
-							if (!_pixel_budget_refused(canvas_pixels,VIV_MAX_ANIMATION_PIXELS))
+							if (!_viv_pixel_budget_refused(canvas_pixels,VIV_MAX_ANIMATION_PIXELS))
 							{
-								budget_ok = !_animation_budget_refused(frame_count,canvas_pixels);
+								budget_ok = !_viv_animation_budget_refused(frame_count,canvas_pixels);
 							}
 						}
 						
