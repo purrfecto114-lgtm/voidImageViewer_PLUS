@@ -5290,6 +5290,8 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			_viv_settings_title_pressed = 0;
 			_viv_settings_hot_swatch = -1;
 			_viv_settings_capture_active = 0;
+			_viv_settings_scroll_drag = 0;
+			_viv_settings_scroll_grab = 0;
 
 			return 0;
 

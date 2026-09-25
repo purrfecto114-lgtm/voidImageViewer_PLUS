@@ -10,7 +10,7 @@ assignees: ''
 [e.g. Windows 11 23H2, Windows 10 22H2, Windows 7 SP1 — the viewer requires Windows 7 or later; x86 or x64]
 
 **App version:**
-[The release tag, e.g. 1.1.13 or 1.1.14-rc.5 — or "portable zip" and which one (x64 / x86)]
+[The release tag, e.g. 1.1.15 or 1.1.16-rc.1 — or "portable zip" and which one (x64 / x86)]
 
 **The image file:**
 - Format (BMP, GIF, ICO, PNG, JPG, TIF, WEBP, JPEG-XR, HEIF, AVIF, DDS, QOI, EMF, WMF — or unknown):

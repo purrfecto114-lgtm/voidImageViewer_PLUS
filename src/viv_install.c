@@ -516,7 +516,11 @@ int _viv_default_app_locked_elsewhere(const char *association)
 	string_cat(key,dot_association);
 	string_cat_utf8(key,"\\UserChoice");
 	
-	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
+	LONG open_ret;
+
+	open_ret = RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE,&hkey);
+
+	if (open_ret == ERROR_SUCCESS)
 	{
 		wchar_t wbuf[STRING_SIZE];
 		int ret;
@@ -539,6 +543,18 @@ int _viv_default_app_locked_elsewhere(const char *association)
 		return ret;
 	}
 	
+	// the third answer: a read the system refused is not a missing
+	// lock. the managed profiles (mdm and friends) deny the
+	// userchoice read while the shell still honors it - answering
+	// "takeover effective" there signs what nobody verified. the
+	// refused read lands with the lock: the box it raises is the
+	// honest face (the settings page is where a locked default
+	// gets sorted either way).
+	if (open_ret == ERROR_ACCESS_DENIED)
+	{
+		return 1;
+	}
+
 	return 0;
 }
 void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location)
@@ -650,7 +666,28 @@ void _viv_install_association_by_extension(const char *association,const char *d
 		{
 			if (!_viv_get_registry_string(hkey,0,wbuf,STRING_SIZE))
 			{
-				*wbuf = 0;
+				// the machine owner (pngfile and friends) lives in the
+				// hklm half of the merged view the shell resolves - the
+				// user-side read alone sees nothing there, and the empty
+				// backup it captured would restore as an empty default
+				// that shadows the machine's own answer. read the merged
+				// view before giving up (the foreign check below reads
+				// the same view for the same reason).
+				HKEY hkey_cr;
+
+				if (RegOpenKeyExW(HKEY_CLASSES_ROOT,dot_association,0,KEY_QUERY_VALUE,&hkey_cr) == ERROR_SUCCESS)
+				{
+					if (!_viv_get_registry_string(hkey_cr,0,wbuf,STRING_SIZE))
+					{
+						*wbuf = 0;
+					}
+
+					RegCloseKey(hkey_cr);
+				}
+				else
+				{
+					*wbuf = 0;
+				}
 			}
 			
 			_viv_set_registry_string(hkey,(const utf8_t *)"voidImageViewer.Backup",wbuf);
@@ -719,7 +756,18 @@ void _viv_uninstall_association_by_extension(const char *association)
 		
 		if (_viv_get_registry_string(hkey,(const utf8_t *)"voidImageViewer.Backup",wbuf,STRING_SIZE))
 		{
-			_viv_set_registry_string(hkey,0,wbuf);
+			if (*wbuf)
+			{
+				_viv_set_registry_string(hkey,0,wbuf);
+			}
+			else
+			{
+				// an empty backup means "no owner anywhere" - writing
+				// it back would shadow the machine default with an
+				// empty string in the merged view. the default value
+				// goes instead, so the shell falls through to hklm.
+				RegDeleteValueW(hkey,0);
+			}
 
 			// debug_printf("Delete voidImageViewer.Backup\n");
 
@@ -740,7 +788,16 @@ void _viv_uninstall_association_by_extension(const char *association)
 	string_copy_utf8_string(key,(const utf8_t *)"SOFTWARE\\Classes\\voidImageViewer.");
 	string_cat_utf8(key,association);
 	
-	RegDeleteKey(HKEY_CURRENT_USER,key);
+	// the class key carries subkeys (defaulticon, shell\\open\\command)
+	// and the bare regdeletekey refuses them all - the fourth report's
+	// zombie tree: every uninstall left the command pointing at the
+	// removed exe while both honest reads answered all-clear. the tree
+	// delete takes the whole progid; a refusal still lands in the log
+	// (the return was dropped on the floor before).
+	if (!os_delete_key_tree(HKEY_CURRENT_USER,key))
+	{
+		debug_printf("os_delete_key_tree failed %u\\n",GetLastError());
+	}
 	
 	// rc.17: sweep the two OpenWithProgids homes the install wrote.
 	// the keys may carry the shell's own entries beside ours, so

@@ -2104,6 +2104,14 @@ static void _viv_delete(int permanently)
 
 				_viv_playlist_delete(&fd);
 			
+				// the in-flight load belongs to the pre-delete world too:
+				// its late first frame must not land over the post-delete
+				// reload (the paste and blank paths set the shape; the queue
+				// leg the reload rides keeps this draw gate closed until the
+				// reload's own open reopens it).
+				_viv_load_image_allow_draw = 0;
+				InterlockedExchange(&_viv_load_image_terminate,1);
+
 				// rc.16: a next file queued while a load was in flight
 				// belongs to the pre-delete world - letting it land over
 				// the post-delete reload would decode two files for one

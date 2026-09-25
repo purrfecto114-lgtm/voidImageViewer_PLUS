@@ -149,6 +149,8 @@ LangString MsgExecAdminFailed ${LANG_ENGLISH} "Failed to execute admin command"
 LangString MsgExecAdminFailed ${LANG_SIMPCHINESE} "执行管理员安装命令失败"
 LangString MsgExecOptionsFailed ${LANG_ENGLISH} "Failed to execute install options"
 LangString MsgExecOptionsFailed ${LANG_SIMPCHINESE} "执行安装选项失败"
+LangString MsgRebootRequired ${LANG_ENGLISH} "A reboot is required to finish removing the files. The removal completes at the next logon."
+LangString MsgRebootRequired ${LANG_SIMPCHINESE} "需要重启才能完成文件移除。剩余文件将在下次登录时删除。"
 
 !insertmacro GetOptions
 
@@ -612,6 +614,16 @@ uninstall_stage_ok:
         ; flags that never came.
         Delete /REBOOTOK "$0\voidImageViewer.exe"
         RMDir /REBOOTOK $0
+
+        ; the reboot flag the /REBOOTOK pair may have set owes the
+        ; user a sentence - the staged exe and folder complete their
+        ; removal at the next logon, and the uninstall used to end in
+        ; silence either way.
+        IfRebootFlag 0 no_reboot_note
+
+        MessageBox MB_OK|MB_ICONINFORMATION "$(MsgRebootRequired)"
+
+        no_reboot_note:
 
 SectionEnd
 

@@ -742,6 +742,25 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			}
 		}
 	}
+	else
+	{
+		// rc.16 closed the two failure faces above (the mid-write and
+		// the replace); the create itself was the third silent leg - a
+		// locked temp file (an editor, a scanner, a sync tool holding
+		// the .tmp) answered nothing at all. the same box, the same log
+		// line: the keeper gets named in a release build too.
+		debug_printf("config save: the temp file refused to open (error %u) - no write was attempted\r\n",GetLastError());
+
+		{
+			wchar_t caption_wbuf[STRING_SIZE];
+			wchar_t message_wbuf[STRING_SIZE];
+
+			string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION));
+			string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE));
+
+			viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OK | MB_ICONWARNING);
+		}
+	}
 }
 
 void config_save_settings(int appdata)
@@ -760,6 +779,25 @@ void config_save_settings(int appdata)
 
 			_config_save_settings_by_location(appdata_wbuf,0);
 		}
+			else
+			{
+				// the appdata root the user picked refused to name itself:
+				// nothing was saved anywhere and the silence was total (the
+				// report's fourth leg). the same box the write failures
+				// carry - the user chose this home, and silently writing
+				// the exe's own folder instead is the silent keeper back.
+				debug_printf("config save: the appdata path failed (error %u)\r\n",GetLastError());
+
+				{
+					wchar_t caption_wbuf[STRING_SIZE];
+					wchar_t message_wbuf[STRING_SIZE];
+
+					string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION));
+					string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE));
+
+					viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OK | MB_ICONWARNING);
+				}
+			}
 	}
 	else
 	{

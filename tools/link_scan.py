@@ -33,10 +33,18 @@ def strip_comments(text):
 
 def extern_names():
     names = set()
-    for h in ["viv_state.h"] + sorted(glob.glob("viv_*.h")):
+    for h in ["viv_state.h", "os.h"] + sorted(glob.glob("viv_*.h")):
         text = strip_comments(open(h, encoding="utf-8", errors="replace").read())
         for m in re.finditer(r"^extern\s+(.+?);", text, re.M):
             decl = m.group(1)
+            # round 135: the os domain's function-pointer externs
+            # (extern RET (CALLCONV *name)(args)) are runtime-assigned
+            # data - the assignment carries no type prefix, so the
+            # definition scan can never see them. a pointer declarator
+            # is a conservative skip: an unaudited name is safe, a
+            # mis-parsed one (the return type as the name) is not.
+            if re.search(r"\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\*\s*[A-Za-z_][A-Za-z0-9_]*\s*\)", decl):
+                continue
             fm = re.search(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(", decl)
             if fm:
                 names.add(fm.group(1))
@@ -53,6 +61,10 @@ def extern_names():
                 s = line.strip()
                 if (not s) or s.startswith(("#", "extern ", "typedef", "static", "struct", "enum", "union")):
                     continue
+                if s.startswith("__declspec"):
+                    s = re.sub(r"^__declspec\([^)]*\)\s*", "", s)
+                if re.search(r"\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\*\s*[A-Za-z_][A-Za-z0-9_]*\s*\)", s):
+                    continue
                 if not (s.endswith(");") and ("(" in s)):
                     continue
                 fm = re.search(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(", s)
@@ -62,7 +74,7 @@ def extern_names():
 
 
 def scan():
-    units = ["viv.c"] + sorted(glob.glob("viv_*.c"))
+    units = ["viv.c", "os.c"] + sorted(glob.glob("viv_*.c"))
     unit_code = {u: strip_comments(open(u, encoding="utf-8", errors="replace").read()) for u in units}
 
     # forward: extern -> definition
@@ -73,6 +85,8 @@ def scan():
             s = line.strip()
             if not s or s.startswith(("#", "extern ", "typedef")):
                 continue
+            if s.startswith("__declspec"):
+                s = re.sub(r"^__declspec\([^)]*\)\s*", "", s)
             m = re.match(r"^((?:[A-Za-z_][A-Za-z0-9_]*[\s\*]+)+)([A-Za-z_][A-Za-z0-9_]*)\s*(\(|\[|=|;|,)", s)
             if not m:
                 continue
@@ -99,9 +113,12 @@ def scan():
         for line in code.split("\n"):
             s = line.strip()
             if depth == 0:
-                m = re.match(r"^static\s+(?:[A-Za-z_][A-Za-z0-9_]*[\s\*]+)+([A-Za-z_][A-Za-z0-9_]*)\s*(\(|\[|=|;|,)", s)
-                if m:
-                    statics.add(m.group(1))
+                if s.startswith("static") and re.search(r"\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\*\s*[A-Za-z_][A-Za-z0-9_]*\s*\)", s):
+                    pass  # a static pointer declarator: internal by name, skip
+                else:
+                    m = re.match(r"^static\s+(?:[A-Za-z_][A-Za-z0-9_]*[\s\*]+)+([A-Za-z_][A-Za-z0-9_]*)\s*(\(|\[|=|;|,)", s)
+                    if m:
+                        statics.add(m.group(1))
             depth += s.count("{") - s.count("}")
             if depth < 0:
                 depth = 0

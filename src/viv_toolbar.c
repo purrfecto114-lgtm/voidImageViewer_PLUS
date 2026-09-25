@@ -420,24 +420,71 @@ static void _viv_toolbar_invalidate_arrow(int arrowi)
 	}
 }
 
-// one page: a click on an edge arrow. the page clamps to the group
-// range, the strip re-measures (the walk re-runs, the tooltips follow
-// the fresh rects) and one full repaint lands - the content shifts
-// under the arrows, so a partial invalidate would tear.
+// a group the mask kept is the only group a page can be: a dead
+// group's page is a dead step (the walk's home clamp would bounce
+// it straight back and the arrow would promise a turn that never
+// comes). the navigation group unchecked under a narrow window is
+// exactly that shape - page one held nothing, so every forward
+// click clamped home with the chevron still lit.
+static int _viv_toolbar_group_live(int group)
+{
+	int itemi;
+	
+	if (!(config_toolbar_groups & (1 << group)))
+	{
+		return 0;
+	}
+	
+	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+	{
+		if (_viv_toolbar_items[itemi].group == group)
+		{
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
+// one page: a click on an edge arrow. the page unit is the group
+// and the step skips the groups the mask killed - it lands on the
+// next live group's page (or home, going back: page zero is always
+// live, the open button never pages away). the strip re-measures
+// (the walk re-runs, the tooltips follow the fresh rects) and one
+// full repaint lands - the content shifts under the arrows, so a
+// partial invalidate would tear.
 static void _viv_toolbar_page_step(int dir)
 {
 	int page;
-	
-	page = _viv_toolbar_page + ((dir > 0) ? 1 : -1);
-	
-	if (page < 0)
+
+	if (dir > 0)
 	{
-		page = 0;
+		page = _viv_toolbar_page + 1;
+
+		while ((page <= _VIV_TOOLBAR_GROUP_MAX) && (!_viv_toolbar_group_live(page)))
+		{
+			page++;
+		}
+
+		if (page > _VIV_TOOLBAR_GROUP_MAX)
+		{
+			// no live group ahead: the arrow owes no turn.
+			return;
+		}
 	}
-	
-	if (page > _VIV_TOOLBAR_GROUP_MAX)
+	else
 	{
-		page = _VIV_TOOLBAR_GROUP_MAX;
+		page = _viv_toolbar_page - 1;
+
+		if (page < 0)
+		{
+			page = 0;
+		}
+
+		while ((page > 0) && (!_viv_toolbar_group_live(page)))
+		{
+			page--;
+		}
 	}
 	
 	if (page != _viv_toolbar_page)

@@ -105,6 +105,31 @@ def main():
     check("the solid exemption rides the gate, not the contract",
           "$solidControls -contains" in ps1)
 
+    # round 135 (the fourth report's ss4, the cross-leg questioning):
+    # the vertical flip survived twenty-three releases because the
+    # legs were never asked about EACH OTHER - the discrimination gate
+    # runs at bootstrap time only, and the manifest's own rows could
+    # carry a collapse nobody compared. the committed data answers
+    # here now: every textured sample's legs differ pairwise, and the
+    # one known null stays the one known null.
+    with open("tests/golden/golden-manifest.json", "r", encoding="utf-8") as mf:
+        manifest = json.load(mf)
+    solid_names = {"28_control_png_100x100.png", "29_control_png_4000x3000.png"}
+    collapses = []
+    nulls = []
+    for sample, legs in sorted(manifest.items()):
+        present = {leg: h for leg, h in legs.items() if h}
+        nulls += [(sample, leg) for leg, h in sorted(legs.items()) if not h]
+        if sample in solid_names:
+            continue
+        vals = list(present.values())
+        if len(set(vals)) != len(vals):
+            collapses.append(sample)
+    check("every textured sample's legs differ pairwise (the committed cross-questioning)",
+          not collapses, str(collapses))
+    check("the manifest's one null stays the one known null (29_control/gl)",
+          nulls == [("29_control_png_4000x3000.png", "gl")], str(nulls))
+
     # 2. the export module carries the matching contract.
     check("the export timeout matches the harness wait",
           "_VIV_EXPORT_TIMEOUT_MS 60000" in exph and

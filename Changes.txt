@@ -1,4 +1,104 @@
-﻿Stable: Version 1.1.15 (the stable promotion round)
+﻿Pre-release: Version 1.1.16-rc.1 (the fourth fusion response round)
+
+	the round answers the fourth fusion report - fourteen sweeps
+	over the rc.19 tree, three verification agents over the claims,
+	the web confirming the registry semantics, and the main thread
+	re-reading every line before it moved. the report's own
+	adjudication held: the rc.11 to rc.19 arc answered the third
+	report twenty-four-for-twenty-five and the guard teeth climbed
+	from fifty to seventy-five percent - and the two new dead
+	machines it found both lived in the fix rounds' own new code,
+	the pattern the third report named and the fourth measured.
+
+	the zombie class tree falls: the uninstaller's bare
+	regdeletekey could never remove the progid it installed (the
+	key carries defaulticon and shell\\open\\command, and the api
+	refuses keys with subkeys - the msdn contract the web search
+	confirmed), so every uninstall left the whole tree behind with
+	the command pointing at an exe that was no longer there while
+	both honest reads answered all-clear. the tree delete is one
+	interface now - os_delete_key_tree resolves regdeletetreew
+	lazily the way regdeletekeyexw always has and walks the tree by
+	hand on the boxes older than vista - and its refusal lands in
+	the log instead of on the floor.
+
+	the dead arrow turns: a group the customization mask killed
+	cannot be a page - the navigation group unchecked under a narrow
+	window made page one a dead step that clamped straight home
+	with the chevron still lit, and the right-hand groups stayed
+	unreachable forever. the step skips the dead groups now (the
+	live-group predicate reads the mask and the table), forward to
+	the next live group's page, back to the previous one or home.
+
+	the failure finds a face in the view: the three presets that
+	strip the caption too (minimal, compact, fullscreen) left the
+	rc.17 title borrow riding a window text nobody could see - the
+	report called it the borrowed face that does not exist, and the
+	code agreed. the paint asks the same line the panes and the
+	title read and draws it centered in the viewport - the one strip
+	every preset keeps - on the menu font and the theme's text
+	token, with the borrow's own invalidation moving it onto the
+	screen.
+
+	the exit codes grow their missing teeth: the contract's two
+	zero legs (the install one-shot, the second-instance forward)
+	carried no pin - either could flip to one and every suite
+	stayed green while the installer waited on a silent install
+	that never answered. both carry their own words now, and the
+	sim counts the legs.
+
+	the honest faces multiply: the backup capture reads the merged
+	view before it settles for an empty string (the machine owner
+	lives in the hklm half - the empty backup used to restore as a
+	shadow over the machine's own default), the restore deletes the
+	empty default instead of writing it, and a refused userchoice
+	read lands with the lock instead of signing a takeover nobody
+	verified (the mdm profiles deny the read while the shell
+	honors it).
+
+	the smaller repairs: the delete retires the in-flight load
+	before its reload (the paste and blank shape, whose queue leg
+	keeps the draw gate closed until the reload's own open reopens
+	it), the ini's last two silent legs get the box the other two
+	carry (the refused temp file, the failed appdata root), the
+	destroy list carries the scroll ride, the /rebootok pair owes
+	the user a sentence at last, and the true os.h orphan retires
+	(the deliberate dark probe keeps its recorded seat).
+
+	the guard shapes answer the report's own verdict: the fade
+	retire carries its own two adjacencies (the old pin accepted
+	either line), the ulw pair is pinned (the probe's unpoison
+	toggle, the submit's refusal self-heal), the dropdown value
+	face is a binding table like its label and run siblings (twelve
+	entries; the counts ride their own ladder), the wheel's
+	absolute anchor lands (the shipped step is one hundred two,
+	and a c-side edit moves the extraction or breaks the pin), the
+	gap and the group max extract from the source, the freeze
+	table grows with every round and covers the sim docstrings and
+	the round-labeled prints, the golden manifest's own rows answer
+	the cross-leg question the flip era never asked, link_scan's
+	domain reaches os.h and os.c (the blind spot that let the
+	orphan live; the pointer declarators skip conservatively), and
+	the two born-dead tautologies the anti-tautology round itself
+	wrote are gone with a census that assembles its needle at
+	runtime so the suite's own source never carries it.
+
+	the docs answer too: the rc.11 header returns (the rc.12
+	commit rewrote it in place - the same mechanism that round
+	fixed for rc.5), the readme ladder carries the rc.15 row and
+	the rc.9 bullets' own header again, the options twin names the
+	settings page in both tongues, and the example filenames that
+	stopped moving with the stable move with it (the security
+	verify snippets, the contributing and bug-report examples).
+
+	verified: the five suites pass (the round-135 section, the
+	sim's exit-leg model and dead-arrow scenario, the freeze
+	table's new domains), link_scan audits 384 externs against 384
+	definitions with zero missing (the os domain included), the
+	zig line links the pair, the cold-cache census holds, and the
+	mutation retest bites for the round's own teeth.
+
+Stable: Version 1.1.15 (the stable promotion round)
 
 	the 1.1.15 arc's promotion question was never going to be "is it
 	ready" - nineteen candidates answered that along the way, each
@@ -466,6 +566,8 @@ Pre-release: Version 1.1.15-rc.12 (the report fusion round)
 	links both legs, the warning census holds the zero-new-class line,
 	and link_scan audits every extern against its definition.
 
+
+Pre-release: Version 1.1.15-rc.11 (the resume and chain round)
 
 	the round answers one field report about two entries. the user
 	tried the pair the memory round shipped - the resume switch on

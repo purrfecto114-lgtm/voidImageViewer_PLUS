@@ -3180,6 +3180,15 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 			}
 		}
 		
+		// the failure's last-resort face: the presets that hide the
+		// status bar and the caption leave the title borrow dark - the
+		// view itself carries the line then (chrome owns the face; the
+		// gate stays here where the paint state lives).
+		if ((!_viv_slot_current.frame_count) && (!_viv_status_hwnd))
+		{
+			_viv_paint_failure_face(paint_hdc,view_top,wide,high);
+		}
+
 		if (paint_use_backbuffer)
 		{
 			// present the frame: copy the invalidated region to the screen in one blit.

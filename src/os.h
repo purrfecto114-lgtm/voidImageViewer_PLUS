@@ -73,11 +73,9 @@ int os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb
 int os_browse_for_folder(HWND parent,wchar_t *filename);
 VIV_UINT64 os_get_tick_count(void);
 VIV_UINT64 os_get_tick_freq(void);
-void os_get_monitor_rect_from_window(HWND hwnd,RECT *monitor_rect,int fullscreen);
 WNDPROC os_set_window_proc(HWND hwnd,WNDPROC proc);
 int os_is_windows_7_or_later(void);
 int os_is_windows_8_or_later(void);
-int os_dark_controls_supported(void);
 HRGN os_CreateRectRgn(int left,int top,int right,int bottom);
 HRGN os_mirror_region(HRGN hrgn,int wide);
 void os_fill_clamped_rect(HDC hdc,int left,int top,int right,int bottom,int clamp_left,int clamp_top,int clamp_right,int clamp_bottom,HBRUSH hbrush);
@@ -290,6 +288,8 @@ int os_is_touch_available(void);
 // key was deleted, 0 when the api is missing or the delete failed:
 // regdeletekeyw cannot reach the alternate registry view.
 int os_reg_delete_key_ex(HKEY hkey,const wchar_t *name,REGSAM access);
+int os_delete_key_tree(HKEY hkey,const wchar_t *name);
+int os_dark_controls_supported(void);
 
 #ifdef __cplusplus
 }

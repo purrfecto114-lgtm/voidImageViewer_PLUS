@@ -37,6 +37,8 @@ void _viv_paint_kill(void);
 int _viv_paint_readback(BYTE *bits,int wide,int high);
 void _viv_toggle_fullscreen(void);
 HFONT _viv_menu_font(void);
+const wchar_t *_viv_status_failure_line(wchar_t *buf);
+void _viv_paint_failure_face(HDC hdc,int view_top,int wide,int high);
 void _viv_menu_font_drop(void);
 void _viv_apply_dark_mode(int repaint);
 int _viv_is_window_maximized(HWND hwnd);

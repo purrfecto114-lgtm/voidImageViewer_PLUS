@@ -7,6 +7,7 @@ being validated in the field, one release-candidate line at a time:
 
 | Version | Line | Supported |
 | --- | --- | --- |
+| 1.1.16-rc.x | current release candidate | yes, until the 1.1.16 stable promotion retires it |
 | 1.1.15 | latest stable | yes |
 | 1.1.14 and older | previous lines | no — please upgrade and re-check before reporting |
 
@@ -97,12 +98,12 @@ README tells every user to verify against it before running. To verify:
 
 ```powershell
 # PowerShell
-Get-FileHash -Algorithm SHA256 .\voidImageViewer-1.1.14-x64-Setup.exe
+Get-FileHash -Algorithm SHA256 .\voidImageViewer-1.1.15-x64-Setup.exe
 ```
 
 ```bat
 :: or from cmd
-certutil -hashfile voidImageViewer-1.1.14-x64-Setup.exe SHA256
+certutil -hashfile voidImageViewer-1.1.15-x64-Setup.exe SHA256
 ```
 
 Compare the output with the matching line in the release's `sha256.txt`

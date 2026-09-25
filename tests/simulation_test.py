@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15.99",
-          (major, minor, rev, build) == (1, 1, 15, 99), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15",
-          vstr is not None and vstr.group(1) == "1.1.15", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.16-rc.1.100",
+          (major, minor, rev, build) == (1, 1, 16, 100), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.16-rc.1",
+          vstr is not None and vstr.group(1) == "1.1.16-rc.1", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -1867,7 +1867,7 @@ def t_sim_gui_limits_round121():
     ladder against the config clamps, the stamp's date+time budget,
     and the zoom editor's four-digit ceiling. the parameters are
     extracted from the tree, never restated."""
-    print("the gui limits round (1.1.15-rc.11)")
+    print("the gui limits round (1.1.15-rc.10)")
     chrome = read("src/viv_chrome.c").decode()
     settings = read("src/viv_settings.c").decode()
     config = read("src/config.c").decode()
@@ -2101,13 +2101,13 @@ def t_sim_resume_chain_round122():
 
 
 def t_sim_field_response_round124():
-    """Simulation replays for the field response round (1.1.15-rc.14):
+    """Simulation replays for the field response round (1.1.15-rc.13):
     the successor window's scan economy and cursor alignment, the
     timer fallback pair, the toolbar's play resolution, the status
     bar's two levels, and the backdrop's alpha gate. the parameters
     are extracted from the tree or replay the code's own arithmetic,
     never restated from memory."""
-    print("the field response round (1.1.15-rc.14)")
+    print("the field response round (1.1.15-rc.13)")
     load = read("src/viv_load.c").decode().replace("\r\n", "\n")
     view = read("src/viv_view.c").decode().replace("\r\n", "\n")
     toolbar = read("src/viv_toolbar.c").decode().replace("\r\n", "\n")
@@ -2288,12 +2288,12 @@ def t_sim_field_response_round124():
 
 
 def t_sim_report_fusion_round123():
-    """Simulation replays for the report fusion round (1.1.15-rc.14):
+    """Simulation replays for the report fusion round (1.1.15-rc.12):
     the empty-slot walk refusal, the exit free's loaded count, the
     live-hidden reveal table, and the paste/blank stop pair. every
     model is extracted from the tree or replays the code's own
     arithmetic, never restated from memory."""
-    print("the report fusion round (1.1.15-rc.14)")
+    print("the report fusion round (1.1.15-rc.12)")
     vivload = read("src/viv_load.c").decode()
     viv = read("src/viv.c").decode()
     wndproc = read("src/viv_wndproc.c").decode()
@@ -2460,6 +2460,14 @@ def t_sim_settings_round126():
     def wheel(y, notches, mx):
         return max(0, min(mx, y - (notches * STEP)))
 
+    # round 135 (the fourth report's P2-6): the assertions below were
+    # self-comparisons - the extracted step fed both sides, so every
+    # value passed them. the absolute anchor lands first: the shipped
+    # step is 102 (34-row high, three rows a notch), and a c-side edit
+    # moves the extraction or breaks this pin.
+    check("the extracted wheel step is the shipped one (34 x 3 = 102)",
+          (ROW_HIGH, WHEEL_ROWS, STEP) == (34, 3, 102), str((ROW_HIGH, WHEEL_ROWS, STEP)))
+
     mx = scroll_max(664, 680)
     check("a forward notch climbs to the top and clamps",
           wheel(mx, 1, mx) == max(0, mx - STEP) and wheel(0, 1, mx) == 0)
@@ -2485,7 +2493,7 @@ def t_sim_title_borrow_round129():
     print("sim: the title bar borrows the failure line (round 129)")
     chrome = read("src/viv_chrome.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
 
-    failure_body = function_body(chrome, "static const wchar_t *_viv_status_failure_line(") or ""
+    failure_body = function_body(chrome, "const wchar_t *_viv_status_failure_line(") or ""
     title_body = function_body(chrome, "void _viv_update_title(") or ""
 
     check("the failure line exists as its own function", failure_body != "")
@@ -2830,17 +2838,24 @@ def t_sim_paging_round132():
     items = [(t, int(g)) for t, g in rows]
 
     # the walk order and rules, pinned to the source.
-    check("the walk runs the fit before the left page before the right walk",
-          tb.find("the full-fit fast path") < tb.find("the left page") < tb.find("the right walk"))
+    check("the walk runs the fit before the left page before the right walk (the code anchors, not the comments)",
+          tb.find("_viv_toolbar_walk_total() <= _viv_toolbar_wide") <
+          tb.find("left_hidden = 0;") <
+          tb.find("while ((_viv_toolbar_walk_total() > avail)"))
     check("the arrows reserve their slots before the right walk",
           "avail = _viv_toolbar_wide - _viv_toolbar_arrow_wide;" in tb)
 
     # the model: the walk, mirrored. synthetic widths stand in for the
     # font pass (the runtime cannot run here); the arithmetic is the
-    # walk's own.
-    GAP = 8
+    # walk's own. round 135 (the fourth report's P2-16 + P3-9): the
+    # constants extract from the source - the gap lived as a sim-side 8
+    # while the c-side define answered to no pin, and the walk floor
+    # mutation reddened only the menu's own string pin.
+    GAP = int(re.findall(r"#define _VIV_TOOLBAR_BUTTON_GAP (\d+)", tb)[0])
     AW = 40
-    GROUP_MAX = 5
+    GROUP_MAX = int(re.findall(r"#define _VIV_TOOLBAR_GROUP_MAX (\d+)", tb)[0])
+    check("the extracted constants are the shipped ones (gap 8, six groups)",
+          (GAP, GROUP_MAX) == (8, 5), str((GAP, GROUP_MAX)))
 
     def widths_for(scale):
         return [scale + g if t == "BUTTON" else 17 for t, g in items]
@@ -2939,6 +2954,65 @@ def t_sim_paging_round132():
     check("two adjacent buttons carry the design's gap between their faces",
           xs[adj[1]] - (xs[adj[0]] + widths[adj[0]]) == GAP)
 
+    # round 135 (the fourth report's P2-1, the dead arrow): the step
+    # skips the groups the mask killed. the navigation group unchecked
+    # under a narrow window made page one a dead step - the walk clamped
+    # it home and the lit chevron promised a turn that never came.
+    check("the c-side step skips the dead groups (the source anchor)",
+          "static int _viv_toolbar_group_live(int group)" in tb and
+          "while ((page <= _VIV_TOOLBAR_GROUP_MAX) && (!_viv_toolbar_group_live(page)))" in tb and
+          "while ((page > 0) && (!_viv_toolbar_group_live(page)))" in tb)
+
+    def group_live(g, mask=0x3f):
+        return bool((mask >> g) & 1) and any(gg == g for _, gg in items)
+
+    def step(page, dirn, mask=0x3f):
+        if dirn > 0:
+            p = page + 1
+            while p <= GROUP_MAX and not group_live(p, mask):
+                p += 1
+            return None if p > GROUP_MAX else p
+        p = max(0, page - 1)
+        while p > 0 and not group_live(p, mask):
+            p -= 1
+        return p
+
+    nav_dead = 0x3f & ~(1 << 1)
+    check("the forward step skips the dead navigation group",
+          step(0, +1, nav_dead) == 2)
+    after = walk(440, step(0, +1, nav_dead), mask=nav_dead)
+    before = walk(440, 0, mask=nav_dead)
+    check("the skipped step moves the content (the arrow's promise is delivered)",
+          after[0] == 2 and after[1] == 1 and after[3] != before[3],
+          str((after[:3], before[:3])))
+    check("the dead page still clamps home when something else lands it there",
+          walk(440, 1, mask=nav_dead)[0] == 0)
+    two_dead = 0x3f & ~((1 << 1) | (1 << 2))
+    check("the back step skips dead groups too (or goes home)",
+          step(3, -1, two_dead) == 0)
+    check("a mask with nothing forward owes no turn",
+          step(0, +1, 0x01) is None)
+
+
+def t_sim_fusion4_round135():
+    """Simulation replays for the fourth fusion response round
+    (1.1.16-rc.1): the process exit legs counted from the tree - the
+    three-way contract's two zero legs carried no pin, so either one
+    could flip to one and every suite stayed green while the installer
+    waited on a silent install that never answered."""
+    print("the fourth fusion response round (1.1.16-rc.1)")
+    viv = read("src/viv.c").decode().replace("\r\n", "\n")
+    main = viv[viv.find("static int _viv_main"):viv.find("int APIENTRY WinMain")]
+    zeros = main.count("return 0;")
+    negs = main.count("return -1;")
+    tails = main.count("return (init_ret == 0) ? 0 : 1;")
+    check("the exit legs count three zeros, three failures, one tail map",
+          (zeros, negs, tails) == (3, 3, 1), str((zeros, negs, tails)))
+    check("the install one-shot's zero is pinned by its own words",
+          "// the zero is the one-shot's answer: an install command that\n\t\t\t// finished its work reads as success to whoever waited on the\n\t\t\t// process (the fusion round's cross-check caught a shared tail\n\t\t\t// answering failure to every install).\n\t\t\treturn 0;" in main)
+    check("the forward's zero is pinned by its own words",
+          "// the forward's zero: a second instance that handed its\n\t\t\t// command line to the live window and left reads as success\n\t\t\t// (the smoke test's crash bucket used to disagree with the\n\t\t\t// rc.11 tail about this).\n\t\t\treturn 0;" in main)
+
 
 if __name__ == "__main__":
     t_sim_mat_color()
@@ -2963,6 +3037,7 @@ if __name__ == "__main__":
     t_sim_title_borrow_round129()
     t_sim_merged_report_round130()
     t_sim_paging_round132()
+    t_sim_fusion4_round135()
     print()
     if failures:
         print("%d FAILURE(S)" % len(failures))

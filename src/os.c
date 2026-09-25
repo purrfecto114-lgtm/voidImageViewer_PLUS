@@ -1214,6 +1214,117 @@ int os_reg_delete_key_ex(HKEY hkey,const wchar_t *name,REGSAM access)
 	return 0;
 }
 
+// true when the comctl dark explorer control classes actually render dark:
+// windows 10 1903 (build 18362) and later. older builds accept the calls
+// but keep the light control rendering, so the dialog fallbacks (owner
+// drawn buttons and combos) carry the dark ui alone on those builds.
+int os_dark_controls_supported(void)
+{
+	if (!os_is_nt)
+	{
+		return 0;
+	}
+
+	if (os_major_version > 10)
+	{
+		return 1;
+	}
+
+	if (os_major_version == 10)
+	{
+		return (os_build_number >= 18362) ? 1 : 0;
+	}
+
+	return 0;
+}
+
+typedef LONG (__stdcall *OS_RegDeleteTreeW_fn)(HKEY key,const wchar_t *name);
+static OS_RegDeleteTreeW_fn _os_RegDeleteTreeW = 0;
+
+// delete a key with everything under it. regdeletekey refuses keys
+// that carry subkeys (msdn: "the subkey to be deleted must not have
+// subkeys"), so the class tree the installer builds - the progid with
+// its defaulticon and shell\\open\\command - could never be removed by
+// the bare call: every uninstall left the whole tree behind with the
+// command pointing at an exe that was no longer there. regdeletetreew
+// answers exactly this and is vista+, so it resolves lazily like
+// regdeletekeyexw above; the boxes older than that walk the tree by
+// hand (enumerate, recurse, delete - the leaves first).
+int os_delete_key_tree(HKEY hkey,const wchar_t *name)
+{
+	LONG ret;
+
+	if (!_os_RegDeleteTreeW)
+	{
+		HMODULE module;
+
+		module = GetModuleHandleA("advapi32.dll");
+
+		if (module)
+		{
+			_os_RegDeleteTreeW = (void *)GetProcAddress(module,"RegDeleteTreeW");
+		}
+	}
+
+	if (_os_RegDeleteTreeW)
+	{
+		return (_os_RegDeleteTreeW(hkey,name) == ERROR_SUCCESS) ? 1 : 0;
+	}
+
+	// the pre-vista walk: open, enumerate the subkeys, recurse into
+	// each (the deepest leaves delete first), then delete this key now
+	// that it is empty. any refusal answers 0 - the caller decides
+	// what that means.
+	ret = RegOpenKeyExW(hkey,name,0,KEY_ENUMERATE_SUB_KEYS|KEY_QUERY_VALUE|DELETE,&hkey);
+
+	if (ret == ERROR_SUCCESS)
+	{
+		wchar_t subname[STRING_SIZE];
+		DWORD index;
+		DWORD size;
+
+		index = 0;
+
+		for(;;)
+		{
+			size = STRING_SIZE;
+
+			ret = RegEnumKeyExW(hkey,index,subname,&size,0,0,0,0);
+
+			if (ret == ERROR_NO_MORE_ITEMS)
+			{
+				break;
+			}
+
+			if (ret != ERROR_SUCCESS)
+			{
+				RegCloseKey(hkey);
+
+				return 0;
+			}
+
+			if (!os_delete_key_tree(hkey,subname))
+			{
+				RegCloseKey(hkey);
+
+				return 0;
+			}
+
+			// the enumeration restarts at zero: deleting subkey i
+			// renumbers everything after it.
+			index = 0;
+		}
+
+		RegCloseKey(hkey);
+	}
+	else
+	{
+		return 0;
+	}
+
+	return (RegDeleteKeyW(hkey,name) == ERROR_SUCCESS) ? 1 : 0;
+}
+
 // GDI+ encoder parameter structures. (locally defined, mirrors the gdiplus ABI)
 typedef struct
 {
@@ -2391,30 +2502,6 @@ int os_is_windows_8_or_later(void)
 	
 	return 0;
 }
-// true when the comctl dark explorer control classes actually render dark:
-// windows 10 1903 (build 18362) and later. older builds accept the calls
-// but keep the light control rendering, so the dialog fallbacks (owner
-// drawn buttons and combos) carry the dark ui alone on those builds.
-int os_dark_controls_supported(void)
-{
-	if (!os_is_nt)
-	{
-		return 0;
-	}
-	
-	if (os_major_version > 10)
-	{
-		return 1;
-	}
-	
-	if (os_major_version == 10)
-	{
-		return (os_build_number >= 18362) ? 1 : 0;
-	}
-	
-	return 0;
-}
-
 
 // windows creates funky regions if left > right
 HRGN os_CreateRectRgn(int left,int top,int right,int bottom)

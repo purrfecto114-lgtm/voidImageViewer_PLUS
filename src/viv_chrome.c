@@ -394,7 +394,11 @@ static BYTE _viv_is_prevent_sleep = 0;
 // presets hide the status bar, and a load that fails there had no
 // face anywhere (the review's "the failure is all black"). returns 0
 // when nothing failed.
-static const wchar_t *_viv_status_failure_line(wchar_t *buf)
+// 1.1.16: the faceless three (minimal, compact, fullscreen) strip the
+// caption too, so the borrow rides the window text into the dark -
+// the paint path asks the same line now and draws it in the view,
+// the one strip every preset keeps (the export is that ask).
+const wchar_t *_viv_status_failure_line(wchar_t *buf)
 {
 	if (_viv_file_not_found)
 	{
@@ -424,6 +428,51 @@ static const wchar_t *_viv_status_failure_line(wchar_t *buf)
 	}
 	
 	return 0;
+}
+
+// the failure's last-resort face: the presets that hide the status
+// bar leave the title borrow as the only strip that can say why
+// the screen is empty - and the presets that also strip the caption
+// (minimal, compact, fullscreen) leave even that dark. the view
+// itself carries the line then: every preset keeps a client area,
+// the same state the panes and the title read answers here, and the
+// next successful load's own repaint covers it (the background fill
+// runs on every paint - the invalidate that moves the face onto the
+// screen rides the title borrow it mirrors).
+void _viv_paint_failure_face(HDC hdc,int view_top,int wide,int high)
+{
+	wchar_t failure_buf[STRING_SIZE];
+	HFONT face_font;
+	HGDIOBJ last_face_font;
+	RECT face_rect;
+
+	if (!_viv_status_failure_line(failure_buf))
+	{
+		return;
+	}
+
+	face_font = _viv_menu_font();
+	last_face_font = 0;
+
+	if (face_font)
+	{
+		last_face_font = SelectObject(hdc,face_font);
+	}
+
+	SetBkMode(hdc,TRANSPARENT);
+	SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
+
+	face_rect.left = 0;
+	face_rect.top = view_top;
+	face_rect.right = wide;
+	face_rect.bottom = view_top + high;
+
+	DrawTextW(hdc,failure_buf,-1,&face_rect,DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOPREFIX);
+
+	if (last_face_font)
+	{
+		SelectObject(hdc,last_face_font);
+	}
 }
 void _viv_update_title(void)
 {
@@ -464,6 +513,12 @@ void _viv_update_title(void)
 		{
 			// a failed load has no file on screen; the strip says why.
 			filename = failure_buf;
+
+			// and when the caption is gone too (the faceless three),
+			// the view itself carries the line - the paint reads the
+			// same state, so the repaint is what moves the face onto
+			// the screen. the next successful load repaints over it.
+			InvalidateRect(_viv_hwnd,0,FALSE);
 		}
 	}
 	

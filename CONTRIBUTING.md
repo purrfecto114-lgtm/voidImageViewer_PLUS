@@ -76,13 +76,13 @@ images, with the smoke and golden legs riding the windows-2022 one.
 ## Version rules
 
 - `src/version.h` is the single source of truth. `VERSION_STRING` (for
-  example `1.1.14-rc.5`) is what the release tag, the installer names and
+  example `1.1.16-rc.1`) is what the release tag, the installer names and
   the version resource display; the NSIS installer derives everything
   from it at compile time (`nsis/version.nsh`). Bumping the version means
   editing that one file, plus the `Changes.txt` entry.
 - A release tag must match `VERSION_STRING` exactly (an optional `v`
   prefix aside) — the release pipeline refuses to run otherwise. Tag
-  shape: `1.1.14`, `1.1.14-rc.5`, or the legacy `v1.1.0-rc.7` style.
+  shape: `1.1.15`, `1.1.16-rc.1`, or the legacy `v1.1.0-rc.7` style.
 - rc → stable promotion: drop the `-rc.N` suffix from `VERSION_STRING`,
   set `VERSION_TYPE` to the empty string, bump `VERSION_BUILD`, add the
   `Changes.txt` section. The release notes banner switches from

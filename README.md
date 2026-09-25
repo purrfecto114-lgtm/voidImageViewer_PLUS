@@ -32,6 +32,8 @@ What's new
 - The session shapes — the cache is a ring you size (1–8 images), preloading walks a chain you size (1–5 ahead, following your direction), and **Resume where I left off** reopens the last session's file on a blank start.
 - The narrow window pages its toolbar behind edge arrows (a button is never cut mid-glyph), and the designed 8-dip button gap finally lands between adjacent faces.
 
+**1.1.16-rc.1 — the fourth fusion response round:** the zombie class tree falls (the uninstaller finally removes the progid it installs), the dead arrow turns (a masked-out group is never a page), the failure finds a face in the view for the caption-less presets, and the exit-code pair, the backup's merged view, the honest read's third answer and the guard shapes answer the fourth report. See [Changes.txt](Changes.txt).
+
 **1.1.15-rc.19 — the toolbar paging round:** the narrow-window paging arrows, the designed 8-dip button gap finally spent, the rounded settings focus rings, and the budget refusal family united. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.18 — the merged-report adjudication round:** the WIC path delivers every frame the codec reports (multi-frame HEIF/AVIF sequences animate behind the animation budgets), the frame-state guard closes the -1 family, and the installer asks the machine. See [Changes.txt](Changes.txt).
@@ -39,6 +41,8 @@ What's new
 **1.1.15-rc.17 — the default-app honesty round:** the association checkbox registers both Open With homes and tells the shell (SHChangeNotify), the honest read admits what a UserChoice lock means and offers the settings page, and a failed load rides the title bar in the status-bar-less presets. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.16 — the parallel evaluation round:** four read-only agents swept the rc.15 tree, the main thread re-read every claim, and the five behavior survivors landed (the ghost drag, the delete queue, the silent-ini boxes, the rotate ask, the usage pair) with seven guard-teeth closures. See [Changes.txt](Changes.txt).
+
+**1.1.15-rc.15 — the pill field round:** the floating bar at 90 percent, the wall-clock fade (flicker gone at the mechanism, not the guess), and the windowed ghost fix. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.14 — the settings footer round:** the 4K-300% report — the silently dropped footer buttons (the capacity now counts forty with a per-page census), the settings content scroll under the pinned footer, the Apply button with its dirty lamp, and the keyboard repairs. See [Changes.txt](Changes.txt).
 
@@ -49,6 +53,8 @@ What's new
 **1.1.15-rc.11 — the resume and chain round:** the resume switch's pill, the preload chain's seat gate, and the guard suite's control-machine matrix walk. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.10 — the gui limits round:** the breathing bottom-right pair, the resurrected count dropdowns, the narrow-window give-way order, the four-digit zoom editor, and the full command-line usage page. See [Changes.txt](Changes.txt).
+
+**1.1.15-rc.9 — the memory and cache round:** the cache ring and the preload chain you size, the resume switch, the recent/rename identity fixes, and the animation memory work. See [Changes.txt](Changes.txt).
 
 - The image cache is a ring you size — Settings → View → **Cache count** (off / 1–8 images); walk back through what you just saw without reloading.
 - Every settings row applies live as you flip it; **OK** (or Enter) persists and closes, **Apply** persists and stays, **Cancel** (or Esc, or the title ✕) rewinds to the last persisted baseline. On short work areas the page scrolls under the footer — the wheel, the page keys and the scrollbar thumb all move it.
@@ -88,7 +94,7 @@ Touch & zoom controls
 | Toolbar zoom buttons | Zoom in / out |
 | Floating zoom bar | One seven-cell row in both modes — prev / play-pause / next / zoom out / percent / zoom in (bottom center; fullscreen fades it out when idle) |
 
-Gestures need Windows 7+ with touch hardware. Single-finger input stays mouse-compatible, so configured click actions are unaffected. Toggle the floating controls via **View → Floating Control Bar**. A pinch keeps shrinking below the windowed fit, down to about fit/16 (mirroring the 16× zoom cap) — `Allow shrinking` in Options keeps its meaning.
+Gestures need Windows 7+ with touch hardware. Single-finger input stays mouse-compatible, so configured click actions are unaffected. Toggle the floating controls via **View → Floating Control Bar**. A pinch keeps shrinking below the windowed fit, down to about fit/16 (mirroring the 16× zoom cap) — `Allow shrinking` in Settings keeps its meaning.
 
 Canvas, backdrop & dark mode
 --------
