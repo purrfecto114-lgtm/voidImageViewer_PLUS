@@ -190,6 +190,60 @@ after.
   orders and scratch state live outside the repository; what deserves
   permanence condenses into `Changes.txt` or this file.
 
+## The 1.1.16 arc — round descriptions
+### 1.1.16-rc.1 — the fourth fusion response round (2026-09-25, build 100, 3a33d36)
+
+- Commit: 3a33d36; the user handed over the fourth fusion report
+  (fourteen sweeps over the rc.19 tree, forty mutation experiments, the
+  verdict that the arc answered the third report twenty-four-for-
+  twenty-five while both new dead machines lived in the fix rounds'
+  own new code) with one instruction: read it, judge it, correct it,
+  discuss it, fix it, ship 1.1.16-rc.1 - and mind the feasibility, the
+  guard distribution and the necessary interfaces. the round answered
+  the way the house answers every report: three verification agents
+  over the claim clusters, the web confirming the registry contracts,
+  and the main thread re-reading every load-bearing line before it
+  moved. the verification corrected the report four times and found
+  six things it missed.
+- **the zombie class tree falls (the report's P1-1).** the
+  uninstaller's bare regdeletekey could never remove the progid it
+  installs - the key carries defaulticon and shell\\open\\command,
+  subkeys the api refuses (msdn: "the subkey to be deleted must not
+  have subkeys") - so every uninstall left the whole tree behind with
+  the command pointing at an exe that was no longer there while both
+  honest reads answered all-clear. the fix is one interface:
+  os_delete_key_tree resolves regdeletetreew lazily exactly the way
+  regdeletekeyexw always has, walks the tree by hand on the pre-vista
+  boxes, and its refusal lands in the log instead of on the floor.
+- **the dead arrow turns, the failure finds a face.** a group the
+  customization mask killed cannot be a page - the navigation group
+  unchecked under a narrow window made page one a dead step that
+  clamped home with the chevron still lit. the step skips the dead
+  groups now. and the three presets that strip the caption too left
+  the rc.17 title borrow riding a window text nobody could see: the
+  paint asks the same line the panes and the title read and draws it
+  centered in the viewport, the one strip every preset keeps - the
+  machine-face lesson, pinned from both ends.
+- **the guard shapes answer the report's own verdict.** the census
+  teeth stay and the existence pins get asked whether they bite: the
+  fade retire carries its own two adjacencies (the old pin was a pure
+  disjunction - either line satisfied it), the ulw pair is pinned, the
+  dropdown value face is a binding table, the wheel's absolute anchor
+  lands, the gap and the group max extract from the source, the freeze
+  table grows with every round and covers the sim docstrings and the
+  round-labeled prints, the golden manifest's own rows answer the
+  cross-leg question the flip era never asked, link_scan's domain
+  reaches os.h and os.c with the pointer declarators skipped
+  conservatively, and the anti-tautology round's own two born-dead
+  chains are gone with a census that assembles its needle at runtime.
+  the mutation retest bites sixteen for sixteen.
+- **a recorded keep is not silence's to delete.** the report's os.h
+  finding retired the true orphan (zero definitions, zero calls, zero
+  history) - but the dark controls probe kept its seat: its pins call
+  it a recorded decision, not residue, and the difference between the
+  two is exactly the difference between unifying interfaces and
+  erasing judgment.
+
 ## The 1.1.15 arc — round descriptions
 ### 1.1.15 — the stable promotion round (2026-09-25, build 99, fa72bc7)
 
