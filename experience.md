@@ -191,6 +191,48 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.15 arc — round descriptions
+### 1.1.15-rc.19 — the toolbar paging round (2026-09-25, build 98, b7308c8)
+
+- Commit: b7308c8; the user's field report carried two gui observations
+  (the toolbar amputated in a narrow window; rounded corners reading
+  past button borders) and one structural ask (function splits and
+  merges, reliability over ceremony). the round delivered the paging
+  strip, the geometry honesty set, and the budget family merge - the
+  giants' splits are deferred with reasons, not forgotten.
+- **The fast path first.** the paging walk checks the full fit before
+  any arrow exists: a strip that fits behaves byte-identically to the
+  amputation era (no arrows, no page state, no layout change). new
+  machinery that leaves the untouched case untouched is how a stable
+  surface earns a feature. the walk split into its own helpers (the
+  total, the place, the walk) because the paging itself created the
+  seam - a split the round's own work demanded, not a split for
+  splitting's sake.
+- **A design constant the code never spends is a bug wearing a design
+  document.** the 8-dip "between the buttons" gap was defined, scaled,
+  read by the separators' width - and never added between two buttons.
+  the flush rounded hover faces read as one control bleeding into the
+  next, and the user filed it as a mystery. the comment promised
+  behavior the walk never delivered; the fix was to spend the constant,
+  not to redesign the strip.
+- **A guard that stops growing decays into a false sense of security.**
+  the docstring freeze table stopped at r127; the r130 sweep then
+  dragged the r129 labels to rc.18 and nothing went red - the table
+  only guarded the rounds it listed. the table grows with every
+  shipping round from here, and the dragged labels were restored from
+  git archaeology before the sweep ran.
+- **The byte-block insertion script must assert its own line endings.**
+  the walk block rode into a CRLF file on LF newlines - a triple-quoted
+  literal in a heredoc carries raw newlines, and 255 lines of mixed
+  endings passed every eye until byte_invariant counted them. the
+  surgical scripts now end with a CRLF assertion on what they wrote (or
+  the suite catches it first, as it did here).
+- **The delete-block boundary gets enumerated before the cut.** the wic
+  twin retirement consumed `_wic_frame_to_rgba` - an r130 helper that
+  lived between the animation twin and the entry point - and only the
+  compile gate caught it. a block deletion lists every definition
+  inside its span before it cuts; the span is a shape, not a pair of
+  anchors.
+
 ### 1.1.15-rc.18 — the merged-report adjudication round (2026-09-24, build 97, ae6f732)
 
 - Commit: ae6f732; the user's merged report (an initial sweep, then a
