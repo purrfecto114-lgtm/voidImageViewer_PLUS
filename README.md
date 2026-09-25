@@ -24,12 +24,15 @@ answers the workflow run and commit each file was built from (signing would stil
 
 What's new
 --------
-**1.1.15-rc.19 — the toolbar paging round (the current release candidate):**
+**1.1.15 — the stable promotion round (the current stable):**
 
-- A narrow window no longer amputates the toolbar: when the strip outgrows the window an arrow rides the right edge and a click pages one group (the separator's own unit — a button is never cut mid-glyph); once paged a second arrow rides the left edge, the open button never pages away, and widening past the overflow resets the page home.
-- The designed 8-dip button gap finally landed between adjacent faces — the constant was scaled and never spent, and the flush rounded hover faces read as one control bleeding into the next.
-- The settings focus ring follows the rounded faces it frames (the square ring poked its corners out past every rounded corner — the message box fixed this same shape for itself in rc.13), the nav pills inset inside their rows, and the floating bar's keyboard focus is an accent ring that follows the capsule.
-- The budget refusal family is one family: the pixel and animation gates live once in the load domain and every decoder (webp, wic, qoi) calls the exported pair.
+- One budget family — the pixel and animation gates live once in the load domain and every decoder (webp, wic, qoi) calls the exported pair; a budget semantics change has one home to miss instead of five.
+- Honest faces — the association checkbox registers both Open With homes and tells the shell, the honest read admits a UserChoice lock and offers the settings page, the settings focus ring follows the rounded faces it frames, and a failed load rides the title bar in the status-bar-less presets.
+- Every frame delivered — multi-frame HEIF/AVIF sequences animate behind the animation budgets (the WIC path no longer stops at frame 0), the frame-state guard closes the -1 family, and the installer asks the machine.
+- The session shapes — the cache is a ring you size (1–8 images), preloading walks a chain you size (1–5 ahead, following your direction), and **Resume where I left off** reopens the last session's file on a blank start.
+- The narrow window pages its toolbar behind edge arrows (a button is never cut mid-glyph), and the designed 8-dip button gap finally lands between adjacent faces.
+
+**1.1.15-rc.19 — the toolbar paging round:** the narrow-window paging arrows, the designed 8-dip button gap finally spent, the rounded settings focus rings, and the budget refusal family united. See [Changes.txt](Changes.txt).
 
 **1.1.15-rc.18 — the merged-report adjudication round:** the WIC path delivers every frame the codec reports (multi-frame HEIF/AVIF sequences animate behind the animation budgets), the frame-state guard closes the -1 family, and the installer asks the machine. See [Changes.txt](Changes.txt).
 
@@ -69,7 +72,7 @@ What's new
 
 **1.1.15-rc.6 — the judged-fixes round** — the message box buttons' UTF-8 bridge, the borderless corner grip, the icon-only toolbar, the fullscreen binary searches, the paste path fallback and the classic Options retirement. Full narrative: `Changes.txt`.
 
-**1.1.14 — the current stable** — the cache-set ceiling prices all three held images together at every fill point (a preload that would overflow is abandoned silently; the settle point drops the cache, never the image on screen), and the preloading/caching defaults are pinned as a guard. Full narrative: `Changes.txt`.
+**1.1.14 — the previous stable** — the cache-set ceiling prices all three held images together at every fill point (a preload that would overflow is abandoned silently; the settle point drops the cache, never the image on screen), and the preloading/caching defaults are pinned as a guard. Full narrative: `Changes.txt`.
 
 The full round archive — every earlier candidate one line each, plus the lessons that outlived their rounds — lives in [experience.md](experience.md); the complete per-version narrative is [Changes.txt](Changes.txt).
 

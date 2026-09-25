@@ -1,4 +1,77 @@
-﻿Pre-release: Version 1.1.15-rc.19 (the toolbar paging round)
+﻿Stable: Version 1.1.15 (the stable promotion round)
+
+	the 1.1.15 arc's promotion question was never going to be "is it
+	ready" - nineteen candidates answered that along the way, each
+	landing changelog-first and green on the CI legs. the question a
+	stable mark asks in writing is what the whole arc promises the
+	whole world, and the honest answer is three convergent themes:
+	one budget family, honest faces, every frame delivered.
+	
+	one budget family. the pixel and animation gates began the arc as
+	seven byte-identical copies scattered across the gdi+ loader and
+	the webp, wic and qoi decoders - the audits kept finding them, and
+	the merged report's wic round added the newest member. viv_load.c
+	owns the pair now, exported once, and every decoder calls the same
+	externs (the gdi+ call sites pass the still ceiling explicitly): a
+	budget semantics change has one home to miss instead of five. the
+	ceilings held their line - the animation canvas cap, the
+	frame-count and frame-array budgets, the working-set pricing that
+	runs a third heavy on the gdi+ path because the conservative side
+	is the safe side for a gate whose whole job is to refuse.
+	
+	honest faces. the association checkbox stopped answering its own
+	question - the read-back compared the keys the install had just
+	written while windows 10/11 keep the real default behind the
+	UserChoice hash, so the registration now earns what it can sign
+	(both OpenWithProgids homes plus SHChangeNotify, so the shell
+	hears the change the moment it lands) and the honest read admits a
+	lock and offers the settings page. the settings focus ring follows
+	the rounded faces it frames - the square ring survives only where
+	the face is square, the nav pills inset inside their rows, and the
+	floating bar's keyboard focus is an accent ring that follows the
+	capsule. a failed load has a face in every preset: the minimal and
+	compact modes hide the status bar, so the failure line rides the
+	title bar until the next successful load. the toolbar tells the
+	truth about overflow: a narrow window pages its groups behind edge
+	arrows instead of amputating them with no trace, and the designed
+	8-dip button gap finally lands between adjacent faces.
+	
+	every frame delivered. the wic path read frame 0 of a multi-frame
+	file and dropped the rest, so a heif or avif sequence showed its
+	first frame forever; every frame the codec reports now rides the
+	same generic delivery the webp path uses, behind the animation
+	budgets, on the uniform 100ms stand-in (frame timing lives in
+	container metadata this layer does not parse - the contract is
+	spelled in the source). the frame-state guard closes the -1 family
+	at every reader, the qpc clock degrades as one domain, the
+	installer asks the machine (GetNativeSystemInfo, not a wow64
+	guess), and the shell context menu, the opengl and direct3d
+	renderers and the toolbar customization the 1.1.14 arc opened all
+	ride forward.
+	
+	the session shapes. the image cache is a ring you size (off to
+	eight images), preloading walks a chain you size (off to five
+	ahead, following the navigation direction), and a blank start
+	reopens the last session's file when you ask it to. the cache set
+	holds its own memory line, the trim drops the oldest first, and
+	animations stopped building a mipmap chain for every frame nobody
+	looks at - the field's high-memory reading lands at a fraction of
+	the old residency.
+	
+	the distribution note. this promotion retires the release-candidate
+	line from the releases page: the stable tags carry the history and
+	the rc binaries leave the public list. the security table answers
+	1.1.15 as the supported line and 1.1.14 and older as previous
+	lines.
+	
+	verified: the five suites pass (menu with the round-133 section,
+	the version pins swept to 1.1.15 build 99), link_scan audits 318
+	externs against 318 definitions with zero missing, the zig line
+	links a 514,048-byte x64 exe and a 394,752-byte aarch64 exe, and
+	the cold-cache warning census holds 156 against 156 with the
+	identical per-file distribution.
+
+Pre-release: Version 1.1.15-rc.19 (the toolbar paging round)
 
 	the narrow window no longer amputates the toolbar. the overflow
 	contract used to hide whole groups from the right and leave no

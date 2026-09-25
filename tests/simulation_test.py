@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.15-rc.19.98",
-          (major, minor, rev, build) == (1, 1, 15, 98), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.15-rc.19",
-          vstr is not None and vstr.group(1) == "1.1.15-rc.19", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.15.99",
+          (major, minor, rev, build) == (1, 1, 15, 99), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.15",
+          vstr is not None and vstr.group(1) == "1.1.15", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -706,9 +706,9 @@ def t_sim_version_117():
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
     experience = read("experience.md").decode("utf-8", errors="replace")
-    check("the readme current-stable line says 1.1.14",
-          "**1.1.14 — the current stable**" in readme)
-    check("the candidate slot rotates to the seventh audit response round (rc.7 joins the one-liners)",
+    check("the readme previous-stable line says 1.1.14",
+          "**1.1.14 — the previous stable**" in readme)
+    check("the promotion keeps the arc's one-liners and retires the candidate slot (rc.7 still rides)",
           "**1.1.14-rc.10** —" in experience and
           "**1.1.13** —" in experience and
           "**1.1.14-rc.9** —" in experience and
@@ -723,7 +723,7 @@ def t_sim_version_117():
           "### 1.1.15-rc.3 —" in experience and
           "### 1.1.15-rc.2 —" in experience and
           "### 1.1.15-rc.1 —" in experience and
-          readme.count("(the current release candidate):**") == 1 and
+          readme.count("(the current stable):**") == 1 and
           "**1.1.14-rc.2** —" in experience and
           "**1.1.14-rc.1** —" in experience and
           "**1.1.13-rc.7** —" in experience and
