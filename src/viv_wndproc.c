@@ -1240,11 +1240,36 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 							{
 								if (_viv_frame_position + 1 >= _viv_slot_current.frame_loaded_count)
 								{	
-									// ignore this tick
-									frames_skipped++;
-									_viv_timer_tick = 0;
-									break;
-								}
+									// the loader is still behind the declared count:
+									// hold the position at the last loaded frame until
+									// it catches up. but a load that has settled short
+									// (a truncated file the decoder gave up on) never
+									// catches up - wrap at the tail that exists so the
+									// looped flag fires, the slideshow waiting on it
+									// moves on, and the animation itself restarts from
+									// the first frame instead of freezing on the last
+									// loaded one forever.
+									if (_viv_load_image_thread)
+									{
+										// ignore this tick
+										frames_skipped++;
+										_viv_timer_tick = 0;
+										break;
+									}
+									
+									// -1 so the shared ++ below lands the position
+									// back on the first frame, and the same slideshow
+									// check the full wrap runs.
+									_viv_frame_looped = 1;
+									_viv_frame_position = -1;
+									
+									if ((config_loop_animations_once) && (_viv_is_slideshow_timeup))
+									{
+										_viv_next(0,1,0,0);
+										
+										break;
+									}
+									}
 							}
 						
 							_viv_frame_position++;
@@ -2538,9 +2563,12 @@ static LRESULT _viv_on_wm_notify(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 								break;
 							
 							default:
-								// the frame counter pane is followed only by the dimension
-								// pane. clicking it toggles the frame numbering direction.
-								if (item == (int)SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2)
+								// the frame counter pane, by its live index (the date
+								// pane's birth moved parts-minus-two onto the wrong
+								// pane: clicking the date flipped a counter nothing
+								// showed, and a still image wrote the mode to the
+								// ini unseen).
+								if (item == _viv_status_frame_pane_index())
 								{
 									config_frame_minus = !config_frame_minus;
 									_viv_status_update();
@@ -2844,13 +2872,24 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			int ry;
 			int rw;
 			int rh;
+			int frame_state_ok;
 
 			// the hardware renderers take the whole frame: the same view
 			// math the gdi path computes below, one textured quad, one
 			// present. any refusal (no dll, no context, an oversized
 			// canvas) leaves the gdi path painting this frame - the sticky
 			// flags keep the answer stable for the session.
-			if (_viv_slot_current.frame_count)
+			
+			// the frame-state guard runs once for both render legs: the
+			// hardware dispatch and the gdi mipmap read below both index
+			// frames[] - a refused guard (an empty animation, a stale
+			// position) leaves this paint to the background fill alone,
+			// and the refusal must not wear the hardware-fallback face
+			// (a zero return from the hw frame is the renderer's own
+			// refusal contract, not the frame state's).
+			frame_state_ok = (_viv_slot_current.frame_count) && (_viv_frame_state_guard("paint"));
+			
+			if (frame_state_ok)
 			{
 				_viv_get_render_size(&rw,&rh);
 				
@@ -2904,7 +2943,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			rh = 0;
 
 			// controls.
-			if (_viv_slot_current.frame_count)
+			if (frame_state_ok)
 			{
 				HDC mem_hdc;
 				

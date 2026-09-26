@@ -25,6 +25,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_render.h"
+#include "viv_anim.h"
 #include "viv_chrome.h"
 #include "viv_load.h"
 #include "viv_menu.h"
@@ -1398,7 +1399,10 @@ static void _viv_get_src_pixel_rgb(int src_x,int src_y,COLORREF *out_colorref)
 	wide = client_rect.right - client_rect.left;
 	high = client_rect.bottom - client_rect.top - _viv_get_status_high() - _viv_get_view_top();
 
-	if (_viv_slot_current.frame_count)
+	// the frame-state guard rides the probe: an empty animation or a
+	// stale position must not sample a frame that is not on the screen
+	// (the paint legs ask the same question).
+	if ((_viv_slot_current.frame_count) && (_viv_frame_state_guard("src pixel")))
 	{
 		HDC screen_hdc;
 		

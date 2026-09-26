@@ -272,6 +272,9 @@ void _viv_check_menus(HMENU hmenu)
 	EnableMenuItem(hmenu,VIV_ID_ANIMATION_RATE_DEC,is_animation_enabled);
 	EnableMenuItem(hmenu,VIV_ID_ANIMATION_RATE_INC,is_animation_enabled);
 	EnableMenuItem(hmenu,VIV_ID_ANIMATION_RATE_RESET,is_animation_enabled);
+	// the countdown toggle rides the image gate, not the animation
+	// one: a still image can pre-set the direction for the next gif.
+	EnableMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_MINUS,is_image_enabled);
 
 	CheckMenuItem(hmenu,VIV_ID_VIEW_CAPTION,config_show_caption ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_THICKFRAME,config_show_thickframe ? MF_CHECKED : MF_UNCHECKED);
@@ -299,6 +302,7 @@ void _viv_check_menus(HMENU hmenu)
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ONTOP_NEVER,config_ontop == 0 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	
 	CheckMenuItem(hmenu,VIV_ID_SLIDESHOW_PAUSE,_viv_is_slideshow ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_MINUS,config_frame_minus ? MF_CHECKED : MF_UNCHECKED);
 
 	switch(config_slideshow_rate)
 	{

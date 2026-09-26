@@ -161,16 +161,20 @@ void _viv_animation_pause(void)
 void _viv_frame_step(void)
 {
 	_viv_frame_looped = 0;
-	
-	if (_viv_animation_play)
-	{
-		_viv_animation_play = 0;
-	}
 
 	if (_viv_slot_current.frame_count > 1)
 	{
 		if ((_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count) || (_viv_frame_position + 1 < _viv_slot_current.frame_loaded_count))
 		{
+			// the pause rides the step that actually moved: refusing
+			// the step (the loader still behind the position) used to
+			// stop the clock on a frame that never changed - the face
+			// said paused while the picture said otherwise.
+			if (_viv_animation_play)
+			{
+				_viv_animation_play = 0;
+			}
+
 			_viv_frame_position++;
 			if (_viv_frame_position == _viv_slot_current.frame_count)
 			{
@@ -234,13 +238,15 @@ void _viv_frame_prev(void)
 {
 	_viv_frame_looped = 0;
 
-	if (_viv_animation_play)
-	{
-		_viv_animation_play = 0;
-	}
-
 	if ((_viv_slot_current.frame_count > 1) && (_viv_frame_state_guard("frame prev")))
 	{
+		// the pause rides the step that actually moved (the frame
+		// step's own rule, mirrored here).
+		if (_viv_animation_play)
+		{
+			_viv_animation_play = 0;
+		}
+
 		if (_viv_frame_position > 0)
 		{
 			_viv_frame_position--;

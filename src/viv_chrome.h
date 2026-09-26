@@ -48,6 +48,7 @@ void _viv_status_show(int show);
 void _viv_controls_show(int show);
 void _viv_status_update(void);
 void _viv_status_update_frame(void);
+int _viv_status_frame_pane_index(void);
 int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item);
 int _viv_get_status_high(void);
 int _viv_get_controls_high(void);

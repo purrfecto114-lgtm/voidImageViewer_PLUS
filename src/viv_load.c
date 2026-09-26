@@ -489,7 +489,10 @@ debug_printf("LOAD %S is_preload %d\n",_viv_load_image_filename,is_preload);
 }
 void _viv_set_clipboard_image(void)
 {
-	if (_viv_slot_current.frame_count)
+	// the frame-state guard rides the copy: an empty animation or a
+	// stale position must not hand the clipboard a frame that is not
+	// on the screen (the paint legs ask the same question).
+	if ((_viv_slot_current.frame_count) && (_viv_frame_state_guard("clipboard")))
 	{
 		if (_viv_slot_current.frames[_viv_frame_position].hbitmap)
 		{
@@ -908,7 +911,10 @@ void _viv_save_image_as(void)
 	// name over another file's pixels.
 	if (*_viv_slot_current.fd.cFileName)
 	{
-		if (_viv_slot_current.frame_count)
+		// the frame-state guard rides the save: an empty animation or a
+		// stale position must not re-encode a frame that is not on the
+		// screen (the paint legs ask the same question).
+		if ((_viv_slot_current.frame_count) && (_viv_frame_state_guard("save as")))
 		{
 			// do not save while the progressive preview is on screen:
 			// frames[0] is still the low resolution thumbnail until the

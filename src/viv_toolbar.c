@@ -206,7 +206,13 @@ static int _viv_toolbar_item_glyph_id(int itemi)
 // control bleeding into the next; the field report's corners exceeding
 // the button borders). one helper, so every re-count after a hide
 // agrees with the first count.
-static int _viv_toolbar_walk_total(void)
+// the laid-out width of the visible set: the item widths plus the
+// design's own gap, spent at last - adjacent buttons carry the 8-dip
+// air the separators always had (the field report's corners exceeding
+// the button borders). one helper over any visible array, so every
+// re-count after a hide - and the arrow predicates' counts of the
+// neighboring pages - agree with the first count.
+static int _viv_toolbar_visible_total(const BYTE *visible)
 {
 	int itemi;
 	int total;
@@ -217,7 +223,7 @@ static int _viv_toolbar_walk_total(void)
 	
 	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
 	{
-		if (_viv_toolbar_item_visible[itemi])
+		if (visible[itemi])
 		{
 			if ((_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_BUTTON) && (prev_button))
 			{
@@ -231,6 +237,11 @@ static int _viv_toolbar_walk_total(void)
 	}
 	
 	return total;
+}
+
+static int _viv_toolbar_walk_total(void)
+{
+	return _viv_toolbar_visible_total(_viv_toolbar_item_visible);
 }
 
 // assign the x positions of the visible set from x, the same gap rule
@@ -261,25 +272,85 @@ static void _viv_toolbar_walk_place(int x)
 	}
 }
 
+
+static int _viv_toolbar_group_live(int group);
+
+// the visible set a given page shows: the mask, the left page's
+// hidden groups, then the right walk against the slots that page's
+// arrows own. pure - it reads only the mask, the measured widths and
+// the page it is handed, so the walk and both arrow predicates ask
+// the same question and get the same answer (the old right-arrow
+// predicate counted what the right walk hid, which a too-narrow
+// window hides on every page alike - the arrow lit for a turn that
+// changed nothing).
+static void _viv_toolbar_page_visible(int page,BYTE *out_visible)
+{
+	int itemi;
+	int avail;
+	int group;
+	
+	// the customization mask: a group the user hid never lays out.
+	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+	{
+		out_visible[itemi] = (config_toolbar_groups & (1 << _viv_toolbar_items[itemi].group)) ? 1 : 0;
+	}
+	
+	// the left page: groups 1..page hide from the left (group 0, the
+	// open button, never pages away).
+	if (page > 0)
+	{
+		for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+		{
+			if ((out_visible[itemi]) && (_viv_toolbar_items[itemi].group >= 1) && (_viv_toolbar_items[itemi].group <= page))
+			{
+				out_visible[itemi] = 0;
+			}
+		}
+	}
+	
+	// the right walk, the forward arrow's slot reserved (a page past
+	// zero also owns the back arrow's slot).
+	avail = _viv_toolbar_wide - _viv_toolbar_arrow_wide;
+	
+	if (page > 0)
+	{
+		avail -= _viv_toolbar_arrow_wide;
+	}
+	
+	group = _VIV_TOOLBAR_GROUP_MAX;
+	
+	while ((_viv_toolbar_visible_total(out_visible) > avail) && (group > 0))
+	{
+		for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+		{
+			if ((_viv_toolbar_items[itemi].group == group) && (out_visible[itemi]))
+			{
+				out_visible[itemi] = 0;
+			}
+		}
+		
+		group--;
+	}
+}
+
 // the overflow walk: the visible set, the page and the arrows, all
-// decided in one pass. the mask first (a group the user hid never lays
-// out, the separator hiding with its group), then the full-fit fast
-// path - the strip that fits never pages and shows no arrows, the
-// common window, zero behavior change from the amputation era. past
-// that the arrows reserve their slots and the groups hide in pages:
-// groups 1..page from the left (the open button never pages away - the
-// primary action stays put, the pages turn around it), then the right
-// walk hides whole groups from the right until the strip fits or only
-// the open group is left. no wrapping, no chevron popup, no timer - a
+// decided in one pass. the full-fit fast path first - the strip that
+// fits never pages and shows no arrows, the common window, zero
+// behavior change from the amputation era. past that the walk lays
+// out the current page's set and the arrows promise exactly what the
+// neighboring pages deliver: an arrow lights only when the page a
+// step would land on shows a different set than the one on screen
+// (the step's own dead-group skip rides inside the probe, so an arrow
+// never lights for a turn the step itself would refuse - and never
+// for a turn that changes nothing, the starved-window arrow that
+// clicked forever). no wrapping, no chevron popup, no timer - a
 // click is one page.
 static void _viv_toolbar_walk(void)
 {
+	BYTE probe_visible[_VIV_TOOLBAR_ITEM_COUNT];
 	int itemi;
-	int total;
-	int group;
 	int left_hidden;
-	int right_hidden;
-	int avail;
+	int page;
 	
 	// the customization mask: a group the user hid never lays out (the
 	// separator hides with its group). the width never joins the total,
@@ -304,58 +375,81 @@ static void _viv_toolbar_walk(void)
 		return;
 	}
 	
-	// the left page: groups 1..page hide from the left (group 0, the
-	// open button, never pages away).
+	// the current page's visible set (the left page's hidden groups,
+	// the right walk against the slots that page's arrows own).
+	_viv_toolbar_page_visible(_viv_toolbar_page,_viv_toolbar_item_visible);
+	
+	// a page whose groups all hid (masked out, paged past) goes home:
+	// its left range holds nothing the walk could hide.
 	left_hidden = 0;
 	
 	if (_viv_toolbar_page > 0)
 	{
 		for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
 		{
-			if ((_viv_toolbar_item_visible[itemi]) && (_viv_toolbar_items[itemi].group >= 1) && (_viv_toolbar_items[itemi].group <= _viv_toolbar_page))
+			if ((config_toolbar_groups & (1 << _viv_toolbar_items[itemi].group)) && (_viv_toolbar_items[itemi].group >= 1) && (_viv_toolbar_items[itemi].group <= _viv_toolbar_page))
 			{
-				_viv_toolbar_item_visible[itemi] = 0;
-				
 				left_hidden++;
 			}
 		}
+	}
+	
+	if (!left_hidden)
+	{
+		_viv_toolbar_page = 0;
 		
-		// a page whose groups all hid (masked out, paged past) goes home.
-		if (!left_hidden)
+		_viv_toolbar_page_visible(0,_viv_toolbar_item_visible);
+	}
+	
+	// the back arrow: the previous live page shows a different set.
+	page = _viv_toolbar_page - 1;
+	
+	if (page < 0)
+	{
+		page = 0;
+	}
+	
+	while ((page > 0) && (!_viv_toolbar_group_live(page)))
+	{
+		page--;
+	}
+	
+	_viv_toolbar_page_visible(page,probe_visible);
+	
+	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+	{
+		if (probe_visible[itemi] != _viv_toolbar_item_visible[itemi])
 		{
-			_viv_toolbar_page = 0;
+			break;
 		}
 	}
 	
-	_viv_toolbar_arrow_left = (_viv_toolbar_page > 0) ? 1 : 0;
+	_viv_toolbar_arrow_left = (itemi < _VIV_TOOLBAR_ITEM_COUNT) ? 1 : 0;
 	
-	// the right walk, the arrows' slots reserved.
-	avail = _viv_toolbar_wide - _viv_toolbar_arrow_wide;
+	// the forward arrow: the next live page shows a different set.
+	page = _viv_toolbar_page + 1;
 	
-	if (_viv_toolbar_arrow_left)
+	while ((page <= _VIV_TOOLBAR_GROUP_MAX) && (!_viv_toolbar_group_live(page)))
 	{
-		avail -= _viv_toolbar_arrow_wide;
+		page++;
 	}
 	
-	right_hidden = 0;
-	group = _VIV_TOOLBAR_GROUP_MAX;
+	_viv_toolbar_arrow_right = 0;
 	
-	while ((_viv_toolbar_walk_total() > avail) && (group > 0))
+	if (page <= _VIV_TOOLBAR_GROUP_MAX)
 	{
+		_viv_toolbar_page_visible(page,probe_visible);
+		
 		for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
 		{
-			if ((_viv_toolbar_items[itemi].group == group) && (_viv_toolbar_item_visible[itemi]))
+			if (probe_visible[itemi] != _viv_toolbar_item_visible[itemi])
 			{
-				_viv_toolbar_item_visible[itemi] = 0;
+				_viv_toolbar_arrow_right = 1;
 				
-				right_hidden++;
+				break;
 			}
 		}
-		
-		group--;
 	}
-	
-	_viv_toolbar_arrow_right = (right_hidden > 0) ? 1 : 0;
 	
 	_viv_toolbar_walk_place(_viv_toolbar_arrow_left ? _viv_toolbar_arrow_wide : 0);
 }
@@ -836,6 +930,47 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 {
 	switch (msg)
 	{
+		case WM_GETDLGCODE:
+			// the strip answers its own arrows (the pill's rule): the
+			// dialog manager, were one to host this strip, would not
+			// swallow them.
+			return DLGC_WANTARROWS;
+		
+		case WM_SETFOCUS:
+		case WM_KILLFOCUS:
+			// the focus face is the arrow face: either edge repaints the
+			// arrows (the paint's hot test reads the focus below).
+			_viv_toolbar_invalidate_arrow(0);
+			_viv_toolbar_invalidate_arrow(1);
+			break;
+		
+		case WM_KEYDOWN:
+			// the keyboard reaches the paging arrows at last: left and
+			// right turn the page the mouse clicks turn, escape hands
+			// the focus back to the viewer (the pill's exit rule). the
+			// strip never held a keyboard leg of its own.
+			if (wParam == VK_LEFT)
+			{
+				_viv_toolbar_page_step(-1);
+				
+				return 0;
+			}
+			
+			if (wParam == VK_RIGHT)
+			{
+				_viv_toolbar_page_step(1);
+				
+				return 0;
+			}
+			
+			if (wParam == VK_ESCAPE)
+			{
+				SetFocus(_viv_hwnd);
+				
+				return 0;
+			}
+			break;
+		
 		case WM_PAINT:
 		{
 			PAINTSTRUCT ps;
@@ -981,7 +1116,10 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				
 				_viv_toolbar_arrow_rect(arrowi,&arect);
 				
-				ahot = ((arrowi == _viv_toolbar_arrow_hover) || (arrowi == _viv_toolbar_arrow_pressed)) ? 1 : 0;
+				// the keyboard focus lights the arrows too - the tab key walks
+				// the focus here now, and an arrow lit with no other change is
+				// the only face a keyboard arrival has.
+				ahot = ((arrowi == _viv_toolbar_arrow_hover) || (arrowi == _viv_toolbar_arrow_pressed) || (GetFocus() == hwnd)) ? 1 : 0;
 				
 				if (ahot)
 				{
@@ -1175,6 +1313,12 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				if (hit == arrow)
 				{
 					_viv_toolbar_page_step(arrow ? 1 : -1);
+					
+					// the strip never keeps a focus a click can land on it
+					// (the fire path's own rule, mirrored for the arrows:
+					// the keyboard shortcuts must answer the next key press,
+					// not the one after a click on the strip).
+					SetFocus(_viv_hwnd);
 				}
 				
 				return 0;
@@ -1442,7 +1586,7 @@ void _viv_toolbar_create(HWND parent)
 		0,
 		"_VIV_TOOLBAR",
 		"",
-		WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD,
+		WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | WS_TABSTOP,
 		0,0,0,0,
 		parent,(HMENU)VIV_ID_TOOLBAR,os_hinstance,NULL);
 	

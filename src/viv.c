@@ -388,6 +388,8 @@ _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_ANIMATION_DECREASE_RATE,MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_RATE_DEC},
 	{LOCALIZATION_ID_ANIMATION_INCREASE_RATE,MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_RATE_INC},
 	{LOCALIZATION_ID_ANIMATION_RESET_RATE,MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_RATE_RESET},
+	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_ANIMATION,0},
+	{LOCALIZATION_ID_ANIMATION_FRAME_MINUS,MF_STRING,_VIV_MENU_ANIMATION,VIV_ID_ANIMATION_FRAME_MINUS},
 	
 	{LOCALIZATION_ID_NAVIGATE,MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_NAVIGATE},
 	{LOCALIZATION_ID_NEXT,MF_STRING,_VIV_MENU_NAVIGATE,VIV_ID_NAV_NEXT},
@@ -1998,6 +2000,27 @@ static int _viv_is_msg(MSG *msg)
 							}
 							
 							k = k->next;
+						}
+					}
+					
+					// tab walks the chrome: the toolbar strip owns
+					// keyboard-reachable arrows now, but nothing in this
+					// loop walks the focus into it (no IsDialogMessage
+					// rides the main pump) - the tab key is the pipe.
+					// the strip's own hwnd is file-private: the height
+					// export answers visibility, the child id answers the
+					// handle.
+					if ((key_flags == 0) && (msg->wParam == VK_TAB) && (_viv_toolbar_high()))
+					{
+						HWND toolbar_hwnd;
+						
+						toolbar_hwnd = GetDlgItem(_viv_hwnd,VIV_ID_TOOLBAR);
+						
+						if (toolbar_hwnd)
+						{
+							SetFocus((GetFocus() == toolbar_hwnd) ? _viv_hwnd : toolbar_hwnd);
+							
+							return 1;
 						}
 					}
 				}

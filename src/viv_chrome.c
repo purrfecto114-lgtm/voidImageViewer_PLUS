@@ -1460,9 +1460,12 @@ static int _viv_status_nav_index(void)
 }
 
 // the frame pane's text: the counter alone (or the countdown when the
-// frame-minus mode is on). the full update and the frame-level fast
-// path share the builder - the two can never drift apart.
-static void _viv_status_frame_text(wchar_t *frame_buf)
+// frame-minus mode is on). the full update, the frame-level fast path
+// and the layout's ceiling measurement share the builder - the
+// readers can never drift apart. frame_pos_forced -1 reads the live
+// position; the layout passes the frame count so the pane is measured
+// at the widest text the mode will ever show.
+static void _viv_status_frame_text_at(wchar_t *frame_buf,int frame_pos_forced)
 {
 	wchar_t widebuf[STRING_SIZE];
 	wchar_t highbuf[STRING_SIZE];
@@ -1477,12 +1480,12 @@ static void _viv_status_frame_text(wchar_t *frame_buf)
 		
 		if (config_frame_minus)
 		{
-			frame_pos = _viv_slot_current.frame_count - (_viv_frame_position);
+			frame_pos = (frame_pos_forced >= 0) ? frame_pos_forced : (_viv_slot_current.frame_count - (_viv_frame_position));
 			string_cat_utf8(frame_buf,(const utf8_t *)"- ");
 		}
 		else
 		{
-			frame_pos = _viv_frame_position + 1;
+			frame_pos = (frame_pos_forced >= 0) ? frame_pos_forced : (_viv_frame_position + 1);
 		}
 
 		string_format_number(widebuf,frame_pos);
@@ -1495,6 +1498,12 @@ static void _viv_status_frame_text(wchar_t *frame_buf)
 	{
 		string_copy_utf8_string(frame_buf,(const utf8_t *)"");
 	}
+}
+
+// the live-position reader: the shared builder with no override.
+static void _viv_status_frame_text(wchar_t *frame_buf)
+{
+	_viv_status_frame_text_at(frame_buf,-1);
 }
 
 // the animation tick's pane: the frame counter is the only text that
@@ -1542,9 +1551,10 @@ void _viv_status_update_frame(void)
 				
 				frame_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 				
-				// the 9-to-10 boundary (and any growth): the pane the
-				// layout sized no longer fits the text - the layout level
-				// answers.
+				// the safety net (and any growth): the layout sizes the
+				// pane to the counter's ceiling now, so this fallback never
+				// fires mid-play - it stays for a font changing under a
+				// live pane and whatever the future grows into the pane.
 				if (frame_wide > _viv_status_frame_wide)
 				{
 					_viv_status_update();
@@ -1562,6 +1572,16 @@ void _viv_status_update_frame(void)
 	}
 }
 
+// the frame pane's live index, for the click that toggles the
+// numbering direction: the pane count changed when the date pane was
+// born (the old parts-minus-two arithmetic landed the toggle on the
+// date pane - clicking the date flipped a counter nothing showed, and
+// a still image silently wrote the mode to the ini). -1 answers
+// "the layout dropped the frame pane" and the click is a no-op.
+int _viv_status_frame_pane_index(void)
+{
+	return _viv_status_frame_pane;
+}
 void _viv_status_update(void)
 {
 	if (_viv_status_hwnd)
@@ -1785,7 +1805,19 @@ void _viv_status_update(void)
 
 				if (*frame_buf)
 				{
-					if (GetTextExtentPoint32(hdc,frame_buf,string_get_length(frame_buf),&size))
+					wchar_t reserve_buf[STRING_SIZE];
+					
+					// the ceiling, not the opening text: the counter grows as
+					// the animation plays (1..count), so measuring "1 / count"
+					// let the 9-to-10 boundary fall back to this full rebuild
+					// mid-play - once per gif, on the first lap, the field
+					// report's hitch. the widest text the mode can show is
+					// "count / count" (the minus prefix included); the pane is
+					// born at that width and never grows - the fast path's
+					// fallback below stays as the font-change net.
+					_viv_status_frame_text_at(reserve_buf,_viv_slot_current.frame_count);
+					
+					if (GetTextExtentPoint32(hdc,reserve_buf,string_get_length(reserve_buf),&size))
 					{
 						frame_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
 						

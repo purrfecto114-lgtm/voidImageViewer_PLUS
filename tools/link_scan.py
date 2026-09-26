@@ -31,7 +31,7 @@ def strip_comments(text):
     return text
 
 
-def extern_names():
+def extern_names(skipped):
     names = set()
     for h in ["viv_state.h", "os.h"] + sorted(glob.glob("viv_*.h")):
         text = strip_comments(open(h, encoding="utf-8", errors="replace").read())
@@ -44,6 +44,9 @@ def extern_names():
             # is a conservative skip: an unaudited name is safe, a
             # mis-parsed one (the return type as the name) is not.
             if re.search(r"\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\*\s*[A-Za-z_][A-Za-z0-9_]*\s*\)", decl):
+                fm0 = re.search(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(", decl)
+                if fm0:
+                    skipped.add(fm0.group(1))
                 continue
             fm = re.search(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(", decl)
             if fm:
@@ -64,6 +67,9 @@ def extern_names():
                 if s.startswith("__declspec"):
                     s = re.sub(r"^__declspec\([^)]*\)\s*", "", s)
                 if re.search(r"\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\*\s*[A-Za-z_][A-Za-z0-9_]*\s*\)", s):
+                    fm1 = re.search(r"([A-Za-z_][A-Za-z0-9_]*)\s*\(", s)
+                    if fm1:
+                        skipped.add(fm1.group(1))
                     continue
                 if not (s.endswith(");") and ("(" in s)):
                     continue
@@ -78,7 +84,8 @@ def scan():
     unit_code = {u: strip_comments(open(u, encoding="utf-8", errors="replace").read()) for u in units}
 
     # forward: extern -> definition
-    externs = extern_names()
+    skipped = set()
+    externs = extern_names(skipped)
     defs = {}
     for u, code in unit_code.items():
         for i, line in enumerate(code.split("\n"), 1):
@@ -107,6 +114,7 @@ def scan():
 
     # reverse: static definition -> cross-unit reference
     leaks = []
+    static_skipped = set()
     for u, code in unit_code.items():
         statics = set()
         depth = 0
@@ -114,7 +122,12 @@ def scan():
             s = line.strip()
             if depth == 0:
                 if s.startswith("static") and re.search(r"\(\s*[A-Za-z_][A-Za-z0-9_]*\s*\*\s*[A-Za-z_][A-Za-z0-9_]*\s*\)", s):
-                    pass  # a static pointer declarator: internal by name, skip
+                    # a static pointer declarator: internal by name, skip -
+                    # but the skip is counted, not silent (the audit's own
+                    # blind spots are part of its report now).
+                    fm2 = re.search(r"static\s+(?:[A-Za-z_][A-Za-z0-9_]*[\s\*]+)+([A-Za-z_][A-Za-z0-9_]*)\s*\(", s)
+                    if fm2:
+                        static_skipped.add(fm2.group(1))
                 else:
                     m = re.match(r"^static\s+(?:[A-Za-z_][A-Za-z0-9_]*[\s\*]+)+([A-Za-z_][A-Za-z0-9_]*)\s*(\(|\[|=|;|,)", s)
                     if m:
@@ -139,6 +152,11 @@ def scan():
     print("CROSS-UNIT STATIC LEAKS (%d):" % len(leaks))
     for sym, home, other in leaks:
         print("  %s (defined in %s) referenced by %s" % (sym, home, other))
+    # the conservative skips, named and counted: an unaudited name is
+    # safe, a mis-parsed one is not - but either way the audit's own
+    # blind spots belong in the audit's report, not in its silence.
+    print("SKIPPED BY THE CONSERVATIVE RULES (%d extern, %d static): %s / %s" %
+          (len(skipped), len(static_skipped), sorted(skipped), sorted(static_skipped)))
     return 0 if (not missing and not dupes and not leaks) else 1
 
 

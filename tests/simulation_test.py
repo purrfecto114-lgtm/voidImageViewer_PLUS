@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.16-rc.1.100",
-          (major, minor, rev, build) == (1, 1, 16, 100), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.16-rc.1",
-          vstr is not None and vstr.group(1) == "1.1.16-rc.1", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.16-rc.2.101",
+          (major, minor, rev, build) == (1, 1, 16, 101), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.16-rc.2",
+          vstr is not None and vstr.group(1) == "1.1.16-rc.2", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -2245,10 +2245,19 @@ def t_sim_field_response_round124():
 
     check("an advancing frame pays the frame level only",
           frame_pane_level(True, False) == "frame")
-    check("the 9-to-10 boundary pays the layout level",
+    check("the growth fallback stays armed (a font changing under a live pane still reaches the layout level)",
           frame_pane_level(True, True) == "full")
     check("a stalled frame pays nothing",
           frame_pane_level(False, False) == "none")
+
+    # round-136: the pane is born at the counter's ceiling - the
+    # 9-to-10 boundary is paid at layout time, not mid-play.
+    check("the layout measures the counter's ceiling text (the 9-to-10 hitch is born paid)",
+          "_viv_status_frame_text_at(reserve_buf,_viv_slot_current.frame_count);" in chrome and
+          "GetTextExtentPoint32(hdc,reserve_buf,string_get_length(reserve_buf),&size)" in chrome)
+    check("the builder serves the live position and the ceiling from one body",
+          "static void _viv_status_frame_text_at(wchar_t *frame_buf,int frame_pos_forced)" in chrome and
+          "_viv_status_frame_text_at(frame_buf,-1);" in chrome)
 
     # --- the backdrop's alpha gate ---
     check("the backdrop apply refuses the opaque reload",
@@ -2838,10 +2847,10 @@ def t_sim_paging_round132():
     items = [(t, int(g)) for t, g in rows]
 
     # the walk order and rules, pinned to the source.
-    check("the walk runs the fit before the left page before the right walk (the code anchors, not the comments)",
+    check("the walk runs the fit before the page fill before the arrow probes (the code anchors, not the comments)",
           tb.find("_viv_toolbar_walk_total() <= _viv_toolbar_wide") <
-          tb.find("left_hidden = 0;") <
-          tb.find("while ((_viv_toolbar_walk_total() > avail)"))
+          tb.find("_viv_toolbar_page_visible(_viv_toolbar_page,_viv_toolbar_item_visible);") <
+          tb.find("_viv_toolbar_page_visible(page,probe_visible);"))
     check("the arrows reserve their slots before the right walk",
           "avail = _viv_toolbar_wide - _viv_toolbar_arrow_wide;" in tb)
 

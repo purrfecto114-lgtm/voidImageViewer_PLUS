@@ -137,6 +137,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"&Decrease Rate", // LOCALIZATION_ID_ANIMATION_DECREASE_RATE,
 	"&Increase Rate", // LOCALIZATION_ID_ANIMATION_INCREASE_RATE,
 	"R&eset Rate", // LOCALIZATION_ID_ANIMATION_RESET_RATE,
+	"Count &Down (Remaining Frames)", // LOCALIZATION_ID_ANIMATION_FRAME_MINUS,
 	
 	// Navigate menu
 	"&Navigate", // LOCALIZATION_ID_NAVIGATE,

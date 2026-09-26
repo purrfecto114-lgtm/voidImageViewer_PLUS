@@ -470,6 +470,15 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			_viv_reset_animation_rate();
 			break;
 
+		case VIV_ID_ANIMATION_FRAME_MINUS:
+			// the countdown toggle: the same stroke the frame pane's
+			// click runs. the pane is the discoverable shortcut, this
+			// is the findable seat - the mode used to be an ini-only
+			// secret a stray click on the wrong pane could set.
+			config_frame_minus = !config_frame_minus;
+			_viv_status_update();
+			break;
+
 		case VIV_ID_SLIDESHOW_RATE_1000: _viv_set_rate(1000); break;
 		case VIV_ID_SLIDESHOW_RATE_2000: _viv_set_rate(2000); break;
 		case VIV_ID_SLIDESHOW_RATE_3000: _viv_set_rate(3000); break;
@@ -2122,6 +2131,13 @@ static void _viv_delete(int permanently)
 					
 					_viv_load_image_next_fd = NULL;
 				}
+				
+				// the activation exception rides above the terminate pair:
+				// a preload the user navigated onto would still land over
+				// the post-delete reload (the paste and blank paths retire
+				// the same pair with the same stroke).
+				_viv_should_activate_preload_on_load = 0;
+				_viv_slot_preload.fd.cFileName[0] = 0;
 			
 				// the scan must start from the deleted file's own seat:
 				// the request fd can name an in-flight file nothing shows
