@@ -2615,6 +2615,17 @@ static LRESULT _viv_on_wm_command(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam
 		return 0;
 	}
 
+	// a child control's notification carries its hwnd in lparam; a
+	// menu or accelerator command carries zero. the toolbar sends the
+	// zero shape and the pill sends its own hwnd - anything else is not
+	// one of ours and never reaches the command table (a foreign
+	// child's control id would otherwise land on whatever command
+	// shares its number).
+	if ((lParam != 0) && (!zoomui_is_pill_hwnd((HWND)lParam)))
+	{
+		return DefWindowProc(hwnd,msg,wParam,lParam);
+	}
+
 	_viv_command(command_id);
 
 	return DefWindowProc(hwnd,msg,wParam,lParam);

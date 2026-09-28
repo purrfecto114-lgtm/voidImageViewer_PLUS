@@ -39,6 +39,7 @@ static HWND _viv_msgbox_hwnd = 0;
 static int _viv_msgbox_done = 0;
 static int _viv_msgbox_result = IDOK;
 static wchar_t *_viv_msgbox_text = 0;
+static RECT _viv_msgbox_text_rect;
 static unsigned int _viv_msgbox_type = 0;
 
 static int _viv_msgbox_dpi = 96;
@@ -420,10 +421,13 @@ static void _viv_msgbox_paint(void)
 	SetBkMode(hdc,TRANSPARENT);
 	SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
 
-	text_rect.left = _viv_msgbox_dip(24 + 32 + 20);
-	text_rect.right = rect.right - _viv_msgbox_dip(24);
-	text_rect.top = _viv_msgbox_dip(22);
-	text_rect.bottom = rect.bottom - _viv_msgbox_dip(24 + 32 + 16);
+	// the stored measure rect: the paint pass draws the text in the
+	// exact rectangle the measure sized the window around. the old
+	// paint pass re-derived the bottom margin (dip(24 + 32 + 16)) and
+	// answered dip(4) short of the height the window had budgeted
+	// (dip(16) + dip(32) + dip(20)) - the last line rode the clip on
+	// every multi-line box.
+	text_rect = _viv_msgbox_text_rect;
 
 	DrawTextW(hdc,_viv_msgbox_text,-1,&text_rect,DT_WORDBREAK | DT_LEFT | DT_TOP);
 
@@ -443,11 +447,11 @@ static void _viv_msgbox_paint(void)
 	EndPaint(_viv_msgbox_hwnd,&ps);
 }
 
-static void _viv_msgbox_fonts_create(void)
+static void _viv_msgbox_fonts_create(HWND hwnd)
 {
 	LOGFONTW lf;
 
-	if (os_dialog_font(&lf,_viv_msgbox_hwnd))
+	if (os_dialog_font(&lf,hwnd))
 	{
 		lf.lfHeight = -_viv_msgbox_dip(12);
 		lf.lfWeight = FW_NORMAL;
@@ -462,6 +466,128 @@ static void _viv_msgbox_fonts_delete(void)
 	{
 		DeleteObject(_viv_msgbox_font);
 		_viv_msgbox_font = 0;
+	}
+}
+
+// the measure pass: sizes the panel around the text at the current
+// dpi and stores the paint rect (the paint pass and the size math
+// can never drift apart again). returns the outer window size.
+static void _viv_msgbox_remeasure(HWND owner,int *wide,int *high)
+{
+	RECT text_rect;
+	RECT work_rect;
+	int text_high;
+	int text_wide;
+	int work_high;
+	int max_wide;
+	int frame_high;
+	HDC hdc;
+	HFONT old_font;
+	DWORD style;
+	
+	hdc = GetDC(owner ? owner : 0);
+	
+	text_wide = _viv_msgbox_dip(400);
+	
+	text_rect.left = 0;
+	text_rect.right = text_wide;
+	text_rect.top = 0;
+	text_rect.bottom = 0;
+	
+	old_font = 0;
+	
+	if (_viv_msgbox_font)
+	{
+		old_font = (HFONT)SelectObject(hdc,_viv_msgbox_font);
+	}
+	
+	DrawTextW(hdc,_viv_msgbox_text,-1,&text_rect,DT_WORDBREAK | DT_CALCRECT);
+	
+	// the height clamp: a long text would push the buttons below the
+	// work area, so widen the column (up to a cap) and re-measure.
+	os_MonitorRectFromWindow(owner,0,&work_rect);
+	
+	work_high = work_rect.bottom - work_rect.top;
+	
+	// the caption and frame are not measured yet: a rough allowance.
+	frame_high = _viv_msgbox_dip(72);
+	
+	max_wide = (work_rect.right - work_rect.left) - _viv_msgbox_dip(24 + 32 + 20 + 24) - frame_high;
+	
+	*high = _viv_msgbox_dip(22 + 16 + 32 + 20) + frame_high + (text_rect.bottom - text_rect.top);
+	
+	while ((*high > work_high) && (text_wide < max_wide))
+	{
+		text_wide += _viv_msgbox_dip(100);
+	
+		if (text_wide > max_wide)
+		{
+			text_wide = max_wide;
+		}
+	
+		text_rect.left = 0;
+		text_rect.top = 0;
+		text_rect.right = text_wide;
+		text_rect.bottom = 0;
+	
+		DrawTextW(hdc,_viv_msgbox_text,-1,&text_rect,DT_WORDBREAK | DT_CALCRECT);
+	
+		*high = _viv_msgbox_dip(22 + 16 + 32 + 20) + frame_high + (text_rect.bottom - text_rect.top);
+	}
+	
+	if (old_font)
+	{
+		SelectObject(hdc,old_font);
+	}
+	
+	ReleaseDC(owner ? owner : 0,hdc);
+	
+	text_high = text_rect.bottom - text_rect.top;
+	if (text_high < _viv_msgbox_dip(32))
+	{
+		text_high = _viv_msgbox_dip(32);
+	}
+	
+	_viv_msgbox_text_rect.left = _viv_msgbox_dip(24 + 32 + 20);
+	_viv_msgbox_text_rect.right = _viv_msgbox_text_rect.left + text_wide;
+	_viv_msgbox_text_rect.top = _viv_msgbox_dip(22);
+	_viv_msgbox_text_rect.bottom = _viv_msgbox_text_rect.top + text_high;
+	
+	*wide = _viv_msgbox_dip(24 + 32 + 20) + text_wide + _viv_msgbox_dip(24);
+	*high = _viv_msgbox_dip(22) + text_high + _viv_msgbox_dip(16) + _viv_msgbox_dip(32) + _viv_msgbox_dip(20);
+	
+	// a yes/no box carries no close box (the native one disables it too).
+	if ((_viv_msgbox_type & 0x0f) == MB_YESNO)
+	{
+		style = WS_POPUP | WS_CAPTION;
+	}
+	else
+	{
+		style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
+	}
+	
+	{
+		RECT window_rect;
+	
+		window_rect.left = 0;
+		window_rect.top = 0;
+		window_rect.right = *wide;
+		window_rect.bottom = *high;
+	
+		// adjustwindowrect takes no dpi, a manual compensation would duplicate it.
+		AdjustWindowRect(&window_rect,style,FALSE);
+	
+		*wide = window_rect.right - window_rect.left;
+		*high = window_rect.bottom - window_rect.top;
+	}
+	
+	// the work-area ceiling: a text the max-width pass cannot shorten
+	// (the usage page's explicit line breaks) would push the buttons
+	// below the screen - the box keeps its caption and its buttons
+	// inside the work area and the text ends at the fold instead.
+	if (*high > work_high)
+	{
+		*high = work_high;
 	}
 }
 
@@ -492,7 +618,7 @@ static LRESULT CALLBACK _viv_msgbox_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 			// the entry measure pass already made the pair: reuse it.
 			if (!_viv_msgbox_font)
 			{
-				_viv_msgbox_fonts_create();
+				_viv_msgbox_fonts_create(hwnd);
 			}
 
 			return 0;
@@ -500,24 +626,36 @@ static LRESULT CALLBACK _viv_msgbox_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 		case WM_DPICHANGED:
 		{
+			int wide;
+			int high;
 			RECT *suggested;
 
-			// follow the monitor: new dpi, rebuilt fonts, suggested rect.
+			// follow the monitor: new dpi, rebuilt fonts, and the full
+			// re-measure - the suggested rect scales the outer frame
+			// only approximately (the caption never rides the dip ratio
+			// exactly), and the buttons lay out against the client the
+			// box actually lands at, not the one it left.
 			_viv_msgbox_dpi = (int)LOWORD(wParam);
 
 			_viv_msgbox_fonts_delete();
-			_viv_msgbox_fonts_create();
+			_viv_msgbox_fonts_create(hwnd);
 
-			_viv_msgbox_layout_buttons();
-
-			InvalidateRect(hwnd,0,FALSE);
+			_viv_msgbox_remeasure(hwnd,&wide,&high);
 
 			suggested = (RECT *)lParam;
 
 			if (suggested)
 			{
-				SetWindowPos(hwnd,0,suggested->left,suggested->top,suggested->right - suggested->left,suggested->bottom - suggested->top,SWP_NOZORDER | SWP_NOACTIVATE);
+				SetWindowPos(hwnd,0,suggested->left,suggested->top,wide,high,SWP_NOZORDER | SWP_NOACTIVATE);
 			}
+			else
+			{
+				SetWindowPos(hwnd,0,0,0,wide,high,SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+			}
+
+			_viv_msgbox_layout_buttons();
+
+			InvalidateRect(hwnd,0,FALSE);
 
 			return 0;
 		}
@@ -666,15 +804,10 @@ static LRESULT CALLBACK _viv_msgbox_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned int type)
 {
 	WNDCLASSEXW wc;
-	HDC hdc;
-	RECT text_rect;
 	RECT window_rect;
-	int text_high;
-	int text_wide;
 	int wide;
 	int high;
 	MSG msg;
-	HFONT old_font;
 	DWORD style;
 
 	if (!text)
@@ -727,84 +860,14 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 	// falls back to exactly that global value for a null parent).
 	_viv_msgbox_dpi = os_window_dpi(parent);
 
-	// measure the text at the layout width, then size the panel around it.
-	hdc = GetDC(parent ? parent : 0);
+	// measure the text at the layout width, then size the panel
+	// around it. the helper owns the full pass - the stored paint
+	// rect, the width clamp and the work-area ceiling - and answers
+	// the outer size (caption and frame included) the window lands
+	// at, measured against the parent's own monitor dpi.
+	_viv_msgbox_fonts_create(parent);
 
-	text_wide = _viv_msgbox_dip(400);
-
-	text_rect.left = 0;
-	text_rect.right = text_wide;
-	text_rect.top = 0;
-	text_rect.bottom = 0;
-
-	old_font = 0;
-
-	_viv_msgbox_fonts_create();
-
-	if (_viv_msgbox_font)
-	{
-		old_font = (HFONT)SelectObject(hdc,_viv_msgbox_font);
-	}
-
-	DrawTextW(hdc,_viv_msgbox_text,-1,&text_rect,DT_WORDBREAK | DT_CALCRECT);
-
-	// the height clamp: a long text would push the buttons below the work
-	// area, so widen the column (up to a cap) and re-measure.
-	{
-		RECT work_rect;
-		int work_wide;
-		int work_high;
-		int max_wide;
-		int frame_high;
-		int window_high;
-
-		os_MonitorRectFromWindow(parent,0,&work_rect);
-
-		work_wide = work_rect.right - work_rect.left;
-		work_high = work_rect.bottom - work_rect.top;
-
-		// the caption and frame are not measured yet: a rough allowance.
-		frame_high = _viv_msgbox_dip(72);
-
-		max_wide = work_wide - _viv_msgbox_dip(24 + 32 + 20 + 24) - frame_high;
-
-		window_high = _viv_msgbox_dip(22 + 16 + 32 + 20) + frame_high + (text_rect.bottom - text_rect.top);
-
-		while ((window_high > work_high) && (text_wide < max_wide))
-		{
-			text_wide += _viv_msgbox_dip(100);
-
-			if (text_wide > max_wide)
-			{
-				text_wide = max_wide;
-			}
-
-			text_rect.left = 0;
-			text_rect.top = 0;
-			text_rect.right = text_wide;
-			text_rect.bottom = 0;
-
-			DrawTextW(hdc,_viv_msgbox_text,-1,&text_rect,DT_WORDBREAK | DT_CALCRECT);
-
-			window_high = _viv_msgbox_dip(22 + 16 + 32 + 20) + frame_high + (text_rect.bottom - text_rect.top);
-		}
-	}
-
-	if (old_font)
-	{
-		SelectObject(hdc,old_font);
-	}
-
-	ReleaseDC(parent ? parent : 0,hdc);
-
-	text_high = text_rect.bottom - text_rect.top;
-	if (text_high < _viv_msgbox_dip(32))
-	{
-		text_high = _viv_msgbox_dip(32);
-	}
-
-	wide = _viv_msgbox_dip(24 + 32 + 20) + text_wide + _viv_msgbox_dip(24);
-	high = _viv_msgbox_dip(22) + text_high + _viv_msgbox_dip(16) + _viv_msgbox_dip(32) + _viv_msgbox_dip(20);
+	_viv_msgbox_remeasure(parent,&wide,&high);
 
 	window_rect.left = 0;
 	window_rect.top = 0;
@@ -820,9 +883,6 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 	{
 		style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
 	}
-
-	// adjustwindowrect takes no dpi, a manual compensation would duplicate it.
-	AdjustWindowRect(&window_rect,style,FALSE);
 
 	// pass the owner: no taskbar button of its own, the parent stays behind.
 	_viv_msgbox_hwnd = CreateWindowExW(0,L"VIV_MSGBOX",caption,style,

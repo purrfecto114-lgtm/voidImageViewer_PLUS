@@ -107,6 +107,49 @@ MUTATIONS = [
      "iter.duration ? (DWORD)iter.duration : 100",
      "iter.duration ? (DWORD)iter.duration : 1",
      ["menu"]),
+
+    ("the poison probe comes back (the slwa sense flip)",
+     "src/zoomui.c",
+     "if (!SetLayeredWindowAttributes(_zoomui_hwnd,0,_ZOOMUI_ALPHA_OPAQUE,LWA_ALPHA))",
+     "if (SetLayeredWindowAttributes(_zoomui_hwnd,0,_ZOOMUI_ALPHA_OPAQUE,LWA_ALPHA))",
+     ["menu"]),
+
+    ("the refusal self-heal loses its bookkeeping snap",
+     "src/zoomui.c",
+     "_zoomui_layered_ok = 0;\r\n\t\t\t_zoomui_alpha = _ZOOMUI_ALPHA_OPAQUE;\r\n\t\t\t_zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;\r\n\t\t\t_zoomui_fade_tick = 0;",
+     "_zoomui_layered_ok = 0;",
+     ["menu"]),
+
+    ("the touch digitizer turns the pill on again",
+     "src/config.c",
+     'ini_get_int(ini,(const utf8_t *)"show_zoom_controls",config_show_zoom_controls)',
+     'ini_get_int(ini,(const utf8_t *)"show_zoom_controls",os_is_touch_available())',
+     ["menu"]),
+
+    ("the message box paints a re-derived rect again",
+     "src/viv_msgbox.c",
+     "text_rect = _viv_msgbox_text_rect;",
+     "text_rect.bottom = rect.bottom - _viv_msgbox_dip(24 + 32 + 16);",
+     ["menu"]),
+
+    ("the registration index loses its value name",
+     "src/viv_install.c",
+     '_viv_set_registry_string(hkey,(const utf8_t *)"voidImageViewer",capabilities_wbuf);',
+     '_viv_set_registry_string(hkey,(const utf8_t *)"voidImageViewerX",capabilities_wbuf);',
+     ["menu"]),
+
+    ("the hardware acceleration switch stops persisting",
+     "src/viv_install.c",
+     "\t\tconfig_renderer = CONFIG_RENDERER_DIRECT3D;",
+     "\t\tconfig_renderer = CONFIG_RENDERER_GDI;",
+     ["menu"]),
+
+    ("the wm_command source gate opens for anyone",
+     "src/viv_wndproc.c",
+     "if ((lParam != 0) && (!zoomui_is_pill_hwnd((HWND)lParam)))",
+     "if (0)",
+     ["menu"]),
+
 ]
 
 

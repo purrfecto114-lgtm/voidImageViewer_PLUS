@@ -442,12 +442,19 @@ static void _zoomui_submit_layered(int alpha)
 		{
 			// a refused submit must not leave an undrawn opaque
 			// rectangle over the image: the layered leg retires and
-			// the gdi leg redraws - the runtime self-heal the probe's
-			// static answer cannot promise (the verification round's
-			// catch).
+			// the gdi leg redraws - the runtime self-heal no static
+			// probe can promise (the verification round's catch). the
+			// retired leg can never advance a fade again either, so
+			// the bookkeeping snaps to the opaque face: a fade that
+			// started at zero must not leave the pill invisible and
+			// click-through forever.
 			_zoomui_layered_ok = 0;
+			_zoomui_alpha = _ZOOMUI_ALPHA_OPAQUE;
+			_zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;
+			_zoomui_fade_tick = 0;
 			
 			SetWindowLong(_zoomui_hwnd,GWL_EXSTYLE,GetWindowLong(_zoomui_hwnd,GWL_EXSTYLE) & ~WS_EX_LAYERED);
+			SetWindowPos(_zoomui_hwnd,0,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE|SWP_FRAMECHANGED);
 			
 			InvalidateRect(_zoomui_hwnd,0,FALSE);
 		}
@@ -1185,34 +1192,32 @@ void zoomui_init(HWND parent)
 			// keys reach the pill as their real virtual keys instead.
 			os_imm_associate_disable(_zoomui_hwnd);
 			
-			// probe the layered child window support (windows 8+): if
-			// alpha blending is refused the style is removed and the
-			// bar hides without the fade.
-			if (SetLayeredWindowAttributes(_zoomui_hwnd,0,_ZOOMUI_ALPHA_OPAQUE,LWA_ALPHA))
+			// the layered child support (windows 8+) needs no probe of
+			// its own: the first updatelayeredwindow submit is the probe
+			// and a refusal rides the submit's own self-heal (the leg
+			// retires to the gdi paint, the bar hides without the fade).
+			// the old probe called setlayeredwindowattributes first, and
+			// slwa and ulw are exclusive: on field machines where the
+			// style-bit unpoison toggle never reached the cached frame
+			// styles every ulw call kept failing and the pill fell back
+			// to the hard-cornered gdi leg - the healthy path never
+			// calls slwa now.
+			_zoomui_layered_ok = 1;
+			
+			if (!_zoomui_gdip_ready())
 			{
-				_zoomui_layered_ok = 1;
-				
-				// the probe poisoned the well: setlayeredwindowattributes
-				// and updatelayeredwindow are exclusive - after a
-				// successful slwa call every ulw call fails until the
-				// layering style bit is cleared and set again (the msdn
-				// contract; the wpf team documented the same trap). the
-				// probe only ever needed the answer, not the state -
-				// undo it before the first ulw submit.
+				// gdi+ refused (the refusal latches for the process
+				// lifetime): this window lives on the
+				// setlayeredwindowattributes leg for good, so configure
+				// that mode once here. the call doubles as the win7 probe
+				// for this leg alone - a refusal drops the style and the
+				// bar runs as a plain opaque gdi child without the fade.
+				if (!SetLayeredWindowAttributes(_zoomui_hwnd,0,_ZOOMUI_ALPHA_OPAQUE,LWA_ALPHA))
 				{
-					DWORD exstyle;
+					SetWindowLong(_zoomui_hwnd,GWL_EXSTYLE,GetWindowLong(_zoomui_hwnd,GWL_EXSTYLE) & ~WS_EX_LAYERED);
 					
-					exstyle = GetWindowLong(_zoomui_hwnd,GWL_EXSTYLE);
-					
-					SetWindowLong(_zoomui_hwnd,GWL_EXSTYLE,exstyle & ~WS_EX_LAYERED);
-					SetWindowLong(_zoomui_hwnd,GWL_EXSTYLE,exstyle | WS_EX_LAYERED);
+					_zoomui_layered_ok = 0;
 				}
-			}
-			else
-			{
-				SetWindowLong(_zoomui_hwnd,GWL_EXSTYLE,GetWindowLong(_zoomui_hwnd,GWL_EXSTYLE) & ~WS_EX_LAYERED);
-
-				_zoomui_layered_ok = 0;
 			}
 		}
 	}
@@ -1339,6 +1344,15 @@ int zoomui_is_created(void)
 	return _zoomui_hwnd ? 1 : 0;
 }
 
+// is hwnd the pill's own window? the wm_command source filter asks:
+// a menu or accelerator command carries a zero lparam, the toolbar
+// sends the zero shape and the pill sends its own hwnd - anything
+// else is not one of ours.
+int zoomui_is_pill_hwnd(HWND hwnd)
+{
+	return ((hwnd) && (hwnd == _zoomui_hwnd)) ? 1 : 0;
+}
+
 void zoomui_localize(void)
 {
 	int i;
@@ -1424,13 +1438,13 @@ void zoomui_activity(void)
 
 	if (!IsWindowVisible(_zoomui_hwnd))
 	{
-		_zoomui_alpha = 0;
+		_zoomui_alpha = _zoomui_layered_ok ? 0 : _ZOOMUI_ALPHA_OPAQUE;
 
 		_zoomui_fade_tick = 0;
 
 		ShowWindow(_zoomui_hwnd,SW_SHOW);
 
-		_zoomui_set_alpha(0);
+		_zoomui_set_alpha(_zoomui_alpha);
 
 		_zoomui_ensure_poll_timer();
 	}

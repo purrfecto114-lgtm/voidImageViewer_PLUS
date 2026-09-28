@@ -71,7 +71,7 @@ BYTE config_frame_minus = 0; // show frame counter or remaining frames in status
 BYTE config_multiple_instances = 0; // all multiple instances or use a single instance.
 BYTE config_show_status = 1;
 BYTE config_show_controls = 1;
-BYTE config_show_zoom_controls = 0; // show the floating zoom controls. (defaults to on for touch devices)
+BYTE config_show_zoom_controls = 0; // show the floating zoom controls. (off by default; the View menu or Settings turns it on)
 BYTE config_zoom_auto_hide = 1; // auto-hide the fullscreen zoom overlay when idle.
 // recent files mru: newest first, at most CONFIG_RECENT_FILE_COUNT entries.
 wchar_t *config_recent_files[CONFIG_RECENT_FILE_COUNT] = {0};
@@ -150,10 +150,10 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_show_status = ini_get_int(ini,(const utf8_t *)"show_status",config_show_status);
 		config_pixel_info = ini_get_int(ini,(const utf8_t *)"statusbar_pixel_info",config_pixel_info);
 		config_show_controls = ini_get_int(ini,(const utf8_t *)"show_controls",config_show_controls);
-		// the digitizer probe is a first-run default only: msdn warns
-		// sm_digitizer has no plug-and-play awareness, so the value gets
-		// pinned into the ini on the first save and is never re-probed.
-		config_show_zoom_controls = ini_get_int(ini,(const utf8_t *)"show_zoom_controls",os_is_touch_available());
+		// the standard layout is the default: the floating pill stays off
+		// until the View menu or the settings page turns it on (the
+		// touch-digitizer first-run default retired with rc.4).
+		config_show_zoom_controls = ini_get_int(ini,(const utf8_t *)"show_zoom_controls",config_show_zoom_controls);
 			config_zoom_auto_hide = ini_get_int(ini,(const utf8_t *)"zoom_auto_hide",config_zoom_auto_hide);
 		
 		// ui language. stored as a readable string: auto, english or chinese.

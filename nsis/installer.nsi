@@ -500,6 +500,17 @@ no_wmf_association:
 
 skip_wmf_association:
 
+        ; hardware acceleration (opt-in: an unchecked box sends no switch at
+        ; all, so an upgrade keeps whatever renderer the ini already carries)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 14" "State"
+        StrCmp $R0 "1" add_hardware_acceleration skip_hardware_acceleration
+
+add_hardware_acceleration:
+
+        StrCpy $admin_install_options "$admin_install_options /hardware-acceleration"
+
+skip_hardware_acceleration:
+
         ; ----------------------------------
         ; begin voidImageViewer installation
         ; ----------------------------------

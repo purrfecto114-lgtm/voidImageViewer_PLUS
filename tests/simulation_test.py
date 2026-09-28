@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.16-rc.3.102",
-          (major, minor, rev, build) == (1, 1, 16, 102), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.16-rc.3",
-          vstr is not None and vstr.group(1) == "1.1.16-rc.3", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.16-rc.4.103",
+          (major, minor, rev, build) == (1, 1, 16, 103), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.16-rc.4",
+          vstr is not None and vstr.group(1) == "1.1.16-rc.4", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -2455,10 +2455,17 @@ def t_sim_settings_round126():
     # the general page bottoms at 664 dip (the measured layout).
     check("the clamped 680-dip work area scrolls the general page (the 300 percent report)",
           scroll_max(664, 680) >= 60, str(scroll_max(664, 680)))
-    check("the design height never scrolls and one dip short answers with one dip",
-          scroll_max(664, 744) == 0 and scroll_max(664, 743) == 1)
-    check("the shorter pages never scroll on the clamped area",
-          scroll_max(526, 680) == 0 and scroll_max(418, 680) == 0)
+    # rc.4 (the field ask): the client rides the 90 percent design -
+    # the general page scrolls 74 dip under the pinned footer by
+    # design, the view page (526 + the hwaccel row's 52) and the
+    # controls page (404, the corrected measure) still fit whole.
+    CLIENT_HIGH = int(re.search(r"#define _VIV_SETTINGS_CLIENT_HIGH\s+(\d+)", ss).group(1))
+    check("the settings client is the 90 percent design (670 dip)",
+          CLIENT_HIGH == 670, str(CLIENT_HIGH))
+    check("the general page scrolls 74 dip under the pinned footer",
+          scroll_max(664, CLIENT_HIGH) == 74, str(scroll_max(664, CLIENT_HIGH)))
+    check("the view page carries the hwaccel row and still fits whole",
+          scroll_max(578, CLIENT_HIGH) == 0 and scroll_max(404, CLIENT_HIGH) == 0)
     check("a half-height work area scrolls every page but stays clamped",
           0 < scroll_max(664, 500) < 664 and scroll_max(526, 500) > 0)
 

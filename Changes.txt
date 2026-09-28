@@ -1,4 +1,36 @@
-﻿Pre-release: Version 1.1.16-rc.3 (the parallel sweep round)
+﻿Pre-release: Version 1.1.16-rc.4 (the field feedback round)
+
+	the seven real-machine asks ride one round. the pill's slwa
+	probe is gone - the probe poisoned the layered window on field
+	machines (the style-bit unpoison toggle never reached the cached
+	frame styles, every ulw submit kept failing and the bar fell back
+	to the hard-cornered gdi leg with corners nothing ever painted);
+	the first submit is the probe now and a refusal snaps the fade
+	bookkeeping opaque, so a retired leg can never leave the pill
+	invisible. the standard layout is the default again (the touch
+	digitizer no longer turns the pill on by itself; the view menu
+	and the settings page still can). the app registers with
+	windows: registeredapplications, the capabilities block with all
+	eleven extensions pre-written, and app paths - the settings
+	default-apps page finally lists the viewer. the message box
+	paints its measured rect (the old paint pass answered dip(4)
+	short of the budgeted height and the last line rode the clip on
+	every multi-line box; the dpi change re-measures now and the box
+	never grows past the work area). the installer gains the
+	hardware acceleration box - an unchecked box sends no switch at
+	all, so an upgrade keeps whatever renderer the ini already
+	carries - and the settings view page carries the switch face
+	(direct3d on, gdi off; the refusal never rewrites the ini). the
+	settings window rides 594 x 670, the 660 x 744 design at 90
+	percent (the general page scrolls 74 dip under the pinned footer
+	by design). and the open verb is pinned by name on every class
+	the installer writes - a double click runs open, the contract
+	says so out loud. the wm_command dispatch also gates its source
+	now: a menu or accelerator command carries a zero lparam, the
+	toolbar the zero shape, the pill its own hwnd - anything else
+	never reaches the command table.
+
+Pre-release: Version 1.1.16-rc.3 (the parallel sweep round)
 
 	the round runs four independent auditors over the rc.2 tree at
 	once - the fix batch's own regression face (the leg the last

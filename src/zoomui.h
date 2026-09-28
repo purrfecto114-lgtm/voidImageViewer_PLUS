@@ -48,6 +48,9 @@ void zoomui_set_dark(int dark);
 // is the zoom controls window created?
 int zoomui_is_created(void);
 
+// is hwnd the pill's own window? (the wm_command source filter.)
+int zoomui_is_pill_hwnd(HWND hwnd);
+
 // reposition the zoom controls.
 // wide,high = the image area of the parent client (status bar / toolbar excluded).
 void zoomui_layout(int wide,int high);

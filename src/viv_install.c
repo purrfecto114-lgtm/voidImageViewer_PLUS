@@ -35,6 +35,9 @@ static int _viv_is_foreign_association(const char *association,const wchar_t *cl
 static int _viv_get_registry_string(HKEY hkey,const utf8_t *value,wchar_t *wbuf,int size_in_wchars);
 static int _viv_set_registry_string(HKEY hkey,const utf8_t *value,const wchar_t *wbuf);
 static void _viv_install_association(DWORD flags);
+static void _viv_install_class_definition_by_extension(const char *association,const char *description,const char *icon_location);
+static void _viv_install_app_registration(void);
+static void _viv_uninstall_app_registration(void);
 static void _viv_uninstall_association(DWORD flags);
 static int _viv_is_voidimageviewer_process(DWORD process_id);
 static void _viv_close_existing_process(void);
@@ -63,9 +66,11 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 	int startmenu;
 	int language;
 	int language_set;
+	int hardware_acceleration;
 	wchar_t *cl_start;
 	int is_admin_install;
 	int is_standard_user_install;
+	int extension_word_seen;
 	
 	startmenu = 0;
 	install_flags = 0;
@@ -74,8 +79,10 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 	is_runas = 0;
 	is_admin_install = 0;
 	is_standard_user_install = 0;
+	extension_word_seen = 0;
 	language = config_language;
 	language_set = 0;
+	hardware_acceleration = 0;
 	install_path[0] = 0;
 	install_options[0] = 0;
 	uninstall_path[0] = 0;
@@ -182,6 +189,12 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 				is_admin_install = 1;
 			}
 			else
+			if (string_icompare_lowercase_ascii(bufstart,"hardware-acceleration") == 0)
+			{
+				hardware_acceleration = 1;
+				is_admin_install = 1;
+			}
+			else
 			if (string_icompare_lowercase_ascii(bufstart,"language") == 0)
 			{
 				wchar_t language_wbuf[STRING_SIZE];
@@ -243,6 +256,7 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 						}
 						
 						is_standard_user_install = 1;
+						extension_word_seen = 1;
 						break;
 					}
 				}
@@ -263,6 +277,17 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		if (uninstall_flags)
 		{
 			_viv_uninstall_association(uninstall_flags);
+		}
+		
+		// rc.4: the app registration rides the same user-mode pass the
+		// associations do (the elevated relay would land it in the
+		// relaying account's hive). the gate is the extension word
+		// itself - the /uninstall switch also raises the standard
+		// user flag, and re-registering an app mid-uninstall would
+		// undo the sweep it is running.
+		if (extension_word_seen)
+		{
+			_viv_install_app_registration();
 		}
 	}
 		
@@ -295,6 +320,18 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		
 		// save the language selection to the current settings location.
 		// (before the appdata handling below so that its saves include the new language)
+		config_save_settings(config_appdata);
+	}
+	
+	if (hardware_acceleration)
+	{
+		// the installer's hardware acceleration box: the switch only
+		// ever names direct3d (the exe default stays gdi; an unchecked
+		// box sends no switch at all, so an upgrade keeps the renderer
+		// the ini already carries). saved before the appdata handling
+		// below so its saves include the new renderer.
+		config_renderer = CONFIG_RENDERER_DIRECT3D;
+		
 		config_save_settings(config_appdata);
 	}
 	
@@ -387,6 +424,9 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		
 		// remove our add/remove programs entry (from both hives).
 		_viv_uninstall_add_remove_programs();
+		
+		// rc.4: the app registration goes with it.
+		_viv_uninstall_app_registration();
 		
 		// remove %APPDATA%\voidimageviewer
 		if (string_get_appdata_voidimageviewer_path(path))
@@ -557,38 +597,25 @@ int _viv_default_app_locked_elsewhere(const char *association)
 
 	return 0;
 }
-void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location)
+// the progid side of an association: the default icon, the description,
+// the open command and the pinned default verb. extracted from the
+// takeover path so the app registration can pre-write every class the
+// capabilities block references (a dangling progid there would read as
+// a broken entry on the default apps page).
+static void _viv_install_class_definition_by_extension(const char *association,const char *description,const char *icon_location)
 {
 	HKEY hkey;
 	wchar_t class_name[STRING_SIZE];
 	wchar_t key[STRING_SIZE];
 	wchar_t default_icon[STRING_SIZE];
 	wchar_t dot_association[STRING_SIZE];
-	LONG reg_ret;
 	
 	string_copy_utf8_string(dot_association,(const utf8_t *)".");
 	string_cat_utf8(dot_association,association);
 	
-	// make sure we uninstall old associations first.
-	_viv_uninstall_association_by_extension(association);
-
 	string_copy_utf8_string(class_name,"voidImageViewer");
 	string_cat(class_name,dot_association);
 	
-	// the upstream todo's association guard: never take over an
-	// extension a foreign viewer owns. the gate sits after the
-	// uninstall-restore (an upgrade over an older no-gate install
-	// heals to the pre-fork owner first, so a foreign owner reads
-	// as foreign even then) and before any write of ours - the
-	// class keys, the icons, the backup and the takeover are all
-	// skipped for a foreign-owned extension.
-	if (_viv_is_foreign_association(association,class_name))
-	{
-		debug_printf("association .%s left alone (a foreign viewer owns it)\n",association);
-		
-		return;
-	}
-
 	string_copy_utf8_string(default_icon,"SOFTWARE\\Classes\\voidImageViewer");
 	string_cat(default_icon,dot_association);
 	string_cat_utf8(default_icon,"\\DefaultIcon");
@@ -653,6 +680,60 @@ void _viv_install_association_by_extension(const char *association,const char *d
 		
 		RegCloseKey(hkey);
 	}
+	
+	// rc.4: pin the default verb - the shell key's default value names
+	// the verb a double click runs. explicit is the contract; convention
+	// (open when present, else the first verb the merged view offers)
+	// is what a machine may resolve differently.
+	string_copy_utf8_string(key,"SOFTWARE\\Classes\\");
+	string_cat(key,class_name);
+	string_cat_utf8(key,"\\shell");
+	
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		wchar_t verb_wbuf[STRING_SIZE];
+		
+		string_copy_utf8_string(verb_wbuf,(const utf8_t *)"open");
+		
+		_viv_set_registry_string(hkey,0,verb_wbuf);
+		
+		RegCloseKey(hkey);
+	}
+}
+
+void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location)
+{
+	HKEY hkey;
+	wchar_t class_name[STRING_SIZE];
+	wchar_t key[STRING_SIZE];
+	wchar_t default_icon[STRING_SIZE];
+	wchar_t dot_association[STRING_SIZE];
+	LONG reg_ret;
+	
+	string_copy_utf8_string(dot_association,(const utf8_t *)".");
+	string_cat_utf8(dot_association,association);
+	
+	// make sure we uninstall old associations first.
+	_viv_uninstall_association_by_extension(association);
+
+	string_copy_utf8_string(class_name,"voidImageViewer");
+	string_cat(class_name,dot_association);
+	
+	// the upstream todo's association guard: never take over an
+	// extension a foreign viewer owns. the gate sits after the
+	// uninstall-restore (an upgrade over an older no-gate install
+	// heals to the pre-fork owner first, so a foreign owner reads
+	// as foreign even then) and before any write of ours - the
+	// class keys, the icons, the backup and the takeover are all
+	// skipped for a foreign-owned extension.
+	if (_viv_is_foreign_association(association,class_name))
+	{
+		debug_printf("association .%s left alone (a foreign viewer owns it)\n",association);
+		
+		return;
+	}
+
+	_viv_install_class_definition_by_extension(association,description,icon_location);
 
 	string_copy_utf8_string(key,"SOFTWARE\\Classes\\");
 	string_cat(key,dot_association);
@@ -737,6 +818,122 @@ void _viv_install_association_by_extension(const char *association,const char *d
 	// notice the change until the next reboot.
 	SHChangeNotify(SHCNE_ASSOCCHANGED,SHCNF_IDLIST,0,0);
 }
+// rc.4: the app registration - the face windows 10/11 settings needs.
+// registeredapplications indexes the app into the default apps page,
+// the capabilities block names it and lists every extension it can
+// open, and app paths teaches the shell the exe by name (the run
+// dialog, and the installed-app signal some integrations read).
+// per-user on purpose: the same hive every other write of this
+// installer lives in.
+static void _viv_install_app_registration(void)
+{
+	HKEY hkey;
+	wchar_t exe_filename[STRING_SIZE];
+	wchar_t wbuf[STRING_SIZE];
+	int exti;
+	
+	// the index: the value points at the capabilities key below.
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,L"Software\\RegisteredApplications",0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		wchar_t capabilities_wbuf[STRING_SIZE];
+		
+		string_copy_utf8_string(capabilities_wbuf,(const utf8_t *)"SOFTWARE\\voidImageViewer\\Capabilities");
+		
+		_viv_set_registry_string(hkey,(const utf8_t *)"voidImageViewer",capabilities_wbuf);
+		
+		RegCloseKey(hkey);
+	}
+	
+	// the capabilities block: the display name and the description.
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,L"SOFTWARE\\voidImageViewer\\Capabilities",0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		wchar_t name_wbuf[STRING_SIZE];
+		wchar_t description_wbuf[STRING_SIZE];
+		
+		string_copy_utf8_string(name_wbuf,(const utf8_t *)"void Image Viewer");
+		string_copy_utf8_string(description_wbuf,(const utf8_t *)"A fast, minimal image viewer.");
+		
+		_viv_set_registry_string(hkey,(const utf8_t *)"ApplicationName",name_wbuf);
+		_viv_set_registry_string(hkey,(const utf8_t *)"ApplicationDescription",description_wbuf);
+		
+		RegCloseKey(hkey);
+	}
+	
+	// every extension the viewer opens: the class is pre-written (the
+	// capabilities reference must never dangle) and the file
+	// associations value names the progid. the .ext takeover itself
+	// stays gated on the installer checkboxes.
+	for(exti=0;exti<_VIV_ASSOCIATION_COUNT;exti++)
+	{
+		_viv_install_class_definition_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti]);
+		
+		string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\voidImageViewer\\Capabilities\\FileAssociations");
+		
+		if (RegCreateKeyExW(HKEY_CURRENT_USER,wbuf,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+		{
+			wchar_t dot_wbuf[STRING_SIZE];
+			wchar_t class_wbuf[STRING_SIZE];
+			
+			string_copy_utf8_string(dot_wbuf,(const utf8_t *)".");
+			string_cat_utf8(dot_wbuf,_viv_association_extensions[exti]);
+			
+			string_copy_utf8_string(class_wbuf,(const utf8_t *)"voidImageViewer");
+			string_cat(class_wbuf,dot_wbuf);
+			
+			RegSetValueExW(hkey,dot_wbuf,0,REG_SZ,(BYTE *)class_wbuf,(string_get_length(class_wbuf) + 1) * sizeof(wchar_t));
+			
+			RegCloseKey(hkey);
+		}
+	}
+	
+	// app paths: the exe by name.
+	_viv_get_exe_filename(exe_filename);
+	
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\voidImageViewer.exe",0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		_viv_set_registry_string(hkey,0,exe_filename);
+		
+		RegCloseKey(hkey);
+	}
+	
+	// the explorer hears the registration the same moment.
+	SHChangeNotify(SHCNE_ASSOCCHANGED,SHCNF_IDLIST,0,0);
+}
+// remove the app registration: the index value, the capabilities tree
+// and the app paths key. regdeletekeyw refuses keys with subkeys, so
+// the leaves go first (the same shape the class tree delete walks).
+static void _viv_uninstall_app_registration(void)
+{
+	HKEY hkey;
+	wchar_t wbuf[STRING_SIZE];
+	
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,L"Software\\RegisteredApplications",0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
+	{
+		RegDeleteValueA(hkey,"voidImageViewer");
+		
+		RegCloseKey(hkey);
+	}
+	
+	// the capabilities tree: file associations first, then the parents.
+	// the software key is shared with the installer's language memory
+	// (the nsis mui remembers its dialog language under the same name) -
+	// an uninstall takes both with it.
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\voidImageViewer\\Capabilities\\FileAssociations");
+	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
+	
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\voidImageViewer\\Capabilities");
+	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
+	
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\voidImageViewer");
+	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
+	
+	string_copy_utf8_string(wbuf,(const utf8_t *)"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\voidImageViewer.exe");
+	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
+	
+	// the explorer hears the sweep the same moment.
+	SHChangeNotify(SHCNE_ASSOCCHANGED,SHCNF_IDLIST,0,0);
+}
+
 void _viv_uninstall_association_by_extension(const char *association)
 {
 	long reg_ret;

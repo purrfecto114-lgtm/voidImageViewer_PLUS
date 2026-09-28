@@ -371,4 +371,6 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Apply", // LOCALIZATION_ID_SETTINGS_APPLY
 	"Default App", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION
 	"Windows keeps the default app choice. voidImageViewer was added to the Open With list for .%s, but the default stays with the app you picked.\n\nOpen Settings to choose voidImageViewer as the default?", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE
+	"Hardware acceleration", // LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION
+	"Paint with the Direct3D renderer, falling back to GDI when it refuses", // LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC
 };

@@ -54,12 +54,15 @@
 #endif
 
 // window metrics (dip at 96 dpi).
-#define _VIV_SETTINGS_CLIENT_WIDE	660
-#define _VIV_SETTINGS_CLIENT_HIGH       744
+#define _VIV_SETTINGS_CLIENT_WIDE	594
+#define _VIV_SETTINGS_CLIENT_HIGH       670
 // round-125: the settings remake - the interface section takes the four
 // chrome rows (toolbar icons, the floating bar, its auto hide, the pixel
-// info) and the view page gains its four section captions; the tallest
-// page (general, 664 dip of content) sets the floor.
+// info) and the view page gains its four section captions.
+// rc.4: the 90 percent field ask - the client rides 594 x 670 (the
+// 660 x 744 design at 0.9); the general page's 664 dip of content
+// now scrolls 74 dip under the pinned footer by design (the round-126
+// machinery), the view and controls pages still fit whole.
 #define _VIV_SETTINGS_NAV_WIDE		150
 #define _VIV_SETTINGS_NAV_ITEM_HIGH	36
 #define _VIV_SETTINGS_NAV_TOP		12
@@ -153,6 +156,7 @@
 #define _VIV_SETTINGS_ID_PIXELINFO	44
 // round-126: the apply button - the commit without the close.
 #define _VIV_SETTINGS_ID_APPLY		45
+#define _VIV_SETTINGS_ID_HWACCEL		46
 #define _VIV_SETTINGS_ID_CANCEL		40
 #define _VIV_SETTINGS_ID_OK			41
 
@@ -239,6 +243,7 @@ static int _viv_settings_snap_appdata;
 static int _viv_settings_snap_startmenu;
 static int _viv_settings_snap_shrink_blit;
 static int _viv_settings_snap_mag;
+static int _viv_settings_snap_renderer;
 static int _viv_settings_snap_title;
 static int _viv_settings_snap_auto_zoom;
 static int _viv_settings_snap_auto_type;
@@ -831,6 +836,15 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH)) / 2;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = content_x + content_wide;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
+			y += row_high;
+
+			// hardware acceleration: the renderer pair's switch face (the
+			// menu's radio trio stays the fine-grained seat).
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_HWACCEL,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC));
+				_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+				_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
+				_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
+				_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
 
 			// [window and full screen] the title format, the auto size pair and the two background colors.
@@ -1843,6 +1857,7 @@ static void _viv_settings_snapshot(void)
 	_viv_settings_run_key_retire();
 	_viv_settings_snap_shrink_blit = config_shrink_blit_mode;
 	_viv_settings_snap_mag = config_mag_filter;
+	_viv_settings_snap_renderer = config_renderer;
 	_viv_settings_snap_title = config_title_bar_format;
 	_viv_settings_snap_auto_zoom = config_auto_zoom;
 	_viv_settings_snap_auto_type = config_auto_zoom_type;
@@ -1949,6 +1964,19 @@ static void _viv_settings_restore(void)
 	if (config_mag_filter != (BYTE)_viv_settings_snap_mag)
 	{
 		config_mag_filter = (BYTE)_viv_settings_snap_mag;
+
+		InvalidateRect(_viv_hwnd,0,FALSE);
+	}
+
+	// the hardware renderer: a rewind releases the modules and answers
+	// the snapshot's back end on the next paint (the toggle's shape).
+	if (config_renderer != _viv_settings_snap_renderer)
+	{
+		_viv_hwgl_shutdown();
+		_viv_hwd3d_shutdown();
+
+		config_renderer = _viv_settings_snap_renderer;
+		_viv_hw_render_fallback = 0;
 
 		InvalidateRect(_viv_hwnd,0,FALSE);
 	}
@@ -2139,6 +2167,11 @@ static int _viv_settings_dirty(void)
 	}
 
 	if (config_mag_filter != (BYTE)_viv_settings_snap_mag)
+	{
+		return 1;
+	}
+
+	if (config_renderer != _viv_settings_snap_renderer)
 	{
 		return 1;
 	}
@@ -2888,6 +2921,20 @@ static void _viv_settings_activate(int index,int x,int y)
 					config_pixel_info = config_pixel_info ? 0 : 1;
 
 					_viv_status_update();
+					break;
+
+				case _VIV_SETTINGS_ID_HWACCEL:
+					// the renderer pair follows the view menu's command shape:
+					// the modules release their contexts and the next paint
+					// answers the new back end (or falls back to gdi when it
+					// refuses - the refusal never rewrites the ini).
+					_viv_hwgl_shutdown();
+					_viv_hwd3d_shutdown();
+
+					config_renderer = (config_renderer == CONFIG_RENDERER_GDI) ? CONFIG_RENDERER_DIRECT3D : CONFIG_RENDERER_GDI;
+					_viv_hw_render_fallback = 0;
+
+					InvalidateRect(_viv_hwnd,0,FALSE);
 					break;
 
 				default:
@@ -4411,6 +4458,11 @@ static void _viv_settings_paint(HWND hwnd)
 					case _VIV_SETTINGS_ID_PIXELINFO:
 						label_id = LOCALIZATION_ID_SETTINGS_PIXEL_INFO;
 						break;
+
+					case _VIV_SETTINGS_ID_HWACCEL:
+						label_id = LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION;
+						desc_id = LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC;
+						break;
 				}
 
 				label_rect.left = ctl->rect.left;
@@ -4474,6 +4526,10 @@ static void _viv_settings_paint(HWND hwnd)
 
 					case _VIV_SETTINGS_ID_PIXELINFO:
 						_viv_settings_draw_switch(mem,ctl,config_pixel_info ? 1 : 0,hot,focus);
+						break;
+
+					case _VIV_SETTINGS_ID_HWACCEL:
+						_viv_settings_draw_switch(mem,ctl,config_renderer != CONFIG_RENDERER_GDI ? 1 : 0,hot,focus);
 						break;
 				}
 
