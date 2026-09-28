@@ -363,6 +363,16 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 						key_list = ini_get_string(ini,(const utf8_t *)"view_layout_zoom_controls_keys");
 					}
 					
+					// the rc.14 rename changed file_settings the same way
+					// (options became settings in the english text that
+					// drives the generated name): a binding saved under
+					// the old name migrates rather than silently losing
+					// itself.
+					if ((!key_list) && (_config_icompare_ascii(key_buf,"file_settings_keys") == 0))
+					{
+						key_list = ini_get_string(ini,(const utf8_t *)"file_options_keys");
+					}
+					
 					if (key_list)
 					{
 						p = key_list;

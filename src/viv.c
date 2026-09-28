@@ -2018,7 +2018,10 @@ static int _viv_is_msg(MSG *msg)
 						
 						if (toolbar_hwnd)
 						{
-							SetFocus((GetFocus() == toolbar_hwnd) ? _viv_hwnd : toolbar_hwnd);
+														// the walk only ever lands here with the focus home
+							// (this branch rides the viewer's own messages):
+							// the return trip is the strip's own tab leg.
+							SetFocus(toolbar_hwnd);
 							
 							return 1;
 						}

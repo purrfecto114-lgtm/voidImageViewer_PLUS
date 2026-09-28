@@ -946,9 +946,10 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 		
 		case WM_KEYDOWN:
 			// the keyboard reaches the paging arrows at last: left and
-			// right turn the page the mouse clicks turn, escape hands
-			// the focus back to the viewer (the pill's exit rule). the
-			// strip never held a keyboard leg of its own.
+			// right turn the page the mouse clicks turn, escape and
+			// tab both hand the focus back to the viewer (the pill's
+			// exit rule - tab walks in, tab walks out). the strip
+			// never held a keyboard leg of its own.
 			if (wParam == VK_LEFT)
 			{
 				_viv_toolbar_page_step(-1);
@@ -964,6 +965,16 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			}
 			
 			if (wParam == VK_ESCAPE)
+			{
+				SetFocus(_viv_hwnd);
+				
+				return 0;
+			}
+			
+			// the return trip: the pipe in the main loop only runs
+			// with the focus home (this window's own messages), so
+			// the way out is the strip's to answer.
+			if (wParam == VK_TAB)
 			{
 				SetFocus(_viv_hwnd);
 				

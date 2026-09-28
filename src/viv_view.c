@@ -2193,9 +2193,13 @@ static void _viv_copy(int cut)
 						GlobalUnlock(hmem);
 					}
 
-					// looking at example code,none seem to free hglobal.
-					// apparently the system now owns the handle 
-					SetClipboardData(CF_HDROP,hmem);
+					// if SetClipboardData fails we keep ownership
+					// and must free the global ourselves (the load
+					// path's bitmap shape).
+					if (!SetClipboardData(CF_HDROP,hmem))
+					{
+						GlobalFree(hmem);
+					}
 				}
 			}
 			
@@ -2216,9 +2220,13 @@ static void _viv_copy(int cut)
 						GlobalUnlock(hmem);
 					}
 
-					// looking at example code,none seem to free hglobal.
-					// apparently the system now owns the handle 
-					SetClipboardData(_viv_get_CF_PREFERREDDROPEFFECT(),hmem);
+					// if SetClipboardData fails we keep ownership
+					// and must free the global ourselves (the load
+					// path's bitmap shape).
+					if (!SetClipboardData(_viv_get_CF_PREFERREDDROPEFFECT(),hmem))
+					{
+						GlobalFree(hmem);
+					}
 				}
 			}
 						
@@ -2256,9 +2264,13 @@ static void _viv_copy_filename(void)
 						GlobalUnlock(hmem);
 					}
 
-					// looking at example code,none seem to free hglobal.
-					// apparently the system now owns the handle 
-					SetClipboardData(CF_UNICODETEXT,hmem);
+					// if SetClipboardData fails we keep ownership
+					// and must free the global ourselves (the load
+					// path's bitmap shape).
+					if (!SetClipboardData(CF_UNICODETEXT,hmem))
+					{
+						GlobalFree(hmem);
+					}
 				}
 			}
 			

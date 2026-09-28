@@ -125,7 +125,11 @@ void _viv_get_render_size(int *prw,int *prh)
 	
 	if (config_keep_aspect_ratio)
 	{
-		if ((high * _viv_slot_current.image_wide) / _viv_slot_current.image_high < wide)
+		// the comparison rides the same 64-bit ceiling the real
+		// arithmetic below rides: an int-times-int product overflows
+		// on strip panoramas (a 95mp banner) and picks the wrong
+		// branch before rw ever runs.
+		if ((high * (__int64)_viv_slot_current.image_wide) / _viv_slot_current.image_high < wide)
 		{
 			// tall image.
 			// add  _viv_slot_current.image_high - 1 so when we resize the window to 50% it stretches to the screen edges correctly.

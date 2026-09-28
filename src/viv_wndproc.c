@@ -1265,6 +1265,12 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 									
 									if ((config_loop_animations_once) && (_viv_is_slideshow_timeup))
 									{
+										// the same mirror the full wrap runs: rest the
+										// position on the first frame - never on the -1
+										// sentinel - when advancing away (the status
+										// update below this loop reads the position
+										// before the next image's first frame lands).
+										_viv_frame_position = 0;
 										_viv_next(0,1,0,0);
 										
 										break;

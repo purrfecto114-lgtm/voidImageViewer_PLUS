@@ -1,4 +1,30 @@
-﻿Pre-release: Version 1.1.16-rc.2 (the fifth report's judgment round)
+﻿Pre-release: Version 1.1.16-rc.3 (the parallel sweep round)
+
+	the round runs four independent auditors over the rc.2 tree at
+	once - the fix batch's own regression face (the leg the last
+	round's timeout agent never finished), the resource lifetimes,
+	the pathological inputs, and the settings migration - and the
+	angles nobody had swept paid for themselves: two agents found
+	the same bug independently (the truncated wrap's -1 sentinel
+	outlived the slideshow advance and read as one transient
+	"- N+1 / N" on the status bar - the exact family the field
+	report paid for), the aspect comparison multiplied int against
+	int before the 64-bit arithmetic it feeds ever ran (a 95mp
+	strip panorama picked the wrong branch and stalled the paint),
+	the clipboard's three hglobal sites never copied the load path's
+	ownership check (a failed SetClipboardData leaked the handle),
+	the rc.14 options-to-settings rename dropped a saved binding
+	with no migration leg (the rc.13 cache seat's sibling, unpaid
+	until now), tab walked into the strip but the strip dropped the
+	key on the floor on the way out, and a zero-duration webp frame
+	rode a 1ms floor where the gif loader rides 100 (a burned core
+	pushing a thousand advances a tick). the round also carries the
+	auditors' bookkeeping: the deferred ledger grows the per-frame
+	gdi churn, the hwgl stride ceiling, the orientate double
+	buffer, the ini template rewrite, and the ini hand-edit
+	tolerances - recorded, not shipped.
+
+Pre-release: Version 1.1.16-rc.2 (the fifth report's judgment round)
 
 	the round answers the fifth review the way the house always answers:
 	every claim re-verified against the tree before a byte moved. the

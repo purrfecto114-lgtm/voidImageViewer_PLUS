@@ -71,6 +71,42 @@ MUTATIONS = [
      "// the pause rides the step that actually moved: refusing",
      "// the pause rides any step request: refusing",
      ["menu"]),
+
+    ("the render comparison loses its 64-bit ceiling",
+     "src/viv_render.c",
+     "if ((high * (__int64)_viv_slot_current.image_wide) / _viv_slot_current.image_high < wide)",
+     "if ((high * _viv_slot_current.image_wide) / _viv_slot_current.image_high < wide)",
+     ["menu"]),
+
+    ("the clipboard pair forgets its error leg again",
+     "src/viv_view.c",
+     "if (!SetClipboardData(CF_HDROP,hmem))\r\n\t\t\t\t\t{\r\n\t\t\t\t\t\tGlobalFree(hmem);",
+     "if (!SetClipboardData(CF_HDROP,hmem))\r\n\t\t\t\t\t{\r\n\t\t\t\t\t\t;",
+     ["menu"]),
+
+       ("the truncation advance leaves the sentinel behind again",
+     "src/viv_wndproc.c",
+     "lands).\r\n\t\t\t\t\t\t\t\t\t\t_viv_frame_position = 0;\r\n\t\t\t\t\t\t\t\t\t\t_viv_next(0,1,0,0);",
+     "lands).\r\n\t\t\t\t\t\t\t\t\t\t_viv_frame_position",
+     ["menu"]),
+
+    ("the options rename drops the saved binding again",
+     "src/config.c",
+     '(_config_icompare_ascii(key_buf,"file_settings_keys") == 0)',
+     '(_config_icompare_ascii(key_buf,"file_settings_keys") == 1)',
+     ["menu"]),
+
+    ("the strip's tab leg goes missing again",
+     "src/viv_toolbar.c",
+     "if (wParam == VK_TAB)",
+     "if (wParam == 0x0BAD)",
+     ["menu"]),
+
+    ("the zero-delay webp burns a core again",
+     "src/webp.c",
+     "iter.duration ? (DWORD)iter.duration : 100",
+     "iter.duration ? (DWORD)iter.duration : 1",
+     ["menu"]),
 ]
 
 
@@ -92,9 +128,14 @@ def main():
             continue
         with open(path, "wb") as f:
             f.write(src.replace(find, replace).encode("latin-1"))
-        reds = {k: run_suite(k) for k in suites}
-        with open(path, "wb") as f:
-            f.write(original)
+        try:
+            # a control-c between the write and the restore must
+            # not leave the tree mutated behind it (the sweep's
+            # own bookkeeping finding, applied to the tool itself).
+            reds = {k: run_suite(k) for k in suites}
+        finally:
+            with open(path, "wb") as f:
+                f.write(original)
         if all(rc != 0 for rc in reds.values()):
             caught += 1
             print("CAUGHT  %s  (red in %s)" % (name, ",".join(suites)))

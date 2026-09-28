@@ -142,8 +142,11 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 												{
 													if (delay_index < anim_info.frame_count)
 													{
-														// a zero-duration chunk still needs a tick of its own.
-														frame_delays[delay_index] = iter.duration ? (DWORD)iter.duration : 1;
+																												// a zero-duration chunk still needs a tick of its own -
+														// and the gif loader's 100ms floor, not 1: a
+														// zero-delay webp at 1ms burned a core pushing a
+														// thousand frames a tick.
+														frame_delays[delay_index] = iter.duration ? (DWORD)iter.duration : 100;
 														delay_index++;
 													}
 												}
