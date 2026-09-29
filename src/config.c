@@ -154,6 +154,18 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		// until the View menu or the settings page turns it on (the
 		// touch-digitizer first-run default retired with rc.4).
 		config_show_zoom_controls = ini_get_int(ini,(const utf8_t *)"show_zoom_controls",config_show_zoom_controls);
+		// the one-time layout migration: a profile saved by an earlier
+		// build could only carry show_zoom_controls=1 from the retired
+		// touch-digitizer first-run default (every exit saves the whole
+		// ini), and the field ask is that an upgrade never opens with
+		// the pill - so the first load without the marker resets the
+		// flag to the standard layout. the save stamps the marker, so a
+		// deliberate enable on this build or later survives every
+		// subsequent load untouched.
+		if (ini_get_int(ini,(const utf8_t *)"layout_migration",0) == 0)
+		{
+			config_show_zoom_controls = 0;
+		}
 			config_zoom_auto_hide = ini_get_int(ini,(const utf8_t *)"zoom_auto_hide",config_zoom_auto_hide);
 		
 		// ui language. stored as a readable string: auto, english or chinese.
@@ -577,6 +589,7 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 			_config_write_int(h,"statusbar_pixel_info",config_pixel_info);
 			_config_write_int(h,"show_controls",config_show_controls);
 			_config_write_int(h,"show_zoom_controls",config_show_zoom_controls);
+			_config_write_int(h,"layout_migration",1);
 				_config_write_int(h,"zoom_auto_hide",config_zoom_auto_hide);
 			_config_write_string(h,"language",config_language == 1 ? L"english" : (config_language == 2 ? L"chinese" : L"auto"));
 		_config_write_string(h,"dark_mode",config_dark_mode == 1 ? L"dark" : (config_dark_mode == 0 ? L"light" : L"auto"));

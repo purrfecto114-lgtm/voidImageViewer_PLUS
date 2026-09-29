@@ -150,6 +150,18 @@ MUTATIONS = [
      "if (0)",
      ["menu"]),
 
+    ("the unmarked profile keeps the pill (the migration never runs)",
+     "src/config.c",
+     'if (ini_get_int(ini,(const utf8_t *)"layout_migration",0) == 0)',
+     'if (ini_get_int(ini,(const utf8_t *)"layout_migration",1) == 0)',
+     ["menu"]),
+
+    ("the save forgets to stamp the marker (the reset rides every launch)",
+     "src/config.c",
+     '_config_write_int(h,"layout_migration",1);\r\n',
+     '',
+     ["menu"]),
+
 ]
 
 
