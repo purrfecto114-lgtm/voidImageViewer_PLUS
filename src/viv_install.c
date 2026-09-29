@@ -25,6 +25,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_install.h"
+#include "viv_msgbox.h"
 
 // forward declarations (order preserved from viv.c)
 int _viv_process_install_command_line_options(wchar_t *cl);
@@ -50,6 +51,9 @@ static void _viv_install_add_remove_programs(const wchar_t *install_path);
 static void _viv_uninstall_add_remove_programs(void);
 static void _viv_install_copy_file(const wchar_t *install_path,const wchar_t *temp_path,const utf8_t *filename,int critical);
 void _viv_get_exe_filename(wchar_t filename[STRING_SIZE]);
+static int _viv_install_path_user_writable(const wchar_t *install_path);
+static int _viv_install_hklm_arp_present(void);
+static void _viv_install_association_locked_box(DWORD install_flags);
 
 
 int _viv_process_install_command_line_options(wchar_t *cl)
@@ -272,6 +276,15 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		if (install_flags)
 		{
 			_viv_install_association(install_flags);
+			
+			// rc.6: the honest read-back. the keys above are ours the
+			// moment they are written, but the question the user asks is
+			// "does a double click open the viewer" - and on windows 10/11
+			// that answer lives in the UserChoice hash. the box says so
+			// once for the whole run (the settings page's per-extension
+			// shape would ask eleven times here) and offers the one page
+			// that can change it.
+			_viv_install_association_locked_box(install_flags);
 		}
 	
 		if (uninstall_flags)
@@ -297,19 +310,67 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		{
 			if (!is_runas)
 			{
-				wchar_t exe_filename[STRING_SIZE];
-				wchar_t params[STRING_SIZE];
-				wchar_t cwd[STRING_SIZE];
-				
-				_viv_get_exe_filename(exe_filename);
-				GetCurrentDirectory(STRING_SIZE,cwd);
-				
-				string_copy_utf8_string(params,(const utf8_t *)"/isrunas ");
-				string_cat(params,cl_start);
-				
-				os_shell_execute(0,exe_filename,1,"runas",params);
-				
-				return 1;
+				// rc.6: the relay exists for the seats a standard token
+				// cannot write - program files, the all-users start
+				// menu, the hklm add/remove entry. three runs never
+				// need it: an install into a directory this token owns
+				// (the setup's per-user default), an uninstall of a
+				// per-user install, and the settings helper without
+				// the start menu word. relaying any of them moved the
+				// per-user work into the relaying account's hive, and a
+				// user without an admin password saw the refused
+				// elevation read as success (the field report: the
+				// install "completed", nothing was copied, nothing was
+				// associated).
+				int relay;
+
+				relay = 1;
+
+				if ((install_path[0]) && (_viv_install_path_user_writable(install_path)))
+				{
+					// this process installs it all: the per-user
+					// add/remove entry, the per-user shortcuts, the
+					// right hive's ini.
+					relay = 0;
+				}
+				else
+				if ((uninstall_path[0]) && (!_viv_install_hklm_arp_present()))
+				{
+					// the per-user uninstall: the hklm entry is the
+					// admin install's footprint - its absence is the
+					// witness that every seat the sweep touches is
+					// user owned.
+					relay = 0;
+				}
+				else
+				if ((!install_path[0]) && (!uninstall_path[0]) && (!startmenu))
+				{
+					// the settings helper without the start menu word:
+					// the appdata flag is pure per-user work (the ini).
+					relay = 0;
+				}
+
+				if (relay)
+				{
+					wchar_t exe_filename[STRING_SIZE];
+					wchar_t params[STRING_SIZE];
+					wchar_t cwd[STRING_SIZE];
+					
+					_viv_get_exe_filename(exe_filename);
+					GetCurrentDirectory(STRING_SIZE,cwd);
+					
+					string_copy_utf8_string(params,(const utf8_t *)"/isrunas ");
+					string_cat(params,cl_start);
+					
+					// rc.6: a refused elevation is a failed install - the
+					// waiter (the nsis phase) must not read it as success.
+					if (!os_shell_execute(0,exe_filename,1,"runas",params))
+					{
+						return 2;
+					}
+					
+					return 1;
+				}
 			}
 		}
 	}
@@ -411,6 +472,17 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 				}
 			}
 			
+			// rc.6: the un-relayed leg launches the second stage on
+			// this process's own token - the /isrunas word tells it
+			// not to raise uac for the options (the hive it writes is
+			// already the right one; the word's other job, skipping
+			// the association pass, is a no-op here - the extension
+			// words ride the nsis phase c).
+			if (!os_is_admin())
+			{
+				string_cat_utf8(install_options,(const utf8_t *)" /isrunas");
+			}
+
 			os_shell_execute(0,new_exe_filename_wbuf,1,NULL,install_options);
 		}
 	}
@@ -1380,8 +1452,12 @@ static void _viv_install_start_menu_shortcuts(void)
 	// this allows us to switch between english and another language.
 	_viv_uninstall_start_menu_shortcuts();
 
-	// create shortcuts
-	if (os_get_special_folder_path(special_folder_path_wbuf,CSIDL_COMMON_PROGRAMS))
+	// create shortcuts. the all-users programs folder answers the
+	// admin token; a standard user's shortcuts ride the per-user
+	// folder - the same seat the per-user install itself lives in
+	// (the uninstall sweeps both, so the seat follows the token that
+	// wrote it).
+	if (os_get_special_folder_path(special_folder_path_wbuf,os_is_admin() ? CSIDL_COMMON_PROGRAMS : CSIDL_PROGRAMS))
 	{
 		wchar_t path_wbuf[STRING_SIZE];
 		wchar_t exe_filename_wbuf[STRING_SIZE];
@@ -1411,29 +1487,128 @@ static void _viv_uninstall_start_menu_shortcuts(void)
 {
 	wchar_t special_folder_path_wbuf[STRING_SIZE];
 	wchar_t path_wbuf[STRING_SIZE];
+	int folderi;
 
 	// delete old english shortcuts
-	// delete shortcuts
-	if (os_get_special_folder_path(special_folder_path_wbuf,CSIDL_COMMON_PROGRAMS))
+	// delete shortcuts. both seats: the shortcut's home followed
+	// the token that wrote it (the all-users folder for an elevated
+	// apply, the per-user one otherwise), and an uninstall can run
+	// under either.
+	for(folderi=0;folderi<2;folderi++)
 	{
-		wchar_t lnk_wbuf[STRING_SIZE];
+		if (os_get_special_folder_path(special_folder_path_wbuf,folderi ? CSIDL_PROGRAMS : CSIDL_COMMON_PROGRAMS))
+		{
+			wchar_t lnk_wbuf[STRING_SIZE];
 
-		string_path_combine_utf8(path_wbuf,special_folder_path_wbuf,(const utf8_t *)"void Image Viewer");
-		
-		// localized.
-		string_path_combine_utf8(lnk_wbuf,path_wbuf,"void Image Viewer.lnk");
-		DeleteFile(lnk_wbuf);
-		
-		string_path_combine_utf8(lnk_wbuf,path_wbuf,"Uninstall.lnk");
-		DeleteFile(lnk_wbuf);
-		
-		RemoveDirectory(path_wbuf);
+			string_path_combine_utf8(path_wbuf,special_folder_path_wbuf,(const utf8_t *)"void Image Viewer");
+			
+			// localized.
+			string_path_combine_utf8(lnk_wbuf,path_wbuf,"void Image Viewer.lnk");
+			DeleteFile(lnk_wbuf);
+			
+			string_path_combine_utf8(lnk_wbuf,path_wbuf,"Uninstall.lnk");
+			DeleteFile(lnk_wbuf);
+			
+			RemoveDirectory(path_wbuf);
+		}
 	}
 }
 void _viv_append_admin_param(wchar_t *wbuf,const utf8_t *param)
 {
 	string_cat_utf8(wbuf,(const utf8_t *)" /");
 	string_cat_utf8(wbuf,param);
+}
+// rc.6: does this token own the directory? the probe writes and
+// removes a temporary file - the same dance the nsis side runs on
+// the default directory (a refusal there moves the install to the
+// per-user programs folder; here it decides whether the relay is
+// needed at all).
+static int _viv_install_path_user_writable(const wchar_t *install_path)
+{
+	wchar_t probe_path[STRING_SIZE];
+	HANDLE file;
+	int writable;
+
+	os_make_sure_path_exists(install_path);
+
+	string_copy(probe_path,install_path);
+	string_cat_utf8(probe_path,(const utf8_t *)"\\._viw_probe");
+
+	writable = 0;
+
+	file = CreateFileW(probe_path,GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,0);
+
+	if (file != INVALID_HANDLE_VALUE)
+	{
+		writable = 1;
+
+		CloseHandle(file);
+
+		DeleteFileW(probe_path);
+	}
+
+	return writable;
+}
+// rc.6: the hklm add/remove entry is the admin install's footprint.
+// its absence is the witness that an uninstall only touches
+// user-owned seats (the per-user entry, the per-user shortcuts, the
+// files) - the relay would demand a password for work the token can
+// already do.
+static int _viv_install_hklm_arp_present(void)
+{
+	HKEY hkey;
+	int present;
+
+	present = 0;
+
+	if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\voidImageViewer",0,KEY_QUERY_VALUE|KEY_WOW64_64KEY,&hkey) == ERROR_SUCCESS)
+	{
+		present = 1;
+
+		RegCloseKey(hkey);
+	}
+
+	return present;
+}
+// rc.6: the installer-path read-back (win10/11 keep the default
+// behind the UserChoice hash). one box for the whole run - the
+// settings page asks per extension, eleven boxes mid-install would
+// be a wall.
+static void _viv_install_association_locked_box(DWORD install_flags)
+{
+	wchar_t caption_wbuf[STRING_SIZE];
+	wchar_t message_wbuf[STRING_SIZE];
+	wchar_t ext_list_wbuf[STRING_SIZE];
+	int exti;
+
+	ext_list_wbuf[0] = 0;
+
+	for(exti=0;exti<_VIV_ASSOCIATION_COUNT;exti++)
+	{
+		if ((install_flags & (1 << exti)) && (_viv_default_app_locked_elsewhere(_viv_association_extensions[exti])))
+		{
+			if (ext_list_wbuf[0])
+			{
+				string_cat_utf8(ext_list_wbuf,(const utf8_t *)", ");
+			}
+
+			string_cat_utf8(ext_list_wbuf,(const utf8_t *)".");
+			string_cat_utf8(ext_list_wbuf,(const utf8_t *)_viv_association_extensions[exti]);
+		}
+	}
+
+	if (ext_list_wbuf[0])
+	{
+		string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_CAPTION));
+
+		string_printf(message_wbuf,(const char *)localization_get_string(LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE),ext_list_wbuf);
+
+		if (viv_msgbox(0,caption_wbuf,message_wbuf,MB_YESNO|MB_ICONINFORMATION) == IDYES)
+		{
+			// the one path windows 10/11 leave open.
+			ShellExecuteW(0,NULL,L"ms-settings:defaultapps",NULL,NULL,SW_SHOWNORMAL);
+		}
+	}
 }
 // register voidImageViewer in add/remove programs (programs and
 // features). the setup runs the exe with /install so the exe owns this

@@ -1,4 +1,42 @@
-﻿Pre-release: Version 1.1.16-rc.5 (the layout migration round)
+﻿Pre-release: Version 1.1.16-rc.6 (the field feedback round II)
+
+	the caption catches up with the picture. rc.12 switched the
+	title's source to the on-screen slot, but no settle point ever
+	refreshed it - every navigation left the previous file's name
+	in the caption, the cache ring's hit was the field report's
+	face (the chrome pair ran before the slot take), and the first
+	image of a session opened under the bare app name. the settle
+	points answer now: the first-frame reply, the preload landing
+	and the cache hit all rewrite the title after the swap, and
+	the cache hit's status bar rides the same beat.
+
+	the settings page tells the truth about its switches. the two
+	interpolation rows answer the gdi paint only - the hardware
+	backends pick their own sampling - so they grey out (label
+	and all) until the renderer comes back; a gated row's label
+	dims with its face now. the hardware acceleration switch
+	restores the back end the session had (an opengl choice no
+	longer silently becomes direct3d), and both switch seats
+	clear the sticky fallback note at once.
+
+	the installer stops asking for passwords it does not need. an
+	install into a directory the user's token owns (the setup's
+	per-user default) installs in-process - per-user add/remove
+	entry, per-user start menu shortcuts, the right hive's ini;
+	a refused elevation reads as failure to the waiting setup
+	instead of a silent "success" that copied nothing; a per-user
+	uninstall never relays (the hklm entry is the admin install's
+	footprint, its absence is the witness); and when windows 10/11
+	keep the default behind the UserChoice hash the install says
+	so - one box, both tongues, with the settings page one click
+	away.
+
+	the settings window answers the finger: the pages that scroll
+	claim the single-finger vertical pan (with the system
+	inertia), the drag maps 1:1 onto the scroll offset at every
+	dpi, and the press-and-hold circle and flicks stand down.
+
+Pre-release: Version 1.1.16-rc.5 (the layout migration round)
 
 	the upgrade never opens with the pill. rc.4 made the standard
 	layout the default for fresh profiles, but a profile saved by an

@@ -112,6 +112,14 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			
 			config_renderer = (command_id == VIV_ID_VIEW_RENDERER_GDI) ? CONFIG_RENDERER_GDI : ((command_id == VIV_ID_VIEW_RENDERER_OPENGL) ? CONFIG_RENDERER_OPENGL : CONFIG_RENDERER_DIRECT3D);
 			
+			// rc.6: the new back end deserves a clean slate - the sticky
+			// fallback note answered the OLD back end's refusal, and a
+			// menu switch left it pinned until the next load (the
+			// settings switch already clears both).
+			_viv_hw_render_fallback = 0;
+			
+			_viv_status_update();
+			
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			break;
 	

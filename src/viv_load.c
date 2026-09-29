@@ -2245,6 +2245,13 @@ debug_printf("activate preload\n");
 	_viv_start_first_frame();
 
 	_viv_process_pending_clear();
+
+	// rc.6: the preload landing settles the way the first-frame
+	// reply does - the slot fd moved with the take, the caption
+	// follows it here (the pre-take call in _viv_open_preload answers
+	// the still-loading branch, where the old image is the one on
+	// screen).
+	_viv_update_title();
 }
 // the ring find: the first seat whose file matches. both navigation
 // directions read the same ring - the preload chain promotes ahead
@@ -2367,9 +2374,6 @@ debug_printf("*** Cache ACTIVATE : %S\n",_viv_slot_current.fd.cFileName);
 	// the folder fact belongs to the position being left.
 	_viv_nav_folder_neighbor = -1;
 	
-	_viv_update_title();
-	_viv_status_update();
-	
 	_viv_clear();
 
 	// the whole hit slot moves into the current slot in one take.
@@ -2397,6 +2401,15 @@ debug_printf("*** Cache ACTIVATE : %S\n",_viv_slot_current.fd.cFileName);
 	_viv_start_first_frame();
 
 	_viv_process_pending_clear();
+
+	// rc.6: the chrome catches up only after the take - the title
+	// and the status read the on-screen slot, which still carried
+	// the image being left while they ran before the swap (the
+	// cache field report: the caption showed the previous file's
+	// name). the fully-loaded image's fd had already been detached
+	// by then, so the early pair read an empty name half the time.
+	_viv_update_title();
+	_viv_status_update();
 
 	if (old_valid)
 	{

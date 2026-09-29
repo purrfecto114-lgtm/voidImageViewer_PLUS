@@ -162,6 +162,66 @@ MUTATIONS = [
      '',
      ["menu"]),
 
+    ("the first-frame settle loses its caption refresh (rc.6)",
+     "src/viv_wndproc.c",
+     "opened under the bare app name.\r\n\t\t\t\t\t\t\t_viv_update_title();",
+     "opened under the bare app name.\r\n\t\t\t\t\t\t\t\t_viv_update_title_();",
+     ["menu"]),
+
+    ("the cache hit runs its chrome before the take again (rc.6)",
+     "src/viv_load.c",
+     "half the time.\r\n\t_viv_update_title();\r\n\t_viv_status_update();",
+     "half the time.\r\n\t_viv_update_title_();\r\n\t_viv_status_update();",
+     ["menu"]),
+
+    ("the preload landing forgets the caption (rc.6)",
+     "src/viv_load.c",
+     "// screen).\r\n\t_viv_update_title();",
+     "// screen).\r\n\t_viv_update_title_();",
+     ["menu"]),
+
+    ("the interpolation pair ignores the renderer again (rc.6)",
+     "src/viv_settings.c",
+     "return (config_renderer == CONFIG_RENDERER_GDI) ? 1 : 0;",
+     "return (config_renderer == CONFIG_RENDERER_GDI) ? 1 : 1;",
+     ["menu"]),
+
+    ("the touch claim drops the single finger (rc.6)",
+     "src/viv_settings.c",
+     "gesture_configs[0].dwWant = 0x13;",
+     "gesture_configs[0].dwWant = 0x11;",
+     ["menu"]),
+
+    ("the relay ignores the directory probe (rc.6)",
+     "src/viv_install.c",
+     "\t\t\t\trelay = 1;\r\n",
+     "\t\t\t\t\trelay = 0;\r\n",
+     ["menu"]),
+
+    ("the refused elevation reads as success again (rc.6)",
+     "src/viv.c",
+     "return (install_ret == 2) ? 2 : 0;",
+     "return (install_ret == 2) ? 0 : 0;",
+     ["menu"]),
+
+    ("the start menu forgets the per-user seat (rc.6)",
+     "src/viv_install.c",
+     "os_is_admin() ? CSIDL_COMMON_PROGRAMS : CSIDL_PROGRAMS",
+     "os_is_admin() ? CSIDL_COMMON_PROGRAMS : CSIDL_COMMON_PROGRAMS",
+     ["menu"]),
+
+    ("the uninstall sweeps one seat again (rc.6)",
+     "src/viv_install.c",
+     "for(folderi=0;folderi<2;folderi++)",
+     "for(folderi=0;folderi<1;folderi++)",
+     ["menu"]),
+
+    ("the un-relayed second stage raises uac again (rc.6)",
+     "src/viv_install.c",
+     'string_cat_utf8(install_options,(const utf8_t *)" /isrunas");',
+     'string_cat_utf8(install_options,(const utf8_t *)" /isrunasX");',
+     ["menu"]),
+
 ]
 
 

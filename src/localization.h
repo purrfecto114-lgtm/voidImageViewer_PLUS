@@ -426,6 +426,11 @@ enum
 	// rc.4: the installer hardware acceleration box and its settings row.
 	LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION,
 	LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC,
+
+	// rc.6: the installer's default-app honesty box (one box for the
+	// whole run; the settings page keeps its per-extension pair).
+	LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_CAPTION,
+	LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE,
 	LOCALIZATION_ID_COUNT,
 };
 

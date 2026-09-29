@@ -923,6 +923,14 @@ debug_printf("FIRST FRAME TERMINATE\n");
 							_viv_start_first_frame();
 							
 							_viv_process_pending_clear();
+							
+							// rc.6: the caption catches up at the settle - the first
+							// frame landed and the slot fd moved with it. rc.12 switched
+							// the title's source to the on-screen slot, but no settle
+							// point ever refreshed it: every navigation left the previous
+							// file's name in the caption, and the first image of a session
+							// opened under the bare app name.
+							_viv_update_title();
 						}
 					}
 				}

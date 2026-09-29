@@ -1310,15 +1310,25 @@ static int _viv_init(int nCmdShow)
 	// touches the installer)
 	if (!_viv_export_mode)
 	{
-		if (_viv_process_install_command_line_options(GetCommandLineW()))
 		{
-			_viv_kill();
-			
-			// the zero is the one-shot's answer: an install command that
-			// finished its work reads as success to whoever waited on the
-			// process (the fusion round's cross-check caught a shared tail
-			// answering failure to every install).
-			return 0;
+			int install_ret;
+
+			install_ret = _viv_process_install_command_line_options(GetCommandLineW());
+
+			if (install_ret)
+			{
+				_viv_kill();
+				
+				// the zero is the one-shot's answer: an install command
+				// that finished its work reads as success to whoever
+				// waited on the process (the fusion round's cross-check
+				// caught a shared tail answering failure to every install).
+				// the two is the one exception: a refused elevation leaves
+				// the install undone, and the nsis phase that waits on this
+				// process must not read that as success (the field report:
+				// the "completed" install that copied nothing).
+				return (install_ret == 2) ? 2 : 0;
+			}
 		}
 	}
 

@@ -49,6 +49,16 @@
 #define WM_DPICHANGED 0x02E0
 #endif
 
+// touch gestures (winuser.h, windows 7+; not defined in older
+// sdks - the main window carries the same fallback pair).
+#ifndef WM_GESTURENOTIFY
+#define WM_GESTURENOTIFY 0x011A
+#endif
+
+#ifndef WM_GESTURE
+#define WM_GESTURE 0x0119
+#endif
+
 #ifndef BN_CLICKED
 #define BN_CLICKED 0
 #endif
@@ -217,6 +227,11 @@ static int _viv_settings_scroll_y;
 static int _viv_settings_scroll_max;
 static BYTE _viv_settings_scroll_drag = 0;	// the scrollbar thumb ride
 static int _viv_settings_scroll_grab;
+// rc.6: the touch pan. the gesture locations arrive in screen pixels,
+// the same space the scroll offsets ride in (the layout bakes dips to
+// physical pixels), so the pan difference maps 1:1 with no dpi math.
+static int _viv_settings_touch_last_y;
+static BYTE _viv_settings_touch_have = 0;
 static BYTE _viv_settings_keys_dirty = 0;	// the shortcut editor's lamp (a deep compare per paint costs more than the latch)
 
 static HFONT _viv_settings_font = 0;
@@ -234,6 +249,10 @@ static int _viv_settings_hot_swatch = -1;
 // ok (the options dialog behavior) and cancel just drops it.
 static int _viv_settings_appdata;
 static int _viv_settings_startmenu;
+// rc.6: the hardware back end the switch restores on its next ON (the
+// face is two-state; the memory keeps the opengl choice reachable
+// from it - the menu trio stays the fine-grained seat).
+static int _viv_settings_last_hw_renderer = CONFIG_RENDERER_DIRECT3D;
 // the open window snapshot: cancel rewinds to these.
 static int _viv_settings_snap_language;
 static int _viv_settings_snap_dark_mode;
@@ -577,6 +596,16 @@ static int _viv_settings_ctl_enabled(const _viv_settings_ctl_t *ctl)
 			if (ctl->id == _VIV_SETTINGS_ID_AUTOTYPE)
 			{
 				return config_auto_zoom ? 1 : 0;
+			}
+
+			// rc.6: the interpolation pair answers the gdi paint only -
+			// the hardware backends pick their own sampling and never
+			// read these two (the field report read them as dead
+			// switches under direct3d). the rows grey out with the
+			// renderer until they mean something again.
+			if ((ctl->id == _VIV_SETTINGS_ID_SHRINK) || (ctl->id == _VIV_SETTINGS_ID_MAG))
+			{
+				return (config_renderer == CONFIG_RENDERER_GDI) ? 1 : 0;
 			}
 
 			return 1;
@@ -2931,8 +2960,27 @@ static void _viv_settings_activate(int index,int x,int y)
 					_viv_hwgl_shutdown();
 					_viv_hwd3d_shutdown();
 
-					config_renderer = (config_renderer == CONFIG_RENDERER_GDI) ? CONFIG_RENDERER_DIRECT3D : CONFIG_RENDERER_GDI;
+					// rc.6: the switch face cannot tell the hardware back
+					// ends apart - turning it back on restores the one the
+					// session had (the old shape silently replaced an
+					// opengl choice with direct3d).
+					if (config_renderer == CONFIG_RENDERER_GDI)
+					{
+						config_renderer = _viv_settings_last_hw_renderer;
+					}
+					else
+					{
+						_viv_settings_last_hw_renderer = config_renderer;
+
+						config_renderer = CONFIG_RENDERER_GDI;
+					}
+
 					_viv_hw_render_fallback = 0;
+
+					// the sticky fallback note answered the old back end -
+					// the status line clears with the switch, not at the
+					// next load.
+					_viv_status_update();
 
 					InvalidateRect(_viv_hwnd,0,FALSE);
 					break;
@@ -4354,11 +4402,13 @@ static void _viv_settings_paint(HWND hwnd)
 						break;
 
 					case _VIV_SETTINGS_ID_SHRINK:
-						_viv_settings_draw_label(mem,&label_rect,LOCALIZATION_ID_SHRINK_BLIT_MODE_STATIC,_viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+						// rc.6: a gated row greys its label with its face - a full strength
+							// label beside a greyed control reads as a dead switch.
+							_viv_settings_draw_label(mem,&label_rect,LOCALIZATION_ID_SHRINK_BLIT_MODE_STATIC,_viv_settings_font,_viv_settings_color(_viv_settings_ctl_enabled(ctl) ? _VIV_SETTINGS_C_TEXT : _VIV_SETTINGS_C_TEXTOFF));
 						break;
 
 					case _VIV_SETTINGS_ID_MAG:
-						_viv_settings_draw_label(mem,&label_rect,LOCALIZATION_ID_MAGNIFY_BLIT_MODE,_viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+						_viv_settings_draw_label(mem,&label_rect,LOCALIZATION_ID_MAGNIFY_BLIT_MODE,_viv_settings_font,_viv_settings_color(_viv_settings_ctl_enabled(ctl) ? _VIV_SETTINGS_C_TEXT : _VIV_SETTINGS_C_TEXTOFF));
 						break;
 
 					case _VIV_SETTINGS_ID_TITLE:
@@ -4470,7 +4520,9 @@ static void _viv_settings_paint(HWND hwnd)
 				label_rect.right = ctl->value.left - _viv_settings_dip(12);
 				label_rect.bottom = desc_id ? ctl->rect.top + (ctl->rect.bottom - ctl->rect.top) / 2 : ctl->rect.bottom;
 
-				_viv_settings_draw_label(mem,&label_rect,label_id,_viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+				// rc.6: a gated sub row greys its label with its knob - a full
+				// strength label beside a greyed knob reads as a broken switch.
+				_viv_settings_draw_label(mem,&label_rect,label_id,_viv_settings_font,_viv_settings_color(_viv_settings_ctl_enabled(ctl) ? _VIV_SETTINGS_C_TEXT : _VIV_SETTINGS_C_TEXTOFF));
 
 				if (desc_id)
 				{
@@ -4721,6 +4773,102 @@ static int _viv_settings_edge_hit(HWND hwnd,POINT *pt)
 	return 0;
 }
 
+// rc.6: the touch pan. the settings window rides the same gesture
+// pipeline the main window does (winuser.h ids, dynamically resolved
+// apis): the pan applies the location difference to the scroll offset
+// - screen pixels against baked-dip pixels, one to one at every dpi.
+static int _viv_settings_on_gesture(HWND hwnd,void *gesture_info_handle)
+{
+	os_GestureInfo_t gesture_info;
+
+	if (!os_GetGestureInfo)
+	{
+		return 0;
+	}
+
+	os_zero_memory(&gesture_info,sizeof(gesture_info));
+
+	gesture_info.cbSize = sizeof(gesture_info);
+
+	if (!os_GetGestureInfo(gesture_info_handle,&gesture_info))
+	{
+		return 0;
+	}
+
+	switch(gesture_info.dwID)
+	{
+		case 1: // gesture begin
+		case 2: // gesture end
+			// msdn: consuming gid_begin and gid_end is undefined - the
+			// state resets and the default handler owns the message.
+			_viv_settings_touch_have = 0;
+			return 0;
+
+		case 4: // the pan (GID_PAN, winuser.h)
+		{
+			// the pan waits on a scrollable page and an idle mouse: a
+			// thumb drag or a key capture owns the input, and the pages
+			// that fit whole never scroll.
+			if ((_viv_settings_capture_active) || (_viv_settings_scroll_drag) || (_viv_settings_scroll_max <= 0))
+			{
+				_viv_settings_touch_have = 0;
+
+				return 0;
+			}
+
+			if (gesture_info.dwFlags & 0x01) // GF_BEGIN
+			{
+				_viv_settings_touch_last_y = gesture_info.ptsLocation.y;
+				_viv_settings_touch_have = 1;
+			}
+			else
+			if (_viv_settings_touch_have)
+			{
+				int dy;
+
+				dy = (int)gesture_info.ptsLocation.y - _viv_settings_touch_last_y;
+
+				// the finger owns the content: a downward drag moves the
+				// rows down, the offset shrinks. the inertia frames ride
+				// the same difference - the system sends them after the
+				// fingers lift, the clamp is the only brake.
+				_viv_settings_scroll_y -= dy;
+
+				if (_viv_settings_scroll_y < 0)
+				{
+					_viv_settings_scroll_y = 0;
+				}
+
+				if (_viv_settings_scroll_y > _viv_settings_scroll_max)
+				{
+					_viv_settings_scroll_y = _viv_settings_scroll_max;
+				}
+
+				_viv_settings_touch_last_y = gesture_info.ptsLocation.y;
+
+				_viv_settings_layout();
+
+				_viv_settings_invalidate();
+			}
+
+			break;
+		}
+
+		default:
+
+			// not handled. pass to DefWindowProc.
+			return 0;
+	}
+
+	// the pan was handled. the info handle is now our responsibility.
+	if (os_CloseGestureInfoHandle)
+	{
+		os_CloseGestureInfoHandle(gesture_info_handle);
+	}
+
+	return 1;
+}
+
 static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch(msg)
@@ -4826,6 +4974,48 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 			return 0;
 		}
+
+		case WM_GESTURENOTIFY:
+		{
+			// rc.6: claim the single finger vertical pan (with the
+			// system inertia) for the pages that scroll - the pages
+			// that fit whole keep the plain mouse semantics (the
+			// notify comes before every touch, the claim follows the
+			// page).
+			if ((os_SetGestureConfig) && (_viv_settings_scroll_max > 0))
+			{
+				os_GestureConfig_t gesture_configs[1];
+
+				// windows gesture ids (winuser.h): GID_PAN 4. the
+				// flags: GC_PAN 1, single finger vertical pan 0x02,
+				// inertia 0x10; the horizontal pan (0x04) and the gutter
+				// (0x08) are blocked - a vertical list answers a vertical
+				// finger.
+				gesture_configs[0].dwID = 4; // GID_PAN
+				gesture_configs[0].dwWant = 0x13; // GC_PAN | single finger vertical | inertia
+				gesture_configs[0].dwBlock = 0x0C; // single finger horizontal | gutter
+
+				os_SetGestureConfig(hwnd,0,1,gesture_configs,sizeof(os_GestureConfig_t));
+			}
+
+			break;
+		}
+
+		case WM_GESTURE:
+		{
+			if (_viv_settings_on_gesture(hwnd,(void *)lParam))
+			{
+				return 0;
+			}
+
+			break;
+		}
+
+		case 0x2C4: // WM_TABLET_QUERYSYSTEMGESTURESTATUS (winuser.h)
+			// disable press-and-hold (0x1, the wait circle) and flicks
+			// (0x10000): both fight the touch pan (the main window's
+			// shape).
+			return 0x00000001 | 0x00010000;
 
 		case WM_MOUSEMOVE:
 		{
@@ -5348,6 +5538,7 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			_viv_settings_capture_active = 0;
 			_viv_settings_scroll_drag = 0;
 			_viv_settings_scroll_grab = 0;
+			_viv_settings_touch_have = 0;
 
 			return 0;
 
