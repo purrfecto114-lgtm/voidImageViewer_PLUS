@@ -201,9 +201,13 @@ typedef struct _viv_settings_ctl_s
 // round-126: the capacity answers the 4k 300 percent report - the
 // general page's thirty-three seats (the nav, the content, the
 // three-button footer) met a thirty-seat array and the silent drop
-// at the add point took the footer buttons on every dpi. forty
-// keeps four spare seats over the busiest page.
-#define _VIV_SETTINGS_CTL_MAX 40
+// at the add point took the footer buttons on every dpi. rc.7 grew
+// the association grid to nineteen and the busiest page rode to
+// forty-one - the ok button was the seat that fell (the fresh scan's
+// catch; the round-126 census had pinned its assoc count at eleven,
+// so the suite stayed green over the overflow). forty-eight keeps
+// seven spare seats over the busiest page.
+#define _VIV_SETTINGS_CTL_MAX 48
 
 static HWND _viv_settings_hwnd = 0;
 static int _viv_settings_is_registered = 0;

@@ -574,6 +574,7 @@ const localization_id_t _viv_association_description_localization_id_array[] =
 	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_QOI,
 	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_WDP,
 };
+typedef char _viv_association_descriptions_count_assert[(sizeof(_viv_association_description_localization_id_array) / sizeof(_viv_association_description_localization_id_array[0]) == _VIV_ASSOCIATION_COUNT) ? 1 : -1]; // rc.7: the sister arrays pin their counts like the extensions table
 
 
 const char *_viv_association_icon_locations[] = 
@@ -597,8 +598,9 @@ const char *_viv_association_icon_locations[] =
 	NULL,
 	NULL,
 	NULL,
-	NULL,
 };
+
+typedef char _viv_association_icons_count_assert[(sizeof(_viv_association_icon_locations) / sizeof(_viv_association_icon_locations[0]) == _VIV_ASSOCIATION_COUNT) ? 1 : -1]; // rc.7: the sister arrays pin their counts like the extensions table
 
 
 

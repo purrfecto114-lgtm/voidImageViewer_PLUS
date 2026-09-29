@@ -8464,7 +8464,12 @@ def t_settings_capacity_round126():
     j3 = s.find("footer_y = client.bottom")
     controls_block = s[j2:j3]
 
-    nav_seats, footer_seats, assoc = 3, 3, 11
+    # rc.7: the assoc grid went nineteen and the hardcoded eleven kept
+    # the census green over a real overflow (the ok button was the seat
+    # that fell) - the count rides the header literal now.
+    stateh_cap = read("src/viv_state.h").decode()
+    assoc = int(re.search(r"#define _VIV_ASSOCIATION_COUNT\s+(\d+)", stateh_cap).group(1))
+    nav_seats, footer_seats = 3, 3
     gen_seats = (len(re.findall(r"_viv_settings_ctl_add\(", gen_block))
                  + assoc - 1 + nav_seats + footer_seats)
     view_seats = (len(re.findall(r"_viv_settings_ctl_add\(", view_block))

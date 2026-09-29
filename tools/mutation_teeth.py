@@ -174,6 +174,12 @@ MUTATIONS = [
      '"AV1 Image", // LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_AVIFX',
      ["menu"]),
 
+    ("the ctl capacity shrinks below the nineteen-box page (rc.7)",
+     "src/viv_settings.c",
+     "#define _VIV_SETTINGS_CTL_MAX 48",
+     "#define _VIV_SETTINGS_CTL_MAX 40",
+     ["menu"]),
+
     ("the ico icon stops being the file itself (rc.7)",
      "src/viv.c",
      '"%1",',
