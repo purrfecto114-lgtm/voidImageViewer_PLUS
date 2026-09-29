@@ -134,8 +134,56 @@ MUTATIONS = [
 
     ("the registration index loses its value name",
      "src/viv_install.c",
+     '_viv_set_registry_string(hkey,(const utf8_t *)"void Image Viewer",capabilities_wbuf);',
      '_viv_set_registry_string(hkey,(const utf8_t *)"voidImageViewer",capabilities_wbuf);',
-     '_viv_set_registry_string(hkey,(const utf8_t *)"voidImageViewerX",capabilities_wbuf);',
+     ["menu"]),
+
+    ("the applications seat loses its icon (rc.7)",
+     "src/viv_install.c",
+     'string_cat_utf8(icon_wbuf,(const utf8_t *)",0");',
+     'string_cat_utf8(icon_wbuf,(const utf8_t *)",1");',
+     ["menu"]),
+
+    ("the installer forgets the wic family (rc.7)",
+     "src/viv_state.h",
+     "#define _VIV_ASSOCIATION_COUNT\t19",
+     "#define _VIV_ASSOCIATION_COUNT\t11",
+     ["menu"]),
+
+    ("an extension word falls off the nsis phase (rc.7)",
+     "nsis/installer.nsi",
+     'MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 15" "State"',
+     'MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 99" "State"',
+     ["menu"]),
+
+    ("the options page loses its fields (rc.7)",
+     "nsis/InstallOptions2.ini",
+     "NumFields=23",
+     "NumFields=14",
+     ["menu"]),
+
+    ("the wic note falls off the options page (rc.7)",
+     "nsis/InstallOptions2.ini",
+     "Text=AVIF / HEIF / JPEG-XR / DDS ride the system's WIC codecs",
+     "Text=AVIF / HEIF / JPEG-XR / DDS ride the system's WIC codec",
+     ["menu"]),
+
+    ("a localization pair goes missing (rc.7)",
+     "src/localization_en_us.h",
+     '"AV1 Image", // LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_AVIF',
+     '"AV1 Image", // LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_AVIFX',
+     ["menu"]),
+
+    ("the ico icon stops being the file itself (rc.7)",
+     "src/viv.c",
+     '"%1",',
+     '"%2",',
+     ["menu"]),
+
+    ("the dead digitizer probe returns (rc.7)",
+     "src/os.h",
+     "// vista+ regdeletekeyexw, resolved lazily (see os.c). returns 1 when the",
+     "int os_is_touch_available(void);\n\n// vista+ regdeletekeyexw, resolved lazily (see os.c). returns 1 when the",
      ["menu"]),
 
     ("the hardware acceleration switch stops persisting",

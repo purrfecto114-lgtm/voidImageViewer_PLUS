@@ -1160,31 +1160,11 @@ void os_init(void)
 	}
 }
 
-// is a touch digitizer available?
-// (integrated or external touch screen)
-int os_is_touch_available(void)
-{
-	int sm;
-
-	// SM_DIGITIZER = 94
-	sm = GetSystemMetrics(94);
-
-	if (!sm)
-	{
-		return 0;
-	}
-
-	// NID_READY = 0x80, NID_INTEGRATED_TOUCH = 0x01, NID_EXTERNAL_TOUCH =
-	// 0x02 (and NID_INTEGRATED_PEN = 0x04 - the pen does not belong in the
-	// mask: a pen-only digitizer passed the old probe and an external-only
-	// touch screen failed it). nid_ready alone is set by any ready
-	// digitizer (pens included): ask for an actual touch screen - the
-	// integrated or the external one - and only while the digitizer is
-	// ready. msdn
-	// also warns sm_digitizer has no plug-and-play awareness, so callers
-	// treat this as a first-run default, never a permanent configuration.
-	return ((sm & 0x80) && (sm & (0x01 | 0x02))) ? 1 : 0;
-}
+// rc.7: the touch digitizer probe is gone. rc.4 retired its last
+// reader (the pill's first-run default reads its own variable now)
+// and the comment promised "first-run default" callers that no
+// longer existed - the tree answers the gesture pipeline's own
+// availability, not a digitizer metric.
 
 int os_reg_delete_key_ex(HKEY hkey,const wchar_t *name,REGSAM access)
 {

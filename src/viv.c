@@ -506,17 +506,27 @@ const char *_viv_association_extensions[] =
 	"webp",
 	"emf",
 	"wmf",
+	"avif",
+	"dds",
+	"hdp",
+	"heic",
+	"heif",
+	"jxr",
+	"qoi",
+	"wdp",
 };
+
 typedef char _viv_association_extensions_count_assert[(sizeof(_viv_association_extensions) / sizeof(_viv_association_extensions[0]) == _VIV_ASSOCIATION_COUNT) ? 1 : -1]; // the count literal pins the table
 
 // the navigation visibility set: the extensions the viewer itself opens
 // (the open filter's own list, the everything search prefix's own list).
-// the association table above is the installer contract and stays at its
-// eleven classic extensions; the folder scan, the playlist build and the
-// drop enumeration answer this table instead, so every extension the open
-// dialog accepts is as navigable as it is openable (the round-99 cross-list
-// guard pins the three lists as one set - one widened without the others is
-// how the format horizons round left next/previous blind to its eight).
+// rc.7 closed the gap this comment used to fence: the association table
+// above is the installer contract and now carries the same nineteen
+// extensions this table does, so the checkbox page, the capabilities
+// block and the open filter answer one set (the folder scan, the playlist
+// build and the drop enumeration always did - the round-99 cross-list
+// guard pins the lists as one set, and the wic family rides the system's
+// codecs wherever they are installed).
 const char *_viv_supported_extensions[] = 
 {
 	"avif",
@@ -555,7 +565,16 @@ const localization_id_t _viv_association_description_localization_id_array[] =
 	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_WEBP,
 	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_EMF,
 	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_WMF,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_AVIF,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_DDS,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_HDP,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_HEIC,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_HEIF,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_JXR,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_QOI,
+	LOCALIZATION_ID_ASSOCIATION_DESCRIPTION_WDP,
 };
+
 
 const char *_viv_association_icon_locations[] = 
 {
@@ -570,7 +589,17 @@ const char *_viv_association_icon_locations[] =
 	NULL,
 	NULL,
 	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
 };
+
 
 
 

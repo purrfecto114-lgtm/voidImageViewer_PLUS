@@ -78,6 +78,18 @@ after.
   with live controls (1020 was a dead tree view and a live start-menu row
   alike); the dead ids retired by name only, because renumbering live
   constants is its own regression.
+- **the second-pass counter-review is a fixed gate, not a favor.** (the
+  rc.7 round codified it): after the fix batch and before the commit, at
+  least two independent agents attack the diff from separate angles - one
+  correctness/regression (scopes, orders, table alignments, silent losses),
+  one platform-contract with live web verification (every win32/registry
+  claim re-sourced, not re-remembered). the pilot paid for itself twice in
+  one round: the correctness pass caught a span-rewrite silently dropping
+  the .ico self-icon, and the web pass refuted the round's own causal
+  story with firefox and portable-browser registrations - the fix stood
+  (it satisfies the documented contract) but the narrative was rewritten
+  to the truth before it shipped. a fix that survives its own counter-
+  review earns the commit; a story that survives it earns the changelog.
 - **a pinned window needs remeasuring every structural round.** the
   splice window has been recalibrated at least thirteen times (30548 → 31129
   → 31138 → 31170 → 31410 → 31613 → 30523 → 30741 → 30961 → 31081 → 31118

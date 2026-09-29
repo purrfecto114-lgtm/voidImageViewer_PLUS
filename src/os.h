@@ -282,8 +282,6 @@ extern BOOL (WINAPI *os_SetGestureConfig)(HWND hwnd,DWORD reserved,UINT cIDs,os_
 extern BOOL (WINAPI *os_GetGestureInfo)(void *gesture_info_handle,os_GestureInfo_t *gesture_info);
 extern BOOL (WINAPI *os_CloseGestureInfoHandle)(void *gesture_info_handle);
 
-int os_is_touch_available(void);
-
 // vista+ regdeletekeyexw, resolved lazily (see os.c). returns 1 when the
 // key was deleted, 0 when the api is missing or the delete failed:
 // regdeletekeyw cannot reach the alternate registry view.

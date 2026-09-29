@@ -500,6 +500,126 @@ no_wmf_association:
 
 skip_wmf_association:
 
+        ; AVIF Associations (the wic family and qoi join the installer in
+        ; 1.1.16-rc.7 - the formats the viewer itself opens; the system
+        ; carries the wic codecs or it does not, and the viewer reports
+        ; the load either way)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 15" "State"
+        strcmp $R0 "0" no_avif_association
+        StrCpy $user_install_options "$user_install_options /avif"
+        Goto skip_avif_association
+        
+no_avif_association:
+
+        StrCpy $user_install_options "$user_install_options /noavif"
+
+skip_avif_association:
+
+        ; DDS Associations (the wic family and qoi join the installer in
+        ; 1.1.16-rc.7 - the formats the viewer itself opens; the system
+        ; carries the wic codecs or it does not, and the viewer reports
+        ; the load either way)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 16" "State"
+        strcmp $R0 "0" no_dds_association
+        StrCpy $user_install_options "$user_install_options /dds"
+        Goto skip_dds_association
+        
+no_dds_association:
+
+        StrCpy $user_install_options "$user_install_options /nodds"
+
+skip_dds_association:
+
+        ; HDP Associations (the wic family and qoi join the installer in
+        ; 1.1.16-rc.7 - the formats the viewer itself opens; the system
+        ; carries the wic codecs or it does not, and the viewer reports
+        ; the load either way)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 17" "State"
+        strcmp $R0 "0" no_hdp_association
+        StrCpy $user_install_options "$user_install_options /hdp"
+        Goto skip_hdp_association
+        
+no_hdp_association:
+
+        StrCpy $user_install_options "$user_install_options /nohdp"
+
+skip_hdp_association:
+
+        ; HEIC Associations (the wic family and qoi join the installer in
+        ; 1.1.16-rc.7 - the formats the viewer itself opens; the system
+        ; carries the wic codecs or it does not, and the viewer reports
+        ; the load either way)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 18" "State"
+        strcmp $R0 "0" no_heic_association
+        StrCpy $user_install_options "$user_install_options /heic"
+        Goto skip_heic_association
+        
+no_heic_association:
+
+        StrCpy $user_install_options "$user_install_options /noheic"
+
+skip_heic_association:
+
+        ; HEIF Associations (the wic family and qoi join the installer in
+        ; 1.1.16-rc.7 - the formats the viewer itself opens; the system
+        ; carries the wic codecs or it does not, and the viewer reports
+        ; the load either way)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 19" "State"
+        strcmp $R0 "0" no_heif_association
+        StrCpy $user_install_options "$user_install_options /heif"
+        Goto skip_heif_association
+        
+no_heif_association:
+
+        StrCpy $user_install_options "$user_install_options /noheif"
+
+skip_heif_association:
+
+        ; JXR Associations (the wic family and qoi join the installer in
+        ; 1.1.16-rc.7 - the formats the viewer itself opens; the system
+        ; carries the wic codecs or it does not, and the viewer reports
+        ; the load either way)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 20" "State"
+        strcmp $R0 "0" no_jxr_association
+        StrCpy $user_install_options "$user_install_options /jxr"
+        Goto skip_jxr_association
+        
+no_jxr_association:
+
+        StrCpy $user_install_options "$user_install_options /nojxr"
+
+skip_jxr_association:
+
+        ; QOI Associations (the wic family and qoi join the installer in
+        ; 1.1.16-rc.7 - the formats the viewer itself opens; the system
+        ; carries the wic codecs or it does not, and the viewer reports
+        ; the load either way)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 21" "State"
+        strcmp $R0 "0" no_qoi_association
+        StrCpy $user_install_options "$user_install_options /qoi"
+        Goto skip_qoi_association
+        
+no_qoi_association:
+
+        StrCpy $user_install_options "$user_install_options /noqoi"
+
+skip_qoi_association:
+
+        ; WDP Associations (the wic family and qoi join the installer in
+        ; 1.1.16-rc.7 - the formats the viewer itself opens; the system
+        ; carries the wic codecs or it does not, and the viewer reports
+        ; the load either way)
+        !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 22" "State"
+        strcmp $R0 "0" no_wdp_association
+        StrCpy $user_install_options "$user_install_options /wdp"
+        Goto skip_wdp_association
+        
+no_wdp_association:
+
+        StrCpy $user_install_options "$user_install_options /nowdp"
+
+skip_wdp_association:
+
         ; hardware acceleration (opt-in: an unchecked box sends no switch at
         ; all, so an upgrade keeps whatever renderer the ini already carries)
         !insertmacro MUI_INSTALLOPTIONS_READ $R0 "InstallOptions2.ini" "Field 14" "State"

@@ -282,7 +282,7 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 			// "does a double click open the viewer" - and on windows 10/11
 			// that answer lives in the UserChoice hash. the box says so
 			// once for the whole run (the settings page's per-extension
-			// shape would ask eleven times here) and offers the one page
+			// shape would ask once per extension - nineteen times
 			// that can change it.
 			_viv_install_association_locked_box(install_flags);
 		}
@@ -905,13 +905,31 @@ static void _viv_install_app_registration(void)
 	int exti;
 	
 	// the index: the value points at the capabilities key below.
+	// the value name is the app's one true name - the msdn contract
+	// for default programs is explicit: "applicationname must always
+	// match the name that is registered under registeredapplications",
+	// and the rc.4-rc.6 writes broke exactly that rule (the index
+	// said voidImageViewer, the capabilities block said void Image
+	// Viewer). the field machines never listed the app and the
+	// mismatch was the one deviation from the documented contract
+	// the registration carried - firefox and the portable-browser
+	// registrations show the settings page tolerates a mismatch in
+	// practice, so the repair is the contract's letter, not a proven
+	// cause; the machine's answer stays a field question.
 	if (RegCreateKeyExW(HKEY_CURRENT_USER,L"Software\\RegisteredApplications",0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
 	{
 		wchar_t capabilities_wbuf[STRING_SIZE];
 		
 		string_copy_utf8_string(capabilities_wbuf,(const utf8_t *)"SOFTWARE\\voidImageViewer\\Capabilities");
 		
-		_viv_set_registry_string(hkey,(const utf8_t *)"voidImageViewer",capabilities_wbuf);
+		_viv_set_registry_string(hkey,(const utf8_t *)"void Image Viewer",capabilities_wbuf);
+		
+		// the repair sweep: a machine that carries the rc.4-rc.6
+		// spelling keeps a second index value forever otherwise -
+		// one pointing at the same capabilities under a name the
+		// contract rejects. the delete is best-effort; a machine
+		// that never saw the old writes answers file-not-found.
+		RegDeleteValueA(hkey,"voidImageViewer");
 		
 		RegCloseKey(hkey);
 	}
@@ -968,6 +986,59 @@ static void _viv_install_app_registration(void)
 		RegCloseKey(hkey);
 	}
 	
+	// rc.7: the applications seat - the registration the shell's own
+	// application lookups read (the msdn application registration
+	// contract's other half; the app paths pair above answers "where
+	// is the exe", this one answers "what can it do"). the open-with
+	// dialog and the default programs cross-references resolve through
+	// here: the friendly name, the icon, the pinned open verb.
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\Classes\\Applications\\voidImageViewer.exe");
+	
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,wbuf,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		wchar_t name_wbuf[STRING_SIZE];
+		
+		string_copy_utf8_string(name_wbuf,(const utf8_t *)"void Image Viewer");
+		
+		_viv_set_registry_string(hkey,0,name_wbuf);
+		
+		// the documented seat of the friendly name: assocstr reads
+		// friendlyappname (falling back to the exe's file description);
+		// the default value above is the belt to its braces.
+		_viv_set_registry_string(hkey,(const utf8_t *)"FriendlyAppName",name_wbuf);
+		
+		RegCloseKey(hkey);
+	}
+	
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\Classes\\Applications\\voidImageViewer.exe\\DefaultIcon");
+	
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,wbuf,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		wchar_t icon_wbuf[STRING_SIZE];
+		
+		string_copy(icon_wbuf,exe_filename);
+		string_cat_utf8(icon_wbuf,(const utf8_t *)",0");
+		
+		_viv_set_registry_string(hkey,0,icon_wbuf);
+		
+		RegCloseKey(hkey);
+	}
+	
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\Classes\\Applications\\voidImageViewer.exe\\shell\\open\\command");
+	
+	if (RegCreateKeyExW(HKEY_CURRENT_USER,wbuf,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+	{
+		wchar_t command[STRING_SIZE];
+		
+		string_copy_utf8_string(command,(const utf8_t *)"\"");
+		string_cat(command,exe_filename);
+		string_cat_utf8(command,(const utf8_t *)"\" \"%1\"");
+		
+		_viv_set_registry_string(hkey,0,command);
+		
+		RegCloseKey(hkey);
+	}
+	
 	// the explorer hears the registration the same moment.
 	SHChangeNotify(SHCNE_ASSOCCHANGED,SHCNF_IDLIST,0,0);
 }
@@ -981,6 +1052,10 @@ static void _viv_uninstall_app_registration(void)
 	
 	if (RegOpenKeyExW(HKEY_CURRENT_USER,L"Software\\RegisteredApplications",0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
 	{
+		// the rc.7 name first, then the spelling the rc.4-rc.6 writes
+		// left on field machines (the install's repair sweep deletes
+		// it too; this one covers a plain uninstall).
+		RegDeleteValueW(hkey,L"void Image Viewer");
 		RegDeleteValueA(hkey,"voidImageViewer");
 		
 		RegCloseKey(hkey);
@@ -1000,6 +1075,24 @@ static void _viv_uninstall_app_registration(void)
 	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
 	
 	string_copy_utf8_string(wbuf,(const utf8_t *)"Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\voidImageViewer.exe");
+	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
+	
+	// the applications seat: regdeletekeyw refuses keys with subkeys,
+	// so the leaves go first (the same shape the capabilities tree
+	// delete above walks).
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\Classes\\Applications\\voidImageViewer.exe\\DefaultIcon");
+	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
+	
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\Classes\\Applications\\voidImageViewer.exe\\shell\\open\\command");
+	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
+	
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\Classes\\Applications\\voidImageViewer.exe\\shell\\open");
+	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
+	
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\Classes\\Applications\\voidImageViewer.exe\\shell");
+	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
+	
+	string_copy_utf8_string(wbuf,(const utf8_t *)"SOFTWARE\\Classes\\Applications\\voidImageViewer.exe");
 	RegDeleteKeyW(HKEY_CURRENT_USER,wbuf);
 	
 	// the explorer hears the sweep the same moment.
@@ -1572,7 +1665,7 @@ static int _viv_install_hklm_arp_present(void)
 }
 // rc.6: the installer-path read-back (win10/11 keep the default
 // behind the UserChoice hash). one box for the whole run - the
-// settings page asks per extension, eleven boxes mid-install would
+// settings page asks per extension, one box per format mid-install would
 // be a wall.
 static void _viv_install_association_locked_box(DWORD install_flags)
 {

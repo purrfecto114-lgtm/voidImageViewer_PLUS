@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.16-rc.6.105",
-          (major, minor, rev, build) == (1, 1, 16, 105), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.16-rc.6",
-          vstr is not None and vstr.group(1) == "1.1.16-rc.6", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.16-rc.7.106",
+          (major, minor, rev, build) == (1, 1, 16, 106), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.16-rc.7",
+          vstr is not None and vstr.group(1) == "1.1.16-rc.7", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -831,25 +831,10 @@ def t_sim_field_round48():
           "SetWindowLongPtr(hwnd,DWLP_MSGRESULT,dark_reply);" in VIV and
           "return dark_reply;\n" not in function_body(VIV, "INT_PTR _viv_dialog_dark_proc"))
 
-    # 3. the touch mask, replayed against the nid table: integrated
-    #    touch 0x01, external touch 0x02, integrated pen 0x04, ready 0x80.
-    m = re.search(r"return \(\(sm & 0x80\) && \(sm & \(0x01 \| 0x02\)\)\) \? 1 : 0;", OSC)
-    check("the extracted touch mask is the 0x03 touch pair",
-          m is not None, "mask not found")
-
-    def touch(sm):
-        return 1 if ((sm & 0x80) and (sm & (0x01 | 0x02))) else 0
-
-    check("an integrated touch screen stays touch",
-          touch(0x80 | 0x01) == 1)
-    check("an external-only touch screen reads touch now (the repair)",
-          touch(0x80 | 0x02) == 1)
-    check("an integrated pen only is not a touch screen",
-          touch(0x80 | 0x04) == 0)
-    check("a not-ready digitizer reports nothing",
-          touch(0x01) == 0)
-    check("a ready integrated-touch combo with pen still reads touch",
-          touch(0x80 | 0x01 | 0x04) == 1)
+    # 3. the digitizer probe retired in rc.7 (rc.4 took its last
+    #    reader; the replayed mask left with it).
+    check("the touch digitizer probe is gone from the simulation's tree",
+          "os_is_touch_available" not in OSC, "still present")
 
     # 4. the theme cache lifecycle, replayed: one open per dialog
     #    lifetime, drop on theme change, close on destroy - no leak.
@@ -2452,9 +2437,17 @@ def t_sim_settings_round126():
     def scroll_max(content_bottom, client_high):
         return max(0, content_bottom + MARGIN - (client_high - FOOTER_HIGH))
 
-    # the general page bottoms at 664 dip (the measured layout).
+    # rc.7: the general page's bottom rides the association count now -
+    # the grid grows a row every four checkboxes (eleven rode three rows,
+    # the 664 dip measure; nineteen rides five, 664 - 3*26 + 5*26 = 716).
+    st = read("src/viv_state.h").decode("utf-8", errors="replace")
+    ASSOC = int(re.search(r"#define _VIV_ASSOCIATION_COUNT\s+(\d+)", st).group(1))
+    CHECK = int(re.search(r"#define _VIV_SETTINGS_CHECK_HIGH\s+(\d+)", ss).group(1))
+    GEN = 664 - 3 * CHECK + ((ASSOC + 3) // 4) * CHECK
+    check("the derived general page bottom is the nineteen-box page (716 dip)",
+          GEN == 716, str(GEN))
     check("the clamped 680-dip work area scrolls the general page (the 300 percent report)",
-          scroll_max(664, 680) >= 60, str(scroll_max(664, 680)))
+          scroll_max(GEN, 680) >= 60, str(scroll_max(GEN, 680)))
     # rc.4 (the field ask): the client rides the 90 percent design -
     # the general page scrolls 74 dip under the pinned footer by
     # design, the view page (526 + the hwaccel row's 52) and the
@@ -2462,12 +2455,12 @@ def t_sim_settings_round126():
     CLIENT_HIGH = int(re.search(r"#define _VIV_SETTINGS_CLIENT_HIGH\s+(\d+)", ss).group(1))
     check("the settings client is the 90 percent design (670 dip)",
           CLIENT_HIGH == 670, str(CLIENT_HIGH))
-    check("the general page scrolls 74 dip under the pinned footer",
-          scroll_max(664, CLIENT_HIGH) == 74, str(scroll_max(664, CLIENT_HIGH)))
+    check("the general page scrolls 126 dip under the pinned footer",
+          scroll_max(GEN, CLIENT_HIGH) == 126, str(scroll_max(GEN, CLIENT_HIGH)))
     check("the view page carries the hwaccel row and still fits whole",
           scroll_max(578, CLIENT_HIGH) == 0 and scroll_max(404, CLIENT_HIGH) == 0)
     check("a half-height work area scrolls every page but stays clamped",
-          0 < scroll_max(664, 500) < 664 and scroll_max(526, 500) > 0)
+          0 < scroll_max(GEN, 500) < GEN and scroll_max(526, 500) > 0)
 
     # the wheel: one notch is WHEEL_ROWS rows, clamped at both ends
     # (the row count itself rides the extract above).
@@ -2484,7 +2477,7 @@ def t_sim_settings_round126():
     check("the extracted wheel step is the shipped one (34 x 3 = 102)",
           (ROW_HIGH, WHEEL_ROWS, STEP) == (34, 3, 102), str((ROW_HIGH, WHEEL_ROWS, STEP)))
 
-    mx = scroll_max(664, 680)
+    mx = scroll_max(GEN, 680)
     check("a forward notch climbs to the top and clamps",
           wheel(mx, 1, mx) == max(0, mx - STEP) and wheel(0, 1, mx) == 0)
     check("a backward notch descends three rows and clamps at the bottom",
