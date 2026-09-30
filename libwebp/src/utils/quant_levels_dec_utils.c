@@ -218,7 +218,7 @@ static int InitParams(uint8_t* const data, int width, int height, int stride,
                       int radius, SmoothParams* const p) {
   const int R = 2 * radius + 1;  // total size of the kernel
 
-  const size_t size_scratch_m = (R + 1) * width * sizeof(*p->start);
+  const size_t size_scratch_m = (R + 1) * (size_t)width * sizeof(*p->start);
   const size_t size_m =  width * sizeof(*p->average);
   const size_t size_lut = (1 + 2 * LUT_SIZE) * sizeof(*p->correction);
   const size_t total_size = size_scratch_m + size_m + size_lut;

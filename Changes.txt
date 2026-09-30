@@ -1,4 +1,27 @@
-﻿Pre-release: Version 1.1.16-rc.8 (the documentation round)
+﻿Pre-release: Version 1.1.16-rc.9 (the codeql hardening round)
+
+	the security round the scanner asked for by name. five high
+	alerts - "multiplication result converted to larger type" -
+	stood open on the vendored libwebp decode tree, the code that
+	parses untrusted webp bytes inside the shipping exe, and all
+	five close at the source: the alpha decoder's decoded-size
+	product, the palette's co-occurrence square, the quantizer's
+	scratch sizing and the frame decoder's two per-mb arrays now
+	take their cast on the operand before the product, so every
+	flagged multiplication happens in the wide type it feeds. the
+	casts are behavior-preserving on legal inputs (each product
+	sits far below the 32-bit wall inside its own domain) but a
+	hostile file is exactly the input that does not respect the
+	domain, and an allocation size is not the place to learn
+	that. the full attack-surface leg that watches libwebp
+	rides weekly and on dispatch, and this round's push is
+	followed by a dispatch so the five alerts close on this
+	code, not on next monday. the vendored tree's provenance
+	record grows its first local-modification note naming the
+	five sites, because a record that stops telling the truth
+	about its tree is a readme with ambitions.
+
+Pre-release: Version 1.1.16-rc.8 (the documentation round)
 
 	the release round. the prerelease channel last saw rc.5, so
 	this tag carries two shipped rounds beneath its own work -

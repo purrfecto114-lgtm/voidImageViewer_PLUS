@@ -109,6 +109,24 @@ after.
   happened - and only the written state proves it did not happen
   twice.
 
+- **the witness can lie about brackets.** (the codeql
+  hardening round): the codeql workflow's push filter read
+  `branches: ain]` through every terminal probe - the display
+  layer strips the `[m` of `[main]` as a suspected ansi
+  reset - and for an hour the round carried a phantom
+  "birth typo" complete with a repair, a guard-pin
+  correction and a regression tooth, while the file said
+  `[main]` all along. the surgery's own count assert
+  refused the repair ("trigger already repaired" - the
+  guard biting its author for the right reason this time),
+  and the immune verification is byte-valued: print the
+  ints, or base64 the segment, before believing any
+  bracketed claim a terminal shows you. the deeper tell
+  was systemic: fifteen push runs of record had triggered
+  on main all along - when a "defect" contradicts the
+  system's own observable behavior, suspect the observer
+  before the observed.
+
 ### Equivalent refactors
 
 - **equivalence is contextual, not textual.** the fullscreen toggle's
@@ -223,6 +241,28 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.16 arc — round descriptions
+### 1.1.16-rc.9 — the codeql hardening round (2026-09-30, build 108)
+
+- The security round the scanner asked for by name: five high
+  CodeQL alerts ("multiplication result converted to larger
+  type") stood open on the vendored libwebp decode tree, and
+  all five close at the source - the alpha decoder's
+  decoded-size product, the palette's co-occurrence square,
+  the quantizer's scratch sizing and the frame decoder's two
+  per-mb arrays now multiply in the wide type they feed. The
+  casts are behavior-preserving on legal inputs and
+  hostile-proof where it counts; upstream libwebp master still
+  carried the original forms as of this date, so the
+  provenance record (VERSION.imported) grows its first
+  local-modification note naming the five sites. The round
+  also nearly shipped a phantom: the push trigger's "ain]"
+  was the terminal eating `[m` from `[main]` (the lesson
+  below the arcs says it fully), caught by the surgery's
+  count assert refusing to repair an already-correct file.
+  The full attack-surface leg rides a dispatch right after
+  the push, so the five alerts close on this code, not on
+  next monday's schedule.
+
 ### 1.1.16-rc.8 — the documentation round (2026-09-30, build 107)
 
 - The release round: the prerelease channel last saw rc.5, so the tag

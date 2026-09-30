@@ -52,3 +52,16 @@ kept:  tests/  doc/  cmake/  src/{dec,demux,dsp,utils,webp} with
   Makefile.am, Makefile.vc, Android.mk, ...)
 
 license: BSD-3-Clause (COPYING); the WebP patent grant is in PATENTS.
+
+local modifications (tracked so this record stays the truth
+about its tree):
+  rc.9 (2026-09-30): five integer-widening hardenings close this
+  fork's open CodeQL high alerts - src/dec/alpha_dec.c (the
+  alpha decoded-size product), src/utils/palette.c (the
+  co-occurrence square), src/utils/quant_levels_dec_utils.c
+  (the scratch sizing), src/dec/frame_dec.c (both per-mb
+  array sizes). each multiplication now happens in the wide
+  type it feeds; behavior-preserving on legal inputs.
+  upstream master carried the original forms as of this
+  date - a future --fetch refresh must re-check these five
+  sites.

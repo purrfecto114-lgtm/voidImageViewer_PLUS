@@ -33,6 +33,8 @@ What's new
 - The session shapes — the cache is a ring you size (1–8 images), preloading walks a chain you size (1–5 ahead, following your direction), and **Resume where I left off** reopens the last session's file on a blank start.
 - The narrow window pages its toolbar behind edge arrows (a button is never cut mid-glyph), and the designed 8-dip button gap finally lands between adjacent faces.
 
+**1.1.16-rc.9 — the codeql hardening round:** the five high CodeQL alerts on the vendored libwebp decode tree close at the source — every flagged multiplication now happens in the wide type it feeds (behavior-preserving on legal inputs, hostile-proof where it counts), and the vendored provenance record gains its first local-modification note. See [Changes.txt](Changes.txt).
+
 **1.1.16-rc.8 — the documentation round:** the release round that carries the field feedback round II and the default programs round to the prerelease channel — the documentation catches up with the code (this banner, the experience ledger's missing 1.1.16 arc entries, the repository's own description and homepage), and the version carries no code change. See [Changes.txt](Changes.txt).
 
 **1.1.16-rc.7 — the default programs round:** the Default Programs registration satisfies the documented contract in full (one name everywhere - index, capabilities, add-remove and start menu - plus the Applications seat with its documented FriendlyAppName that the shell's own lookups read), and the installer's association list grows from eleven extensions to the full nineteen the viewer opens: QOI built in, the WIC family (AVIF/DDS/HDP/HEIC/HEIF/JXR/WDP) riding the system's codecs. See [Changes.txt](Changes.txt).

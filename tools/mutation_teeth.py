@@ -270,6 +270,36 @@ MUTATIONS = [
      "for(folderi=0;folderi<1;folderi++)",
      ["menu"]),
 
+    ("the alpha product narrows again (codeql #5)",
+     "libwebp/src/dec/alpha_dec.c",
+     "const size_t alpha_decoded_size = (size_t)dec->width * dec->height;",
+     "const size_t alpha_decoded_size = dec->width * dec->height;",
+     ["menu"]),
+
+    ("the palette square narrows again (codeql #4)",
+     "libwebp/src/utils/palette.c",
+     "(size_t)num_colors * num_colors",
+     "(num_colors * num_colors)",
+     ["menu"]),
+
+    ("the quantizer scratch narrows again (codeql #3)",
+     "libwebp/src/utils/quant_levels_dec_utils.c",
+     "(R + 1) * (size_t)width * sizeof(*p->start)",
+     "(R + 1) * width * sizeof(*p->start)",
+     ["menu"]),
+
+    ("the frame f_info product narrows again (codeql #2)",
+     "libwebp/src/dec/frame_dec.c",
+     "(size_t)mb_w * (dec->mt_method > 0 ? 2 : 1) * sizeof(VP8FInfo)",
+     "mb_w * (dec->mt_method > 0 ? 2 : 1) * sizeof(VP8FInfo)",
+     ["menu"]),
+
+    ("the frame mb_data product narrows again (codeql #1)",
+     "libwebp/src/dec/frame_dec.c",
+     "(dec->mt_method == 2 ? 2 : 1) * (size_t)mb_w * sizeof(*dec->mb_data)",
+     "(dec->mt_method == 2 ? 2 : 1) * mb_w * sizeof(*dec->mb_data)",
+     ["menu"]),
+
     ("the un-relayed second stage raises uac again (rc.6)",
      "src/viv_install.c",
      'string_cat_utf8(install_options,(const utf8_t *)" /isrunas");',

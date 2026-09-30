@@ -315,7 +315,8 @@ static int PaletteSortModifiedZeng(const WebPPicture* const pic,
   if (num_colors <= 1) return 1;
   // Build the co-occurrence matrix.
   cooccurrence =
-      (uint32_t*)WebPSafeCalloc(num_colors * num_colors, sizeof(*cooccurrence));
+      (uint32_t*)WebPSafeCalloc((size_t)num_colors * num_colors,
+                                sizeof(*cooccurrence));
   if (cooccurrence == NULL) {
     return 0;
   }
