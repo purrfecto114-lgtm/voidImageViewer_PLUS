@@ -254,7 +254,11 @@ static HMODULE _os_ucrtbase_hmodule = 0;
 static HMODULE _os_gdi32_hmodule = 0;
 static HMODULE _os_dwmapi_hmodule = 0;
 
-void os_zero_memory(void *data,int size)
+// size_t like the copy sister below it: a computed byte count that
+// crosses int_max sign-extends inside zeromemory into a write that
+// runs until the process dies, and the dib-sized zeroing sites hand
+// this function exactly those counts.
+void os_zero_memory(void *data,SIZE_T size)
 {
 	ZeroMemory(data,size);
 }

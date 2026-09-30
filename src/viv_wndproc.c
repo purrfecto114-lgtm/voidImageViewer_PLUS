@@ -1832,6 +1832,24 @@ static LRESULT _viv_on_wm_lbuttonup_wm_mbuttonup(HWND hwnd,UINT msg,WPARAM wPara
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
+// the system pulled the capture (alt+tab, the win key, another
+// process's setcapture): without this hand-off a doing state
+// outlives its capture - the mscroll leg keeps teleporting the
+// pointer back to its anchor on bare motion, the scroll legs keep
+// panning, and the hidden cursor never comes back. the
+// _viv_doing_cancel reset is the same one the button-up path
+// runs; its releasecapture on an already-lost capture is the
+// win32 no-op (false, no fault).
+static LRESULT _viv_on_wm_capturechanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	if (_viv_doing != _VIV_DOING_NOTHING)
+	{
+		_viv_doing_cancel();
+	}
+	
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
 static LRESULT _viv_on_wm_mousewheel(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	_viv_do_mousewheel_action(_viv_get_current_key_mod_flags() == CONFIG_KEYFLAG_CTRL ? config_ctrl_mouse_wheel_action : config_mouse_wheel_action,GET_WHEEL_DELTA_WPARAM(wParam),GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
@@ -3389,6 +3407,8 @@ LRESULT CALLBACK _viv_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		case WM_LBUTTONUP:
 		case WM_MBUTTONUP:
 			return _viv_on_wm_lbuttonup_wm_mbuttonup(hwnd,msg,wParam,lParam);
+		case WM_CAPTURECHANGED:
+			return _viv_on_wm_capturechanged(hwnd,msg,wParam,lParam);
 		case WM_MOUSEWHEEL:
 			return _viv_on_wm_mousewheel(hwnd,msg,wParam,lParam);
 		case WM_GESTURENOTIFY:

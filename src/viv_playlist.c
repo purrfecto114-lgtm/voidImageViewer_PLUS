@@ -415,7 +415,10 @@ void _viv_playlist_delete(const WIN32_FIND_DATA *fd)
 	
 			d = _viv_playlist_shuffle_indexes[index];
 			
-			os_move_memory(_viv_playlist_shuffle_indexes + index,_viv_playlist_shuffle_indexes + index + 1,_viv_playlist_count - (index + 1));
+			// the shuffle array moves in elements, not bytes: the bare count
+			// shifted n bytes and left a half-spliced pointer behind for every
+			// later reader of the row the delete just punched.
+			os_move_memory(_viv_playlist_shuffle_indexes + index,_viv_playlist_shuffle_indexes + index + 1,(_viv_playlist_count - (index + 1)) * sizeof(_viv_playlist_t *));
 			
 			if (_viv_playlist_start == d)
 			{

@@ -68,7 +68,8 @@ int _viv_export_resize_window(void);
 // reads the pixels back and writes the bitmap. the exit codes are the
 // harness contract: 0 rendered, 1 generic failure, 2 the load was
 // refused, 3 the renderer was unavailable, 4 the load timed out,
-// 5 the window refused the canvas size.
+// 5 the window refused the canvas size, 6 the init-time canvas
+// resize did not converge (reported by _viv_init in viv.c).
 int _viv_export_run(void);
 
 #endif

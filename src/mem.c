@@ -22,6 +22,7 @@
 // memory allocation
 
 #include "viv.h"
+#include <stdint.h> // SIZE_MAX
 
 #ifdef _DEBUG
 
@@ -140,6 +141,7 @@ void mem_debug(void)
 void *mem_alloc_debug(const char *file,int line,uintptr_t size)
 {
 	mem_debug_t *p;
+	SIZE_T alloc_size;
 	
 	if (!mem_debug_initialized)
 	{
@@ -147,7 +149,24 @@ void *mem_alloc_debug(const char *file,int line,uintptr_t size)
 		mem_debug_initialized = 1;
 	}
 	
-	p = HeapAlloc(GetProcessHeap(),0,sizeof(mem_debug_t) + size + (sizeof(void *) * MEM_MAGIC_SIZE));
+	// the header + payload + magic tail must ride the safe helpers: a
+	// size that saturated to the SIZE_MAX sentinel (the helpers'
+	// invalid word) would wrap this plain addition, hand heapalloc a
+	// tiny block, and the magic write below would land its pointers
+	// past that block's end.
+	alloc_size = safe_size_add(safe_size_add(sizeof(mem_debug_t),size),safe_size_mul_sizeof_pointer(MEM_MAGIC_SIZE));
+	
+	// a wrapped sum is refused the same way a refused heap is: the
+	// fatal path below is this file's only answer for an allocation
+	// it cannot honestly hand out.
+	if (alloc_size == SIZE_MAX)
+	{
+		p = 0;
+	}
+	else
+	{
+		p = HeapAlloc(GetProcessHeap(),0,alloc_size);
+	}
 
 	// this is fatal
 	if (!p) 

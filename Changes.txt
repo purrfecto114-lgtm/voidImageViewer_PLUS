@@ -1,4 +1,43 @@
-﻿Pre-release: Version 1.1.16-rc.10 (the instruments round)
+﻿Pre-release: Version 1.1.16-rc.11 (the audit response round)
+
+	the carpet audit's answer. the elevated options relay
+	trusted a string the tokenizer had already restructured:
+	the quote guard in front of it scanned for a character
+	the word-splitting had eaten, so an -install-options word
+	that carried spaces rode the relay whole and re-split
+	inside the admin child - a -render-export spelled that
+	way reached an admin CreateFileW. the relay no longer
+	forwards the caller's spelling at all: it re-tokenizes
+	the options word, keeps only the five switches the nsis
+	wizard itself accumulates (appdata, noappdata, startmenu,
+	nostartmenu, hardware-acceleration), re-emits each in
+	canonical /word form and drops every other word silently
+	- the same refusal the nsis side gives a quoted word. the
+	export probe closes the boundary's other half: a command
+	line that carries an install word never exports at all
+	(the runas relay re-arms the full line elevated, and one
+	consent must not buy a file write the wizard never asked
+	for). eight more of the audit's findings close beside it:
+	the "locked elsewhere" probe compares its progid
+	narrow-to-narrow and lowercase-to-lowercase (the honest
+	read used to answer locked to its own registration), the
+	debug allocator's header, payload and magic sum rides the
+	safe helpers, the second-instance forward strides its
+	copydata by the clamped length it actually wrote,
+	os_zero_memory takes SIZE_T like its copy sister (and the
+	computed callers ride the wide type now - the pill's dib
+	multiplies promoted, the glyph stride was already wide,
+	the webp frame-delay tail shed its (int) cast), the
+	main window answers WM_CAPTURECHANGED with the same cancel
+	the button-up path runs (alt+tab no longer strands the
+	hidden-cursor scroll), the slideshow flag only rises on a
+	live timer, the shuffle delete closes its array in
+	elements instead of bytes, and the ini's last_file lands
+	in a buffer as wide as the copier that fills it. the
+	export canvas refusal gets its own exit code: the
+	init-time resize that fails now names itself (six)
+	instead of answering thirteen direction-less fives.
+Pre-release: Version 1.1.16-rc.10 (the instruments round)
 
 	the round the instruments themselves were audited. the
 	menu suite's one bash call - the release-title derivation

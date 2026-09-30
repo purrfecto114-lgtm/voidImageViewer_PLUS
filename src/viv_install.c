@@ -451,25 +451,67 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 			
 			string_path_combine_utf8(new_exe_filename_wbuf,install_path,(const utf8_t *)"voidImageViewer.exe");
 			
-			// the options word arrived inside a quoted argument of an
-			// elevated command line: a quote in it would close that
-			// quote and restructure the elevated call into commands of
-			// the caller's choosing. real options are switch names; a
-			// quote is never one (the nsis side refuses the same
-			// character before this process ever sees it - this is the
-			// second belt).
+			// rc.11: the quote scan that lived here was dead code - the
+			// tokenizer that filled this buffer eats quotes while it
+			// builds the word, so no quote ever arrived to be found, and
+			// the word it left behind kept its spaces: forwarded whole
+			// to the elevated child, those spaces re-tokenize into words
+			// of the caller's choosing ("-install-options "-render-export
+			// C:\Windows\..."" would reach an admin CreateFileW). the
+			// caller's string never rides the relay whole again: this side
+			// re-tokenizes the buffer, keeps only the switches the nsis
+			// wizard itself accumulates, re-emits each one in canonical
+			// /word form, and drops every other word silently (the nsis
+			// side's scan of the raw command line is the first belt - it
+			// sees the quotes before any tokenizing does; this literal
+			// whitelist is the second, and it trusts no word it cannot
+			// spell itself).
 			{
+				static const char *allowed[] = {"appdata","noappdata",
+				"startmenu","nostartmenu","hardware-acceleration"};
+				wchar_t rebuilt[STRING_SIZE];
+				wchar_t word[STRING_SIZE];
 				wchar_t *q;
+				int i;
 				
-				for(q=install_options;*q;q++)
+				rebuilt[0] = 0;
+				q = install_options;
+				
+				for(;;)
 				{
-					if (*q == '"')
+					wchar_t *word_body;
+					
+					q = string_skip_ws(q);
+					
+					if (!*q)
 					{
-						install_options[0] = 0;
-						
 						break;
 					}
+					
+					q = string_get_word(q,word,STRING_SIZE);
+					
+					// one leading slash is the wizard's switch spelling:
+					// the whitelist compare runs on what follows it.
+					word_body = word;
+					
+					if (*word_body == '/')
+					{
+						word_body++;
+					}
+					
+					for(i=0;i<(int)(sizeof(allowed) / sizeof(allowed[0]));i++)
+					{
+						if (string_icompare_lowercase_ascii(word_body,allowed[i]) == 0)
+						{
+							string_cat_utf8(rebuilt,(const utf8_t *)" /");
+							string_cat_utf8(rebuilt,(const utf8_t *)allowed[i]);
+							
+							break;
+						}
+					}
 				}
+				
+				string_copy(install_options,rebuilt);
 			}
 			
 			// rc.6: the un-relayed leg launches the second stage on
@@ -614,15 +656,43 @@ static int _viv_is_foreign_association(const char *association,const wchar_t *cl
 int _viv_default_app_locked_elsewhere(const char *association)
 {
 	wchar_t dot_association[STRING_SIZE];
-	wchar_t class_name[STRING_SIZE];
+	char class_name[STRING_SIZE];
 	wchar_t key[STRING_SIZE];
 	HKEY hkey;
 	
 	string_copy_utf8_string(dot_association,(const utf8_t *)".");
 	string_cat_utf8(dot_association,association);
 	
-	string_copy_utf8_string(class_name,(const utf8_t *)"voidImageViewer");
-	string_cat(class_name,dot_association);
+	// the progid this build registers is narrow ascii from nose to
+	// tail ("voidImageViewer." plus the extension), and the compare
+	// below reads its second argument as narrow bytes - and as raw
+	// bytes: the helper lowercases only its first argument, so the
+	// second must arrive already lowercase. the wide buffer this
+	// used to build failed the first contract (wchar_t storage read
+	// byte by byte), and a mixed-case spelling would fail the
+	// second just as finally - either way every read answered
+	// "locked elsewhere" (the honest read's own false positive).
+	{
+		const char *s;
+		char *d;
+		
+		s = "voidimageviewer.";
+		d = class_name;
+		
+		while(*s)
+		{
+			*d++ = *s++;
+		}
+		
+		s = association;
+		
+		while(*s)
+		{
+			*d++ = *s++;
+		}
+		
+		*d = 0;
+	}
 	
 	string_copy_utf8_string(key,(const utf8_t *)"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\");
 	string_cat(key,dot_association);

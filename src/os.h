@@ -43,7 +43,7 @@ typedef struct os_GdiplusStartupInput_s
     
 }os_GdiplusStartupInput_t;
 
-void os_zero_memory(void *data,int size);
+void os_zero_memory(void *data,SIZE_T size);
 void os_copy_memory(void *d,const void *s,SIZE_T size);
 void os_move_memory(void *d,const void *s,SIZE_T size);
 void os_qsort(void **base,uintptr_t count,int (*compare)(const void *a,const void *b));

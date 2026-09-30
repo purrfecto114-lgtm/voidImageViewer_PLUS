@@ -89,7 +89,9 @@ int _viv_export_probe_command_line(void)
 {
 	wchar_t buf[STRING_SIZE];
 	wchar_t *p;
+	int install_word_seen;
 	
+	install_word_seen = 0;
 	p = GetCommandLineW();
 	p = string_skip_ws(p);
 	
@@ -113,6 +115,31 @@ int _viv_export_probe_command_line(void)
 		{
 			bufstart++;
 			
+			// rc.11: the install namespace and the export namespace never
+			// share a command line. the runas relay re-launches the full
+			// command line elevated (one uac consent covers the install),
+			// and a -render-export word riding along would turn that
+			// consent into an admin-writable file write - the install
+			// parser's own options relay answers its half of this boundary
+			// with a whitelist, and this half refuses the combination
+			// outright: no legitimate caller ever composes the pair (the
+			// nsis phases never spell an export word, and the install
+			// words are the wizard's alone).
+			if (string_icompare_lowercase_ascii(bufstart,"install") == 0)
+			{
+				install_word_seen = 1;
+			}
+			else
+			if (string_icompare_lowercase_ascii(bufstart,"install-options") == 0)
+			{
+				install_word_seen = 1;
+			}
+			else
+			if (string_icompare_lowercase_ascii(bufstart,"uninstall") == 0)
+			{
+				install_word_seen = 1;
+			}
+			else
 			if (string_icompare_lowercase_ascii(bufstart,"render-export") == 0)
 			{
 				_viv_export_mode = 1;
@@ -147,6 +174,20 @@ int _viv_export_probe_command_line(void)
 				_viv_export_parse_size(buf);
 			}
 		}
+	}
+	
+	// the refusal itself: an export word found beside an install
+	// word never reaches the canvas. the install proceeds as an
+	// install (its own parser is the authority on it), the viewer
+	// never opens the file the export word named, and the debug
+	// channel carries the reason - silent to the user, loud to
+	// the log, because the only caller who ever composes this
+	// pair is not a user.
+	if (install_word_seen && _viv_export_mode)
+	{
+		debug_printf("render-export: refused - the command line carries the install namespace\r\n");
+		_viv_export_mode = 0;
+		_viv_export_path[0] = 0;
 	}
 	
 	return _viv_export_mode;

@@ -1383,6 +1383,7 @@ static int _viv_init(int nCmdShow)
 				wchar_t *command_line;
 				wchar_t cwd[STRING_SIZE];
 				int size;
+				int command_line_length;
 				char *buf;
 				char *d;
 
@@ -1400,8 +1401,19 @@ static int _viv_init(int nCmdShow)
 					si.wShowWindow = nCmdShow;
 				}
 				
+				// the copy below stops at STRING_SIZE-1 wchars, so the size
+				// and the cursor must both answer to the clamped length: the
+				// raw command line length would stride the write past its
+				// own terminator and land the cwd on uninitialized heap the
+				// receiver then reads as its working directory.
+				command_line_length = (int)string_get_length(command_line);
+				if (command_line_length > STRING_SIZE - 1)
+				{
+					command_line_length = STRING_SIZE - 1;
+				}
+				
 				// calc size
-				size = (int)safe_size_add(safe_size_add(sizeof(DWORD),safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(command_line)))),safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(cwd))));
+				size = (int)safe_size_add(safe_size_add(sizeof(DWORD),safe_size_mul_sizeof_wchar(safe_size_add_one(command_line_length))),safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(cwd))));
 				buf = (char *)mem_alloc(size);
 				
 				// fill in
@@ -1409,7 +1421,7 @@ static int _viv_init(int nCmdShow)
 				*(DWORD *)d = si.wShowWindow;
 				d += sizeof(DWORD);
 				string_copy((wchar_t *)d,command_line);
-				d += ((string_get_length(command_line) + 1) * sizeof(wchar_t));
+				d += ((command_line_length + 1) * sizeof(wchar_t));
 				string_copy((wchar_t *)d,cwd);
 				d += ((string_get_length(cwd) + 1) * sizeof(wchar_t));
 
@@ -1550,7 +1562,20 @@ static int _viv_init(int nCmdShow)
 	// client rect).
 	if (_viv_export_mode)
 	{
-		_viv_export_resize_window();
+		// the canvas must exist before the first frame: a resize that
+		// does not converge is the root cause of every "refused the
+		// canvas size" the run below would report over its samples -
+		// fail here instead, with its own code and its own words, so
+		// the one failure points at the resize and not at a re-check
+		// that happens too late to explain anything.
+		if (!_viv_export_resize_window())
+		{
+			debug_printf("render-export: the init canvas resize did not converge\r\n");
+			
+			_viv_kill();
+			
+			return -6;
+		}
 		
 		// a hidden window never paints: the system defers wm_paint until
 		// the window shows, so updatewindow answers nothing and the pixel
@@ -1918,7 +1943,21 @@ static int _viv_main(int nCmdShow)
 	// caught it: the installer's three exit-code reads answered
 	// "failed" to every install, and the smoke test's crash bucket
 	// caught every forward.
-	return (init_ret == 0) ? 0 : 1;
+	if (init_ret == 0)
+	{
+		return 0;
+	}
+	
+	// the export canvas refusal names itself: the harness reads exit
+	// codes, and -6 is _viv_init's word for a resize that never made
+	// the window the canvas - the generic 1 would bury the one
+	// failure the run never gets to explain.
+	if (init_ret == -6)
+	{
+		return 6;
+	}
+	
+	return 1;
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance,HINSTANCE hPrevInstance,LPSTR lpCmdLine,int nShowCmd)

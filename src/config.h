@@ -144,7 +144,7 @@ extern BYTE config_cache_last;
 // resume). the exit/endsession paths write it, the blank-start path
 // reads it.
 extern BYTE config_resume_last_file;
-extern wchar_t config_last_file[MAX_PATH];
+extern wchar_t config_last_file[STRING_SIZE];
 extern BYTE config_icm;
 extern BYTE config_show_menu;
 extern BYTE config_show_caption;

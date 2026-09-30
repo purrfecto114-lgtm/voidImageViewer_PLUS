@@ -124,7 +124,7 @@ int webp_load(IStream *stream,void *user_data,int (*info_callback)(void *user_da
 
 																if (frame_delays)
 																{
-																		os_zero_memory(frame_delays,(int)frame_delay_bytes);
+																		os_zero_memory(frame_delays,frame_delay_bytes);
 																}
 															}
 													}

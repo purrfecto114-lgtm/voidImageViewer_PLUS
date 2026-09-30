@@ -2029,13 +2029,25 @@ void _viv_slideshow(void)
 	
 	if (!_viv_is_slideshow)
 	{
-		SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);
-		
-		_viv_is_slideshow = 1;
-		_viv_status_update();
-		_viv_toolbar_update_buttons();
-		_viv_update_ontop();
-		_viv_update_prevent_sleep();
+		// the flag only rises on a live timer: a refused settimer with
+		// the flag still set would paint the play face over a stopped
+		// deck. no timer-queue fallback - viv_anim.c keeps its pair for
+		// the sub-tick precision an animation needs, and its stop logic
+		// is welded to the animation flag; a slideshow that cannot start
+		// simply shows its stopped face, which is the truth. the debug
+		// record names the refusal the faces cannot.
+		if (SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0))
+		{
+			_viv_is_slideshow = 1;
+			_viv_status_update();
+			_viv_toolbar_update_buttons();
+			_viv_update_ontop();
+			_viv_update_prevent_sleep();
+		}
+		else
+		{
+			debug_printf("slideshow: settimer refused\r\n");
+		}
 	}
 }
 static void _viv_set_custom_rate(void)

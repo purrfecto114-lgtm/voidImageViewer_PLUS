@@ -266,7 +266,51 @@ after.
   orders and scratch state live outside the repository; what deserves
   permanence condenses into `Changes.txt` or this file.
 
+- **a dead guard: validation one step after normalization is
+  no validation.** the quote guard scanned the options word
+  for a quote the tokenizer had already eaten - the guard
+  was upstream-honest and downstream-blind, and the attack
+  payload lived entirely in the gap between the two. when a
+  check and a transform touch the same buffer, ask which ran
+  last; if the transform does, the check needs to move layers
+  (validate what you rebuild, not what you received).
+
+- **a vanished warning is not a finished fix.** the progid
+  compare's wide-to-narrow half had a compiler witness
+  (C4133); the lowercase half had none - the helper
+  lowercases only its first argument, and the second kept
+  arriving mixed-case, so "locked elsewhere" stayed a
+  constant false positive after the warning went quiet. a
+  warning points at a defect's coordinates, not its extent:
+  read the callee's contract before declaring the neighbor
+  fixed.
 ## The 1.1.16 arc — round descriptions
+### 1.1.16-rc.11 — the audit response round (2026-09-30, build 110)
+
+- The external carpet audit (thirteen read-only agents over
+  the full tree, one P0 and a P1 batch) got its c-side
+  answer. The P0 was the elevated options relay: its quote
+  guard was dead code - the tokenizer eats quotes while it
+  builds the word, so the guard scanned a string that could
+  no longer contain what it refused, and the space-carrying
+  word it passed along re-split inside the admin child into
+  words of the caller's choosing. The fix changes the layer,
+  not the scan: the relay now re-tokenizes the options word
+  and forwards only the five switches the nsis wizard itself
+  accumulates, re-emitted in a form the relay spells itself,
+  and the export probe refuses the export namespace outright
+  when an install word rides the same command line (the
+  runas relay re-arms the full line elevated - one consent
+  must not buy a file write the wizard never asked for).
+  Nine more findings close in the same round - the
+  narrow/lowercase progid compare, the safe-summed debug
+  allocation, the clamped copydata stride, the SIZE_T
+  zeroing signature (with the computed callers and a fourth
+  the audit's own list missed - the webp frame-delay tail
+  wearing an (int) cast), the WM_CAPTURECHANGED hand-off,
+  the SetTimer-checked slideshow flag, the element-counted
+  shuffle close, the STRING_SIZE last-file buffer, and the
+  export resize refusal's own exit code.
 ### 1.1.16-rc.10 — the instruments round (2026-09-30, build 109)
 
 - The round the instruments themselves were audited: a carpet-sweep
@@ -308,6 +352,7 @@ after.
   markdown the editorconfig declares are actually in the class,
   and no C code changed: the instruments round tunes the
   instruments.
+
 
 ### 1.1.16-rc.9 — the codeql hardening round (2026-09-30, build 108)
 
@@ -1310,3 +1355,4 @@ full per-version narrative at each tag in `Changes.txt`.
   strip, the bilingual localization with the live language switcher,
   and the field-fix rounds (the full per-version narrative lives in
   `Changes.txt` at each tag).
+

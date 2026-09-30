@@ -320,8 +320,85 @@ MUTATIONS = [
      'string_cat_utf8(install_options,(const utf8_t *)" /isrunasX");',
      ["menu"]),
 
-]
+   ("the options relay trusts the caller's word again (rc.11)",
+     "src/viv_install.c",
+     "if (string_icompare_lowercase_ascii(word_body,allowed[i]) == 0)",
+     "if (string_icompare_lowercase_ascii(word_body,allowed[i]) != 0)",
+     ["menu"]),
 
+    ("the locked-elsewhere probe spells the class mixed-case again (rc.11)",
+     "src/viv_install.c",
+     's = "voidimageviewer.";',
+     's = "voidImageViewer.";',
+     ["menu"]),
+
+    ("the debug allocation adds unwrapped again (rc.11)",
+     "src/mem.c",
+     "alloc_size = safe_size_add(safe_size_add(sizeof(mem_debug_t),size),safe_size_mul_sizeof_pointer(MEM_MAGIC_SIZE));",
+     "alloc_size = sizeof(mem_debug_t) + size + (sizeof(void *) * MEM_MAGIC_SIZE);",
+     ["menu"]),
+
+    ("the copydata stride answers the raw length again (rc.11)",
+     "src/viv.c",
+     "d += ((command_line_length + 1) * sizeof(wchar_t));",
+     "d += ((string_get_length(command_line) + 1) * sizeof(wchar_t));",
+     ["menu"]),
+
+    ("the zeroing sister narrows to int again (rc.11)",
+     "src/os.c",
+     "void os_zero_memory(void *data,SIZE_T size)",
+     "void os_zero_memory(void *data,int size)",
+     ["menu"]),
+
+    ("the pill's dib zero narrows again (rc.11)",
+     "src/zoomui.c",
+     "((SIZE_T)_zoomui_dib_wide * 4) * (SIZE_T)_zoomui_dib_high",
+     "(_zoomui_dib_wide * 4) * _zoomui_dib_high",
+     ["menu"]),
+
+    ("the webp frame-delay zero takes the int cast again (rc.11)",
+     "src/webp.c",
+     "os_zero_memory(frame_delays,frame_delay_bytes);",
+     "os_zero_memory(frame_delays,(int)frame_delay_bytes);",
+     ["menu"]),
+
+    ("the main window drops the capture hand-off again (rc.11)",
+     "src/viv_wndproc.c",
+     "case WM_CAPTURECHANGED:\r\n\t\t\treturn _viv_on_wm_capturechanged(hwnd,msg,wParam,lParam);",
+     "case 0x0200:\r\n\t\t\treturn _viv_on_wm_capturechanged(hwnd,msg,wParam,lParam);",
+     ["menu"]),
+
+    ("the slideshow flag rises on a dead timer again (rc.11)",
+     "src/viv_view.c",
+     "if (SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0))",
+     "if (SetTimer(_viv_hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0),1)",
+     ["menu"]),
+
+    ("the shuffle close shifts bytes again (rc.11)",
+     "src/viv_playlist.c",
+     "(_viv_playlist_count - (index + 1)) * sizeof(_viv_playlist_t *)",
+     "(_viv_playlist_count - (index + 1))",
+     ["menu"]),
+
+    ("the last-file buffer shrinks to max_path again (rc.11)",
+     "src/config.c",
+     "wchar_t config_last_file[STRING_SIZE] = {0};",
+     "wchar_t config_last_file[MAX_PATH] = {0};",
+     ["menu"]),
+
+    ("the init canvas refusal answers the generic one again (rc.11)",
+     "src/viv.c",
+     "if (init_ret == -6)\r\n\t{\r\n\t\treturn 6;\r\n\t}",
+     "if (init_ret == -6)\r\n\t{\r\n\t\treturn 1;\r\n\t}",
+     ["menu"]),
+
+    ("the export probe forgets the install namespace again (rc.11)",
+     "src/viv_export.c",
+     "if (install_word_seen && _viv_export_mode)",
+     "if (install_word_seen && 0)",
+     ["menu"]),
+
+]
 
 def run_suite(key):
     try:

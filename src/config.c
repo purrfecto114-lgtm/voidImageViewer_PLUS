@@ -104,7 +104,11 @@ int config_cache_count = 1; // images cached behind the walker in the ring (0..8
 BYTE config_preload_next = 1; // the legacy pair: the migration source, kept in step on save
 BYTE config_cache_last = 1;
 BYTE config_resume_last_file = 0; // reopen the last session's file on a blank start
-wchar_t config_last_file[MAX_PATH] = {0}; // the last session's file (empty = nothing to resume)
+// the ini's last_file is copied by string_copy_utf8_string, which
+// writes - and accounts for - STRING_SIZE wchars: a MAX_PATH target
+// let 260..1023 characters of ini text run over every config global
+// behind it. the buffer answers the copier's own contract.
+wchar_t config_last_file[STRING_SIZE] = {0}; // the last session's file (empty = nothing to resume)
 BYTE config_icm = 1;
 BYTE config_show_menu = 1;
 BYTE config_show_caption = 1;

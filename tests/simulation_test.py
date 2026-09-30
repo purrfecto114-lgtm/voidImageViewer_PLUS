@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.16-rc.10.109",
-          (major, minor, rev, build) == (1, 1, 16, 109), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.16-rc.10",
-          vstr is not None and vstr.group(1) == "1.1.16-rc.10", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.16-rc.11.110",
+          (major, minor, rev, build) == (1, 1, 16, 110), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.16-rc.11",
+          vstr is not None and vstr.group(1) == "1.1.16-rc.11", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -3020,8 +3020,10 @@ def t_sim_fusion4_round135():
     # relay reads as its two, the finished work still reads as zero. the
     # count names the new map (a plain return 0; there would drop the
     # refused-relay honesty with every suite green).
-    check("the exit legs count two zeros, three failures, one tail map, one honest install leg",
-          (zeros, negs, tails, install_legs) == (2, 3, 1, 1), str((zeros, negs, tails, install_legs)))
+    check("the exit legs count three zeros, three failures, no tail map, one honest install leg",
+          (zeros, negs, tails, install_legs) == (3, 3, 0, 1), str((zeros, negs, tails, install_legs)))
+    check("the refused init canvas owns its own leg (rc.11: the -6 map)",
+          "if (init_ret == -6)\n\t{\n\t\treturn 6;\n\t}" in main)
     check("the install one-shot's zero is pinned by its own words",
           "// the zero is the one-shot's answer: an install command\n\t\t\t\t// that finished its work reads as success to whoever\n\t\t\t\t// waited on the process (the fusion round's cross-check\n\t\t\t\t// caught a shared tail answering failure to every install).\n\t\t\t\t// the two is the one exception: a refused elevation leaves\n\t\t\t\t// the install undone, and the nsis phase that waits on this\n\t\t\t\t// process must not read that as success (the field report:\n\t\t\t\t// the \"completed\" install that copied nothing).\n\t\t\t\treturn (install_ret == 2) ? 2 : 0;" in main)
     check("the forward's zero is pinned by its own words",

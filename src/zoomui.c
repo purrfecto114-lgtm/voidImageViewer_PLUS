@@ -2177,7 +2177,9 @@ static void _zoomui_render_layered(void)
 
 		// the surface is the whole window: every frame starts clean or the
 		// previous hover glow would bleed through the transparent crescents
-		os_zero_memory(_zoomui_dib_bits,(_zoomui_dib_wide * 4) * _zoomui_dib_high);
+		// (the byte count rides size_t from the first operand - the zero
+		// sister takes the same wide lengths the copy does).
+		os_zero_memory(_zoomui_dib_bits,((SIZE_T)_zoomui_dib_wide * 4) * (SIZE_T)_zoomui_dib_high);
 
 		os_GdipSetSmoothingMode(graphics,_ZOOMUI_GDIP_SMOOTHING_ANTIALIAS);
 
