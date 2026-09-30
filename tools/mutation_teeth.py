@@ -2,11 +2,16 @@
 """The mutation teeth table: every pin this round landed must bite.
 
 Each row names one mutation - an exact source swap the round's own
-guards must catch. the harness applies the mutation, runs the suites
-the row names, expects a nonzero exit (a red), restores the tree, and
-reports the percentage. the table is deterministic: the same rows,
-the same order, the same verdicts - "we caught it" is a number
-anyone can recompute, not a sentence in a worklog.
+guards must catch. the harness refuses to start until every suite it
+names has run green on the unmutated tree (a suite that is already
+red would name every tooth after itself: a killed run's resident
+mutation, a broken environment - no verdict rides a broken meter,
+the baseline answers before the first tooth is cut), then applies
+the mutation, runs the suites the row names, expects a nonzero exit
+(a red), restores the tree, and reports the percentage. the table is
+deterministic: the same rows, the same order, the same verdicts -
+"we caught it" is a number anyone can recompute, not a sentence in
+a worklog.
 
 Usage: python3 tools/mutation_teeth.py  (from the repository root)
 """
@@ -17,9 +22,18 @@ import os
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 os.chdir(ROOT)
 
+# the full guard family: the baseline gate runs every suite in the
+# vocabulary on the unmutated tree, and the rows below name their
+# verdict suites from the same table (a red anywhere is a broken
+# meter - the audit's scenario was the menu suite crashing on
+# windows, but the refusal does not wait to learn which suite
+# poisoned which rows).
 SUITES = {
     "menu": ["python3", "tests/menu_structure_test.py"],
     "sim": ["python3", "tests/simulation_test.py"],
+    "zoom": ["python3", "tests/zoom_math_test.py"],
+    "byte": ["python3", "tests/byte_invariant_test.py"],
+    "pixel": ["python3", "tests/pixel_golden_test.py"],
 }
 
 # (name, file, find, replace, suites-that-must-go-red)
@@ -310,11 +324,38 @@ MUTATIONS = [
 
 
 def run_suite(key):
-    r = subprocess.run(SUITES[key], capture_output=True, text=True)
-    return r.returncode
+    try:
+        r = subprocess.run(SUITES[key], capture_output=True, text=True,
+                           timeout=300)
+        return r.returncode
+    except subprocess.TimeoutExpired:
+        # a suite that wedges past five minutes is not a verdict; the
+        # conventional timeout exit answers for it (nonzero, and named).
+        print("TIMEOUT %s (over 300s)" % SUITES[key][1])
+        return 124
+    except OSError as e:
+        # a suite that cannot even spawn (a missing interpreter on
+        # windows, a drifted path) is the same class of broken meter:
+        # named and nonzero, never a traceback that hides the verdict.
+        print("SPAWN-FAILURE %s (%s)" % (SUITES[key][1], e))
+        return 127
 
 
 def main():
+    # the baseline gate: the audit's finding (and this session's own
+    # incident - a killed run left its resident mutation in the tree,
+    # and the next run read the poisoned reds as forty-six catches)
+    # closed at the source. every suite in the vocabulary runs on
+    # the unmutated tree first; anything already red is a broken meter,
+    # and the run refuses to start rather than minting caught coins.
+    baseline = {k: run_suite(k) for k in SUITES}
+    red = sorted(k for k, rc in baseline.items() if rc != 0)
+    if red:
+        print("BROKEN BASELINE: %s already red on the unmutated tree"
+              " (%s) - fix the suite or the tree before asking the"
+              " teeth to bite" % (",".join(red),
+                                  {k: baseline[k] for k in red}))
+        return 1
     caught = 0
     escaped = []
     for name, path, find, replace, suites in MUTATIONS:

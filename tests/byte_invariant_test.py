@@ -17,8 +17,13 @@ The invariants pin what the tree actually carries, per class:
   native form the C89 sources have always carried;
 - Changes.txt: CRLF line endings and the UTF-8 BOM the release
   pipeline's derivation scripts read;
-- the python, powershell, markdown and yaml layers: LF line endings
-  only, no BOM - the unix native form.
+- the python, powershell, markdown, yaml, shell and plain-text layers
+  (.editorconfig's [*.{py,ps1,md,yml,yaml,sh,txt}] glob): LF line
+  endings only, no BOM - the unix native form. the nsis corner
+  (the installer license texts) mixes encodings by upstream design
+  and stays out, exactly as the .editorconfig's own header
+  describes that corner; the guarded txt class is the tree's own
+  plain-text list file.
 
 A file that mixes endings inside one class is the exact corruption
 signature this suite exists to catch, so the check is per file, not
@@ -57,7 +62,11 @@ def audit_class(label, paths, want_crlf, want_bom=False):
     """Checks one convention class; collects per-file verdicts."""
     files = []
     for pattern in paths:
-        files.extend(glob.glob(pattern))
+        # recursive=True or the ** in "docs/**/*.md" matches exactly one
+        # directory and everything deeper silently falls outside the
+        # class (the audit's finding - a guard whose population is
+        # smaller than its own pattern).
+        files.extend(glob.glob(pattern, recursive=True))
     files = sorted(set(files))
     check("the %s class has files to guard" % label, len(files) > 0,
           "(%d files)" % len(files))
@@ -115,12 +124,30 @@ def main():
     ps_files = audit_class("powershell", [os.path.join(root, "tests", "*.ps1"),
                                           os.path.join(root, "tools", "*.ps1")],
                            want_crlf=False, want_bom=False)
+    # the markdown class covers the github tree too - the issue and
+    # pr templates are markdown the editorconfig's glob declares,
+    # and the class used to stop at the root and docs (the same
+    # coverage hole the shell and yaml legs close this round).
     md_files = audit_class("markdown", [os.path.join(root, "*.md"),
-                                        os.path.join(root, "docs", "*.md"),
-                                        os.path.join(root, "docs", "**", "*.md")],
+                                        os.path.join(root, "docs", "**", "*.md"),
+                                        os.path.join(root, ".github", "**", "*.md")],
                            want_crlf=False, want_bom=False)
-    yml_files = audit_class("workflow yaml", [os.path.join(root, ".github",
-                                                           "workflows", "*.yml")],
+    # the github yaml class covers the whole .github tree - the
+    # workflows, the dependabot roster and the codeql configs (the
+    # workflows-only pattern certified a narrower class than the
+    # editorconfig's glob declares).
+    yml_files = audit_class("github yaml",
+                            [os.path.join(root, ".github", "**", "*.yml")],
+                            want_crlf=False, want_bom=False)
+    # the shell and plain-text legs the editorconfig declares and the
+    # suite never watched: the zig build scripts (the arm64 leg of
+    # these very scripts runs in ci) and the zig file list. the nsis
+    # license texts are the mixed corner the editorconfig's own
+    # header names and stay out of every class here.
+    sh_files = audit_class("shell", [os.path.join(root, "build-zig", "*.sh")],
+                           want_crlf=False, want_bom=False)
+    txt_files = audit_class("plain text", [os.path.join(root, "build-zig",
+                                                          "*.txt")],
                             want_crlf=False, want_bom=False)
 
     # 4. the editorconfig must not lie about the classes it names: the
@@ -146,11 +173,12 @@ def main():
     # 5. the guarded population itself: a class that silently empties
     # (a rename, a move) would otherwise pass by vacuity.
     check("the guarded population is the full tree this suite was born"
-          " from (src %d, py %d, ps1 %d, md %d, yml %d)" %
+          " from (src %d, py %d, ps1 %d, md %d, yml %d, sh %d, txt %d)" %
           (len(c_files), len(py_files), len(ps_files), len(md_files),
-           len(yml_files)),
+           len(yml_files), len(sh_files), len(txt_files)),
           len(c_files) > 80 and len(py_files) >= 6 and len(ps_files) >= 3
-          and len(md_files) >= 6 and len(yml_files) == 3)
+          and len(md_files) >= 6 and len(yml_files) == 6
+          and len(sh_files) == 3 and len(txt_files) == 1)
 
     print()
     if failures:

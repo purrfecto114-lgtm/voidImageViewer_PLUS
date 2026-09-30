@@ -123,6 +123,7 @@ def t_aspect_invariant():
     zoom level for every geometry. This is the beta.6 aspect-ratio guarantee:
     with pan&scan removed there is no code path that can decouple x from y."""
     worst = 0.0
+    bad = ""
     for (iw, ih, cw, ch) in GEOMETRIES:
         fw, fh = fit_size(iw, ih, cw, ch)
         # the fit itself is integer-rounded (upstream): allow 1px on the small
@@ -135,10 +136,13 @@ def t_aspect_invariant():
             ar_r = rw / rh
             drift = abs(ar_r - ar_img) / ar_img
             worst = max(worst, drift)
-            if drift > fit_allow + (2.0 / min(rw, rh)) + 1e-12:
-                check("aspect", False, f"{iw}x{ih}@{cw}x{ch} pos {pos}: {ar_r:.4f} vs {ar_img:.4f}")
-                return
-    check("aspect invariant (all geometries, all levels)", True, f"worst drift {worst:.5%}")
+            if not bad and drift > fit_allow + (2.0 / min(rw, rh)) + 1e-12:
+                bad = f"{iw}x{ih}@{cw}x{ch} pos {pos}: {ar_r:.4f} vs {ar_img:.4f}"
+    # the verdict is the computed one - the first violation named, the
+    # worst drift when clean (the audit's census retired the bare
+    # always-true check this used to close on).
+    check("aspect invariant (all geometries, all levels)", not bad,
+          bad or f"worst drift {worst:.5%}")
 
 
 def t_geometric_ladder():
@@ -233,14 +237,12 @@ def t_pos_max_no_dead_zone():
 def t_pinch_steps():
     """Pinch encoding: n steps are passed as n * (120/STEPS_PER_NOTCH) delta
     units and must decode back to exactly n steps."""
-    ok = True
-    for n in (1, 3, 7, 12, 40, 120):
-        delta = n * (120 // STEPS_PER_NOTCH)
-        if steps_from_delta(delta) != n:
-            check(f"pinch n={n} roundtrip", False, f"delta {delta} -> {steps_from_delta(delta)}")
-            ok = False
-    if ok:
-        check("pinch step roundtrip (1..120)", True)
+    # the full range the old name claimed and the old body only sampled:
+    # every n from 1 to 120 roundtrips (the audit's tautology finding -
+    # a check that cannot fail under an "if all passed" is not a check).
+    bad = [n for n in range(1, 121)
+           if steps_from_delta(n * (120 // STEPS_PER_NOTCH)) != n]
+    check("pinch step roundtrip (1..120)", not bad, f"failed for {bad}")
     check("wheel notch = 10 steps", steps_from_delta(120) == 10)
     check("wheel double-flick = 20 steps", steps_from_delta(240) == 20)
     check("high-res 40 = 3 steps", steps_from_delta(40) == 3)

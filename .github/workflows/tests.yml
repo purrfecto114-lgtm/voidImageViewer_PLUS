@@ -4,12 +4,15 @@ name: tests
 # and localization alignment invariants. Runs on every push (branches and
 # tags) and every pull request.
 #
-# The daily schedule (04:00 UTC = 12:00 Asia/Shanghai) intentionally runs
-# ONLY the Windows compile matrix: the Python suites are fully covered by
-# push/PR/tag events, while compiling every day on pinned runner images is
-# the drift detector for hosted-image toolchain changes (the images gain
-# and lose preinstalled software over time, e.g. the VS2026 images ship
-# without NSIS and without the v143 toolset).
+# The daily schedule (04:00 UTC = 12:00 Asia/Shanghai) intentionally keeps
+# the slow legs - the windows compile matrix and the teeth table - out of
+# the push path: the windows compile
+# matrix is the drift detector for hosted-image toolchain changes (the
+# images gain and lose preinstalled software over time, e.g. the VS2026
+# images ship without NSIS and without the v143 toolset), and the mutation
+# teeth table - the guard suites' own audit - rides the same non-push
+# condition (each row re-runs the suites it names, so the table costs
+# minutes, not milliseconds; pushes stay fast).
 on:
   push:
     branches: ['**']
@@ -79,8 +82,13 @@ jobs:
       # as trailing whitespace here.
       - name: Whitespace discipline (git diff --check over the pushed range)
         run: |
-          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.event_before }}" ] && git cat-file -e "${{ github.event_before }}" 2>/dev/null; then
-            base="${{ github.event_before }}"
+          # github.event.before is the push context's own before-sha; the
+          # underscore spelling this gate shipped with is not a context
+          # property at all - it expanded to an empty string, the -n test
+          # failed open, and every push reported green without running
+          # the diff (the audit's finding).
+          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.event.before }}" ] && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
+            base="${{ github.event.before }}"
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch --no-tags origin "${{ github.base_ref }}"
             base="origin/${{ github.base_ref }}"
@@ -112,6 +120,30 @@ jobs:
         run: |
           python3 -m pip install --quiet ziglang==0.16.0
           sh build-zig/build-arm64.sh
+
+  # The mutation teeth table: the guard suites' own audit. every row
+  # names one mutation the round's pins must catch; the harness runs a
+  # baseline over the unmutated tree first (a suite that is already red
+  # would name every tooth after itself - a broken meter reads every
+  # coin as caught), then applies each mutation, expects red, restores.
+  # off the push path - pull requests, the daily schedule and
+  # dispatch - because the table re-runs the suites it names once
+  # per row: minutes, not milliseconds, and pushes stay fast. the
+  # table had never been wired to any workflow before this
+  # round; "exists and is green locally" was the whole of its claim.
+  teeth:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Mutation teeth (every landed pin must bite)
+        run: python3 tools/mutation_teeth.py
 
   # Compile both shipping configurations on every push (since rc.2), pull
   # request, tag and daily schedule so a build break is caught before

@@ -127,6 +127,32 @@ after.
   system's own observable behavior, suspect the observer
   before the observed.
 
+- **a guard that asserts existence asserts nothing about meaning.**
+  (the instruments round): the theme pair's guard checked
+  os.path.exists on two files and then quoted the changelog's
+  promise - "the mockup can never drift" - as its evidence, and the
+  hardcoded light mirror shipped four stale tokens under it for six
+  rounds, because the promise was the very thing the guard existed
+  to test. the same shape locked the ci whitespace gate's typo
+  shut: the regression guard demanded the misspelled context
+  property github.event_before be present, so fixing the workflow
+  would have failed the suite. a guard pins the semantics it wants
+  (parse both sides and compare token for token; pin the living
+  name present and the dead one absent), or it is a photograph of
+  the bug wearing a guard's clothes.
+
+- **no verdict rides a broken meter: baseline before you bite.**
+  (the instruments round): the mutation teeth harness recorded
+  every nonzero exit as CAUGHT without ever running the suites on
+  the unmutated tree first - so when a killed run left its
+  resident mutation in the tree, the next run read the poisoned
+  reds as forty-six of forty-seven caught off a still-mutant tree,
+  until the restore was done by hand. a meter must prove it reads
+  zero before anyone believes what it reads: the harness now runs
+  every suite it names on the clean tree first and refuses to
+  start on a red baseline (BROKEN BASELINE, exit one - a refusal,
+  not a coin), and every subprocess carries a timeout.
+
 ### Equivalent refactors
 
 - **equivalence is contextual, not textual.** the fullscreen toggle's
@@ -241,6 +267,48 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.16 arc — round descriptions
+### 1.1.16-rc.10 — the instruments round (2026-09-30, build 109)
+
+- The round the instruments themselves were audited: a carpet-sweep
+  report over the whole tree graded every layer, and its
+  test-trustworthiness batch closes here. The menu suite's one bash
+  call - the release-title derivation borrowed from the workflow's
+  own sed chain - crashed on windows with an uncaught
+  FileNotFoundError and hid every check after it; it is a
+  pure-python port now, proven byte-identical to the bash pipeline
+  on linux over the live changelog head and twenty-four edge
+  shapes. The ci whitespace gate rode a context property that does
+  not exist (github.event_before expands empty, the -n test failed
+  open, every push reported green without running the diff) while
+  the regression guard pinned the typo as coverage; the property is
+  github.event.before now, and the guard pins the living name
+  present and the dead one absent. The mutation teeth harness
+  learned its lesson the hard way, twice over: a suite that is
+  already red names every tooth after itself, and a killed run
+  leaves its resident mutation in the tree - this round's own
+  working session left exactly that scar, an interrupted teeth run
+  whose resident mutation poisoned the next run into reading
+  forty-six of forty-seven rows as caught off a still-mutant tree
+  until the restore was done by hand - so the harness runs every
+  suite it names on the unmutated tree first and refuses to start
+  on a red baseline (broken baseline, exit one, not a coin), every
+  subprocess carries a timeout, and the table rides ci off the
+  push path. The theme mirror's light table - a hardcoded copy
+  the changelog had promised could never drift - shipped four
+  tokens stale against the rc.13 field calibration; the extractor
+  parses both C tables now (fixed tones cross as hex, GetSysColor
+  entries as sys markers naming the constant), grew a --check mode
+  and a working default root, and the guard that used to assert
+  the two files merely exist reads both sides and compares token
+  for token. The zoom suite's pinch roundtrip computes its verdict
+  over the full claimed range, the tautology census watches all
+  five suites with a needle that spans parenthesized labels (the
+  audit's own counterexample shape), the byte-invariant globs went
+  recursive so the shell scripts, the github yaml and the github
+  markdown the editorconfig declares are actually in the class,
+  and no C code changed: the instruments round tunes the
+  instruments.
+
 ### 1.1.16-rc.9 — the codeql hardening round (2026-09-30, build 108)
 
 - The security round the scanner asked for by name: five high
