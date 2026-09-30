@@ -97,6 +97,18 @@ after.
   measurement written into the comment. measure, then pin; never pin a
   hope.
 
+- **an idempotency guard reads the result, not the anchor's absence.**
+  (the rc.6 round's surgery): the re-run protection asked "is the
+  anchor still there" and the answer inverted on prefix-shaped
+  anchors - the old anchor was a prefix of the new content, so every
+  re-run matched again and stacked nine copies of one edit before
+  anyone looked. the guard that closes the class asks the written
+  state ("does the replacement result already exist") and refuses,
+  rather than asking whether the search text was found. a match
+  proves the anchor exists; only the written state proves the edit
+  happened - and only the written state proves it did not happen
+  twice.
+
 ### Equivalent refactors
 
 - **equivalence is contextual, not textual.** the fullscreen toggle's
@@ -187,6 +199,14 @@ after.
   buys; code signing remains its own purchase decision, deferred with
   the reason restated each round it stays deferred.
 
+- **the release-time archival is a gate, not a hope.** the rc.5
+  release shipped with its experience-ledger merge forgotten - the
+  maintenance rule said "merge at release" but nothing checked it,
+  and a rule nothing checks is a suggestion. the documentation round
+  backfills the miss and pins the arc entries' presence in the guard
+  suite, so the next release answers for its own archive the way the
+  freeze table made the round docstrings answer.
+
 ### Repository hygiene
 
 - **`Changes.txt` is the archive of record; the README carries the
@@ -203,6 +223,53 @@ after.
   permanence condenses into `Changes.txt` or this file.
 
 ## The 1.1.16 arc — round descriptions
+### 1.1.16-rc.8 — the documentation round (2026-09-30, build 107)
+
+- The release round: the prerelease channel last saw rc.5, so the tag
+  carries the field feedback round II and the default programs round
+  beneath its own work - rc.6's title-family fix (every navigation
+  settle rewrites the caption, the cache-hit face the field saw), the
+  settings page telling the truth about its switches (the
+  interpolation rows grey out under the hardware renderer, the
+  hw-accel switch restores the back end the session had), the
+  installer's elevation honesty (user-owned directories install
+  in-process, a refused elevation reads as failure, the UserChoice
+  lock gets its bilingual say) and the settings window's touch
+  scrolling; rc.7's one-name Default Programs registration with its
+  Applications seat, the installer's nineteen-format list and the
+  settings capacity that answers it. the round's own work is
+  documentation and configuration: the readme banner and the
+  collaboration examples ride the version, the repository's
+  description and homepage answer the fork itself instead of the
+  upstream forum thread, and this ledger's 1.1.16 arc catches up on
+  the rc.5 entry the rc.5 release failed to merge - with the miss
+  pinned in the guard suite so it cannot recur. no code change rides
+  the tag beyond the version identity.
+
+### 1.1.16-rc.5 — the layout migration round (2026-09-29, build 104, 816a4de)
+
+- Commit: 816a4de; the release round for the "first start opens no
+  pill" ask. rc.4 had made the standard layout the default, but the
+  claim was re-read on the tree before the release went out and
+  failed its own upgrade path: a touch-machine profile written by an
+  earlier build still carried show_zoom_controls=1 (the retired
+  touch-digitizer first-run default wrote it, and every exit saves
+  the whole ini), so the upgrade would have opened with the pill
+  exactly the way the ask said it must not. the first load without
+  a layout_migration marker resets the flag once; the save stamps
+  the marker, so a deliberate enable on this build or later survives
+  every subsequent load, and the startup order carries the
+  upgrade-install path (the config load runs before the install
+  command words ever save).
+- **a marker is the honest form of a one-way migration** when the
+  profile carries no version key: the timeline owns the distinction
+  (a 1 written before rc.5 resets, a 1 written after survives), and
+  the side-effect face (a deliberate pre-rc.5 enable resets once) is
+  disclosed in the changelog rather than silently narrowed. the
+  release-gate re-read that caught the gap is the house rule wearing
+  its release clothes: the claim's domain is the user's machine, not
+  the commit message's account of itself.
+
 ### 1.1.16-rc.1 — the fourth fusion response round (2026-09-25, build 100, 3a33d36)
 
 - Commit: 3a33d36; the user handed over the fourth fusion report
