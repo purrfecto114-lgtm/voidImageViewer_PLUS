@@ -155,7 +155,7 @@ void *mem_alloc_debug(const char *file,int line,uintptr_t size)
 	// tiny block, and the magic write below would land its pointers
 	// past that block's end.
 	alloc_size = safe_size_add(safe_size_add(sizeof(mem_debug_t),size),safe_size_mul_sizeof_pointer(MEM_MAGIC_SIZE));
-	
+
 	// a wrapped sum is refused the same way a refused heap is: the
 	// fatal path below is this file's only answer for an allocation
 	// it cannot honestly hand out.

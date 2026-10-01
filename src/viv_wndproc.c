@@ -1846,7 +1846,7 @@ static LRESULT _viv_on_wm_capturechanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 	{
 		_viv_doing_cancel();
 	}
-	
+
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 

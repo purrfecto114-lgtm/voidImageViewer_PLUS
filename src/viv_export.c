@@ -189,7 +189,7 @@ int _viv_export_probe_command_line(void)
 		_viv_export_mode = 0;
 		_viv_export_path[0] = 0;
 	}
-	
+
 	return _viv_export_mode;
 }
 

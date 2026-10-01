@@ -476,41 +476,41 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 				
 				rebuilt[0] = 0;
 				q = install_options;
-				
+
 				for(;;)
 				{
 					wchar_t *word_body;
-					
+
 					q = string_skip_ws(q);
-					
+
 					if (!*q)
 					{
 						break;
 					}
-					
+
 					q = string_get_word(q,word,STRING_SIZE);
-					
+
 					// one leading slash is the wizard's switch spelling:
 					// the whitelist compare runs on what follows it.
 					word_body = word;
-					
+
 					if (*word_body == '/')
 					{
 						word_body++;
 					}
-					
+
 					for(i=0;i<(int)(sizeof(allowed) / sizeof(allowed[0]));i++)
 					{
 						if (string_icompare_lowercase_ascii(word_body,allowed[i]) == 0)
 						{
 							string_cat_utf8(rebuilt,(const utf8_t *)" /");
 							string_cat_utf8(rebuilt,(const utf8_t *)allowed[i]);
-							
+
 							break;
 						}
 					}
 				}
-				
+
 				string_copy(install_options,rebuilt);
 			}
 			
@@ -675,22 +675,22 @@ int _viv_default_app_locked_elsewhere(const char *association)
 	{
 		const char *s;
 		char *d;
-		
+
 		s = "voidimageviewer.";
 		d = class_name;
-		
+
 		while(*s)
 		{
 			*d++ = *s++;
 		}
-		
+
 		s = association;
-		
+
 		while(*s)
 		{
 			*d++ = *s++;
 		}
-		
+
 		*d = 0;
 	}
 	

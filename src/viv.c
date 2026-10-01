@@ -1411,7 +1411,7 @@ static int _viv_init(int nCmdShow)
 				{
 					command_line_length = STRING_SIZE - 1;
 				}
-				
+
 				// calc size
 				size = (int)safe_size_add(safe_size_add(sizeof(DWORD),safe_size_mul_sizeof_wchar(safe_size_add_one(command_line_length))),safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(cwd))));
 				buf = (char *)mem_alloc(size);
@@ -1571,9 +1571,9 @@ static int _viv_init(int nCmdShow)
 		if (!_viv_export_resize_window())
 		{
 			debug_printf("render-export: the init canvas resize did not converge\r\n");
-			
+
 			_viv_kill();
-			
+
 			return -6;
 		}
 		
@@ -1947,7 +1947,7 @@ static int _viv_main(int nCmdShow)
 	{
 		return 0;
 	}
-	
+
 	// the export canvas refusal names itself: the harness reads exit
 	// codes, and -6 is _viv_init's word for a resize that never made
 	// the window the canvas - the generic 1 would bury the one
@@ -1956,7 +1956,7 @@ static int _viv_main(int nCmdShow)
 	{
 		return 6;
 	}
-	
+
 	return 1;
 }
 
