@@ -73,6 +73,28 @@ static int _viv_old_zoom_pos = 0; // restore this zoom level after leaving 1:1 m
 // slideshow ladder).
 static WORD _viv_slideshow_rate_presets[] = {1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,20000,30000,40000,50000,60000};
 typedef char _viv_slideshow_rate_presets_count_assert[(sizeof(_viv_slideshow_rate_presets) / sizeof(WORD) == _VIV_SLIDESHOW_RATE_PRESET_COUNT) ? 1 : -1]; // the count literal pins the table
+// the help urls are compiled-in localization constants, but the
+// launch keeps its own contract anyway: https only, and a refusal
+// reaches the log instead of silence.
+static void _viv_open_https_url(localization_id_t localization_id)
+{
+	const utf8_t *url;
+
+	url = localization_get_string(localization_id);
+
+	if (memcmp(url,"https://",8) == 0)
+	{
+		if ((INT_PTR)ShellExecuteA(_viv_hwnd,NULL,url,NULL,NULL,SW_SHOWNORMAL) <= 32)
+		{
+			debug_printf("help url launch refused: %s\r\n",url);
+		}
+	}
+	else
+	{
+		debug_printf("help url failed the https prefix check\r\n");
+	}
+}
+
 void _viv_command(int command_id)
 {
 	_viv_command_with_is_key_repeat(command_id,0);
@@ -124,7 +146,7 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 	
 		case VIV_ID_HELP_HELP:
-			ShellExecuteA(_viv_hwnd,NULL,localization_get_string(LOCALIZATION_ID_HELP_SUPPORT_URL),NULL,NULL,SW_SHOWNORMAL);
+			_viv_open_https_url(LOCALIZATION_ID_HELP_SUPPORT_URL);
 			break;
 			
 		case VIV_ID_HELP_COMMAND_LINE_OPTIONS:
@@ -132,7 +154,7 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 			
 		case VIV_ID_HELP_DONATE:
-			ShellExecuteA(_viv_hwnd,NULL,localization_get_string(LOCALIZATION_ID_HELP_DONATE_URL),NULL,NULL,SW_SHOWNORMAL);
+			_viv_open_https_url(LOCALIZATION_ID_HELP_DONATE_URL);
 			break;
 			
 		case VIV_ID_HELP_ABOUT:
@@ -140,7 +162,7 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 			
 		case VIV_ID_HELP_WEBSITE:
-			ShellExecuteA(_viv_hwnd,NULL,localization_get_string(LOCALIZATION_ID_HELP_WEBSITE_URL),NULL,NULL,SW_SHOWNORMAL);
+			_viv_open_https_url(LOCALIZATION_ID_HELP_WEBSITE_URL);
 			break;
 			
 		case VIV_ID_FILE_EXIT:

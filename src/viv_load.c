@@ -759,7 +759,7 @@ BOOL _viv_paste_clipboard_image(void)
 					
 					pixels_size = safe_size_mul(stride,(SIZE_T)height);
 					
-					total_needed = safe_size_add((SIZE_T)bih->biSize + (SIZE_T)mask_size + (SIZE_T)color_count * 4,pixels_size);
+					total_needed = safe_size_add(safe_size_add(safe_size_add((SIZE_T)bih->biSize,(SIZE_T)mask_size),safe_size_mul((SIZE_T)color_count,4)),pixels_size);
 					
 					// the clipboard global must actually contain the whole
 					// dib (header, masks, palette and bits) BEFORE the dib

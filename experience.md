@@ -285,6 +285,29 @@ after.
   read the callee's contract before declaring the neighbor
   fixed.
 ## The 1.1.16 arc — round descriptions
+
+### 1.1.16-rc.12 — the review verdict round (2026-10-01, build 111)
+
+The second carpet review arrived with five P0s, eight P1s and
+three P2s. Three of the P0s were "OOM null dereferences" that
+die at the allocator's own door: `mem_alloc` answers refusal with
+`debug_fatal` (`DECLSPEC_NORETURN`, a dialog plus `ExitProcess`),
+so the claimed dereferences cannot run - the prior audit had
+already ruled this discipline (a check after a fatal allocator is
+dead code, not safety). The config-save P0 had the API backwards:
+`CopyFile`'s third argument is *fail-if-exists*, and FALSE
+overwrites - verified against the platform documentation before
+the verdict was written, not after. The one real gap in the P0
+family was the animation stop's completion event: a delete
+without a completion handle returns before a running callback
+finishes, and while the late message was already refused by the
+handler's own guard, the inline wait (`INVALID_HANDLE_VALUE`)
+makes the refusal structural. The P1 batch that landed: the
+config temp save rides the process id under `CREATE_NEW` (a
+predictable `.tmp` under `CREATE_ALWAYS` could be preempted),
+the BMP header sum joins the stride on the safe helpers, the
+install probe creates instead of truncating, and the help urls
+launch through an https contract that logs refusals.
 ### 1.1.16-rc.11 — the audit response round (2026-09-30, build 110)
 
 - The external carpet audit (thirteen read-only agents over

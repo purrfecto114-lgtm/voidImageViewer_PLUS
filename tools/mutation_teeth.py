@@ -398,6 +398,47 @@ MUTATIONS = [
      "if (install_word_seen && 0)",
      ["menu"]),
 
+    ("the timer stop drops the completion event again (rc.12)",
+     "src/viv_anim.c",
+     "os_DeleteTimerQueueTimer(NULL,_viv_timer_queue_timer_handle,INVALID_HANDLE_VALUE);",
+     "os_DeleteTimerQueueTimer(NULL,_viv_timer_queue_timer_handle,NULL);",
+     ["menu"]),
+
+    ("the config temp name loses its process id again (rc.12)",
+     "src/config.c",
+     "string_format_number(pid_wbuf,GetCurrentProcessId());",
+     "string_format_number(pid_wbuf,4);",
+     ["menu"]),
+
+    ("the config temp create truncates again (rc.12)",
+     "src/config.c",
+     "0,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,0);\r\n\r\n\tif (h == INVALID_HANDLE_VALUE)",
+     "0,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,0);\r\n\r\n\tif (h == INVALID_HANDLE_VALUE)",
+     ["menu"]),
+
+    ("the bmp header sum rides raw arithmetic again (rc.12)",
+     "src/viv_load.c",
+     "safe_size_add(safe_size_add(safe_size_add((SIZE_T)bih->biSize,(SIZE_T)mask_size),safe_size_mul((SIZE_T)color_count,4)),pixels_size)",
+     "safe_size_add((SIZE_T)bih->biSize + (SIZE_T)mask_size + (SIZE_T)color_count * 4,pixels_size)",
+     ["menu"]),
+
+    ("the install probe truncates again (rc.12)",
+     "src/viv_install.c",
+     "file = CreateFileW(probe_path,GENERIC_WRITE,0,0,CREATE_NEW,FILE_ATTRIBUTE_TEMPORARY,0);\r\n\r\n\tif (file == INVALID_HANDLE_VALUE)",
+     "file = CreateFileW(probe_path,GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,0);\r\n\r\n\tif (file == INVALID_HANDLE_VALUE)",
+     ["menu"]),
+
+    ("the help url launch stops naming its refusals again (rc.12)",
+     "src/viv_view.c",
+     "(INT_PTR)ShellExecuteA(_viv_hwnd,NULL,url,NULL,NULL,SW_SHOWNORMAL) <= 32",
+     "(INT_PTR)ShellExecuteA(_viv_hwnd,NULL,url,NULL,NULL,SW_SHOWNORMAL) > 32",
+     ["menu"]),
+
+    ("the help url contract loses its prefix check again (rc.12)",
+     "src/viv_view.c",
+     "memcmp(url,\"https://\",8) == 0",
+     "memcmp(url,\"https://\",8) != 0",
+     ["menu"]),
 ]
 
 def run_suite(key):

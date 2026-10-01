@@ -554,10 +554,30 @@ static void _config_save_settings_by_location(const wchar_t *path,int is_root)
 	
 	string_path_combine_utf8(filename,path,(const utf8_t *)"voidImageViewer.ini");
 
+	// the temp name rides the process id and the create refuses to
+	// follow: a fixed ".tmp" under CREATE_ALWAYS could be preempted by
+	// a concurrent instance or a reparse point planted at the
+	// predictable path. the unique name removes the collision, and
+	// CREATE_NEW leaves anything already sitting there untouched - a
+	// stale name from a crashed run is deleted once before the retry.
 	string_copy(tempname,filename);
+	string_cat_utf8(tempname,(const utf8_t *)".");
+	{
+		wchar_t pid_wbuf[32];
+
+		string_format_number(pid_wbuf,GetCurrentProcessId());
+		string_cat(tempname,pid_wbuf);
+	}
 	string_cat_utf8(tempname,(const utf8_t *)".tmp");
 
-	h = CreateFile(tempname,GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,0,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,0);
+	h = CreateFile(tempname,GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,0,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,0);
+
+	if (h == INVALID_HANDLE_VALUE)
+	{
+		DeleteFile(tempname);
+
+		h = CreateFile(tempname,GENERIC_WRITE,FILE_SHARE_READ|FILE_SHARE_WRITE,0,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,0);
+	}
 	if (h != INVALID_HANDLE_VALUE)
 	{
 		_config_write_utf8(h,(const utf8_t *)"[voidImageViewer]\r\n");

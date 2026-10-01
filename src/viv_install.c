@@ -1699,7 +1699,20 @@ static int _viv_install_path_user_writable(const wchar_t *install_path)
 
 	writable = 0;
 
-	file = CreateFileW(probe_path,GENERIC_WRITE,0,0,CREATE_ALWAYS,FILE_ATTRIBUTE_TEMPORARY,0);
+	// CREATE_NEW: the probe must create, not truncate - anything
+	// already sitting at the predictable name (a stale probe, a
+	// planted reparse point) must not redirect the write. a refused
+	// create that still deletes the blocker proves the directory
+	// writable, so the retry keeps the answer honest.
+	file = CreateFileW(probe_path,GENERIC_WRITE,0,0,CREATE_NEW,FILE_ATTRIBUTE_TEMPORARY,0);
+
+	if (file == INVALID_HANDLE_VALUE)
+	{
+		if (DeleteFileW(probe_path))
+		{
+			file = CreateFileW(probe_path,GENERIC_WRITE,0,0,CREATE_NEW,FILE_ATTRIBUTE_TEMPORARY,0);
+		}
+	}
 
 	if (file != INVALID_HANDLE_VALUE)
 	{

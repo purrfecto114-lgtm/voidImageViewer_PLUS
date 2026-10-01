@@ -286,7 +286,13 @@ void _viv_timer_stop(void)
 		{
 			if (os_DeleteTimerQueueTimer)
 			{
-				os_DeleteTimerQueueTimer(NULL,_viv_timer_queue_timer_handle,NULL);
+				// the completion event closes the in-flight window: a delete
+				// without it returns before a running callback finishes, and
+				// the callback can still post. the late message was already
+				// refused by the handler's own _viv_is_animation_timer guard -
+				// the inline wait makes the refusal structural instead of
+				// lucky. the callback only posts, so the wait is bounded.
+				os_DeleteTimerQueueTimer(NULL,_viv_timer_queue_timer_handle,INVALID_HANDLE_VALUE);
 			}
 			
 			_viv_is_timer_queue_timer = 0;

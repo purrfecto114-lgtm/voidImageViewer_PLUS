@@ -1,4 +1,43 @@
-﻿Pre-release: Version 1.1.16-rc.11 (the audit response round)
+﻿Pre-release: Version 1.1.16-rc.12 (the review verdict round)
+
+	the second carpet review's asks meet the tree's
+	contracts. three of its p0 claims - the rotation and
+	mipmap allocations, the gdi+ dimension list - die at the
+	allocator's own door: mem_alloc answers a refusal with a
+	fatal dialog, never a null, so the claimed dereferences
+	cannot run (the prior audit already ruled this tree's
+	discipline - a check after a fatal allocator is dead
+	code, not safety). the config-save fallback claim had
+	the api backwards: copyfile's third argument is
+	fail-if-exists, and false overwrites - checked against
+	the platform documentation before the verdict was
+	written, and the fallback already writes through. the
+	animation timer stop takes the completion event it was
+	missing: the delete now waits inline for the callback
+	it stops (the late message was already refused by the
+	handler's guard - the wait makes the refusal structural
+	instead of lucky). beside it, four p1 hardenings land:
+	the config temp save rides the process id under
+	create_new (a predictable ".tmp" under create_always
+	could be preempted by a concurrent instance or a
+	planted reparse point, and the retry deletes a stale
+	name once), the bmp header sum joins the stride on the
+	safe helpers end to end, the install probe creates
+	instead of truncating (a reparse point at the probe
+	name must not redirect the writability answer), and the
+	three help urls launch through an https contract that
+	logs a refusal instead of passing it silently. the
+	review's asks that were already adjudicated keep their
+	verdicts: the qoi trailing-chunk leniency is the
+	documented policy match with the reference decoder, the
+	wic uint/dword pair is width-identical with a
+	synchronous frame contract, and the install-relay wait
+	is our own child answering its exit code - killing a
+	mid-install exe on a timeout would trade a hang for a
+	corruption. the install-visibility family rides the
+	deferred ledger with the prior audit's items.
+
+Pre-release: Version 1.1.16-rc.11 (the audit response round)
 
 	the carpet audit's answer. the elevated options relay
 	trusted a string the tokenizer had already restructured:
