@@ -439,6 +439,15 @@ enum
 	// whole run; the settings page keeps its per-extension pair).
 	LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_CAPTION,
 	LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE,
+
+	// round-148: the foreign-owner consent (the explicit click names
+	// the current owner and asks), the lock caption under the
+	// association grid, and the uninstall settings ask.
+	LOCALIZATION_ID_ASSOCIATION_FOREIGN_CAPTION,
+	LOCALIZATION_ID_ASSOCIATION_FOREIGN_MESSAGE,
+	LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED,
+	LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_CAPTION,
+	LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_MESSAGE,
 	LOCALIZATION_ID_COUNT,
 };
 

@@ -79,7 +79,6 @@ XPStyle on
         
 ; vars
 
-Var existing_ini_filename
 Var admin_install_options
 Var user_install_options
 
@@ -263,14 +262,12 @@ viw_probe_done:
 
 skip_default_probe:
 
-        ; get the existing ini filename.
-        StrCpy $existing_ini_filename "$APPDATA\voidImageViewer\voidImageViewer.ini"
-        
-        ; Check if appdata is set to zero
-        ; $INSTDIR is the existing install location (or the default one if it does not exist)
+        ; the appdata checkbox rides the existing install's own choice:
+        ; an install-dir ini carrying appdata=0 keeps the portable mode
+        ; preselected (the ini filename itself is the app's business -
+        ; the dead variable that used to carry it is gone).
         ReadINIStr $0 "$INSTDIR\voidImageViewer.ini" "voidImageViewer" "appdata"
     StrCmp $0 "0" 0 skip_check_app_data
-        StrCpy $existing_ini_filename "$INSTDIR\voidImageViewer.ini"
         !insertmacro MUI_INSTALLOPTIONS_WRITE "InstallOptions.ini" "Field 2" "State" "0"
         !insertmacro MUI_INSTALLOPTIONS_WRITE "InstallOptions.ini" "Field 3" "State" "1"
 
@@ -315,17 +312,6 @@ Function un.onInit
 
         ; use the language that was selected during the install.
         !insertmacro MUI_UNGETLANGUAGE
-
-        ; get the existing ini filename.
-        StrCpy $existing_ini_filename "$APPDATA\voidImageViewer\voidImageViewer.ini"
-        
-        ; Check if appdata is set to zero
-        ; $INSTDIR is the existing install location
-        ReadINIStr $0 "$INSTDIR\voidImageViewer.ini" "voidImageViewer" "appdata"
-    StrCmp $0 "0" 0 skip_check_app_data
-        StrCpy $existing_ini_filename "$INSTDIR\voidImageViewer.ini"
-
-skip_check_app_data:
 
 FunctionEnd
 
@@ -644,7 +630,6 @@ skip_hardware_acceleration:
         ; VS version and build config are configurable via defines
 
         File "${VIV_EXE_DIR}\voidImageViewer.exe"
-        File "..\Changes.txt"
         File "..\LICENSE"
         File "..\THIRD_PARTY_NOTICES.md"
         WriteUninstaller "$pluginsdir\voidImageViewer\Uninstall.exe"
@@ -728,8 +713,22 @@ Section "Uninstall"
         ; run the second stage: it removes the associations, the shortcuts,
         ; the add-remove-programs entry, the installed files and the install
         ; directory (elevating itself through the app's runas path when the
-        ; install was an admin install).
+        ; install was an admin install). the second stage asks whether to
+        ; keep the user's settings - a silent uninstall (nsis /S) cannot see
+        ; a dialog, so the word carries the keep answer and the stage never
+        ; blocks.
+        IfSilent silent_uninstall_stage visible_uninstall_stage
+
+        silent_uninstall_stage:
+
+        ExecWait '"$0\voidImageViewer.exe" /uninstall "$INSTDIR" /uninstall-keep-settings' $1
+        Goto uninstall_stage_ran
+
+        visible_uninstall_stage:
+
         ExecWait '"$0\voidImageViewer.exe" /uninstall "$INSTDIR"' $1
+
+        uninstall_stage_ran:
         IfErrors uninstall_stage_error
         IntCmp $1 0 uninstall_stage_ok
 

@@ -286,6 +286,43 @@ after.
   fixed.
 ## The 1.1.16 arc — round descriptions
 
+### 1.1.16 — the field response round III (2026-10-01, build 112)
+
+- The seven field reports answered in one pass and the arc earned its
+  stable. The settings footer's unclickable buttons were two stacked
+  facts, not one: the content rows scroll under the pinned footer but
+  their hit rects never clipped to the viewport the paint clips to, so
+  the invisible rows ate the clicks (and toggled checkboxes through
+  the registry - the field report's unchecked BMP/JPEG/JPG were the
+  shadowed cells' own fingerprints), and the scrollbar beside them was
+  an eight-dip strip the window's resize band shadowed to a two-pixel
+  grab, painted in a tone eight points off its track. The hit test
+  carries the band now, the strip rides twelve dips with the band
+  exempted, the thumb paints in the muted tone, and a track press
+  pages toward the click.
+- The never-associating trio was a one-word bug with a decade of
+  patience: the takeover guard's canonical table spelled the jpg
+  family's stock owner "jpgfile" and windows ships jpegfile, so every
+  stock machine read as a foreign viewer and the checkbox silently
+  bounced back. The explicit click carries the consent the bulk paths
+  never had (the ask names the current owner), the UserChoice lock
+  wears its padlock and caption, the locked boxes spell the wide verb
+  (the narrow %s rendered one letter), and the settings box deep-links
+  its own row in the default apps page.
+- The uninstall residue and the payload diet closed together: the
+  failed-save temps swept from both homes (they blocked the folder
+  removal), the empty OpenWithProgids keys and our own dangling
+  UserChoice gone, the sweep opening keys instead of minting them, the
+  settings themselves behind the keep-or-delete question with a silent
+  word for scripts - and changes.txt leaving the installed payload
+  with the apps list carrying the measured size.
+- The zoom clean number round landed with its honesty scoped: the
+  displayed percent snaps to the nearest ten within two points (never
+  below twenty), the render position never moves, the sparse zone
+  keeps its honest integers, and the model's one-position fallback
+  finally nests the way the C always did (the 1:1-exit dive the
+  fidelity bug hid).
+
 ### 1.1.16-rc.12 — the review verdict round (2026-10-01, build 111)
 
 The second carpet review arrived with five P0s, eight P1s and
@@ -422,6 +459,33 @@ launch through an https contract that logs refusals.
   pinned in the guard suite so it cannot recur. no code change rides
   the tag beyond the version identity.
 
+### 1.1.16-rc.7 — the default programs round (2026-09-29, build 106, 72a6adf)
+
+- One name everywhere the shell reads it - the RegisteredApplications
+  index value, the capabilities block, the ARP entry and the start
+  menu all carry "void Image Viewer" (the MSDN letter: ApplicationName
+  must match the registered name; the field answer stayed open), the
+  install sweeps the old spelling, and the Applications seat joins
+  with its FriendlyAppName and pinned open verb. The installer's
+  format list catches up with the viewer: eleven classic extensions
+  grow to the full nineteen (QOI built in, the WIC family riding the
+  system codecs), the options pages reflow into four columns, and the
+  .ico default icon stays the file itself (the counter-review's
+  catch). The second-pass counter-review joins the workflow as a
+  fixed gate this round.
+
+### 1.1.16-rc.6 — the field feedback round II (2026-09-29, build 105, 62ce19f)
+
+- The caption catches up with the picture (every settle point
+  rewrites the title - the cache-hit face of the field report), the
+  settings page tells the truth about its switches (the interpolation
+  rows grey out under the hardware renderer, the hw-accel switch
+  restores the back end the session had), the installer stops asking
+  for passwords it does not need (user-owned directories install
+  in-process, a refused elevation reads as failure, the UserChoice
+  lock gets its bilingual say), and the settings window answers the
+  finger (the single-finger pan with system inertia).
+
 ### 1.1.16-rc.5 — the layout migration round (2026-09-29, build 104, 816a4de)
 
 - Commit: 816a4de; the release round for the "first start opens no
@@ -445,6 +509,42 @@ launch through an https contract that logs refusals.
   release-gate re-read that caught the gap is the house rule wearing
   its release clothes: the claim's domain is the user's machine, not
   the commit message's account of itself.
+
+### 1.1.16-rc.4 — the field feedback round (2026-09-28, build 103, d93ebf5)
+
+- The seven real-machine asks: the pill's SLWA probe retires (it
+  poisoned the layered window on field machines - the first submit is
+  the probe now), the standard layout is the default again, the app
+  registers with Windows (RegisteredApplications, capabilities, App
+  Paths), the message box paints its measured rect (no clipped last
+  line), the installer offers hardware acceleration with a matching
+  Settings switch, the settings window rides 594×670 at 90 percent,
+  and the open verb is pinned by name on every class.
+
+### 1.1.16-rc.3 — the parallel sweep round (2026-09-28, build 102, aa7d5a2)
+
+- Four independent auditors at once - the fix batch's regression
+  face, the resource lifetimes, the pathological inputs, the settings
+  migration - and the unswept angles paid: the truncated wrap's -1
+  sentinel never outlives the slideshow advance, the aspect
+  comparison rides the 64-bit ceiling, the clipboard's error leg
+  lands, the options-to-settings rename migrates a saved binding, tab
+  walks back out of the strip, and a zero-delay webp rides the gif
+  floor.
+
+### 1.1.16-rc.2 — the fifth report's judgment round (2026-09-26, build 101, 25b8989)
+
+- The report's headline path died in the tree verification (the wait
+  leg never sees a fresh tap) but the sweep found the real shapes
+  behind the three symptoms: the frame pane's click had been landing
+  on the date pane since the date pane was born (the field report's
+  -xx/xx), the counter pane was sized to its opening text (the
+  9-to-10 hitch), the delete pair missed the abandoned preload, the
+  truncated animation froze at its last frame forever, and the render
+  legs indexed frames[] behind a count alone - all behind the
+  frame-state guard now. The toolbar's arrows promise only pages that
+  change something, the strip answers the keyboard, and the mutation
+  teeth table turns "we caught it" into a number anyone can recompute.
 
 ### 1.1.16-rc.1 — the fourth fusion response round (2026-09-25, build 100, 3a33d36)
 

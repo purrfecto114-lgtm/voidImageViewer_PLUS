@@ -439,6 +439,72 @@ MUTATIONS = [
      "memcmp(url,\"https://\",8) == 0",
      "memcmp(url,\"https://\",8) != 0",
      ["menu"]),
+
+    ("the zoom snap loses its tolerance gate again (round-148)",
+     "src/viv_render.c",
+     "if ((snapped >= 20) && (snapped - percent <= 2) && (percent - snapped <= 2))",
+     "if ((snapped >= 20) && (snapped - percent <= 2) && (percent - snapped <= 20))",
+     ["zoom"]),
+
+    ("the zoom snap stops snapping again (round-148)",
+     "src/viv_render.c",
+     "snapped = ((percent + 5) / 10) * 10;",
+     "snapped = percent;",
+     ["zoom"]),
+
+    ("the hit test loses its viewport band again (round-148)",
+     "src/viv_settings.c",
+     "if ((y < viewport_top) || (y >= viewport_bottom))",
+     "if (0)",
+     ["menu"]),
+
+    ("the edge band shadows the scrollbar strip again (round-148)",
+     "src/viv_settings.c",
+     "if ((pt->x >= track.left) && (pt->x < track.right) && (pt->y >= track.top) && (pt->y < track.bottom))\r\n\t\t{\r\n\t\t\treturn 0;",
+     "if ((pt->x >= track.left) && (pt->x < track.right) && (pt->y >= track.top) && (pt->y < track.bottom))\r\n\t\t{\r\n\t\t\treturn HTBOTTOM;",
+     ["menu"]),
+
+    ("the canonical table misspells the jpg family again (round-148)",
+     "src/viv_install.c",
+     "static const char *canonical_classes[] = {\"bmpfile\",\"jpegfile\",\"jpegfile\"};",
+     "static const char *canonical_classes[] = {\"bmpfile\",\"jpgfile\",\"jpgfile\"};",
+     ["menu"]),
+
+    ("the force flag stops gating the foreign guard again (round-148)",
+     "src/viv_install.c",
+     "if ((!force) && (_viv_is_foreign_association(association,class_name)))",
+     "if (_viv_is_foreign_association(association,class_name))",
+     ["menu"]),
+
+    ("the temps sweep loses its pattern again (round-148)",
+     "src/viv_install.c",
+     "voidImageViewer.ini*.tmp",
+     "voidImageViewer.ini*.",
+     ["menu"]),
+
+    ("the silent word loses its keep answer again (round-148)",
+     "src/viv_install.c",
+     "uninstall_keep_settings = 1;",
+     "uninstall_keep_settings = 0;",
+     ["menu"]),
+
+    ("the userchoice delete forgets whose it is again (round-148)",
+     "src/viv_install.c",
+     "is_ours = string_compare(lower_wbuf,lower_class) == 0;",
+     "is_ours = 1;",
+     ["menu"]),
+
+    ("the settings ask stops asking again (round-148)",
+     "src/viv_install.c",
+     "if (viv_msgbox(0,caption_wbuf,message_wbuf,MB_YESNO|MB_ICONQUESTION) == IDNO)",
+     "if (0)",
+     ["menu"]),
+
+    ("the uninstall sweep mints keys again (round-148)",
+     "src/viv_install.c",
+     "if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)\r\n\t{\r\n\t\twchar_t wbuf[STRING_SIZE];",
+     "if (RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)\r\n\t{\r\n\t\twchar_t wbuf[STRING_SIZE];",
+     ["menu"]),
 ]
 
 def run_suite(key):

@@ -29,7 +29,7 @@
 
 // forward declarations (order preserved from viv.c)
 int _viv_process_install_command_line_options(wchar_t *cl);
-void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location);
+void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location,int force);
 void _viv_uninstall_association_by_extension(const char *association);
 int _viv_is_association(const char *association);
 static int _viv_is_foreign_association(const char *association,const wchar_t *class_name);
@@ -43,6 +43,7 @@ static void _viv_uninstall_association(DWORD flags);
 static int _viv_is_voidimageviewer_process(DWORD process_id);
 static void _viv_close_existing_process(void);
 static void _viv_uninstall_delete_file(const wchar_t *path,const utf8_t *filename);
+static void _viv_uninstall_sweep_config_temps(const wchar_t *path);
 int _viv_is_start_menu_shortcuts(void);
 static void _viv_install_start_menu_shortcuts(void);
 static void _viv_uninstall_start_menu_shortcuts(void);
@@ -75,6 +76,7 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 	int is_admin_install;
 	int is_standard_user_install;
 	int extension_word_seen;
+	int uninstall_keep_settings;
 	
 	startmenu = 0;
 	install_flags = 0;
@@ -84,6 +86,7 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 	is_admin_install = 0;
 	is_standard_user_install = 0;
 	extension_word_seen = 0;
+	uninstall_keep_settings = 0;
 	language = config_language;
 	language_set = 0;
 	hardware_acceleration = 0;
@@ -164,9 +167,17 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 				startmenu = -1;
 
 				install_path[0] = 0;
-				
+
 				is_admin_install = 1;
 				is_standard_user_install = 1;
+			}
+			else
+				if (string_icompare_lowercase_ascii(bufstart,"uninstall-keep-settings") == 0)
+				{
+					// the silent uninstall's answer to the settings ask: keep (the
+					// visible path asks the question; a scripted uninstall must
+					// not hang on a dialog it cannot see).
+					uninstall_keep_settings = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"appdata") == 0)
@@ -437,9 +448,15 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		
 		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"voidImageViewer.exe",1);
 		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"Uninstall.exe",0);
-		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"Changes.txt",0);
 		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"LICENSE",0);
 		_viv_install_copy_file(install_path,temp_path,(const utf8_t *)"THIRD_PARTY_NOTICES.md",0);
+
+		// changes.txt left the installed payload (the size round: a
+		// quarter megabyte of archive the release notes already carry,
+		// on a machine that never asked for it) - an upgrade over an
+		// older install still cleans the copy that older setup laid
+		// down.
+		_viv_uninstall_delete_file(install_path,(const utf8_t *)"Changes.txt");
 		
 		// register in add/remove programs so the app shows up in
 		// programs and features.
@@ -532,31 +549,97 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 	if (uninstall_path[0])
 	{
 		wchar_t path[STRING_SIZE];
-		
+		int delete_settings;
+
 		// make sure no other process is running.
 		_viv_close_existing_process();
-		
+
 		// remove our add/remove programs entry (from both hives).
 		_viv_uninstall_add_remove_programs();
-		
+
 		// rc.4: the app registration goes with it.
 		_viv_uninstall_app_registration();
-		
-		// remove %APPDATA%\voidimageviewer
+
+		// the settings ask (the residue answer): the old sweep deleted
+		// the user's settings silently and unconditionally. keep is the
+		// default - the recoverable answer - and the silent uninstall's
+		// word carries it.
+		delete_settings = 0;
+
+		if (!uninstall_keep_settings)
+		{
+			wchar_t caption_wbuf[STRING_SIZE];
+			wchar_t message_wbuf[STRING_SIZE];
+
+			string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_CAPTION));
+			string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_MESSAGE));
+
+			if (viv_msgbox(0,caption_wbuf,message_wbuf,MB_YESNO|MB_ICONQUESTION) == IDNO)
+			{
+				delete_settings = 1;
+			}
+		}
+
+		// remove %APPDATA%\voidimageviewer (the settings home in appdata
+		// mode - the ask gates the ini; the failed-save temps are
+		// garbage, never settings).
 		if (string_get_appdata_voidimageviewer_path(path))
 		{
-			_viv_uninstall_delete_file(path,(const utf8_t *)"voidImageViewer.ini");
+			if (delete_settings)
+			{
+				_viv_uninstall_delete_file(path,(const utf8_t *)"voidImageViewer.ini");
+			}
+
+			_viv_uninstall_sweep_config_temps(path);
 
 			RemoveDirectory(path);
 		}
-					
+
 		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"Uninstall.exe");
 		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"Changes.txt");
 		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"LICENSE");
 		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"THIRD_PARTY_NOTICES.md");
-		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"voidImageViewer.ini");
+
+		// the install dir's own ini: the appdata=0 shape is the settings
+		// themselves (kept when the answer says keep - the directory then
+		// survives holding exactly what the user kept); the appdata=1
+		// shape is the one-line pointer to the real home (install
+		// footprint - it goes so the directory can).
+		{
+			int is_pointer_ini;
+
+			is_pointer_ini = 0;
+
+			string_path_combine_utf8(path,uninstall_path,(const utf8_t *)"voidImageViewer.ini");
+
+			{
+				ini_t *ini;
+
+				ini = ini_open(path,(const utf8_t *)"voidImageViewer");
+
+				if (ini)
+				{
+					if (ini_get_int(ini,(const utf8_t *)"appdata",0) == 1)
+					{
+						is_pointer_ini = 1;
+					}
+
+					ini_close(ini);
+				}
+			}
+
+			if ((delete_settings) || (is_pointer_ini))
+			{
+				_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"voidImageViewer.ini");
+			}
+		}
+
+		// the temps ride the install dir too (the appdata=0 writers leave
+		// them beside the ini).
+		_viv_uninstall_sweep_config_temps(uninstall_path);
+
 		_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"voidImageViewer.exe");
-		
+
 		RemoveDirectory(uninstall_path);
 	}
 	
@@ -568,55 +651,60 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 	return 0;
 }
 // use the default class description, ie: TXT File
-static int _viv_is_foreign_association(const char *association,const wchar_t *class_name)
+// the canonical windows classes for the guarded extensions - the
+// owners a fresh system carries before any viewer claims them. the
+// jpg family ships as jpegfile on every stock windows (there is no
+// stock jpgfile class); the round-148 correction - the old
+// "jpgfile" spelling read every stock machine as a foreign viewer
+// and the takeover silently refused, the field report's
+// "never associates" trio.
+static const char *_viv_canonical_class_for(const char *association)
 {
 	static const char *canonical_extensions[] = {"bmp","jpg","jpeg"};
-	static const char *canonical_classes[] = {"bmpfile","jpgfile","jpgfile"};
+	static const char *canonical_classes[] = {"bmpfile","jpegfile","jpegfile"};
 	wchar_t association_wbuf[STRING_SIZE];
-	const char *canonical_class;
-	wchar_t key[STRING_SIZE];
-	HKEY hkey;
 	int i;
-	
+
 	string_copy_utf8_string(association_wbuf,(const utf8_t *)association);
-	
-	// the upstream todo's guard names bmp and jpg; the association
-	// table spells the jpg family as jpg and jpeg. the canonical
-	// classes are the defaults windows ships for those extensions -
-	// the owners a fresh system carries before any viewer claims
-	// them. every other extension is not gated and keeps the
-	// historical backup-then-takeover behavior.
-	canonical_class = 0;
-	
+
 	for(i=0;i<3;i++)
 	{
 		if (string_icompare_lowercase_ascii(association_wbuf,canonical_extensions[i]) == 0)
 		{
-			canonical_class = canonical_classes[i];
-			
-			break;
+			return canonical_classes[i];
 		}
 	}
-	
+
+	return 0;
+}
+
+static int _viv_is_foreign_association(const char *association,const wchar_t *class_name)
+{
+	const char *canonical_class;
+	wchar_t key[STRING_SIZE];
+	HKEY hkey;
+
+	canonical_class = _viv_canonical_class_for(association);
+
 	if (!canonical_class)
 	{
 		return 0;
 	}
-	
+
 	// the effective owner is read from the merged view the shell
 	// resolves: HKEY_CLASSES_ROOT is the per-user software\classes
 	// over the machine ones, so a per-user owner (ours or a foreign
 	// one) shadows the machine default exactly as the shell sees it.
 	string_copy_utf8_string(key,(const utf8_t *)".");
 	string_cat_utf8(key,association);
-	
+
 	if (RegOpenKeyExW(HKEY_CLASSES_ROOT,key,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
 	{
 		wchar_t wbuf[STRING_SIZE];
 		int ret;
-		
+
 		ret = 0;
-		
+
 		if ((_viv_get_registry_string(hkey,0,wbuf,STRING_SIZE)) && (*wbuf))
 		{
 			// an empty default (no owner yet), the canonical class
@@ -628,13 +716,58 @@ static int _viv_is_foreign_association(const char *association,const wchar_t *cl
 				ret = 1;
 			}
 		}
-		
+
 		RegCloseKey(hkey);
-		
+
 		return ret;
 	}
-	
+
 	return 0;
+}
+
+// the same three questions with the owner's name attached: the
+// settings consent box reads who holds the extension before it
+// asks whether the takeover should happen anyway.
+int _viv_association_foreign_owner(const char *association,wchar_t *owner_wbuf,int owner_size)
+{
+	wchar_t class_name[STRING_SIZE];
+	wchar_t key[STRING_SIZE];
+	HKEY hkey;
+	int ret;
+
+	string_copy_utf8_string(class_name,(const utf8_t *)"voidImageViewer");
+	string_cat_utf8(class_name,(const utf8_t *)".");
+	string_cat_utf8(class_name,(const utf8_t *)association);
+
+	owner_wbuf[0] = 0;
+
+	ret = 0;
+
+	string_copy_utf8_string(key,(const utf8_t *)".");
+	string_cat_utf8(key,(const utf8_t *)association);
+
+	if (RegOpenKeyExW(HKEY_CLASSES_ROOT,key,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
+	{
+		wchar_t wbuf[STRING_SIZE];
+
+		if ((_viv_get_registry_string(hkey,0,wbuf,STRING_SIZE)) && (*wbuf))
+		{
+			const char *canonical_class;
+
+			canonical_class = _viv_canonical_class_for(association);
+
+			if ((canonical_class) && (string_icompare_lowercase_ascii(wbuf,canonical_class) != 0) && (string_compare(wbuf,class_name) != 0))
+			{
+				string_copy_with_bufsize(owner_wbuf,owner_size,wbuf);
+
+				ret = 1;
+			}
+		}
+
+		RegCloseKey(hkey);
+	}
+
+	return ret;
 }
 
 // rc.17: the honest read the checkbox never had. the per-user class
@@ -843,7 +976,7 @@ static void _viv_install_class_definition_by_extension(const char *association,c
 	}
 }
 
-void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location)
+void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location,int force)
 {
 	HKEY hkey;
 	wchar_t class_name[STRING_SIZE];
@@ -868,10 +1001,14 @@ void _viv_install_association_by_extension(const char *association,const char *d
 	// as foreign even then) and before any write of ours - the
 	// class keys, the icons, the backup and the takeover are all
 	// skipped for a foreign-owned extension.
-	if (_viv_is_foreign_association(association,class_name))
+	// force is the explicit user consent (the settings checkbox's
+	// own ask names the owner and carries the answer); the bulk
+	// paths - the installer, select all, the snapshot restore -
+	// always pass zero and keep the silent guard.
+	if ((!force) && (_viv_is_foreign_association(association,class_name)))
 	{
 		debug_printf("association .%s left alone (a foreign viewer owns it)\n",association);
-		
+
 		return;
 	}
 
@@ -1176,16 +1313,19 @@ void _viv_uninstall_association_by_extension(const char *association)
 	wchar_t key[STRING_SIZE];
 	wchar_t class_name[STRING_SIZE];
 	wchar_t dot_association[STRING_SIZE];
-	
+
 	string_copy_utf8_string(key,(const utf8_t *)"SOFTWARE\\Classes\\.");
 	string_cat_utf8(key,association);
-	
-	// debug_printf("query %S\n",key);
-	
-	if (RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)
+
+	// an open, not a create: the old regcreatekeyex minted the key on
+	// every uninstall walk - a full uninstall left a fresh empty .ext
+	// key behind on machines whose install the gate had skipped (the
+	// residue report). the takeover path creates the key when it owns
+	// the write; the sweep only ever reads what is there.
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
 	{
 		wchar_t wbuf[STRING_SIZE];
-		
+
 		if (_viv_get_registry_string(hkey,(const utf8_t *)"voidImageViewer.Backup",wbuf,STRING_SIZE))
 		{
 			if (*wbuf)
@@ -1201,14 +1341,8 @@ void _viv_uninstall_association_by_extension(const char *association)
 				RegDeleteValueW(hkey,0);
 			}
 
-			// debug_printf("Delete voidImageViewer.Backup\n");
-
 			reg_ret = RegDeleteValueA(hkey,"voidImageViewer.Backup");
-			if (reg_ret == ERROR_SUCCESS)
-			{
-				// debug_printf("Delete voidImageViewer.Backup OK\n");
-			}
-			else
+			if (reg_ret != ERROR_SUCCESS)
 			{
 				debug_printf("RegDeleteValueA failed %u\n",reg_ret);
 			}
@@ -1216,10 +1350,10 @@ void _viv_uninstall_association_by_extension(const char *association)
 
 		RegCloseKey(hkey);
 	}
-	
+
 	string_copy_utf8_string(key,(const utf8_t *)"SOFTWARE\\Classes\\voidImageViewer.");
 	string_cat_utf8(key,association);
-	
+
 	// the class key carries subkeys (defaulticon, shell\\open\\command)
 	// and the bare regdeletekey refuses them all - the fourth report's
 	// zombie tree: every uninstall left the command pointing at the
@@ -1230,38 +1364,122 @@ void _viv_uninstall_association_by_extension(const char *association)
 	{
 		debug_printf("os_delete_key_tree failed %u\\n",GetLastError());
 	}
-	
+
 	// rc.17: sweep the two OpenWithProgids homes the install wrote.
 	// the keys may carry the shell's own entries beside ours, so
-	// only our value goes - the keys stay.
+	// only our value goes - and a key left holding nothing at all
+	// names a dead seat, so the truly empty one goes too.
 	string_copy_utf8_string(dot_association,(const utf8_t *)".");
 	string_cat_utf8(dot_association,association);
-	
+
 	string_copy_utf8_string(class_name,(const utf8_t *)"voidImageViewer");
 	string_cat(class_name,dot_association);
-	
+
 	string_copy_utf8_string(key,"SOFTWARE\\Classes\\.");
 	string_cat_utf8(key,association);
 	string_cat_utf8(key,"\\OpenWithProgids");
-	
+
 	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
 	{
 		RegDeleteValueW(hkey,class_name);
-		
+
+		{
+			DWORD value_count;
+			DWORD subkey_count;
+
+			if ((RegQueryInfoKeyW(hkey,0,0,0,&subkey_count,0,0,&value_count,0,0,0,0) == ERROR_SUCCESS) && (!value_count) && (!subkey_count))
+			{
+				if (!RegDeleteKeyW(HKEY_CURRENT_USER,key))
+				{
+					debug_printf("RegDeleteKeyW empty key failed %u\n",GetLastError());
+				}
+			}
+		}
+
 		RegCloseKey(hkey);
 	}
-	
+
 	string_copy_utf8_string(key,"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.");
 	string_cat_utf8(key,association);
 	string_cat_utf8(key,"\\OpenWithProgids");
-	
+
 	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
 	{
 		RegDeleteValueW(hkey,class_name);
-		
+
+		{
+			DWORD value_count;
+			DWORD subkey_count;
+
+			if ((RegQueryInfoKeyW(hkey,0,0,0,&subkey_count,0,0,&value_count,0,0,0,0) == ERROR_SUCCESS) && (!value_count) && (!subkey_count))
+			{
+				if (!RegDeleteKeyW(HKEY_CURRENT_USER,key))
+				{
+					debug_printf("RegDeleteKeyW empty key failed %u\n",GetLastError());
+				}
+			}
+		}
+
 		RegCloseKey(hkey);
 	}
-	
+
+	// the userchoice the shell honors: when it names the progid this
+	// uninstall just removed, deleting the key lets the shell fall
+	// back to the restored default instead of prompting against a
+	// dead app (the hash only guards writes - a delete is a delete).
+	// a foreign choice is never touched.
+	string_copy_utf8_string(key,(const utf8_t *)"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.");
+	string_cat_utf8(key,(const utf8_t *)association);
+	string_cat_utf8(key,(const utf8_t *)"\\UserChoice");
+
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
+	{
+		wchar_t choice_wbuf[STRING_SIZE];
+
+		if ((_viv_get_registry_string(hkey,(const utf8_t *)"ProgId",choice_wbuf,STRING_SIZE)) && (string_get_length(choice_wbuf)))
+		{
+			// the compare lowercases both sides by hand (the icompare
+			// helper lowercases only its first argument, and the class
+			// name carries capitals by design).
+			wchar_t lower_wbuf[STRING_SIZE];
+			wchar_t lower_class[STRING_SIZE];
+			int is_ours;
+			int i;
+
+			for(i=0;(choice_wbuf[i]) && (i < STRING_SIZE);i++)
+			{
+				lower_wbuf[i] = ((choice_wbuf[i] >= L'A') && (choice_wbuf[i] <= L'Z')) ? (choice_wbuf[i] - L'A' + L'a') : choice_wbuf[i];
+			}
+
+			lower_wbuf[i] = 0;
+
+			for(i=0;(class_name[i]) && (i < STRING_SIZE);i++)
+			{
+				lower_class[i] = ((class_name[i] >= L'A') && (class_name[i] <= L'Z')) ? (class_name[i] - L'A' + L'a') : class_name[i];
+			}
+
+			lower_class[i] = 0;
+
+			is_ours = string_compare(lower_wbuf,lower_class) == 0;
+
+			RegCloseKey(hkey);
+
+			if (is_ours)
+			{
+				if (!RegDeleteKeyW(HKEY_CURRENT_USER,key))
+				{
+					// the ucpd driver widens its deny list by update - a refused
+					// delete must at least be named, not silently dangle.
+					debug_printf("RegDeleteKeyW UserChoice failed %u\n",GetLastError());
+				}
+			}
+		}
+		else
+		{
+			RegCloseKey(hkey);
+		}
+	}
+
 	// the explorer hears the sweep the same moment.
 	SHChangeNotify(SHCNE_ASSOCCHANGED,SHCNF_IDLIST,0,0);
 }
@@ -1401,7 +1619,7 @@ static void _viv_install_association(DWORD flags)
 	{
 		if (flags & (1 << i))
 		{
-			_viv_install_association_by_extension(_viv_association_extensions[i],localization_get_string(_viv_association_description_localization_id_array[i]),_viv_association_icon_locations[i]);
+			_viv_install_association_by_extension(_viv_association_extensions[i],localization_get_string(_viv_association_description_localization_id_array[i]),_viv_association_icon_locations[i],0);
 		}
 	}
 }
@@ -1578,10 +1796,54 @@ static void _viv_close_existing_process(void)
 static void _viv_uninstall_delete_file(const wchar_t *path,const utf8_t *filename)
 {
 	wchar_t full_path_and_filename[STRING_SIZE];
-	
+
 	string_path_combine_utf8(full_path_and_filename,path,filename);
-	
-	DeleteFile(full_path_and_filename);
+
+	if (!DeleteFile(full_path_and_filename))
+	{
+		// a blocked file is why a removedirectory fails silently -
+		// the log owes the uninstaller the name.
+		debug_printf("DeleteFile %S failed %u\n",full_path_and_filename,GetLastError());
+	}
+}
+
+// the failed-save temps (voidImageViewer.ini.<pid>.tmp, and the
+// fixed .ini.tmp the pre-1.1.16 writers could leave): a crashed
+// save leaves one behind, no live path ever cleans another
+// process's name, and the leftovers kept removedirectory from
+// taking the folder with them. the uninstall sweep owns them all
+// - garbage, never settings.
+static void _viv_uninstall_sweep_config_temps(const wchar_t *path)
+{
+	wchar_t pattern[STRING_SIZE];
+	wchar_t full_path[STRING_SIZE];
+	WIN32_FIND_DATAW find_data;
+	HANDLE find_handle;
+
+	string_path_combine_utf8(pattern,path,(const utf8_t *)"voidImageViewer.ini*.tmp");
+
+	find_handle = FindFirstFileW(pattern,&find_data);
+
+	if (find_handle != INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			// only the file shape - a directory named like a temp is
+			// not ours to take.
+			if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+			{
+				string_path_combine(full_path,path,find_data.cFileName);
+
+				if (!DeleteFile(full_path))
+				{
+					debug_printf("DeleteFile temp %S failed %u\n",full_path,GetLastError());
+				}
+			}
+		}
+		while(FindNextFileW(find_handle,&find_data));
+
+		FindClose(find_handle);
+	}
 }
 int _viv_is_start_menu_shortcuts(void)
 {
@@ -1761,7 +2023,7 @@ static void _viv_install_association_locked_box(DWORD install_flags)
 
 	for(exti=0;exti<_VIV_ASSOCIATION_COUNT;exti++)
 	{
-		if ((install_flags & (1 << exti)) && (_viv_default_app_locked_elsewhere(_viv_association_extensions[exti])))
+		if ((install_flags & (1 << exti)) && (_viv_is_association(_viv_association_extensions[exti])) && (_viv_default_app_locked_elsewhere(_viv_association_extensions[exti])))
 		{
 			if (ext_list_wbuf[0])
 			{
@@ -1781,11 +2043,42 @@ static void _viv_install_association_locked_box(DWORD install_flags)
 
 		if (viv_msgbox(0,caption_wbuf,message_wbuf,MB_YESNO|MB_ICONINFORMATION) == IDYES)
 		{
-			// the one path windows 10/11 leave open.
-			ShellExecuteW(0,NULL,L"ms-settings:defaultapps",NULL,NULL,SW_SHOWNORMAL);
+			// the one path windows 10/11 leave open. the registeredAppUser
+			// parameter lands the page on our own row (win11 21h2+; older
+			// builds ignore it and still open the page).
+			ShellExecuteW(0,NULL,L"ms-settings:defaultapps?registeredAppUser=void%20Image%20Viewer",NULL,NULL,SW_SHOWNORMAL);
 		}
 	}
 }
+// the honest size for the apps list: the payload this install
+// actually laid down, measured - not a constant (the exe and the
+// notices grow on their own schedules). the unit is kilobytes
+// (the arpsize contract); the payload is megabytes, so the high
+// dword of each size is noise by construction.
+static DWORD _viv_install_payload_kb(const wchar_t *install_path)
+{
+	static const utf8_t *payload_files[4] = {(const utf8_t *)"voidImageViewer.exe",(const utf8_t *)"Uninstall.exe",(const utf8_t *)"LICENSE",(const utf8_t *)"THIRD_PARTY_NOTICES.md"};
+	DWORD total;
+	int i;
+
+	total = 0;
+
+	for(i=0;i<4;i++)
+	{
+		wchar_t file_path[STRING_SIZE];
+		WIN32_FILE_ATTRIBUTE_DATA fad;
+
+		string_path_combine_utf8(file_path,install_path,payload_files[i]);
+
+		if ((GetFileAttributesExW(file_path,GetFileExInfoStandard,&fad)) && (!(fad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)))
+		{
+			total += fad.nFileSizeLow;
+		}
+	}
+
+	return (total + 1023) / 1024;
+}
+
 // register voidImageViewer in add/remove programs (programs and
 // features). the setup runs the exe with /install so the exe owns this
 // key: hklm for admin installs (what the setup's .onInit reads back),
@@ -1831,7 +2124,18 @@ static void _viv_install_add_remove_programs(const wchar_t *install_path)
 		RegSetValueExW(hkey,L"UninstallString",0,REG_SZ,(BYTE *)uninstall_wbuf,(string_get_length(uninstall_wbuf) + 1) * sizeof(wchar_t));
 		RegSetValueExW(hkey,L"NoModify",0,REG_DWORD,(BYTE *)&no_modify_repair,sizeof(DWORD));
 		RegSetValueExW(hkey,L"NoRepair",0,REG_DWORD,(BYTE *)&no_modify_repair,sizeof(DWORD));
-		
+
+		// the measured footprint in kilobytes - without it the apps
+		// list answers with whatever its own scan feels like (or
+		// nothing at all).
+		{
+			DWORD estimated_size;
+
+			estimated_size = _viv_install_payload_kb(install_path);
+
+			RegSetValueExW(hkey,L"EstimatedSize",0,REG_DWORD,(BYTE *)&estimated_size,sizeof(DWORD));
+		}
+
 		RegCloseKey(hkey);
 	}
 }

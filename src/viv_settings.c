@@ -185,6 +185,11 @@
 #define _VIV_SETTINGS_C_ACCENT_DOWN	11
 #define _VIV_SETTINGS_C_ON_ACCENT	12
 #define _VIV_SETTINGS_C_NAV_HOVER	13
+// the scrollbar thumb: the chrome muted tone carries real contrast
+// against both faces (the hover token reads as a ghost on the nav
+// tone in light - 8 of 255 apart - where the muted tone clears the
+// 3:1 non-text guidance in both themes).
+#define _VIV_SETTINGS_C_SCROLL_THUMB	14
 
 // one row of the rect state machine.
 typedef struct _viv_settings_ctl_s
@@ -294,6 +299,12 @@ static BYTE _viv_settings_snap_fullscreen_b;
 // each toggle so painting does not hit the registry).
 static int _viv_settings_assoc[_VIV_ASSOCIATION_COUNT];
 
+// the lock face: our registration is in place but the os default still
+// answers to another app (the userchoice hash). the padlock on the
+// checkbox and the caption row under the grid name the state the
+// honest ask cannot change from inside the process.
+static int _viv_settings_assoc_locked[_VIV_ASSOCIATION_COUNT];
+
 
 // keyboard shortcut editor: a private copy of the key list. the real
 // list is replaced only on ok (the options dialog behavior).
@@ -391,6 +402,7 @@ static int _viv_settings_token(int which)
 		case _VIV_SETTINGS_C_ACCENT_DOWN: return VIV_TK_ACCENT_DOWN;
 		case _VIV_SETTINGS_C_ON_ACCENT: return VIV_TK_ON_ACCENT;
 		case _VIV_SETTINGS_C_NAV_HOVER: return VIV_TK_HOVER;
+		case _VIV_SETTINGS_C_SCROLL_THUMB: return VIV_TK_CHROME_MUTED;
 
 		default:
 			return VIV_TK_FACE;
@@ -842,6 +854,15 @@ static void _viv_settings_layout(void)
 
 			y += _viv_settings_dip(_VIV_SETTINGS_CHECK_HIGH);
 
+			y += _viv_settings_dip(2);
+
+			// the lock caption: the one line that explains the padlock marks
+			// the grid above carries (param 2 names its own string in the
+			// paint - the grid description keeps param 0).
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DESC,_VIV_SETTINGS_ID_NONE,2,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_DESC_HIGH));
+
+			y += _viv_settings_dip(_VIV_SETTINGS_DESC_HIGH);
+
 			break;
 		}
 
@@ -1107,13 +1128,34 @@ static void _viv_settings_association_locked_box(int exti)
 	
 	string_copy_utf8_string(ext_wbuf,(const utf8_t *)_viv_association_extensions[exti]);
 	
-	string_printf(message_wbuf,localization_get_string(LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE),ext_wbuf);
+	string_printf(message_wbuf,(const char *)localization_get_string(LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE),ext_wbuf);
 	
 	if (viv_msgbox(_viv_settings_hwnd,caption_wbuf,message_wbuf,MB_YESNO|MB_ICONINFORMATION) == IDYES)
 	{
-		// the one path windows 10/11 leave open.
-		ShellExecuteW(_viv_settings_hwnd,NULL,L"ms-settings:defaultapps",NULL,NULL,SW_SHOWNORMAL);
+		// the one path windows 10/11 leave open. the registeredAppUser
+		// parameter lands the page on our own row (win11 21h2+; older
+		// builds ignore it and still open the page).
+		ShellExecuteW(_viv_settings_hwnd,NULL,L"ms-settings:defaultapps?registeredAppUser=void%20Image%20Viewer",NULL,NULL,SW_SHOWNORMAL);
 	}
+}
+// the consent the foreign-owner guard never had: the single click
+// names the current owner and asks whether the takeover should
+// happen anyway (the bulk paths - the installer, select all, the
+// snapshot restore - keep the silent guard; they never had the
+// click).
+static int _viv_settings_association_foreign_box(int exti,const wchar_t *owner_wbuf)
+{
+	wchar_t caption_wbuf[STRING_SIZE];
+	wchar_t message_wbuf[STRING_SIZE];
+	wchar_t ext_wbuf[STRING_SIZE];
+
+	string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_ASSOCIATION_FOREIGN_CAPTION));
+
+	string_copy_utf8_string(ext_wbuf,(const utf8_t *)_viv_association_extensions[exti]);
+
+	string_printf(message_wbuf,(const char *)localization_get_string(LOCALIZATION_ID_ASSOCIATION_FOREIGN_MESSAGE),ext_wbuf,owner_wbuf,ext_wbuf);
+
+	return viv_msgbox(_viv_settings_hwnd,caption_wbuf,message_wbuf,MB_YESNO|MB_ICONQUESTION) == IDYES;
 }
 static void _viv_settings_invalidate(void)
 {
@@ -1142,15 +1184,40 @@ static int _viv_settings_hit_test(int x,int y)
 {
 	int i;
 	POINT pt;
+	RECT client;
+	int viewport_top;
+	int viewport_bottom;
 
 	pt.x = x;
 	pt.y = y;
+
+	GetClientRect(_viv_settings_hwnd,&client);
+
+	viewport_top = _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH);
+	viewport_bottom = client.bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH);
 
 	for(i=0;i<_viv_settings_ctl_count;i++)
 	{
 		if (!_viv_settings_ctl_enabled(&_viv_settings_ctls[i]))
 		{
 			continue;
+		}
+
+		// the scrolled content clips to the viewport band exactly the
+		// way the paint's intersectcliprect does: a row scrolled under
+		// the title band or the footer band is invisible and must not
+		// answer a click either. the shadowed rows used to eat the
+		// footer buttons whole - apply, cancel and ok were unclickable
+		// until the window grew past the content, and the clicks that
+		// landed toggled invisible checkboxes instead. the navigation
+		// column and the footer buttons are pinned chrome: they answer
+		// anywhere they are drawn.
+		if ((_viv_settings_ctls[i].type != _VIV_SETTINGS_CT_NAV) && (_viv_settings_ctls[i].type != _VIV_SETTINGS_CT_BUTTON))
+		{
+			if ((y < viewport_top) || (y >= viewport_bottom))
+			{
+				continue;
+			}
 		}
 
 		if (PtInRect(&_viv_settings_ctls[i].rect,pt))
@@ -1917,6 +1984,7 @@ static void _viv_settings_snapshot(void)
 	{
 		_viv_settings_snap_assoc[i] = _viv_is_association(_viv_association_extensions[i]) ? 1 : 0;
 		_viv_settings_assoc[i] = _viv_settings_snap_assoc[i];
+		_viv_settings_assoc_locked[i] = _viv_settings_assoc[i] ? (_viv_default_app_locked_elsewhere(_viv_association_extensions[i]) ? 1 : 0) : 0;
 	}
 
 	// the key list copy for the shortcut editor.
@@ -1975,14 +2043,19 @@ static void _viv_settings_restore(void)
 		{
 			if (_viv_settings_snap_assoc[i])
 			{
-				_viv_install_association_by_extension(_viv_association_extensions[i],localization_get_string(_viv_association_description_localization_id_array[i]),_viv_association_icon_locations[i]);
+				_viv_install_association_by_extension(_viv_association_extensions[i],localization_get_string(_viv_association_description_localization_id_array[i]),_viv_association_icon_locations[i],0);
 			}
 			else
 			{
 				_viv_uninstall_association_by_extension(_viv_association_extensions[i]);
 			}
 
-			_viv_settings_assoc[i] = _viv_settings_snap_assoc[i];
+				// the honest re-read: a gate-refused restore (a foreign owner
+				// arrived between the uncheck and the cancel) must not show
+				// checked when the registry disagrees - the checkbox reads the
+				// same source the click path reads.
+				_viv_settings_assoc[i] = _viv_is_association(_viv_association_extensions[i]) ? 1 : 0;
+				_viv_settings_assoc_locked[i] = _viv_settings_assoc[i] ? (_viv_default_app_locked_elsewhere(_viv_association_extensions[i]) ? 1 : 0) : 0;
 		}
 	}
 
@@ -3029,11 +3102,11 @@ static void _viv_settings_activate(int index,int x,int y)
 						{
 							if (!_viv_is_association(_viv_association_extensions[exti]))
 							{
-								_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti]);
-								
+								_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti],0);
+
 								// rc.17: the honest read - the first extension the lock
 								// beats names the box (one ask for the whole batch).
-								if ((locked_exti < 0) && _viv_default_app_locked_elsewhere(_viv_association_extensions[exti]))
+								if ((locked_exti < 0) && _viv_is_association(_viv_association_extensions[exti]) && _viv_default_app_locked_elsewhere(_viv_association_extensions[exti]))
 								{
 									locked_exti = exti;
 								}
@@ -3048,6 +3121,7 @@ static void _viv_settings_activate(int index,int x,int y)
 						}
 
 						_viv_settings_assoc[exti] = _viv_is_association(_viv_association_extensions[exti]) ? 1 : 0;
+						_viv_settings_assoc_locked[exti] = _viv_settings_assoc[exti] ? (_viv_default_app_locked_elsewhere(_viv_association_extensions[exti]) ? 1 : 0) : 0;
 					}
 				}
 
@@ -3067,11 +3141,27 @@ static void _viv_settings_activate(int index,int x,int y)
 				{
 					if (!_viv_is_association(_viv_association_extensions[exti]))
 					{
-						_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti]);
-						
-						// rc.17: the honest read - after the install, does the
-						// shell's default still point elsewhere?
-						if (_viv_default_app_locked_elsewhere(_viv_association_extensions[exti]))
+						int force;
+						wchar_t owner_wbuf[STRING_SIZE];
+
+						force = 0;
+
+						// the explicit click is the consent the bulk paths never had:
+						// when another program owns the extension the installer-side
+						// guard refuses silently (the click used to bounce straight
+						// back unchecked - the field report's "never associates"),
+						// the ask names the owner and the answer carries the takeover.
+						if (_viv_association_foreign_owner(_viv_association_extensions[exti],owner_wbuf,STRING_SIZE))
+						{
+							force = _viv_settings_association_foreign_box(exti,owner_wbuf);
+						}
+
+						_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti],force);
+
+						// rc.17: the honest read - after the install, does the shell's
+						// default still point elsewhere? (only an install that actually
+						// took - a refused foreign takeover has its own answer above.)
+						if (_viv_is_association(_viv_association_extensions[exti]) && _viv_default_app_locked_elsewhere(_viv_association_extensions[exti]))
 						{
 							_viv_settings_association_locked_box(exti);
 						}
@@ -3086,6 +3176,7 @@ static void _viv_settings_activate(int index,int x,int y)
 				}
 
 				_viv_settings_assoc[exti] = _viv_is_association(_viv_association_extensions[exti]) ? 1 : 0;
+				_viv_settings_assoc_locked[exti] = _viv_settings_assoc[exti] ? (_viv_default_app_locked_elsewhere(_viv_association_extensions[exti]) ? 1 : 0) : 0;
 			}
 
 			_viv_settings_invalidate();
@@ -3734,6 +3825,75 @@ static void _viv_settings_draw_check(HDC hdc,const _viv_settings_ctl_t *ctl,int 
 
 	_viv_settings_draw_text_raw(hdc,&text_rect,wbuf,_viv_settings_font,text_color,DT_VCENTER | DT_END_ELLIPSIS);
 
+	// the lock mark: the extension is ours in the registry but the os
+	// default still answers to another app (the userchoice hash). the
+	// padlock parks beside the label; the caption row under the grid
+	// explains it. the shackle is a hand-sampled semicircle (five
+	// integer points - no arc direction ambiguity at this size).
+	if ((ctl->id != _VIV_SETTINGS_ID_SELECT_ALL) && (_viv_settings_assoc_locked[ctl->param]))
+	{
+		HGDIOBJ old_font;
+		SIZE text_size;
+
+		old_font = SelectObject(hdc,_viv_settings_font);
+
+		if (GetTextExtentPoint32W(hdc,wbuf,string_get_length(wbuf),&text_size))
+		{
+			static const signed char shackle_dx[5] = {-4,-3,0,3,4};
+			static const signed char shackle_dy[5] = {0,-3,-4,-3,0};
+			RECT body;
+			HPEN pen;
+			HPEN old_pen;
+			HGDIOBJ old_brush;
+			COLORREF tone;
+			int shackle_cx;
+			int shackle_cy;
+			int shackle_r;
+			int a;
+
+			tone = _viv_settings_color(_VIV_SETTINGS_C_TEXT2);
+
+			body.left = text_rect.left + text_size.cx + _viv_settings_dip(7);
+			body.top = ctl->rect.top + ((ctl->rect.bottom - ctl->rect.top) - _viv_settings_dip(9)) / 2;
+			body.right = body.left + _viv_settings_dip(7);
+			body.bottom = body.top + _viv_settings_dip(6);
+
+			shackle_cx = (body.left + body.right) / 2;
+			shackle_cy = body.top;
+			shackle_r = _viv_settings_dip(3);
+
+			pen = CreatePen(PS_SOLID,_viv_settings_dip(1),tone);
+			old_pen = (HPEN)SelectObject(hdc,pen);
+			old_brush = SelectObject(hdc,GetStockObject(NULL_BRUSH));
+
+			for(a=0;a<5;a++)
+			{
+				int px;
+				int py;
+
+				px = shackle_cx + ((shackle_r * shackle_dx[a]) / 4);
+				py = shackle_cy + ((shackle_r * shackle_dy[a]) / 4);
+
+				if (!a)
+				{
+					MoveToEx(hdc,px,py,NULL);
+				}
+				else
+				{
+					LineTo(hdc,px,py);
+				}
+			}
+
+			SelectObject(hdc,old_brush);
+			SelectObject(hdc,old_pen);
+			DeleteObject(pen);
+
+			_viv_settings_fill_round(hdc,&body,_viv_settings_dip(1),tone,tone);
+		}
+
+		SelectObject(hdc,old_font);
+	}
+
 }
 
 static void _viv_settings_draw_color(HDC hdc,const _viv_settings_ctl_t *ctl,COLORREF colorref,int hot,int focus)
@@ -3863,11 +4023,12 @@ static void _viv_settings_draw_button(HDC hdc,const _viv_settings_ctl_t *ctl,int
 }
 
 // the scrollbar geometry: the thumb rides the right pad strip - the
-// ten dip slice inside the content pad never collides with the value
-// boxes.
+// twelve dip slice stays ten dips clear of the value boxes and gives
+// the hand something to hit (the old ten dip strip met the window's
+// resize band eight pixels in - a two pixel grab at 96 dpi).
 static void _viv_settings_scrollbar_track(const RECT *client,RECT *track)
 {
-	track->left = client->right - _viv_settings_dip(10);
+	track->left = client->right - _viv_settings_dip(14);
 	track->right = client->right - _viv_settings_dip(2);
 	track->top = _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH) + _viv_settings_dip(2);
 	track->bottom = client->bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH) - _viv_settings_dip(2);
@@ -3969,7 +4130,7 @@ static void _viv_settings_draw_scrollbar(HDC mem,const RECT *client)
 
 	if (_viv_settings_scrollbar_thumb(&track,&thumb))
 	{
-		_viv_settings_fill_round(mem,&thumb,_viv_settings_dip(3),_viv_settings_color(_VIV_SETTINGS_C_HOVER),_viv_settings_color(_VIV_SETTINGS_C_LINE));
+		_viv_settings_fill_round(mem,&thumb,_viv_settings_dip(3),_viv_settings_color(_VIV_SETTINGS_C_SCROLL_THUMB),_viv_settings_color(_VIV_SETTINGS_C_LINE));
 	}
 }
 
@@ -4338,6 +4499,13 @@ static void _viv_settings_paint(HWND hwnd)
 
 			case _VIV_SETTINGS_CT_DESC:
 
+				if (ctl->param == 2)
+				{
+					// the lock caption under the grid (param 2 names its own
+					// string; the grid description keeps param 0).
+					_viv_settings_draw_label(mem,&ctl->rect,LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED,_viv_settings_font_small ? _viv_settings_font_small : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT2));
+				}
+				else
 				if (_viv_settings_page == _VIV_SETTINGS_PAGE_GENERAL)
 				{
 					// the associations description.
@@ -4749,6 +4917,22 @@ static int _viv_settings_edge_hit(HWND hwnd,POINT *pt)
 		band = _viv_settings_dip(6);
 	}
 
+	// the scrollbar strip owns its slice of the right edge: the resize
+	// band would otherwise shadow the thumb's grab (the painted strip
+	// meets the sizing frame - those pixels must answer the scroll,
+	// not the size).
+	if (_viv_settings_scroll_max > 0)
+	{
+		RECT track;
+
+		_viv_settings_scrollbar_track(&client,&track);
+
+		if ((pt->x >= track.left) && (pt->x < track.right) && (pt->y >= track.top) && (pt->y < track.bottom))
+		{
+			return 0;
+		}
+	}
+
 	if (pt->y >= (client.bottom - band))
 	{
 		if (pt->x < band)
@@ -5141,9 +5325,9 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 				return 0;
 			}
 
-			// the scrollbar strip answers the press next: the thumb jumps
-			// under the cursor and rides it (the capture holds until the
-			// release).
+			// the scrollbar strip answers the press next: a press on the
+			// thumb rides from where it is, a press on the track pages
+			// toward the click (the capture holds until the release).
 			if (_viv_settings_scroll_max > 0)
 			{
 				RECT client;
@@ -5162,14 +5346,69 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 					if (_viv_settings_scrollbar_thumb(&track,&thumb))
 					{
-						_viv_settings_scroll_grab = (thumb.bottom - thumb.top) / 2;
+						if ((y >= thumb.top) && (y < thumb.bottom))
+						{
+							// a press on the thumb rides from where it is - the grab
+							// keeps the offset instead of teleporting the thumb under
+							// the cursor.
+							_viv_settings_scroll_grab = y - thumb.top;
+						}
+						else
+						{
+							// a press on the track pages toward the click (the windows
+							// convention), then rides the thumb the page brought under
+							// the cursor.
+							int page;
+
+							page = (client.bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH)) - _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH);
+
+							if (y < thumb.top)
+							{
+								_viv_settings_scroll_y -= page;
+							}
+							else
+							{
+								_viv_settings_scroll_y += page;
+							}
+
+							if (_viv_settings_scroll_y < 0)
+							{
+								_viv_settings_scroll_y = 0;
+							}
+
+							if (_viv_settings_scroll_y > _viv_settings_scroll_max)
+							{
+								_viv_settings_scroll_y = _viv_settings_scroll_max;
+							}
+
+							_viv_settings_layout();
+
+							if (_viv_settings_scrollbar_thumb(&track,&thumb))
+							{
+								_viv_settings_scroll_grab = y - thumb.top;
+
+								if (_viv_settings_scroll_grab < 0)
+								{
+									_viv_settings_scroll_grab = 0;
+								}
+
+								if (_viv_settings_scroll_grab > (thumb.bottom - thumb.top))
+								{
+									_viv_settings_scroll_grab = thumb.bottom - thumb.top;
+								}
+							}
+							else
+							{
+								_viv_settings_scroll_grab = 0;
+							}
+
+							_viv_settings_invalidate();
+						}
 					}
 					else
 					{
 						_viv_settings_scroll_grab = 0;
 					}
-
-					_viv_settings_scrollbar_drag(hwnd,y);
 
 					return 0;
 				}

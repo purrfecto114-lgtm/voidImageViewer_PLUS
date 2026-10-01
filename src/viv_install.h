@@ -33,7 +33,14 @@ int _viv_process_install_command_line_options(wchar_t *cl);
 // extension actually point at us (win10/11 keep it behind the
 // UserChoice hash; see viv_install.c).
 int _viv_default_app_locked_elsewhere(const char *association);
-void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location);
+void _viv_install_association_by_extension(const char *association,const char *description,const char *icon_location,int force);
+
+// is the extension currently owned by a foreign viewer (the hkcr
+// default names a class that is neither the windows canonical one
+// nor ours)? the settings consent box reads the owner for its
+// message; the answer rides the force decision.
+int _viv_association_foreign_owner(const char *association,wchar_t *owner_wbuf,int owner_size);
+
 void _viv_uninstall_association_by_extension(const char *association);
 int _viv_is_association(const char *association);
 int _viv_is_start_menu_shortcuts(void);

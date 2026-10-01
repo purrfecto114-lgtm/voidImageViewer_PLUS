@@ -378,9 +378,14 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Ctrl+mouse wheel action:", // LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC
 	"Apply", // LOCALIZATION_ID_SETTINGS_APPLY
 	"Default App", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION
-	"Windows keeps the default app choice. voidImageViewer was added to the Open With list for .%s, but the default stays with the app you picked.\n\nOpen Settings to choose voidImageViewer as the default?", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE
+	"Windows keeps the default app choice. voidImageViewer was added to the Open With list for .%S, but the default stays with the app you picked.\n\nOpen Settings to choose voidImageViewer as the default?", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE
 	"Hardware acceleration", // LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION
 	"Paint with the Direct3D renderer, falling back to GDI when it refuses", // LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC
 	"Default App", // LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_CAPTION
-	"Windows keeps the default app choices. voidImageViewer was added to the Open With list for %s, but the defaults stay with the apps you picked.\n\nOpen Settings to choose voidImageViewer as the default?", // LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE
+	"Windows keeps the default app choices. voidImageViewer was added to the Open With list for %S, but the defaults stay with the apps you picked.\n\nOpen Settings to choose voidImageViewer as the default?", // LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE
+	"File Association", // LOCALIZATION_ID_ASSOCIATION_FOREIGN_CAPTION
+	".%S currently opens with another program (registered as %S).\n\nTake over the .%S association anyway? The change is reversible from Windows Settings.", // LOCALIZATION_ID_ASSOCIATION_FOREIGN_MESSAGE
+	"A lock mark means Windows still opens that format with another app. Change the default in Windows Settings (Default apps) after applying.", // LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED
+	"Keep Settings", // LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_CAPTION
+	"Do you want to keep your voidImageViewer settings (window layout, preferences and recent files) for a future installation?\n\nChoose Yes to keep them, or No to delete them now.", // LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_MESSAGE
 };

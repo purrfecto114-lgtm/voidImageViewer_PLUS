@@ -714,11 +714,33 @@ int _viv_zoom_percent(void)
 	{
 		double zoom_x;
 		double zoom_y;
-		
+		int percent;
+		int snapped;
+
 		zoom_x = (double)rw / (double)_viv_slot_current.image_wide;
 		zoom_y = (double)rh / (double)_viv_slot_current.image_high;
-		
-		return (int)((((zoom_x + zoom_y) / 2.0) * 100.0) + 0.5);
+
+		percent = (int)((((zoom_x + zoom_y) / 2.0) * 100.0) + 0.5);
+
+		// the clean number round: a rapid click chain stepped by
+		// targets but landed on scale pairs the ladder cannot hit
+		// exactly (the measured chains read 121, 131, 161, 181, 219).
+		// the shown
+		// number snaps to the nearest multiple of ten when it is
+		// within two points - the render position itself never
+		// moves, the ladder keeps its own geometry, and the snap
+		// never fires below twenty percent where the dense ladder
+		// makes every integer honest. every consumer (the status
+		// pane, the pill, the editor prefill, the stepping math)
+		// reads this one return.
+		snapped = ((percent + 5) / 10) * 10;
+
+		if ((snapped >= 20) && (snapped - percent <= 2) && (percent - snapped <= 2))
+		{
+			percent = snapped;
+		}
+
+		return percent;
 	}
 }
 // the ladder position whose displayed percent is closest to percent.

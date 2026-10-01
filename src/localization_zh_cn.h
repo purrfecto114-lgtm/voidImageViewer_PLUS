@@ -352,9 +352,14 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"Ctrl+滚轮操作:", // LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC
 	"应用", // LOCALIZATION_ID_SETTINGS_APPLY
 	"默认应用", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION
-	"Windows 保护默认应用的设置。voidImageViewer 已加入 .%s 的“打开方式”列表，默认应用仍保持你选择的应用。\n\n现在打开系统设置，将 voidImageViewer 设为默认应用吗？", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE
+	"Windows 保护默认应用的设置。voidImageViewer 已加入 .%S 的“打开方式”列表，默认应用仍保持你选择的应用。\n\n现在打开系统设置，将 voidImageViewer 设为默认应用吗？", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE
 	"硬件加速", // LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION
 	"使用 Direct3D 渲染器绘制，无法显示时回退到 GDI", // LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC
 	"默认应用", // LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_CAPTION
-	"Windows 保护默认应用的设置。voidImageViewer 已加入 %s 的“打开方式”列表，默认应用仍保持你选择的应用。\n\n现在打开系统设置，将 voidImageViewer 设为默认应用吗？", // LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE
+	"Windows 保护默认应用的设置。voidImageViewer 已加入 %S 的“打开方式”列表，默认应用仍保持你选择的应用。\n\n现在打开系统设置，将 voidImageViewer 设为默认应用吗？", // LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE
+	"文件关联", // LOCALIZATION_ID_ASSOCIATION_FOREIGN_CAPTION
+	".%S 目前由其他程序打开（注册名为 %S）。\n\n仍要接管 .%S 的关联吗？之后可随时在 Windows 设置中改回。", // LOCALIZATION_ID_ASSOCIATION_FOREIGN_MESSAGE
+	"带锁标记的格式仍由其他应用打开。应用后请在 Windows 设置（默认应用）中更改默认应用。", // LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED
+	"保留设置", // LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_CAPTION
+	"是否保留 voidImageViewer 的设置（窗口布局、偏好与最近文件），以便将来重新安装时继续使用？\n\n选择“是”保留设置，选择“否”立即删除。", // LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_MESSAGE
 };

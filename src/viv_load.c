@@ -790,7 +790,12 @@ BOOL _viv_paste_clipboard_image(void)
 							{
 								const char *src;
 								
-								src = (const char *)bih + bih->biSize + mask_size + color_count * 4;
+								// the same sum the safe chain already proved: the
+								// header walk rides total_needed minus the pixel
+								// block it ends at (in-gate bounded, behavior
+								// identical, and no raw arithmetic left beside
+								// its checked twin).
+								src = (const char *)bih + (total_needed - pixels_size);
 								
 								// size_t length: stride*height crosses int_max inside the 64-bit
 								// pixel budget (400 mp x 4 bytes per pixel).

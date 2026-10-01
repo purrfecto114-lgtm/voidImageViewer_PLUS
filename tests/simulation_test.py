@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.16-rc.12.111",
-          (major, minor, rev, build) == (1, 1, 16, 111), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.16-rc.12",
-          vstr is not None and vstr.group(1) == "1.1.16-rc.12", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.16.112",
+          (major, minor, rev, build) == (1, 1, 16, 112), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.16",
+          vstr is not None and vstr.group(1) == "1.1.16", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -706,17 +706,17 @@ def t_sim_version_117():
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
     experience = read("experience.md").decode("utf-8", errors="replace")
-    check("the readme previous-stable line says 1.1.14",
-          "**1.1.14 — the previous stable**" in readme)
-    check("the promotion keeps the arc's one-liners and retires the candidate slot (rc.7 still rides)",
+    check("the readme previous-stable line says 1.1.15",
+          "**1.1.15 — the previous stable**" in readme)
+    check("the 1.1.16 diet retired the readme ladder (the ledger keeps the arc)",
           "**1.1.14-rc.10** —" in experience and
           "**1.1.13** —" in experience and
           "**1.1.14-rc.9** —" in experience and
           "**1.1.14-rc.8** —" in experience and
           "**1.1.14-rc.3** —" in experience and
-          "**1.1.15-rc.14 —" in readme and
-          "**1.1.15-rc.7 —" in readme and
-          "**1.1.15-rc.6 —" in readme and
+          "**1.1.15-rc.14 —" not in readme and
+          "**1.1.15-rc.7 —" not in readme and
+          "**1.1.15-rc.6 —" not in readme and
           "### 1.1.15-rc.7 —" in experience and
           "### 1.1.15-rc.6 —" in experience and
           "### 1.1.15-rc.5 —" in experience and
@@ -2439,24 +2439,28 @@ def t_sim_settings_round126():
 
     # rc.7: the general page's bottom rides the association count now -
     # the grid grows a row every four checkboxes (eleven rode three rows,
-    # the 664 dip measure; nineteen rides five, 664 - 3*26 + 5*26 = 716).
+    # the 664 dip measure; nineteen rides five, 664 - 3*26 + 5*26 = 716;
+    # round-148: the lock caption row adds its 2-dip gap and the 18-dip
+    # description height - 716 + 20 = 736).
     st = read("src/viv_state.h").decode("utf-8", errors="replace")
     ASSOC = int(re.search(r"#define _VIV_ASSOCIATION_COUNT\s+(\d+)", st).group(1))
     CHECK = int(re.search(r"#define _VIV_SETTINGS_CHECK_HIGH\s+(\d+)", ss).group(1))
-    GEN = 664 - 3 * CHECK + ((ASSOC + 3) // 4) * CHECK
-    check("the derived general page bottom is the nineteen-box page (716 dip)",
-          GEN == 716, str(GEN))
+    DESC = int(re.search(r"#define _VIV_SETTINGS_DESC_HIGH\s+(\d+)", ss).group(1))
+    GEN = 664 - 3 * CHECK + ((ASSOC + 3) // 4) * CHECK + DESC + 2
+    check("the derived general page bottom is the nineteen-box page plus the lock caption (736 dip)",
+          GEN == 736, str(GEN))
     check("the clamped 680-dip work area scrolls the general page (the 300 percent report)",
           scroll_max(GEN, 680) >= 60, str(scroll_max(GEN, 680)))
     # rc.4 (the field ask): the client rides the 90 percent design -
-    # the general page scrolls 74 dip under the pinned footer by
-    # design, the view page (526 + the hwaccel row's 52) and the
-    # controls page (404, the corrected measure) still fit whole.
+    # the general page scrolls under the pinned footer by design (74 dip
+    # at rc.4, 126 at rc.7's nineteen boxes, 146 with the lock caption),
+    # the view page (526 + the hwaccel row's 52) and the controls page
+    # (404, the corrected measure) still fit whole.
     CLIENT_HIGH = int(re.search(r"#define _VIV_SETTINGS_CLIENT_HIGH\s+(\d+)", ss).group(1))
     check("the settings client is the 90 percent design (670 dip)",
           CLIENT_HIGH == 670, str(CLIENT_HIGH))
-    check("the general page scrolls 126 dip under the pinned footer",
-          scroll_max(GEN, CLIENT_HIGH) == 126, str(scroll_max(GEN, CLIENT_HIGH)))
+    check("the general page scrolls 146 dip under the pinned footer",
+          scroll_max(GEN, CLIENT_HIGH) == 146, str(scroll_max(GEN, CLIENT_HIGH)))
     check("the view page carries the hwaccel row and still fits whole",
           scroll_max(578, CLIENT_HIGH) == 0 and scroll_max(404, CLIENT_HIGH) == 0)
     check("a half-height work area scrolls every page but stays clamped",

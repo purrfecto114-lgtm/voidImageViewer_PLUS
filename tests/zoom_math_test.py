@@ -442,7 +442,14 @@ def percent_of(fit_w, fit_h, image_w, image_h, pos):
     rw, rh = render(fit_w, fit_h, pos, image_w, image_h)
     if not image_w or not image_h or not rw or not rh:
         return 100
-    return int((((rw / image_w) + (rh / image_h)) / 2.0) * 100.0 + 0.5)
+    percent = int((((rw / image_w) + (rh / image_h)) / 2.0) * 100.0 + 0.5)
+    # round-148: the clean number snap, mirrored from _viv_zoom_percent -
+    # the shown number rounds to the nearest multiple of ten when within
+    # two points, never below twenty percent (the dense ladder zone).
+    snapped = ((percent + 5) // 10) * 10
+    if snapped >= 20 and snapped - percent <= 2 and percent - snapped <= 2:
+        percent = snapped
+    return percent
 
 
 def snap_target(percent, out):
@@ -518,12 +525,15 @@ def button_click(state, out, pm, fit_w, fit_h, image_w, image_h):
         if nxt < 1:
             nxt = 1
         new_pos = pos_for_percent(nxt, pm, fit_w, fit_h, image_w, image_h, strict=1)
-    # sparse ladder zones (past ~1400% one position is worth ~14 points):
-    # a 10 point target can sit between two positions and even the strict
-    # jump lands on the old one. the click still owes the user a move:
-    # step one position in the click direction (rc.13).
-    if (force > 0 and new_pos <= old_pos) or (force < 0 and new_pos >= old_pos):
-        new_pos = old_pos + (1 if force > 0 else -1)
+        # sparse ladder zones (past ~1400% one position is worth ~14
+        # points): a 10 point target can sit between two positions and
+        # even the strict jump lands on the old one. the click still
+        # owes the user a move: step one position in the click
+        # direction (rc.13). nested inside the force block - the C's
+        # own shape (round-148: the model's unconditional fallback let
+        # a 1:1-exit out-click dive below the fit the C never takes).
+        if (force > 0 and new_pos <= old_pos) or (force < 0 and new_pos >= old_pos):
+            new_pos = old_pos + (1 if force > 0 else -1)
     # the live clamp: [floor, pm] (the old model clamped to 0 and hid the
     # whole below-fit range).
     new_pos = clamp_pos(new_pos)
@@ -928,6 +938,95 @@ def t_wall_clock_fade_round127():
           "_zoomui_fade_tick" in src and "_ZOOMUI_FADE_MS 225" in src)
 
 
+def t_clean_number_round148():
+    """round-148: the displayed percent snaps to multiples of ten within
+    two points (never below twenty) - the rapid-click chains measured on
+    the model landed on 121/131/161/181/219, scale pairs the ladder
+    cannot hit exactly. the snap is display-only: the render position
+    never moves, and 1:1 stays the exact 100."""
+    # unit edges of the window: in-tolerance snaps, out-tolerance keeps
+    # the honest integer, the sub-20 zone never snaps.
+    cases = [
+        (18, 20), (19, 20), (20, 20), (22, 20), (23, 23), (24, 24),
+        (25, 25), (27, 27), (28, 30), (30, 30), (33, 33), (37, 37),
+        (38, 40), (41, 40), (42, 40), (48, 50), (52, 50), (55, 55),
+        (98, 100), (99, 100), (101, 100), (102, 100), (103, 103),
+        (107, 107), (141, 140), (143, 143), (146, 146),
+    ]
+    for raw, want in cases:
+        snapped = ((raw + 5) // 10) * 10
+        got = raw
+        if snapped >= 20 and snapped - raw <= 2 and raw - snapped <= 2:
+            got = snapped
+        check(f"clean number {raw} -> {want}", got == want, f"got {got}")
+
+    # the field contract: across the five geometries, every click chain
+    # in the dense zone (the field range 100-530%) shows a multiple of
+    # ten or the honest integer outside the two point window - never the
+    # 103/117/141 class the report carried. (the sparse zone past ~530
+    # keeps honest integers by design; the wheel collapses +-2 into the
+    # multiple - both scoped in the changelog.)
+    geometries = [
+        ("photo 4000x3000 in 800x600", 4000, 3000, 800, 600),
+        ("exact fit 800x600", 800, 600, 800, 600),
+        ("small icon 100x100 in 800x600", 100, 100, 800, 600),
+        ("panorama 12000x300 in 800x600", 12000, 300, 800, 600),
+        ("tall 600x4000 in 800x600", 600, 4000, 800, 600),
+    ]
+    for name, iw, ih, cw, ch in geometries:
+        fw, fh = fit_size(iw, ih, cw, ch)
+        pm = pos_max(fw, fh, iw, ih)
+
+        # in-chains from the floor through the dense zone: clean numbers
+        state = (0, False)
+        dirty = 0
+        shown = []
+        for _ in range(60):
+            state = button_click(state, False, pm, fw, fh, iw, ih)
+            pos, is_1to1 = state
+            if is_1to1:
+                cur = 100
+            else:
+                cur = percent_of(fw, fh, iw, ih, pos)
+            shown.append(cur)
+            if cur <= 530 and cur % 10 != 0:
+                snapped = ((cur + 5) // 10) * 10
+                if snapped - cur <= 2 and cur - snapped <= 2:
+                    dirty += 1
+            if is_1to1 or cur > 530:
+                break
+        check(f"{name}: dense-zone in-chain shows clean numbers",
+              dirty == 0, f"{dirty} dirty of {len(shown)}: {shown[:12]}")
+
+        # out-chains from the cap through the dense zone: clean numbers
+        state = (pm, False)
+        dirty = 0
+        shown = []
+        for _ in range(60):
+            state = button_click(state, True, pm, fw, fh, iw, ih)
+            pos, _ = state
+            cur = percent_of(fw, fh, iw, ih, pos)
+            shown.append(cur)
+            if 20 <= cur <= 530 and cur % 10 != 0:
+                snapped = ((cur + 5) // 10) * 10
+                if snapped - cur <= 2 and cur - snapped <= 2:
+                    dirty += 1
+        check(f"{name}: dense-zone out-chain shows clean numbers",
+              dirty == 0, f"{dirty} dirty of {len(shown)}: {shown[:12]}")
+
+        # 1:1 entry stays the exact 100 under the snap (the exits were
+        # walked by t_field_report_first_click - here only the display).
+        p100 = percent_of(fw, fh, iw, ih, pos_for_percent(100, pm, fw, fh, iw, ih, strict=0))
+        check(f"{name}: the 100 percent stays exact under the snap",
+              p100 in (100,), f"got {p100}")
+
+    # the source owns the snap the model mirrors
+    src = open("src/viv_render.c", "rb").read().decode("utf-8", errors="replace")
+    check("the source snaps the percent to tens",
+          "snapped = ((percent + 5) / 10) * 10;" in src and
+          "if ((snapped >= 20) && (snapped - percent <= 2) && (percent - snapped <= 2))" in src)
+
+
 if __name__ == "__main__":
     t_ladder_step_extracted()
     t_aspect_invariant()
@@ -946,6 +1045,7 @@ if __name__ == "__main__":
     t_field_report_first_click()
     t_pill_scale_round127()
     t_wall_clock_fade_round127()
+    t_clean_number_round148()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
