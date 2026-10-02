@@ -98,6 +98,29 @@ static int _viv_gl_export_wide;
 static int _viv_gl_export_high;
 static int _viv_gl_export_filled;
 
+// the capability probe: the menu's opengl radio greys where the module
+// and its core exports cannot answer (the dll-presence level - a driver
+// that fails at context creation still answers here and the runtime
+// fallback covers it, the same contract the renderer itself rides).
+// cached for the process lifetime.
+static int _viv_gl_procs(void);
+
+static int _viv_gl_probe_answered;
+static int _viv_gl_probe_ok;
+
+int _viv_hwgl_available(void)
+{
+	if (_viv_gl_probe_answered)
+	{
+		return _viv_gl_probe_ok;
+	}
+
+	_viv_gl_probe_answered = 1;
+	_viv_gl_probe_ok = _viv_gl_procs();
+
+	return _viv_gl_probe_ok;
+}
+
 static int _viv_gl_procs(void)
 {
 	if (!_viv_gl_module)

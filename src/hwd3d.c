@@ -67,7 +67,87 @@ static int _viv_d3d_export_filled;
 
 static void _viv_d3d_export_readback(void);
 
+// the capability probe: the settings switch, the menu radio and the
+// installer's checkbox all ask the same question - can this machine
+// bring direct3d up at all? the probe walks the same first gates the
+// renderer init walks (the module, the export, the object, the caps)
+// without creating the device and without arming the sticky failure,
+// and a passed one leaves the loaded module and the d3d object for the
+// init to reuse. the answer is cached for the process lifetime - a
+// machine does not change its mind about d3d9 while the viewer runs,
+// and the grey faces do not refresh behind a live menu anyway.
+static int _viv_d3d_probe_answered;
+static int _viv_d3d_probe_ok;
+
+int _viv_hwd3d_available(void)
+{
+	D3DCAPS9 caps;
+	D3DDEVTYPE device_type;
+	HRESULT hresult;
+
+	if (_viv_d3d_probe_answered)
+	{
+		return _viv_d3d_probe_ok;
+	}
+
+	_viv_d3d_probe_answered = 1;
+	_viv_d3d_probe_ok = 0;
+
+	if (!_viv_d3d_module)
+	{
+		_viv_d3d_module = LoadLibraryA("d3d9.dll");
+		if (!_viv_d3d_module)
+		{
+			debug_printf("direct3d probe: d3d9.dll is not on this system\r\n");
+
+			return 0;
+		}
+	}
+
+	if (!_viv_d3d_create9)
+	{
+		_viv_d3d_create9 = (_viv_d3d_create9_t)GetProcAddress(_viv_d3d_module,"Direct3DCreate9");
+		if (!_viv_d3d_create9)
+		{
+			return 0;
+		}
+	}
+
+	if (!_viv_d3d)
+	{
+		_viv_d3d = _viv_d3d_create9(D3D_SDK_VERSION);
+		if (!_viv_d3d)
+		{
+			return 0;
+		}
+	}
+
+	device_type = D3DDEVTYPE_HAL;
+
+	ZeroMemory(&caps,sizeof(caps));
+	hresult = _viv_d3d->lpVtbl->GetDeviceCaps(_viv_d3d,D3DADAPTER_DEFAULT,device_type,&caps);
+
+	if (FAILED(hresult))
+	{
+		device_type = D3DDEVTYPE_REF;
+
+		hresult = _viv_d3d->lpVtbl->GetDeviceCaps(_viv_d3d,D3DADAPTER_DEFAULT,device_type,&caps);
+
+		if (FAILED(hresult))
+		{
+			debug_printf("direct3d probe: the caps did not answer\r\n");
+
+			return 0;
+		}
+	}
+
+	_viv_d3d_probe_ok = 1;
+
+	return 1;
+}
+
 static int _viv_d3d_init(HWND hwnd)
+
 {
 	D3DCAPS9 caps;
 	D3DDEVTYPE device_type;

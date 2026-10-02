@@ -126,6 +126,14 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 		case VIV_ID_VIEW_RENDERER_GDI:
 		case VIV_ID_VIEW_RENDERER_OPENGL:
 		case VIV_ID_VIEW_RENDERER_DIRECT3D:
+			// the unavailable back end never answers its own command (the
+			// menu greys it; the belt for the keyboard and any other caller
+			// the grey cannot reach).
+			if (((command_id == VIV_ID_VIEW_RENDERER_OPENGL) && (!_viv_hwgl_available())) || ((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D) && (!_viv_hwd3d_available())))
+			{
+				break;
+			}
+
 			// the renderer is a session toggle: the modules release
 			// their contexts and the next paint answers the new back
 			// end (or falls back to gdi when the new one refuses).

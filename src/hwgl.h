@@ -27,6 +27,10 @@
 #ifndef VIV_HWGL_H
 #define VIV_HWGL_H
 
+// the capability probe: the menu's opengl radio greys where the module
+// and its core exports cannot answer (the dll-presence level).
+int _viv_hwgl_available(void);
+
 // renders the frame as one textured quad at the view rectangle. returns 1
 // when the hardware presented the frame; 0 means the caller paints the
 // gdi path instead (the sticky failure keeps the answer stable).

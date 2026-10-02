@@ -35,6 +35,12 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 // releases the device, the d3d object and the texture.
 void _viv_hwd3d_shutdown(void);
 
+// the capability probe: can this machine bring direct3d up at all?
+// walks the init's first gates (the module, the export, the object,
+// the caps) without the device and without the sticky failure; the
+// settings switch, the menu radio and the installer box gate on it.
+int _viv_hwd3d_available(void);
+
 // the export harness hooks (viv_export.c): arm a top-down bgra buffer
 // before the paint, the next render fills it instead of presenting. the
 // query tells a refused renderer (the gdi fallback painted instead)

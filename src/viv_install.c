@@ -395,13 +395,17 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		config_save_settings(config_appdata);
 	}
 	
-	if (hardware_acceleration)
+	if ((hardware_acceleration) && (_viv_hwd3d_available()))
 	{
 		// the installer's hardware acceleration box: the switch only
 		// ever names direct3d (the exe default stays gdi; an unchecked
 		// box sends no switch at all, so an upgrade keeps the renderer
 		// the ini already carries). saved before the appdata handling
-		// below so its saves include the new renderer.
+		// below so its saves include the new renderer. the probe gates
+		// the save: a machine that cannot bring direct3d up keeps the
+		// gdi default instead of promising a backend the first paint
+		// would have to fall back from (the field round's detection
+		// question).
 		config_renderer = CONFIG_RENDERER_DIRECT3D;
 		
 		config_save_settings(config_appdata);
@@ -559,6 +563,21 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 
 		// rc.4: the app registration goes with it.
 		_viv_uninstall_app_registration();
+
+		// a legacy autolaunch value an old install may have written (the
+		// settings-open pass retires it too - the uninstall owes the same
+		// sweep: it is install footprint, not user settings, so it goes
+		// whatever the settings answer says).
+		{
+			HKEY run_hkey;
+
+			if (RegOpenKeyExW(HKEY_CURRENT_USER,L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",0,KEY_SET_VALUE,&run_hkey) == ERROR_SUCCESS)
+			{
+				RegDeleteValueW(run_hkey,L"voidImageViewerPLUS");
+
+				RegCloseKey(run_hkey);
+			}
+		}
 
 		// the settings ask (the residue answer): the old sweep deleted
 		// the user's settings silently and unconditionally. keep is the
@@ -725,50 +744,6 @@ static int _viv_is_foreign_association(const char *association,const wchar_t *cl
 	return 0;
 }
 
-// the same three questions with the owner's name attached: the
-// settings consent box reads who holds the extension before it
-// asks whether the takeover should happen anyway.
-int _viv_association_foreign_owner(const char *association,wchar_t *owner_wbuf,int owner_size)
-{
-	wchar_t class_name[STRING_SIZE];
-	wchar_t key[STRING_SIZE];
-	HKEY hkey;
-	int ret;
-
-	string_copy_utf8_string(class_name,(const utf8_t *)"voidImageViewer");
-	string_cat_utf8(class_name,(const utf8_t *)".");
-	string_cat_utf8(class_name,(const utf8_t *)association);
-
-	owner_wbuf[0] = 0;
-
-	ret = 0;
-
-	string_copy_utf8_string(key,(const utf8_t *)".");
-	string_cat_utf8(key,(const utf8_t *)association);
-
-	if (RegOpenKeyExW(HKEY_CLASSES_ROOT,key,0,KEY_QUERY_VALUE,&hkey) == ERROR_SUCCESS)
-	{
-		wchar_t wbuf[STRING_SIZE];
-
-		if ((_viv_get_registry_string(hkey,0,wbuf,STRING_SIZE)) && (*wbuf))
-		{
-			const char *canonical_class;
-
-			canonical_class = _viv_canonical_class_for(association);
-
-			if ((canonical_class) && (string_icompare_lowercase_ascii(wbuf,canonical_class) != 0) && (string_compare(wbuf,class_name) != 0))
-			{
-				string_copy_with_bufsize(owner_wbuf,owner_size,wbuf);
-
-				ret = 1;
-			}
-		}
-
-		RegCloseKey(hkey);
-	}
-
-	return ret;
-}
 
 // rc.17: the honest read the checkbox never had. the per-user class
 // registration answers "did we write our keys" (always true right
@@ -1001,10 +976,13 @@ void _viv_install_association_by_extension(const char *association,const char *d
 	// as foreign even then) and before any write of ours - the
 	// class keys, the icons, the backup and the takeover are all
 	// skipped for a foreign-owned extension.
-	// force is the explicit user consent (the settings checkbox's
-	// own ask names the owner and carries the answer); the bulk
-	// paths - the installer, select all, the snapshot restore -
-	// always pass zero and keep the silent guard.
+	// force is the explicit user consent: every explicit selection -
+	// the installer's wizard checkboxes, the settings single click, the
+	// settings select all - passes one (the user's own directive: a
+	// selected format changes hands, the previous owner loses it). only
+	// the snapshot restore keeps the silent guard - reverting a cancelled
+	// dialog must not steal an extension a foreign owner took in the
+	// meantime.
 	if ((!force) && (_viv_is_foreign_association(association,class_name)))
 	{
 		debug_printf("association .%s left alone (a foreign viewer owns it)\n",association);
@@ -1259,12 +1237,27 @@ static void _viv_uninstall_app_registration(void)
 	
 	if (RegOpenKeyExW(HKEY_CURRENT_USER,L"Software\\RegisteredApplications",0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
 	{
+		DWORD value_count;
+		DWORD subkey_count;
+
 		// the rc.7 name first, then the spelling the rc.4-rc.6 writes
 		// left on field machines (the install's repair sweep deletes
 		// it too; this one covers a plain uninstall).
 		RegDeleteValueW(hkey,L"void Image Viewer");
 		RegDeleteValueA(hkey,"voidImageViewer");
 		
+		// a key holding nothing else is the residue the field report
+		// caught (the values were swept, the seat stayed): the bare-key
+		// rule takes it - another app's registration keeps its own
+		// values and the key with them.
+		if ((RegQueryInfoKeyW(hkey,0,0,0,&subkey_count,0,0,&value_count,0,0,0,0) == ERROR_SUCCESS) && (!value_count) && (!subkey_count))
+		{
+			if (!RegDeleteKeyW(HKEY_CURRENT_USER,L"Software\\RegisteredApplications"))
+			{
+				debug_printf("RegDeleteKeyW registered applications failed %u\n",GetLastError());
+			}
+		}
+
 		RegCloseKey(hkey);
 	}
 	
@@ -1362,7 +1355,7 @@ void _viv_uninstall_association_by_extension(const char *association)
 	// (the return was dropped on the floor before).
 	if (!os_delete_key_tree(HKEY_CURRENT_USER,key))
 	{
-		debug_printf("os_delete_key_tree failed %u\\n",GetLastError());
+		debug_printf("os_delete_key_tree failed %u\n",GetLastError());
 	}
 
 	// rc.17: sweep the two OpenWithProgids homes the install wrote.
@@ -1478,6 +1471,92 @@ void _viv_uninstall_association_by_extension(const char *association)
 		{
 			RegCloseKey(hkey);
 		}
+	}
+
+	// the extension's own key: the restore empties it back toward its
+	// pre-install shape, and the shells the sweep can leave behind are
+	// the residue the field report caught in regedit. two shapes go:
+	// the truly bare key, and the one-value shadow whose single unnamed
+	// default spells exactly what hklm already answers - deleting the
+	// shadow changes nothing the merged view resolves (a per-user
+	// default that differs from hklm's is somebody else's setting and
+	// stays).
+	string_copy_utf8_string(key,(const utf8_t *)"SOFTWARE\\Classes\\.");
+	string_cat_utf8(key,(const utf8_t *)association);
+
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
+	{
+		DWORD value_count;
+		DWORD subkey_count;
+		int delete_key;
+
+		delete_key = 0;
+
+		if ((RegQueryInfoKeyW(hkey,0,0,0,&subkey_count,0,0,&value_count,0,0,0,0) == ERROR_SUCCESS) && (!subkey_count))
+		{
+			if (!value_count)
+			{
+				delete_key = 1;
+			}
+			else
+			if (value_count == 1)
+			{
+				wchar_t local_wbuf[STRING_SIZE];
+				wchar_t machine_wbuf[STRING_SIZE];
+				HKEY machine_hkey;
+
+				if ((_viv_get_registry_string(hkey,0,local_wbuf,STRING_SIZE)) && (*local_wbuf))
+				{
+					string_copy_utf8_string(machine_wbuf,(const utf8_t *)"SOFTWARE\\Classes\\.");
+					string_cat_utf8(machine_wbuf,(const utf8_t *)association);
+
+					if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,machine_wbuf,0,KEY_QUERY_VALUE,&machine_hkey) == ERROR_SUCCESS)
+					{
+						wchar_t hklm_wbuf[STRING_SIZE];
+
+						if ((_viv_get_registry_string(machine_hkey,0,hklm_wbuf,STRING_SIZE)) && (string_compare(local_wbuf,hklm_wbuf) == 0))
+						{
+							delete_key = 1;
+						}
+
+						RegCloseKey(machine_hkey);
+					}
+				}
+			}
+		}
+
+		RegCloseKey(hkey);
+
+		if (delete_key)
+		{
+			if (!RegDeleteKeyW(HKEY_CURRENT_USER,key))
+			{
+				debug_printf("RegDeleteKeyW extension shell failed %u\n",GetLastError());
+			}
+		}
+	}
+
+	// the fileexts parent: the openwithprogids and userchoice sweeps
+	// above can leave the shell's own seat holding nothing - the same
+	// bare-key rule takes the parent when it is truly empty (a parent
+	// the shell still uses carries its own subkeys and stays).
+	string_copy_utf8_string(key,(const utf8_t *)"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.");
+	string_cat_utf8(key,(const utf8_t *)association);
+
+	if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)
+	{
+		DWORD value_count;
+		DWORD subkey_count;
+
+		if ((RegQueryInfoKeyW(hkey,0,0,0,&subkey_count,0,0,&value_count,0,0,0,0) == ERROR_SUCCESS) && (!value_count) && (!subkey_count))
+		{
+			if (!RegDeleteKeyW(HKEY_CURRENT_USER,key))
+			{
+				debug_printf("RegDeleteKeyW fileexts shell failed %u\n",GetLastError());
+			}
+		}
+
+		RegCloseKey(hkey);
 	}
 
 	// the explorer hears the sweep the same moment.
@@ -1615,11 +1694,16 @@ static void _viv_install_association(DWORD flags)
 {
 	int i;
 	
+	// the wizard's checkboxes are the consent: a format the user marked
+	// changes hands directly, the previous owner loses the extension (the
+	// field round's directive - the old silent guard skipped every
+	// already-associated format the user had explicitly selected, and the
+	// install read as complete with nothing associated).
 	for(i=0;i<_VIV_ASSOCIATION_COUNT;i++)
 	{
 		if (flags & (1 << i))
 		{
-			_viv_install_association_by_extension(_viv_association_extensions[i],localization_get_string(_viv_association_description_localization_id_array[i]),_viv_association_icon_locations[i],0);
+			_viv_install_association_by_extension(_viv_association_extensions[i],localization_get_string(_viv_association_description_localization_id_array[i]),_viv_association_icon_locations[i],1);
 		}
 	}
 }

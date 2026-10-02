@@ -1,4 +1,75 @@
-﻿Stable: Version 1.1.16 (the field response round III)
+﻿Stable: Version 1.1.16 (the field response round IV)
+
+	the re-release round: seven more field reports
+	answer in one pass and the stable is rebuilt at
+	build 113.
+
+	the scrolled settings page stopped cutting rows
+	in half. the scroll now rests on the row lattice -
+	every stop the content can reach meets the top of
+	a row to the top of the viewport, so the half-
+	eaten swatch row under the title band is gone -
+	and the trailing pad the layout grows lands the
+	bottom stop on the same lattice, so the end of the
+	page keeps its whole rows too (the wheel, the page
+	keys, the track press, the focus walker and the
+	release of the thumb ride and the touch pan all
+	settle on it). the lock caption under the
+	association grid takes two word-broken lines - the
+	sentence outgrew one row and the ellipsis ate the
+	instruction's tail.
+
+	the association clicks take over directly. the
+	explicit click is the whole consent now: a format
+	the user selects changes hands whether it belonged
+	to another program or not, in the settings grid,
+	behind select all, and in the installer's wizard
+	where the old silent guard skipped every already-
+	associated format the user had explicitly checked
+	(the install read as complete with nothing
+	associated). the consent box the last round added
+	left with its interruption - the padlock face and
+	the locked box still tell the one story the
+	registry cannot change from inside the process.
+
+	the uninstall leaves even less behind. the
+	restore used to leave the extension's own key - an
+	empty shell on ownerless formats, a one-value
+	shadow spelling exactly what hklm already answers
+	on the rest; both shapes go now (a per-user
+	default that differs from the machine's is
+	somebody else's setting and stays). the fileexts
+	parents and the registered applications key take
+	the same bare-key rule, and a legacy autolaunch
+	value an old install may have written retires
+	with the uninstall.
+
+	the hardware acceleration faces answer the
+	machine's own answer. a capability probe walks the
+	direct3d init's own gates (the module, the export,
+	the object, the caps) without the device and
+	without the sticky failure: the settings switch
+	greyes with an unavailable face, the menu radios
+	grey, the installer's checkbox refuses to save a
+	backend the first paint would have to fall back
+	from, and the status bar's custom draw rides the
+	theme tokens. the theme itself was audited and
+	stands - every surface answers the token system,
+	the follow mode is live, and the dark title bar
+	is real.
+
+	the shortcut page learned to explain itself. a
+	persistent instruction row spells the flow (pick a
+	command, then add or edit), turns full strength
+	while capturing (press the combination, enter
+	confirms, escape cancels), and the used-by line
+	states the consequence. the buttons shed their
+	dialog-era accelerator ghosts, edit and remove
+	answer the selection instead of the list's length,
+	an empty keys dropdown starts the add capture, a
+	fresh add selects what it made, and the page opens
+	with the command's first binding in the box.
+
 
 	the field reports answered in one pass, and the
 	arc earns its stable. the settings window's footer

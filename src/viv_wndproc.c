@@ -2565,8 +2565,8 @@ static LRESULT _viv_on_wm_notify(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 						{
 							if (_viv_is_dark())
 							{
-								SetTextColor(custom_draw->hdc,RGB(0xE8,0xE8,0xE8));
-								SetBkColor(custom_draw->hdc,RGB(0x20,0x20,0x20));
+								SetTextColor(custom_draw->hdc,viv_theme_color(VIV_TK_TEXT));
+								SetBkColor(custom_draw->hdc,viv_theme_color(VIV_TK_CHROME));
 							}
 							
 							return CDRF_DODEFAULT;

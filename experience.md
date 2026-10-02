@@ -20,6 +20,13 @@ after.
 
 ### External reports and evidence
 
+- **an interruption the click already answered buys nothing.** the
+  consent box asked "take over anyway?" after the user had just clicked
+  take-over; the interruption read as a refusal and the field report
+  came back as "the checkbox cannot be clicked." when the explicit
+  gesture carries the intent, ride it — the honest faces (the padlock,
+  the locked box) carry what the gesture cannot change.
+
 - **the house rule: every claim is re-verified against the tree before
   anything lands.** audits, user reports, even the maintainer's own
   yesterday-self. rc.3 landed ten one-liners and three navigation fixes
@@ -285,6 +292,48 @@ after.
   read the callee's contract before declaring the neighbor
   fixed.
 ## The 1.1.16 arc — round descriptions
+
+### 1.1.16 — the field response round IV (2026-10-02, build 113)
+
+- The re-release round: seven more field reports answered in one pass
+  and the stable was rebuilt at build 113. The scrolled settings page
+  stopped cutting rows in half — the scroll rests on the row lattice
+  now (every reachable stop meets the top of a row to the top of the
+  viewport), and the trailing pad the layout grows lands scroll max
+  itself on the lattice, so the bottom keeps whole rows too; the wheel,
+  the page keys, the track press, the focus walker and the release of
+  the thumb ride and the touch pan all settle on it. The lock caption
+  under the association grid takes two word-broken lines (the sentence
+  outgrew one row and the ellipsis ate the instruction's tail).
+- The association clicks take over directly (the user's own directive):
+  a format the user selects changes hands whether another program held
+  it or not — the single click, select all, and the installer's wizard
+  checkboxes all carry the consent themselves; the ask box the previous
+  round added left with its interruption (an interruption the click had
+  already answered bought nothing), and the padlock face still tells
+  the one story the registry cannot change from inside the process.
+- The uninstall sweeps the registry shells the restore used to leave:
+  the extension's own key goes when bare, and the one-value shadow that
+  spells exactly what HKLM already answers goes too (a per-user default
+  that differs from the machine's is somebody else's setting and
+  stays); the FileExts parents and the RegisteredApplications key take
+  the same bare-key rule, and a legacy autolaunch value retires with
+  the uninstall.
+- The hardware acceleration faces answer the machine's own answer: a
+  capability probe walks the Direct3D init's own gates (module, export,
+  object, caps — no device, no sticky failure), the settings switch
+  greys with an unavailable face, the menu radios grey, the installer's
+  checkbox refuses to save a backend the first paint would have to fall
+  back from, and the status bar's custom draw rides the theme tokens.
+  The theme itself was audited and stands: every surface answers the
+  token system, the follow mode is live, the dark title bar is real.
+- The shortcut page learned to explain itself: a persistent instruction
+  row spells the flow and turns full strength while capturing, the
+  used-by line states the consequence, the buttons shed their
+  dialog-era accelerator ghosts, edit and remove answer the selection
+  instead of the list's length, an empty keys dropdown starts the add
+  capture, a fresh add selects what it made, and the page opens with
+  the command's first binding in the box.
 
 ### 1.1.16 — the field response round III (2026-10-01, build 112)
 

@@ -505,6 +505,66 @@ MUTATIONS = [
      "if (RegOpenKeyExW(HKEY_CURRENT_USER,key,0,KEY_QUERY_VALUE|KEY_SET_VALUE,&hkey) == ERROR_SUCCESS)\r\n\t{\r\n\t\twchar_t wbuf[STRING_SIZE];",
      "if (RegCreateKeyExW(HKEY_CURRENT_USER,key,0,0,0,KEY_QUERY_VALUE|KEY_SET_VALUE,0,&hkey,0) == ERROR_SUCCESS)\r\n\t{\r\n\t\twchar_t wbuf[STRING_SIZE];",
      ["menu"]),
+
+    ("the trailing pad leaves the lattice again (round-149)",
+     "src/viv_settings.c",
+     "_viv_settings_scroll_max = _viv_settings_scroll_lattice(_viv_settings_scroll_max,1);",
+     "_viv_settings_scroll_lattice(_viv_settings_scroll_max,0);",
+     ["menu"]),
+
+    ("the resting stop never snaps again (round-149)",
+     "src/viv_settings.c",
+     "if ((_viv_settings_scroll_max > 0) && (!_viv_settings_scroll_drag) && (!_viv_settings_touch_have))",
+     "if ((_viv_settings_scroll_max > 0) && (!_viv_settings_scroll_drag) && (!_viv_settings_touch_have) && (0))",
+     ["menu"]),
+
+    ("the installer's wizard goes back to the silent guard (round-149)",
+     "src/viv_install.c",
+     "_viv_association_icon_locations[i],1);",
+     "_viv_association_icon_locations[i],0);",
+     ["menu"]),
+
+    ("the redundant-shadow compare goes blind again (round-149)",
+     "src/viv_install.c",
+     "string_compare(local_wbuf,hklm_wbuf) == 0",
+     "string_compare(local_wbuf,local_wbuf) == 0",
+     ["menu"]),
+
+    ("the hardware switch forgets the probe again (round-149)",
+     "src/viv_settings.c",
+     "return _viv_hwd3d_available() ? 1 : 0;",
+     "return 1;",
+     ["menu"]),
+
+    ("the instruction row goes mute again (round-149)",
+     "src/viv_settings.c",
+     "string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_IDLE));",
+     "wbuf[0] = 0;",
+     ["menu"]),
+
+    ("a fresh add stops selecting itself again (round-149)",
+     "src/viv_settings.c",
+     "_viv_settings_key_index = _viv_settings_key_count() - 1;",
+     "_viv_settings_key_index = -1;",
+     ["menu"]),
+
+    ("the caption loses its word break again (round-149)",
+     "src/viv_settings.c",
+     "DrawTextW(mem,locked_wbuf,-1,&ctl->rect,DT_WORDBREAK | DT_HIDEPREFIX);",
+     "DrawTextW(mem,locked_wbuf,-1,&ctl->rect,DT_WORDBREAK | DT_END_ELLIPSIS);",
+     ["menu"]),
+
+    ("the legacy run value stays behind again (round-149)",
+     "src/viv_install.c",
+     'RegDeleteValueW(run_hkey,L"voidImageViewerPLUS");',
+     'if (0) RegDeleteValueW(run_hkey,L"voidImageViewerPLUS");',
+     ["menu"]),
+
+    ("the menu radio forgets the machine's answer again (round-149)",
+     "src/viv_menu.c",
+     "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,_viv_hwd3d_available() ? MF_ENABLED : MF_GRAYED);",
+     "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,MF_ENABLED);",
+     ["menu"]),
 ]
 
 def run_suite(key):

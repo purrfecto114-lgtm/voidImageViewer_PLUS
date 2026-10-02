@@ -211,15 +211,15 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"&Left click action:", // LOCALIZATION_ID_LEFT_CLICK_ACTION_STATIC,
 	"&Right click action:", // LOCALIZATION_ID_RIGHT_CLICK_ACTION_STATIC,
 	"&Mouse wheel action:", // LOCALIZATION_ID_MOUSE_WHEEL_ACTION_STATIC,
-	"&Commands:", // LOCALIZATION_ID_COMMANDS_STATIC,
-	"Settings for selected command", // LOCALIZATION_ID_SETTINGS_FOR_SELECTED_COMMAND,
-	"&Add...", // LOCALIZATION_ID_ADD_KEY_BUTTON,
-	"&Edit...", // LOCALIZATION_ID_EDIT_KEY_BUTTON,
-	"Remo&ve", // LOCALIZATION_ID_REMOVE_KEY_BUTTON,
+	"1. Pick a command", // LOCALIZATION_ID_COMMANDS_STATIC,
+	"2. Set the shortcut", // LOCALIZATION_ID_SETTINGS_FOR_SELECTED_COMMAND,
+	"Add", // LOCALIZATION_ID_ADD_KEY_BUTTON,
+	"Edit", // LOCALIZATION_ID_EDIT_KEY_BUTTON,
+	"Remove", // LOCALIZATION_ID_REMOVE_KEY_BUTTON,
 	"Add Keyboard Shortcut", // LOCALIZATION_ID_ADD_KEYBOARD_SHORTCUT_CAPTION,
 	"Edit Keyboard Shortcut", // LOCALIZATION_ID_EDIT_KEYBOARD_SHORTCUT_CAPTION,
-	"Shortcut &key:", // LOCALIZATION_ID_SHORTCUT_KEY,
-	"Shortcut key currently used by:", // LOCALIZATION_ID_SHORTCUT_KEY_CURRENTLY_USED_BY,
+	"Shortcut:", // LOCALIZATION_ID_SHORTCUT_KEY,
+	"Already in use (confirming will reassign it):", // LOCALIZATION_ID_SHORTCUT_KEY_CURRENTLY_USED_BY,
 	"Set Custom Rate", // LOCALIZATION_ID_SET_CUSTOM_RATE_CAPTION,
 	"&Custom rate:", // LOCALIZATION_ID_CUSTOM_RATE_STATIC,
 	"minutes", // LOCALIZATION_ID_CUSTOM_RATE_MINUTES,
@@ -383,9 +383,11 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Paint with the Direct3D renderer, falling back to GDI when it refuses", // LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC
 	"Default App", // LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_CAPTION
 	"Windows keeps the default app choices. voidImageViewer was added to the Open With list for %S, but the defaults stay with the apps you picked.\n\nOpen Settings to choose voidImageViewer as the default?", // LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE
-	"File Association", // LOCALIZATION_ID_ASSOCIATION_FOREIGN_CAPTION
-	".%S currently opens with another program (registered as %S).\n\nTake over the .%S association anyway? The change is reversible from Windows Settings.", // LOCALIZATION_ID_ASSOCIATION_FOREIGN_MESSAGE
 	"A lock mark means Windows still opens that format with another app. Change the default in Windows Settings (Default apps) after applying.", // LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED
 	"Keep Settings", // LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_CAPTION
 	"Do you want to keep your voidImageViewer settings (window layout, preferences and recent files) for a future installation?\n\nChoose Yes to keep them, or No to delete them now.", // LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_MESSAGE
+	"Direct3D is not available on this system; GDI stays the renderer", // LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE
+	"Pick a command, then click Add or Edit to record its shortcut", // LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_IDLE
+	"Press the key combination (Enter to confirm, Esc to cancel)", // LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_PRESS
+	"%S (Enter to confirm, Esc to cancel)", // LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_CONFIRM
 };

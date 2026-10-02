@@ -440,14 +440,20 @@ enum
 	LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_CAPTION,
 	LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE,
 
-	// round-148: the foreign-owner consent (the explicit click names
-	// the current owner and asks), the lock caption under the
-	// association grid, and the uninstall settings ask.
-	LOCALIZATION_ID_ASSOCIATION_FOREIGN_CAPTION,
-	LOCALIZATION_ID_ASSOCIATION_FOREIGN_MESSAGE,
+	// round-148's lock caption under the association grid and the
+	// uninstall settings ask (the consent box the same round added is
+	// gone - the explicit click takes the extension over directly, the
+	// field round's directive).
 	LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED,
 	LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_CAPTION,
 	LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_MESSAGE,
+
+	// round-149: the hardware switch's unavailable face, and the
+	// shortcut page's three-state instruction row.
+	LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE,
+	LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_IDLE,
+	LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_PRESS,
+	LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_CONFIRM,
 	LOCALIZATION_ID_COUNT,
 };
 

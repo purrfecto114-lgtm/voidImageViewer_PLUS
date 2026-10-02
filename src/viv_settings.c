@@ -234,6 +234,13 @@ static BYTE _viv_settings_tracking = 0;	// the mouse leave tracking is armed
 // sinking below the fold.
 static int _viv_settings_scroll_y;
 static int _viv_settings_scroll_max;
+
+// the travel direction the next layout snaps along: the wheel, the page
+// keys and the track press set it on their way in, the layout consumes
+// it when it rests the scroll (the release-only travels - the thumb
+// ride, the touch pan - keep their live offset while they run, and the
+// release snaps).
+static int _viv_settings_scroll_direction;
 static BYTE _viv_settings_scroll_drag = 0;	// the scrollbar thumb ride
 static int _viv_settings_scroll_grab;
 // rc.6: the touch pan. the gesture locations arrive in screen pixels,
@@ -635,6 +642,15 @@ static int _viv_settings_ctl_enabled(const _viv_settings_ctl_t *ctl)
 				return config_show_zoom_controls ? 1 : 0;
 			}
 
+			// the hardware switch answers the machine's own answer: where
+			// direct3d cannot come up the row greys with its explanation (the
+			// field round's question - the switch was a promise no probe
+			// backed, and the runtime fallback is not an enablement).
+			if (ctl->id == _VIV_SETTINGS_ID_HWACCEL)
+			{
+				return _viv_hwd3d_available() ? 1 : 0;
+			}
+
 			return 1;
 
 		case _VIV_SETTINGS_CT_BUTTON:
@@ -652,14 +668,21 @@ static int _viv_settings_ctl_enabled(const _viv_settings_ctl_t *ctl)
 
 		case _VIV_SETTINGS_CT_KEYBUTTON:
 
-			if (ctl->id == _VIV_SETTINGS_ID_KEY_EDIT)
+			// the capture owns the input while it lives: the three buttons
+			// grey for its duration (any click abandons it - the disabled
+			// face says so before the click is spent, the instruction row
+			// carries the state).
+			if (_viv_settings_capture_active)
 			{
-				return _viv_settings_key_count() ? 1 : 0;
+				return 0;
 			}
 
-			if (ctl->id == _VIV_SETTINGS_ID_KEY_REMOVE)
+			// edit and remove answer the selection, not the list's length:
+			// with nothing picked they are inert, and an enabled-but-dead
+			// button was half of the field report's "useless buttons".
+			if ((ctl->id == _VIV_SETTINGS_ID_KEY_EDIT) || (ctl->id == _VIV_SETTINGS_ID_KEY_REMOVE))
 			{
-				return _viv_settings_key_count() ? 1 : 0;
+				return _viv_settings_key_index >= 0 ? 1 : 0;
 			}
 
 			return 1;
@@ -669,6 +692,88 @@ static int _viv_settings_ctl_enabled(const _viv_settings_ctl_t *ctl)
 	}
 
 	return 1;
+}
+
+// the scroll lattice: every stop the content can rest at meets the top of
+// a row to the top of the viewport, so no row ever paints half-cut under
+// the title band (the field report read the clipped swatch row as a
+// broken layout). the layout grows the trailing pad that lands scroll
+// max itself on the lattice, so the bottom keeps its reachable face while
+// every stop between shows whole rows.
+static int _viv_settings_scroll_lattice(int target,int direction)
+{
+	int i;
+	int best;
+
+	if (direction > 0)
+	{
+		// downward travel rests at the first stop the target reaches. the
+		// pad guarantees the max itself is a stop; the sentinel answers a
+		// viewport shorter than the last row (the design minimum never goes
+		// there - the fallback keeps the raw target honest if one ever does).
+		best = 0x7fffffff;
+
+		for(i=_VIV_OPTIONS_PAGE_COUNT;i<_viv_settings_ctl_count;i++)
+		{
+			int boundary;
+
+			if ((_viv_settings_ctls[i].type == _VIV_SETTINGS_CT_NAV) || (_viv_settings_ctls[i].type == _VIV_SETTINGS_CT_BUTTON))
+			{
+				continue;
+			}
+
+			boundary = _viv_settings_ctls[i].rect.top - _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH);
+
+			if ((boundary >= target) && (boundary < best))
+			{
+				best = boundary;
+			}
+		}
+
+		if (best == 0x7fffffff)
+		{
+			best = target;
+		}
+	}
+	else
+	{
+		// upward travel (and the release snap) rests at the last stop at or
+		// before the target - the page top is always a stop.
+		best = 0;
+
+		for(i=_VIV_OPTIONS_PAGE_COUNT;i<_viv_settings_ctl_count;i++)
+		{
+			int boundary;
+
+			if ((_viv_settings_ctls[i].type == _VIV_SETTINGS_CT_NAV) || (_viv_settings_ctls[i].type == _VIV_SETTINGS_CT_BUTTON))
+			{
+				continue;
+			}
+
+			boundary = _viv_settings_ctls[i].rect.top - _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH);
+
+			if ((boundary <= target) && (boundary > best))
+			{
+				best = boundary;
+			}
+		}
+	}
+
+	return best;
+}
+
+// every travel that is not the thumb ride or the touch pan moves through
+// here: the raw delta lands, the direction rides along, and the layout
+// clamps, snaps and bakes in one pass.
+static void _viv_settings_scroll_by(int delta)
+{
+	_viv_settings_scroll_direction = delta > 0 ? 1 : -1;
+
+	_viv_settings_scroll_y += delta;
+
+	_viv_settings_layout();
+
+	_viv_settings_invalidate();
 }
 
 // build the rects of the current page. the footer and the navigation
@@ -856,12 +961,15 @@ static void _viv_settings_layout(void)
 
 			y += _viv_settings_dip(2);
 
-			// the lock caption: the one line that explains the padlock marks
+			// the lock caption: the two lines that explain the padlock marks
 			// the grid above carries (param 2 names its own string in the
-			// paint - the grid description keeps param 0).
-			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DESC,_VIV_SETTINGS_ID_NONE,2,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_DESC_HIGH));
+			// paint - the grid description keeps param 0). the row rides two
+			// desc heights and word breaks: the sentence outgrew one line and
+			// the ellipsis ate the instruction's tail (the field report's
+			// cropped caption).
+			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DESC,_VIV_SETTINGS_ID_NONE,2,content_x,y,content_wide,_viv_settings_dip((_VIV_SETTINGS_DESC_HIGH * 2) + 2));
 
-			y += _viv_settings_dip(_VIV_SETTINGS_DESC_HIGH);
+			y += _viv_settings_dip((_VIV_SETTINGS_DESC_HIGH * 2) + 2);
 
 			break;
 		}
@@ -1067,6 +1175,7 @@ static void _viv_settings_layout(void)
 	{
 		int content_bottom;
 		int viewport_bottom;
+		int snap_direction;
 
 		content_bottom = y + _viv_settings_dip(4);
 		viewport_bottom = client.bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH);
@@ -1077,6 +1186,14 @@ static void _viv_settings_layout(void)
 		{
 			_viv_settings_scroll_max = 0;
 		}
+		else
+		{
+			// the trailing pad: the max itself joins the lattice, so the bottom
+			// stop is a whole-row stop too (the pad is background under the last
+			// row - the browser's own end-of-page shape, replacing the cut row
+			// the old bottom used to leave under the title).
+			_viv_settings_scroll_max = _viv_settings_scroll_lattice(_viv_settings_scroll_max,1);
+		}
 
 		if (_viv_settings_scroll_y > _viv_settings_scroll_max)
 		{
@@ -1086,6 +1203,18 @@ static void _viv_settings_layout(void)
 		if (_viv_settings_scroll_y < 0)
 		{
 			_viv_settings_scroll_y = 0;
+		}
+
+		// the resting stop. the thumb ride and the touch pan keep their live
+		// offset while they run (their release snaps); every other travel
+		// rests on the lattice the direction names.
+		snap_direction = _viv_settings_scroll_direction;
+
+		_viv_settings_scroll_direction = 0;
+
+		if ((_viv_settings_scroll_max > 0) && (!_viv_settings_scroll_drag) && (!_viv_settings_touch_have))
+		{
+			_viv_settings_scroll_y = _viv_settings_scroll_lattice(_viv_settings_scroll_y,snap_direction);
 		}
 
 		if (_viv_settings_scroll_y > 0)
@@ -1137,25 +1266,6 @@ static void _viv_settings_association_locked_box(int exti)
 		// builds ignore it and still open the page).
 		ShellExecuteW(_viv_settings_hwnd,NULL,L"ms-settings:defaultapps?registeredAppUser=void%20Image%20Viewer",NULL,NULL,SW_SHOWNORMAL);
 	}
-}
-// the consent the foreign-owner guard never had: the single click
-// names the current owner and asks whether the takeover should
-// happen anyway (the bulk paths - the installer, select all, the
-// snapshot restore - keep the silent guard; they never had the
-// click).
-static int _viv_settings_association_foreign_box(int exti,const wchar_t *owner_wbuf)
-{
-	wchar_t caption_wbuf[STRING_SIZE];
-	wchar_t message_wbuf[STRING_SIZE];
-	wchar_t ext_wbuf[STRING_SIZE];
-
-	string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_ASSOCIATION_FOREIGN_CAPTION));
-
-	string_copy_utf8_string(ext_wbuf,(const utf8_t *)_viv_association_extensions[exti]);
-
-	string_printf(message_wbuf,(const char *)localization_get_string(LOCALIZATION_ID_ASSOCIATION_FOREIGN_MESSAGE),ext_wbuf,owner_wbuf,ext_wbuf);
-
-	return viv_msgbox(_viv_settings_hwnd,caption_wbuf,message_wbuf,MB_YESNO|MB_ICONQUESTION) == IDYES;
 }
 static void _viv_settings_invalidate(void)
 {
@@ -1268,14 +1378,17 @@ static void _viv_settings_ensure_visible(int index)
 
 	before = _viv_settings_scroll_y;
 
-	if (bottom > viewport_bottom)
+	if ((top < viewport_top) || (bottom > viewport_bottom))
 	{
-		_viv_settings_scroll_y += bottom - viewport_bottom;
-	}
-	else
-	if (top < viewport_top)
-	{
-		_viv_settings_scroll_y -= viewport_top - top;
+		// the walker's stop is the row's own lattice seat: the row's top
+		// meets the viewport's top (a whole row at a whole stop - the old
+		// bottom-align could rest between stops and cut the row above). the
+		// seat is the plain title line, not the two-dip visibility inset the
+		// gate above uses - the counter-review caught the inset rounding the
+		// floor snap down to the previous row's boundary.
+		_viv_settings_scroll_direction = 0;
+
+		_viv_settings_scroll_y += top - _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH);
 	}
 
 	if (_viv_settings_scroll_y < 0)
@@ -1995,7 +2108,11 @@ static void _viv_settings_snapshot(void)
 	// (the flat item count the old dropdown fed retired with it).
 	_viv_settings_command_index = _viv_settings_command_at(0);
 
-	_viv_settings_key_index = -1;
+	// the editor opens with the command's first binding in the box: the
+	// page shows its one worked example (the file open command's ctrl+o
+	// on a fresh install) instead of an empty stage the field report
+	// could not read.
+	_viv_settings_key_index = _viv_settings_key_count() ? 0 : -1;
 	_viv_settings_capture_active = 0;
 	_viv_settings_capture_edit = 0;
 	_viv_settings_capture_key = 0;
@@ -2524,6 +2641,9 @@ static void _viv_settings_capture_commit(void)
 	config_key_t *key;
 	int i;
 	int old_key;
+	int added;
+
+	added = 0;
 
 	if (!_viv_settings_capture_active)
 	{
@@ -2579,10 +2699,23 @@ static void _viv_settings_capture_commit(void)
 		{
 			// add.
 			_viv_key_add(&_viv_settings_keylist,_viv_settings_command_index,_viv_settings_capture_key);
+
+			added = 1;
 		}
 	}
 
 	_viv_settings_capture_end();
+
+	// a fresh add selects what it made: the keys box answers with the new
+	// binding instead of the dim dash (the capture's only visible receipt
+	// - the field report's "no feedback after the click"). an empty
+	// capture - enter with no key held - adds nothing and must not point
+	// the box at the last binding that was already there (the
+	// counter-review's empty-commit catch).
+	if ((added) && (!_viv_settings_capture_edit))
+	{
+		_viv_settings_key_index = _viv_settings_key_count() - 1;
+	}
 
 	_viv_settings_key_index_clamp();
 
@@ -2836,7 +2969,12 @@ static void _viv_settings_run_dropdown(HWND hwnd,const _viv_settings_ctl_t *ctl)
 			if (selected >= 0)
 			{
 				_viv_settings_command_index = selected;
-				_viv_settings_key_index = -1;
+
+				// the command's own first binding takes the box (the
+				// same shape the page opens with - a command picked with
+				// bindings must not fall back to the dim dash, the
+				// counter-review's half-returned "useless buttons").
+				_viv_settings_key_index = _viv_settings_key_count() ? 0 : -1;
 
 				_viv_settings_invalidate();
 			}
@@ -2850,6 +2988,12 @@ static void _viv_settings_run_dropdown(HWND hwnd,const _viv_settings_ctl_t *ctl)
 
 			if (!_viv_settings_key_count())
 			{
+				// an empty list is not a dead control: the click is the
+				// clearest "i want a shortcut here" the page can answer - it
+				// starts the add capture directly (the instruction row names
+				// the state the moment it begins).
+				_viv_settings_capture_begin(0);
+
 				break;
 			}
 
@@ -3102,7 +3246,12 @@ static void _viv_settings_activate(int index,int x,int y)
 						{
 							if (!_viv_is_association(_viv_association_extensions[exti]))
 							{
-								_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti],0);
+								// the explicit select-all is the same consent the single
+								// click carries: every format the box covers changes hands
+								// (the field round's directive - the old silent guard left
+								// the foreign-owned cells bouncing back unchecked and the
+								// whole click reading as dead).
+								_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti],1);
 
 								// rc.17: the honest read - the first extension the lock
 								// beats names the box (one ask for the whole batch).
@@ -3141,26 +3290,17 @@ static void _viv_settings_activate(int index,int x,int y)
 				{
 					if (!_viv_is_association(_viv_association_extensions[exti]))
 					{
-						int force;
-						wchar_t owner_wbuf[STRING_SIZE];
-
-						force = 0;
-
-						// the explicit click is the consent the bulk paths never had:
-						// when another program owns the extension the installer-side
-						// guard refuses silently (the click used to bounce straight
-						// back unchecked - the field report's "never associates"),
-						// the ask names the owner and the answer carries the takeover.
-						if (_viv_association_foreign_owner(_viv_association_extensions[exti],owner_wbuf,STRING_SIZE))
-						{
-							force = _viv_settings_association_foreign_box(exti,owner_wbuf);
-						}
-
-						_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti],force);
+						// the explicit click is the whole consent: the field round's ask
+						// box bought nothing the click itself had not already said, and
+						// the interruption read as a refusal - the takeover rides the
+						// click directly now (the user's directive: a format the user
+						// selects changes hands, the previous owner loses the extension,
+						// and the padlock face under the grid tells the one story the
+						// registry cannot change from inside the process).
+						_viv_install_association_by_extension(_viv_association_extensions[exti],localization_get_string(_viv_association_description_localization_id_array[exti]),_viv_association_icon_locations[exti],1);
 
 						// rc.17: the honest read - after the install, does the shell's
-						// default still point elsewhere? (only an install that actually
-						// took - a refused foreign takeover has its own answer above.)
+						// default still point elsewhere?
 						if (_viv_is_association(_viv_association_extensions[exti]) && _viv_default_app_locked_elsewhere(_viv_association_extensions[exti]))
 						{
 							_viv_settings_association_locked_box(exti);
@@ -4501,9 +4641,27 @@ static void _viv_settings_paint(HWND hwnd)
 
 				if (ctl->param == 2)
 				{
-					// the lock caption under the grid (param 2 names its own
-					// string; the grid description keeps param 0).
-					_viv_settings_draw_label(mem,&ctl->rect,LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED,_viv_settings_font_small ? _viv_settings_font_small : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT2));
+					// the lock caption under the grid: two lines, word broken -
+					// the sentence outgrew one row and the ellipsis ate the
+					// instruction's tail (the field report's cropped line). the
+					// raw helper forces the single-line shape, so the caption
+					// walks its own draw (the counter-review's catch: the
+					// wordbreak flag never reached drawtextw through it).
+					{
+						wchar_t locked_wbuf[STRING_SIZE];
+						HFONT locked_old_font;
+
+						string_copy_utf8_string(locked_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED));
+
+						locked_old_font = (HFONT)SelectObject(mem,_viv_settings_font_small ? _viv_settings_font_small : _viv_settings_font);
+
+						SetBkMode(mem,TRANSPARENT);
+						SetTextColor(mem,_viv_settings_color(_VIV_SETTINGS_C_TEXT2));
+
+						DrawTextW(mem,locked_wbuf,-1,&ctl->rect,DT_WORDBREAK | DT_HIDEPREFIX);
+
+						SelectObject(mem,locked_old_font);
+					}
 				}
 				else
 				if (_viv_settings_page == _VIV_SETTINGS_PAGE_GENERAL)
@@ -4513,11 +4671,15 @@ static void _viv_settings_paint(HWND hwnd)
 				}
 				else
 				{
-					// the key capture hint lines. param 0 carries the add / edit
-					// prompt, param 1 the used by line.
+					// the shortcut page's two guide rows. param 0 is the
+					// instruction line - idle it spells the flow the field report
+					// could not find, capturing it names the live state in full
+					// strength text; param 1 is the used-by line.
 					wchar_t wbuf[STRING_SIZE];
+					COLORREF guide_color;
 
 					wbuf[0] = 0;
+					guide_color = _viv_settings_color(_VIV_SETTINGS_C_TEXT2);
 
 					if (ctl->param)
 					{
@@ -4536,12 +4698,24 @@ static void _viv_settings_paint(HWND hwnd)
 							_viv_get_key_text(key_wbuf,_viv_settings_capture_key);
 						}
 
-						string_copy_utf8_string(wbuf,localization_get_string(_viv_settings_capture_edit ? LOCALIZATION_ID_EDIT_KEYBOARD_SHORTCUT_CAPTION : LOCALIZATION_ID_ADD_KEYBOARD_SHORTCUT_CAPTION));
-						string_cat(wbuf,L": ");
-						string_cat(wbuf,key_wbuf);
+						if (_viv_settings_capture_key)
+						{
+							string_printf(wbuf,(const char *)localization_get_string(LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_CONFIRM),key_wbuf);
+						}
+						else
+						{
+							string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_PRESS));
+						}
+
+						guide_color = _viv_settings_color(_VIV_SETTINGS_C_TEXT);
+					}
+					else
+					{
+						// the idle instruction: select a command, then add or edit.
+						string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_IDLE));
 					}
 
-					_viv_settings_draw_text_raw(mem,&ctl->rect,wbuf,_viv_settings_font_small ? _viv_settings_font_small : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT2),DT_VCENTER | DT_END_ELLIPSIS);
+					_viv_settings_draw_text_raw(mem,&ctl->rect,wbuf,_viv_settings_font_small ? _viv_settings_font_small : _viv_settings_font,guide_color,DT_VCENTER | DT_END_ELLIPSIS);
 				}
 
 				break;
@@ -4683,7 +4857,7 @@ static void _viv_settings_paint(HWND hwnd)
 
 					case _VIV_SETTINGS_ID_HWACCEL:
 						label_id = LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION;
-						desc_id = LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC;
+						desc_id = _viv_hwd3d_available() ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE;
 						break;
 				}
 
@@ -4989,7 +5163,24 @@ static int _viv_settings_on_gesture(HWND hwnd,void *gesture_info_handle)
 		case 2: // gesture end
 			// msdn: consuming gid_begin and gid_end is undefined - the
 			// state resets and the default handler owns the message.
-			_viv_settings_touch_have = 0;
+			// a pan that was live ends on the lattice (the inertia frames ride
+			// the same touch_have flag - the last one settles the rows). the
+			// flag clears before the layout - the snap gate reads it, and the
+			// counter-review caught the first ordering leaving the snap dead.
+			if (_viv_settings_touch_have)
+			{
+				_viv_settings_touch_have = 0;
+
+				if (_viv_settings_scroll_max > 0)
+				{
+					_viv_settings_scroll_direction = -1;
+
+					_viv_settings_layout();
+
+					_viv_settings_invalidate();
+				}
+			}
+
 			return 0;
 
 		case 4: // the pan (GID_PAN, winuser.h)
@@ -5143,21 +5334,7 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 				delta = (int)GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
 				step = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH) * 3;
 
-				_viv_settings_scroll_y -= delta * step;
-
-				if (_viv_settings_scroll_y < 0)
-				{
-					_viv_settings_scroll_y = 0;
-				}
-
-				if (_viv_settings_scroll_y > _viv_settings_scroll_max)
-				{
-					_viv_settings_scroll_y = _viv_settings_scroll_max;
-				}
-
-				_viv_settings_layout();
-
-				_viv_settings_invalidate();
+				_viv_settings_scroll_by(-(delta * step));
 			}
 
 			return 0;
@@ -5364,24 +5541,12 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 							if (y < thumb.top)
 							{
-								_viv_settings_scroll_y -= page;
+								_viv_settings_scroll_by(-page);
 							}
 							else
 							{
-								_viv_settings_scroll_y += page;
+								_viv_settings_scroll_by(page);
 							}
-
-							if (_viv_settings_scroll_y < 0)
-							{
-								_viv_settings_scroll_y = 0;
-							}
-
-							if (_viv_settings_scroll_y > _viv_settings_scroll_max)
-							{
-								_viv_settings_scroll_y = _viv_settings_scroll_max;
-							}
-
-							_viv_settings_layout();
 
 							if (_viv_settings_scrollbar_thumb(&track,&thumb))
 							{
@@ -5450,7 +5615,20 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 				ReleaseCapture();
 			}
 
-			_viv_settings_scroll_drag = 0;
+			if (_viv_settings_scroll_drag)
+			{
+				// the thumb ride ends on the lattice: the live offset could
+				// stop anywhere, the release settles it to the last whole-row
+				// stop at or before itself.
+				_viv_settings_scroll_drag = 0;
+
+				if (_viv_settings_scroll_max > 0)
+				{
+					_viv_settings_scroll_direction = -1;
+
+					_viv_settings_layout();
+				}
+			}
 
 			_viv_settings_pressed = -1;
 			_viv_settings_hot = hit;
@@ -5593,26 +5771,12 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 						if (vk == VK_PRIOR)
 						{
-							_viv_settings_scroll_y -= page;
+							_viv_settings_scroll_by(-page);
 						}
 						else
 						{
-							_viv_settings_scroll_y += page;
+							_viv_settings_scroll_by(page);
 						}
-
-						if (_viv_settings_scroll_y < 0)
-						{
-							_viv_settings_scroll_y = 0;
-						}
-
-						if (_viv_settings_scroll_y > _viv_settings_scroll_max)
-						{
-							_viv_settings_scroll_y = _viv_settings_scroll_max;
-						}
-
-						_viv_settings_layout();
-
-						_viv_settings_invalidate();
 					}
 
 					return 0;
