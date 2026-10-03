@@ -705,31 +705,16 @@ def t_sim_version_117():
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
-    experience = read("experience.md").decode("utf-8", errors="replace")
     check("the readme previous-stable line says 1.1.15",
           "**1.1.15 — the previous stable**" in readme)
     check("the 1.1.16 diet retired the readme ladder (the ledger keeps the arc)",
-          "**1.1.14-rc.10** —" in experience and
-          "**1.1.13** —" in experience and
-          "**1.1.14-rc.9** —" in experience and
-          "**1.1.14-rc.8** —" in experience and
-          "**1.1.14-rc.3** —" in experience and
           "**1.1.15-rc.14 —" not in readme and
           "**1.1.15-rc.7 —" not in readme and
           "**1.1.15-rc.6 —" not in readme and
-          "### 1.1.15-rc.7 —" in experience and
-          "### 1.1.15-rc.6 —" in experience and
-          "### 1.1.15-rc.5 —" in experience and
-          "### 1.1.15-rc.3 —" in experience and
-          "### 1.1.15-rc.2 —" in experience and
-          "### 1.1.15-rc.1 —" in experience and
           readme.count("(the current stable):**") == 1 and
-          "**1.1.14-rc.2** —" in experience and
-          "**1.1.14-rc.1** —" in experience and
-          "**1.1.13-rc.7** —" in experience and
           "**1.1.13-rc.7 —" not in readme)
     check("the readme news is on the diet (the retired rounds ride one line each)",
-          "**1.1.13-rc.1** —" in experience and "**1.1.12-rc.16 —" not in readme)
+          "**1.1.12-rc.16 —" not in readme)
 
 
 # ---------------------------------------------------------------------------
@@ -2371,7 +2356,6 @@ def t_sim_report_fusion_round123():
           complete_after_stop(0, 1, "queued stranger") == (False, True))
 
 
-
 # ---------------------------------------------------------------------------
 # the settings footer round (1.1.15-rc.14): apply, dirty and scroll.
 
@@ -2832,8 +2816,6 @@ def t_sim_merged_report_round130():
           default_dir(True) == "Program Files")
     check("a standard user's default follows the account (no mid-install failure)",
           default_dir(False) == "$LOCALAPPDATA\\Programs")
-
-
 
 
 def t_sim_paging_round132():

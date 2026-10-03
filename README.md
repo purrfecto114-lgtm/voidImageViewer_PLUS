@@ -37,9 +37,7 @@ What's new
 
 **The 1.1.16 arc — twelve release candidates:** the fourth fusion response (the zombie class tree falls), the fifth report's judgment, the parallel sweep, the field feedback round (the poison probe retires, the Windows registration, the hardware-acceleration offer), the layout migration (the upgrade never opens with the pill), the field feedback round II (the caption catches up, the installer's elevation honesty), the default programs round (one name everywhere, the nineteen-format installer), the documentation round, the codeql hardening (five libwebp widenings), the instruments round (the suites audit themselves), the audit response (the relay whitelist and eight memory fixes), and the review verdict (the completion event, the pid-named temp save, the safe sums). Full narrative: `Changes.txt`.
 
-**The 1.1.15 arc — nineteen candidates:** one line each in the archive below. Full narrative: `Changes.txt`.
-
-The full round archive — every earlier candidate one line each, plus the lessons that outlived their rounds — lives in [experience.md](experience.md); the complete per-version narrative is [Changes.txt](Changes.txt).
+**The 1.1.15 arc — nineteen candidates:** full narrative in `Changes.txt`.
 
 Touch & zoom controls
 --------
