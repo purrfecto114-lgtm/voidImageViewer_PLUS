@@ -24,7 +24,7 @@
 # is no separate per-language build.
 #
 # Usage: .\build_installer.ps1 [arch] [vs_version] [build_config]
-#   arch: x86 or x64 (default: x86)
+#   arch: x86, x64 or arm64 (default: x86)
 #   vs_version: vs2019, vs2026 (default: auto-detect:
 #               prefers a project dir with a built exe, then vswhere)
 #   build_config: Release, Debug, etc. (default: Release)
@@ -33,13 +33,14 @@
 #   .\build_installer.ps1 x64 vs2026 Release
 #   .\build_installer.ps1 x86
 #   .\build_installer.ps1 x64 vs2019 Release
+#   .\build_installer.ps1 arm64 vs2026 Release
 
 param(
     # the whitelists answer the audit's silent-mistarget finding: a
     # typoed or unsupported value (an "-Arch arm64" that used to fall
     # through to the x86 path and quietly packaged the wrong binary)
     # now fails at the parameter binder instead.
-    [ValidateSet("x86","x64")]
+    [ValidateSet("x86","x64","arm64")]
     [string]$Arch = "x86",
     [ValidateSet("vs2019","vs2026")]
     [string]$VsVersion = "",
@@ -101,6 +102,9 @@ if ([string]::IsNullOrEmpty($VsVersion)) {
         if ($Arch -eq "x64") {
             $candidate = "..\$vs\x64\$BuildConfig\voidImageViewer.exe"
         }
+        if ($Arch -eq "arm64") {
+            $candidate = "..\$vs\ARM64\$BuildConfig\voidImageViewer.exe"
+        }
         if (Test-Path $candidate) {
             $detected = $vs
             break
@@ -148,6 +152,13 @@ if ($Arch -eq "x64") {
     $ExePath = "..\$VsVersion\x64\$BuildConfig\voidImageViewer.exe"
     $ConfigName = "Release|x64"
 }
+elseif ($Arch -eq "arm64") {
+    # the arm64 payload is a native aarch64 build; the msvc ARM64
+    # platform configuration produces plain voidImageViewer.exe the
+    # same way the x64 and Win32 configurations do.
+    $ExePath = "..\$VsVersion\ARM64\$BuildConfig\voidImageViewer.exe"
+    $ConfigName = "Release|ARM64"
+}
 else {
     $ExePath = "..\$VsVersion\$BuildConfig\voidImageViewer.exe"
     $ConfigName = "Release|Win32"
@@ -189,6 +200,10 @@ $makensisArgs = @(
 
 if ($Arch -eq "x64") {
     $makensisArgs += "/Dx64"
+}
+
+if ($Arch -eq "arm64") {
+    $makensisArgs += "/Darm64"
 }
 
 $makensisArgs += "installer.nsi"

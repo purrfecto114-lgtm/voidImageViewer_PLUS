@@ -83,6 +83,7 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"缩放(&Z)", // LOCALIZATION_ID_ZOOM
 	"放大(&I)", // LOCALIZATION_ID_ZOOM_IN
 	"缩小(&O)", // LOCALIZATION_ID_ZOOM_OUT
+	"输入精确缩放(&E)...", // LOCALIZATION_ID_ZOOM_SET
 	"重置缩放(&R)", // LOCALIZATION_ID_RESET
 	"窗口置顶(&T)", // LOCALIZATION_ID_ON_TOP
 	"总是置顶(&A)", // LOCALIZATION_ID_ALWAYS

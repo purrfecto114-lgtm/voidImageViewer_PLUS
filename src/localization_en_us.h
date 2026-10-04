@@ -91,6 +91,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"&Zoom", // LOCALIZATION_ID_ZOOM,
 	"Zoom &In", // LOCALIZATION_ID_ZOOM_IN,
 	"Zoom &Out", // LOCALIZATION_ID_ZOOM_OUT,
+	"Type E&xact Zoom...", // LOCALIZATION_ID_ZOOM_SET,
 	"&Reset", // LOCALIZATION_ID_RESET,
 	"On &Top", // LOCALIZATION_ID_ON_TOP,
 	"&Always", // LOCALIZATION_ID_ALWAYS,

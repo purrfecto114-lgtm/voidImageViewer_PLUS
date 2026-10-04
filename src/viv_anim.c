@@ -37,7 +37,7 @@ void _viv_clear_frames(_viv_frame_t *frames,int loaded_count);
 void _viv_increase_animation_rate(int dec);
 void _viv_reset_animation_rate(void);
 VOID NTAPI _viv_timer_queue_timer_callback(PVOID param,BOOLEAN TimerOrWaitFired);
-static void _viv_timer_start(void);
+void _viv_timer_start(void);
 void _viv_animation_pause(void);
 void _viv_frame_step(void);
 void _viv_frame_prev(void);
@@ -114,7 +114,52 @@ VOID NTAPI _viv_timer_queue_timer_callback(PVOID param,BOOLEAN TimerOrWaitFired)
 		}
 	}
 }
-static void _viv_timer_start(void)
+// the minimize transition owns this flag: wm_size answers every
+// resize too, and a live resize storm must not keep resetting the
+// slideshow's countdown - only the stop the minimize itself ran is
+// allowed to re-arm anything.
+static BYTE _viv_animation_minimized;
+
+// a minimized window paints nothing: the animation clock and the
+// slideshow both stop (a hidden gif used to keep the queue timer
+// posting ~1k wakeups a second, run the frame update's string build
+// against a hidden status bar, and - with prevent sleep on, the
+// default - hold the display awake from the taskbar).
+void _viv_animation_minimize(HWND hwnd)
+{
+	if (!_viv_animation_minimized)
+	{
+		_viv_animation_minimized = 1;
+		
+		_viv_timer_stop();
+		
+		KillTimer(hwnd,VIV_ID_SLIDESHOW_TIMER);
+	}
+}
+
+// the restore: the timer's own invariant - alive iff a multi frame
+// image is loaded (the play state gates the tick's advancing, not
+// the clock - pause, minimize, restore keeps the timer the pause
+// kept) - re-arms the clock and the slideshow the minimize stopped.
+void _viv_animation_restore(HWND hwnd)
+{
+	if (_viv_animation_minimized)
+	{
+		_viv_animation_minimized = 0;
+		
+		if ((_viv_slot_current.frame_count > 1) && (!_viv_is_animation_timer))
+		{
+			_viv_timer_start();
+		}
+		
+		if (_viv_is_slideshow)
+		{
+			SetTimer(hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);
+		}
+	}
+}
+
+void _viv_timer_start(void)
 {
 	if (!_viv_is_animation_timer)
 	{
@@ -611,10 +656,22 @@ int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 						p += 4;
 					
 						// alpha 255 fully replaces the backdrop pixel, alpha 0
-						// keeps it.
-						wd[0] = b + ((wd[0] - b) * (255 - a)) / 255;
-						wd[1] = g + ((wd[1] - g) * (255 - a)) / 255;
-						wd[2] = r + ((wd[2] - r) * (255 - a)) / 255;
+						// keeps it - and the fully opaque pixel (the common
+						// frame) skips the blend math entirely: three plain
+						// stores beat a multiply and a divide per channel on
+						// every pixel of a 4k frame.
+						if (a == 255)
+						{
+							wd[0] = b;
+							wd[1] = g;
+							wd[2] = r;
+						}
+						else
+						{
+							wd[0] = b + ((wd[0] - b) * (255 - a)) / 255;
+							wd[1] = g + ((wd[1] - g) * (255 - a)) / 255;
+							wd[2] = r + ((wd[2] - r) * (255 - a)) / 255;
+						}
 						wd += 3;
 					
 						wide_run--;

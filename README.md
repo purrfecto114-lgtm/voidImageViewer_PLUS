@@ -14,7 +14,7 @@ A lightweight Windows image viewer (BMP, GIF, ICO, PNG, JPG, TIF, WEBP, JPEG-XR,
 
 Download
 --------
-Stable binaries (setup + zip, x86/x64, SHA-256 checksums):
+Stable binaries (setup + zip, x86/x64/arm64, SHA-256 checksums):
 
 https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 
@@ -79,10 +79,10 @@ Build from source
 Plain C + Win32 API, Visual Studio:
 
 1. Open `vs2019/voidImageViewer.sln` (VS2022+, v143 toolset) or `vs2026/voidImageViewer.sln` (v145 toolset). Both share one file list (`voidImageViewer.files.props`). VS2019 works with `/p:PlatformToolset=v142` (not CI-covered).
-2. Build the `voidImageViewer` project (x64 or Win32).
+2. Build the `voidImageViewer` project (x64, Win32 or ARM64).
 3. Optional setup: NSIS 3 via `nsis\build_installer.ps1` (auto-detects the VS version; sources compile with `/utf-8`).
 
-The zig cross build needs no Visual Studio: `sh build-zig/build.sh` (104 translation units, about 480 KB x64 with `-Os`). The vs linker embeds `res/voidImageViewer.Manifest` (per-monitor v2); the zig build keeps no embedded manifest, so it writes `viv.exe.manifest` next to the exe and the runtime claim in `os_init` covers even a stripped copy — keep the two files together, or build through vs when you need a single-file binary.
+The zig cross build needs no Visual Studio: `sh build-zig/build.sh` (104 translation units, about 480 KB x64 with `-Os`); `sh build-zig/build-arm64.sh` compiles the same tree for aarch64. The ARM64 release payload itself is the MSVC v143 build (`Platform=ARM64`) - the zig leg is the compile gate that proves the tree still translates for the target. The vs linker embeds `res/voidImageViewer.Manifest` (per-monitor v2); the zig build keeps no embedded manifest, so it writes `viv.exe.manifest` next to the exe and the runtime claim in `os_init` covers even a stripped copy — keep the two files together, or build through vs when you need a single-file binary.
 
 The source layout: one core (`src/viv.c` — the startup, the command line, the teardown) plus eighteen domain modules (`src/viv_<domain>.c/.h`), the decoder modules (`src/webp.c`, `src/qoi.c`, `src/wic.c`) and the shared-context header (`src/viv_state.h`); see `docs/architecture/viv-split-spec.md`.
 

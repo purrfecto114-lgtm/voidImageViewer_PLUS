@@ -1,4 +1,84 @@
-﻿Stable: Version 1.1.16 (the field response round IV)
+﻿Stable: Version 1.1.16 (the arm arrives round)
+
+	the arm64 build joins the party. the
+	release grows a third platform: a native
+	aarch64 executable from the same msvc
+	v143 toolset (the Release|ARM64
+	configuration the tree has carried since
+	the split, now answering the plain
+	voidImageViewer.exe filename contract
+	every other platform answers), an arm64
+	installer (the x86 nsis shell carries it
+	the way it carries the x64 build - windows
+	on arm runs the shell in emulation, and
+	the payload exe itself does every registry
+	write and the self-elevation, so nothing
+	lands in a redirected view), and an arm64
+	portable zip. the pe security gate covers
+	the third machine (aslr, dep, cfg, high
+	entropy va), the checksums and the
+	attestation cover all six files, and the
+	arm64 installer warns on a non-arm64
+	machine while the x64 installer now names
+	the arm64 build on an arm64 machine
+	instead of disproving "x64". the runtime
+	verification for the target stays on the
+	deferred record - no windows-arm64 host
+	rides the ci tier; the compile, the
+	version resource and the hardening bits
+	are the gates this pipeline can honestly
+	run.
+
+	the performance round landed five wins
+	and a courtesy. the animation tick
+	invalidates the image rect alone - a
+	small sticker gif in a 4k window used to
+	fill and present the entire client for
+	every frame, and the scroll steps used to
+	pay the same whole-window fill for one
+	exposed strip (the mat fill honors the
+	update region now). a minimized window
+	stops the animation clock and the
+	slideshow (a hidden gif used to post
+	~1k wakeups a second and - with prevent
+	sleep on, the default - hold the display
+	awake from the taskbar). the qoi decoder
+	checks its cancel flag once per chunk
+	instead of once per output pixel (a
+	locked read per pixel, up to hundreds of
+	milliseconds on a large file), answers
+	its alpha during the decode itself (the
+	second full-buffer scan is gone), and
+	the webp blend skips the alpha math for
+	fully opaque pixels. the opengl renderer
+	refills an unchanged texture shape with
+	gltexsubimage2d instead of re-specifying
+	the storage every frame (the d3d twin's
+	own reuse gate, translated), and the
+	paint path computes the render size once.
+
+	the ux round answered the field scans.
+	the settings page scrolls on precision
+	touchpads (sub-notch wheel deltas used
+	to truncate to zero - the page never
+	moved). the custom slideshow rate refuses
+	its own garbage instead of closing into
+	a one millisecond flip-fest. the
+	association grid's arrow keys walk rows
+	instead of wandering sideways. the
+	exact-zoom editor gained a menu seat
+	(the status pane's click stays), the
+	frame counter pane earned the hand cursor
+	the zoom pane always had, the usage box
+	documents all nineteen association
+	switches, the installer's hardware
+	acceleration note states the direct3d
+	requirement, and the second options page
+	carries its own header.
+
+	the stable is rebuilt at build 114; the
+	field response round's seven fixes ride
+	underneath unchanged.
 
 	the re-release round: seven more field reports
 	answer in one pass and the stable is rebuilt at

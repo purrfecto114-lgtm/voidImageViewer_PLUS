@@ -5331,8 +5331,30 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 			// never sees it while this dialog holds the messages.
 			if (_viv_settings_scroll_max > 0)
 			{
-				delta = (int)GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+				// precision touchpads and free-spin wheels send deltas below
+				// one notch: the old integer divide truncated every such
+				// message to zero and the page never moved at all. the
+				// viewer's own wheel rounds to the nearest step and never
+				// lets a nonzero delta die at zero - this window answers the
+				// same way now.
+				delta = (int)GET_WHEEL_DELTA_WPARAM(wParam);
 				step = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH) * 3;
+
+				delta = (delta < 0 ? -delta : delta) + (WHEEL_DELTA / 2);
+				delta /= WHEEL_DELTA;
+
+				// the floor the viewer's own wheel carries: a sub-half-notch
+				// delta still moves one step - only a true zero (which no real
+				// wheel message delivers) stays put.
+				if (!delta)
+				{
+					delta = 1;
+				}
+
+				if ((int)GET_WHEEL_DELTA_WPARAM(wParam) < 0)
+				{
+					delta = -delta;
+				}
 
 				_viv_settings_scroll_by(-(delta * step));
 			}
@@ -5805,7 +5827,32 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 
 					prev = _viv_settings_focus < 0 ? 0 : _viv_settings_focus;
 
-					index = _viv_settings_focus_next(prev,(vk == VK_DOWN) ? 1 : -1);
+					// the association grid is filled row major, so a linear step
+					// walks it sideways: up and down move a whole column step
+					// first (the jump is scoped to the grid's own cells - the
+					// checkbox rows on the general page keep the linear walk), and
+					// only when the jump leaves the grid does the walk fall back
+					// to the rule the rest of the page uses. a grid jump always
+					// moves in the pressed direction, so the wrap detector below
+					// never misreads it.
+					index = -1;
+
+					if ((_viv_settings_focus >= 0) && (_viv_settings_ctls[_viv_settings_focus].type == _VIV_SETTINGS_CT_CHECK) && (_viv_settings_ctls[_viv_settings_focus].id == _VIV_SETTINGS_ID_ASSOC))
+					{
+						int grid_index;
+
+						grid_index = _viv_settings_focus + ((vk == VK_DOWN) ? _VIV_SETTINGS_CHECK_COLS : -_VIV_SETTINGS_CHECK_COLS);
+
+						if ((grid_index >= 0) && (grid_index < _viv_settings_ctl_count) && (_viv_settings_ctls[grid_index].type == _VIV_SETTINGS_CT_CHECK) && (_viv_settings_ctls[grid_index].id == _VIV_SETTINGS_ID_ASSOC))
+						{
+							index = grid_index;
+						}
+					}
+
+					if (index < 0)
+					{
+						index = _viv_settings_focus_next(prev,(vk == VK_DOWN) ? 1 : -1);
+					}
 
 					// a wrap arrival is not a page selection (the tab rule):
 					// the walk that crosses the array's seam lands on a

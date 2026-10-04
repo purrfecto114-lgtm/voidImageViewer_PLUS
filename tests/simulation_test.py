@@ -689,8 +689,8 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.16.113",
-          (major, minor, rev, build) == (1, 1, 16, 113), str((major, minor, rev, build)))
+    check("the version quad is 1.1.16.114",
+          (major, minor, rev, build) == (1, 1, 16, 114), str((major, minor, rev, build)))
     check("the release identity string is 1.1.16",
           vstr is not None and vstr.group(1) == "1.1.16", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
@@ -2787,7 +2787,7 @@ def t_sim_merged_report_round130():
     check("the installer asks the os its architecture (not the installer process)",
           "GetNativeSystemInfo" in nsi)
     check("the IsWow64Process probe is retired (it answered for the process, not the machine)",
-          "IsWow64Process" not in nsi)
+          'kernel32::IsWow64Process(' not in nsi and 'kernel32::IsWow64Process2(' not in nsi)
     check("the per-user fallback default is spelled (the permission model)",
           "$LOCALAPPDATA\\Programs\\voidImageViewer" in nsi)
     check("the installer still never demands elevation",

@@ -248,6 +248,7 @@ void _viv_check_menus(HMENU hmenu)
 	EnableMenuItem(hmenu,VIV_ID_VIEW_ZOOM_IN,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_VIEW_ZOOM_OUT,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_VIEW_ZOOM_RESET,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_ZOOM_SET,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_VIEW_1TO1,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_VIEW_BESTFIT,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_VIEW_WINDOW_SIZE_50,is_image_enabled);

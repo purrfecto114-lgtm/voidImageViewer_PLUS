@@ -122,6 +122,14 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			_viv_status_update_temp_pos_zoom();
 			break;
+
+		case VIV_ID_VIEW_ZOOM_SET:
+			// the exact-percent editor the status zoom pane has always
+			// opened on its click - the menu seat makes it keyboard
+			// reachable and self documenting (the field ux round's
+			// discoverability find).
+			_viv_set_zoom_dialog();
+			break;
 			
 		case VIV_ID_VIEW_RENDERER_GDI:
 		case VIV_ID_VIEW_RENDERER_OPENGL:
@@ -241,7 +249,8 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			
 			if (!config_shuffle)
 			{
-				// create a new shuffle list.
+				// shuffle off: the index list retires here - the next
+				// shuffle-on rebuilds it from the playlist.
 				if (_viv_playlist_shuffle_indexes)
 				{
 					mem_free(_viv_playlist_shuffle_indexes);

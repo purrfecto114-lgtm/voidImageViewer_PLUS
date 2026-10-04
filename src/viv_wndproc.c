@@ -1329,7 +1329,8 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				{
 					_viv_update_src_pixel(1,0);
 					_viv_status_update_frame();
-					InvalidateRect(hwnd,0,FALSE);
+					// the frame rect, not the whole client (the render domain's helper).
+					_viv_invalidate_frame_rect(hwnd);
 					
 					if (_viv_is_animation_paint)
 					{
@@ -2162,7 +2163,18 @@ static LRESULT _viv_on_wm_syscommand(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
 static LRESULT _viv_on_wm_size(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-
+	// a minimized window paints nothing: the clock and the slideshow
+	// stop while hidden and any restore re-arms them (the pair lives
+	// in the animation domain - this file rides its own line cap).
+	if (wParam == SIZE_MINIMIZED)
+	{
+		_viv_animation_minimize(hwnd);
+	}
+	else
+	{
+		_viv_animation_restore(hwnd);
+	}
+	
 	_viv_on_size();
 
 	return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -2525,6 +2537,14 @@ static LRESULT _viv_on_wm_setcursor(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 		ScreenToClient(_viv_status_hwnd,&pt);
 		
 		if ((SendMessage(_viv_status_hwnd,SB_GETRECT,0,(LPARAM)&pane_rect)) && (PtInRect(&pane_rect,pt)))
+		{
+			SetCursor(LoadCursor(NULL,IDC_HAND));
+			
+			return TRUE;
+		}
+
+		// the frame counter pane toggles the same way - it earns the same hand.
+		if ((_viv_status_frame_pane_index() >= 0) && (SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_frame_pane_index(),(LPARAM)&pane_rect)) && (PtInRect(&pane_rect,pt)))
 		{
 			SetCursor(LoadCursor(NULL,IDC_HAND));
 			
@@ -2911,10 +2931,12 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 //debug_printf("WM_PAINT\n")			;
 		if ((wide) && (high))
 		{
-			int rx;
-			int ry;
-			int rw;
-			int rh;
+			// the render rect starts empty (a refused frame state leaves the fill
+			// covering the whole client); both render legs share one computation.
+			int rx = 0;
+			int ry = 0;
+			int rw = 0;
+			int rh = 0;
 			int frame_state_ok;
 
 			// the hardware renderers take the whole frame: the same view
@@ -2980,19 +3002,10 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				}
 			}
 
-			rx = 0;
-			ry = 0;
-			rw = 0;
-			rh = 0;
-
 			// controls.
 			if (frame_state_ok)
 			{
 				HDC mem_hdc;
-				
-				_viv_get_render_size(&rw,&rh);
-
-				
 				
 				rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
 				ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
@@ -3257,7 +3270,13 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 				
 				if (_viv_background_hbrush)
 				{
+					// the mat fill honors the update region: the animation tick and
+					// the scroll expose invalidate fractions of the client, and the
+					// four bands only pay for what the region intersects.
+					SelectClipRgn(paint_hdc,update_hrgn);
+					
 					os_fill_clipped_rect(paint_hdc,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,rx,ry + view_top,rw,rh,_viv_background_hbrush);
+					SelectClipRgn(paint_hdc,NULL);
 				}
 			}
 		}

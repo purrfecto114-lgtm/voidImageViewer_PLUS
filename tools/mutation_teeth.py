@@ -172,7 +172,7 @@ MUTATIONS = [
 
     ("the options page loses its fields (rc.7)",
      "nsis/InstallOptions2.ini",
-     "NumFields=23",
+     "NumFields=24",
      "NumFields=14",
      ["menu"]),
 
@@ -564,6 +564,114 @@ MUTATIONS = [
      "src/viv_menu.c",
      "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,_viv_hwd3d_available() ? MF_ENABLED : MF_GRAYED);",
      "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,MF_ENABLED);",
+     ["menu"]),
+
+    ("the arm64 installer loses its target machine (round-151)",
+     "nsis/installer.nsi",
+     '!define TARGETMACHINE "arm64"',
+     '!define TARGETMACHINE "arm64 "',
+     ["menu"]),
+
+    ("the arm64 payload flag retires from the 64-bit pair (round-151)",
+     "nsis/installer.nsi",
+     "        !define VIV_64BIT_PAYLOAD\n        InstallDir \"$PROGRAMFILES64\\voidImageViewer\"\n\n!else ifdef x64",
+     "        InstallDir \"$PROGRAMFILES64\\voidImageViewer\"\n\n!else ifdef x64",
+     ["menu"]),
+
+    ("the arm64 os check accepts any machine again (round-151)",
+     "nsis/installer.nsi",
+     "IntCmp $0 43620 arm64_ok arm64_is32 arm64_is32",
+     "IntCmp $0 12 arm64_ok arm64_ok arm64_ok",
+     ["menu"]),
+
+    ("the arch gate falls back to the emulation view again (round-151)",
+     "nsis/installer.nsi",
+     "${GetNativeMachineArchitecture} $0\n        IntCmp $0 43620 x64_on_arm64",
+     "System::Call \"kernel32::GetNativeSystemInfo(i r1)\"\n        IntCmp $0 43620 x64_on_arm64",
+     ["menu"]),
+
+    ("the pipeline forgets the arm64 configuration (round-151)",
+     ".github/workflows/release.yml",
+     "/p:Platform=ARM64 ",
+     "/p:Platform=Win32 ",
+     ["menu"]),
+
+    ("the pipeline drops the arm64 installer build (round-151)",
+     ".github/workflows/release.yml",
+     "'-Darm64' nsis\\installer.nsi",
+     "nsis\\installer.nsi",
+     ["menu"]),
+
+    ("the animation tick repaints the whole window again (round-151)",
+     "src/viv_wndproc.c",
+     "_viv_invalidate_frame_rect(hwnd);",
+     "InvalidateRect(hwnd,0,FALSE);",
+     ["menu"]),
+
+    ("the mat fill ignores the update region again (round-151)",
+     "src/viv_wndproc.c",
+     "SelectClipRgn(paint_hdc,update_hrgn);",
+     ";",
+     ["menu"]),
+
+    ("the minimize stops nothing again (round-151)",
+     "src/viv_anim.c",
+     "KillTimer(hwnd,VIV_ID_SLIDESHOW_TIMER);",
+     ";",
+     ["menu"]),
+
+    ("the qoi cancel goes blind again (round-151)",
+     "src/qoi.c",
+     "if (_VIV_LOAD_TERMINATED())",
+     "if (0)",
+     ["menu"]),
+
+    ("the qoi alpha scan rides the buffer again (round-151)",
+     "src/qoi.c",
+     "if (d[3] != 255)",
+     "if (0)",
+     ["menu"]),
+
+    ("the webp blend pays the opaque math again (round-151)",
+     "src/viv_anim.c",
+     "if (a == 255)",
+     "if (0)",
+     ["menu"]),
+
+    ("the gl upload forgets the refill path (round-151)",
+     "src/hwgl.c",
+     "(_viv_gl_texsubimage2d) && ",
+     "",
+     ["menu"]),
+
+    ("the settings wheel truncates sub-notch deltas again (round-151)",
+     "src/viv_settings.c",
+     "delta = (delta < 0 ? -delta : delta) + (WHEEL_DELTA / 2);",
+     "delta = 0;",
+     ["menu"]),
+
+    ("the grid arrows walk sideways again (round-151)",
+     "src/viv_settings.c",
+     "grid_index = _viv_settings_focus + ((vk == VK_DOWN) ? _VIV_SETTINGS_CHECK_COLS : -_VIV_SETTINGS_CHECK_COLS);",
+     "grid_index = -1;",
+     ["menu"]),
+
+    ("the custom rate accepts its garbage again (round-151)",
+     "src/viv_dialogs.c",
+     "if ((!translated) || (rate == 0))",
+     "if (0)",
+     ["menu"]),
+
+    ("the usage box loses the wic family again (round-151)",
+     "src/viv_dialogs.c",
+     "/<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp|emf|wmf|avif|dds|hdp|heic|heif|jxr|qoi|wdp>",
+     "/<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp|emf|wmf>",
+     ["menu"]),
+
+    ("the zoom seat leaves the command table (round-151)",
+     "src/viv.c",
+     "{LOCALIZATION_ID_ZOOM_SET,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_SET},",
+     "",
      ["menu"]),
 ]
 

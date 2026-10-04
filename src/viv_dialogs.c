@@ -358,8 +358,29 @@ INT_PTR CALLBACK _viv_custom_rate_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM l
 			switch(LOWORD(wParam))
 			{
 				case IDOK:
-					config_slideshow_custom_rate_type = ComboBox_GetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBOBOX));
-					config_slideshow_custom_rate = GetDlgItemInt(hwnd,IDC_CUSTOM_RATE_EDIT,NULL,FALSE);
+					{
+						BOOL translated;
+						UINT rate;
+
+						// an empty or non-numeric edit used to read as zero and
+						// close the dialog as if accepted - the clamp downstream
+						// turned the typo into a one millisecond slideshow. the box
+						// now refuses its own garbage the way the in-place zoom
+						// editor refuses an empty percent: the beep names the
+						// refusal and the dialog stays open for a real number (the
+						// type and the rate only leave with a passing value).
+						rate = GetDlgItemInt(hwnd,IDC_CUSTOM_RATE_EDIT,&translated,FALSE);
+
+						if ((!translated) || (rate == 0))
+						{
+							MessageBeep(0);
+
+							break;
+						}
+
+						config_slideshow_custom_rate_type = ComboBox_GetCurSel(GetDlgItem(hwnd,IDC_CUSTOM_RATE_TYPE_COMBOBOX));
+						config_slideshow_custom_rate = (int)rate;
+					}
 					EndDialog(hwnd,1);
 					break;
 
@@ -841,9 +862,9 @@ void _viv_command_line_options(void)
 		"/everything <search> Open files from an Everything search.\n"
 		"/random <search>\tOpen random files from an Everything search.\n"
 		"/shuffle\t\tShuffle playlist.\n"
-		"/<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp|emf|wmf>\n"
+		"/<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp|emf|wmf|avif|dds|hdp|heic|heif|jxr|qoi|wdp>\n"
 		"\t\tInstall association.\n"
-		"/no<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp|emf|wmf>\n"
+		"/no<bmp|gif|ico|jpeg|jpg|png|tif|tiff|webp|emf|wmf|avif|dds|hdp|heic|heif|jxr|qoi|wdp>\n"
 		"\t\tUninstall association.\n"
 		"/appdata\t\tSave settings in appdata.\n"
 		"/noappdata\tSave settings in exe path.\n"

@@ -464,7 +464,10 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <LinkTimeCodeGeneration>
       </LinkTimeCodeGeneration>
-      <OutputFile>$(OutDir)$(TargetName)ARM64$(TargetExt)</OutputFile>
+      <OutputFile>$(OutDir)voidImageViewer.exe</OutputFile>
+      <!-- the arm64 artifact keeps the plain name every other platform
+           carries: the ci leg, the local installer script and the zip
+           packaging all address one filename contract. -->
     </Link>
     <Manifest>
       <AdditionalManifestFiles>..\res\voidImageViewer.Manifest</AdditionalManifestFiles>

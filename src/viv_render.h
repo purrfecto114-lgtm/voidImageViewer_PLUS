@@ -29,6 +29,7 @@
 // exported to other domains / the viv.c core
 void _viv_mipmap_free(_viv_mipmap_t *mipmap);
 void _viv_get_render_size(int *prw,int *prh);
+void _viv_invalidate_frame_rect(HWND hwnd);
 int _viv_zoom_pos_max(void);
 int _viv_is_dark(void);
 COLORREF _viv_windowed_background(void);

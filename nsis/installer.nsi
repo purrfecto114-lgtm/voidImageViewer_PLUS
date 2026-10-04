@@ -42,7 +42,9 @@
 ; Override with /DVIV_EXE_DIR=<path> when the exe is not in the default
 ; project output directory (used by CI builds).
 !ifndef VIV_EXE_DIR
-        !ifdef x64
+        !ifdef arm64
+                !define VIV_EXE_DIR "..\${VS_VERSION}\ARM64\${BUILD_CONFIG}"
+        !else ifdef x64
                 !define VIV_EXE_DIR "..\${VS_VERSION}\x64\${BUILD_CONFIG}"
         !else
                 !define VIV_EXE_DIR "..\${VS_VERSION}\${BUILD_CONFIG}"
@@ -59,17 +61,47 @@ XPStyle on
 ; includes
 !include "MUI.nsh"
 
+; the native-machine answer: GetNativeSystemInfo answers the
+; emulation view to an x86 process on an arm64 machine (the msdn
+; remark says so in as many words), so the architecture gates ride
+; x64.nsh's IsWow64Process2 machine query with its own fallback
+; chain for the machines the api predates.
+!include "x64.nsh"
+
 !include "version.nsh"
 
 !include WinMessages.nsh
 !include InstallOptions.nsh
 !include FileFunc.nsh
 
+; the architecture is exclusive: exactly one of -Dx64 / -Darm64 rides
+; the makensis command line (a build carrying both would answer every
+; !ifdef question wrong - fail the compile instead of shipping a shell
+; that misnames itself).
 !ifdef x64
+!ifdef arm64
+        !error "the installer arch is exclusive: pass -Dx64 or -Darm64, never both"
+!endif
+!endif
+
+!ifdef arm64
+        
+        ; the arm64 payload is a native aarch64 build. the shell is still
+        ; this x86 installer binary - windows on arm runs it in emulation -
+        ; and the payload exe itself carries every registry write and the
+        ; self-elevation, so nothing the shell does lands in a redirected
+        ; view. $PROGRAMFILES64 answers from the 64-bit (native) registry
+        ; view of the machine the same way it does for the x64 build.
+        !define TARGETMACHINE "arm64"
+        !define VIV_64BIT_PAYLOAD
+        InstallDir "$PROGRAMFILES64\voidImageViewer"
+
+!else ifdef x64
         
         !define TARGETMACHINE "x64"
+        !define VIV_64BIT_PAYLOAD
         InstallDir "$PROGRAMFILES64\voidImageViewer"
-        
+
 !else
         
         !define TARGETMACHINE "x86"
@@ -144,6 +176,14 @@ LangString MsgUninstallStageFailed ${LANG_ENGLISH} "The uninstall stage failed."
 LangString MsgUninstallStageFailed ${LANG_SIMPCHINESE} "卸载阶段失败。"
 LangString MsgOsNotX64 ${LANG_ENGLISH} "OS is not x64.$\nInstall anyway?"
 LangString MsgOsNotX64 ${LANG_SIMPCHINESE} "当前操作系统不是 64 位。$\n仍然要安装吗？"
+LangString MsgOsNotArm64 ${LANG_ENGLISH} "OS is not ARM64 (64-bit ARM).$\nInstall anyway?"
+LangString MsgOsNotArm64 ${LANG_SIMPCHINESE} "当前操作系统不是 ARM64（64 位 ARM）。$\n仍然要安装吗？"
+LangString MsgOsArm64Emulation ${LANG_ENGLISH} "This PC has an ARM64 processor; the x64 build would run in emulation.$\nThe ARM64 build is the native one.$\nInstall this x64 build anyway?"
+LangString MsgOsArm64Emulation ${LANG_SIMPCHINESE} "此电脑为 ARM64 处理器，x64 版本将以模拟方式运行。$\nARM64 版本才是原生构建。$\n仍然安装此 x64 版本吗？"
+LangString MsgSelectOptionsTitle2 ${LANG_ENGLISH} "Shortcuts and Associations"
+LangString MsgSelectOptionsTitle2 ${LANG_SIMPCHINESE} "快捷方式与文件关联"
+LangString MsgSelectOptionsSub2 ${LANG_ENGLISH} "Choose shortcuts and file associations."
+LangString MsgSelectOptionsSub2 ${LANG_SIMPCHINESE} "选择快捷方式与文件关联。"
 LangString MsgExecAdminFailed ${LANG_ENGLISH} "Failed to execute admin command"
 LangString MsgExecAdminFailed ${LANG_SIMPCHINESE} "执行管理员安装命令失败"
 LangString MsgExecOptionsFailed ${LANG_ENGLISH} "Failed to execute install options"
@@ -207,14 +247,14 @@ Function .onInit
         ; dont install to the previous x86 location C:\Program Files (x86) if we are x64
 probe_hklm:
 
-!ifdef x64
+!ifdef VIV_64BIT_PAYLOAD
         SetRegView 64
 !endif
 
         ClearErrors
         ReadRegStr $R2 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\voidImageViewer" 'UninstallString'
 
-!ifdef x64
+!ifdef VIV_64BIT_PAYLOAD
         SetRegView 32
 !endif
 
@@ -279,32 +319,52 @@ skip_check_app_data:
 
 !ifdef x64
 
-        ; check the native os architecture. the old probe asked the
-        ; wow64 question about the installer process itself: correct
-        ; only while Setup.exe stays a 32-bit build - a native 64-bit
-        ; installer answers "not emulated" on a 64-bit os and the check
-        ; would misreport every x64 machine as 32-bit.
-        ; GetNativeSystemInfo answers for the machine from any process
-        ; architecture, so the verdict survives whichever Setup.exe we
-        ; ship.
-        System::Alloc 48
-        Pop $1
-        System::Call "kernel32::GetNativeSystemInfo(i r1)"
-        System::Call "*$1(i .r0)"
-        System::Free $1
-        IntOp $0 $0 & 0xFFFF
-        ; 9 = PROCESSOR_ARCHITECTURE_AMD64; anything else (an x86 os,
-        ; arm64) takes the warn path - the override stays a user choice.
-        IntCmp $0 9 is64 is32 is32
+        ; check the native machine. the numbers are IMAGE_FILE_MACHINE
+        ; values (34404 = amd64, 43620 = arm64): an arm64 machine runs
+        ; this x64 payload in emulation - the arm64 build is the native
+        ; one, so the warn names it instead of the old "not x64" line
+        ; the machine disproves; anything else takes the original warn
+        ; path. the override stays a user choice.
+        ${GetNativeMachineArchitecture} $0
+        IntCmp $0 43620 x64_on_arm64 x64_not_arm64 x64_not_arm64
 
-is32:
-        
-        MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsNotX64)" IDYES is64
+x64_on_arm64:
+
+        MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsArm64Emulation)" IDYES x64_ok
         Abort
+
+x64_not_arm64:
+
+        IntCmp $0 9 x64_ok x64_is32 x64_is32
+
+x64_is32:
         
-is64:
-        
+        MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsNotX64)" IDYES x64_ok
+        Abort
+
+x64_ok:
+
 !endif ; !ifdef x64
+
+!ifdef arm64
+
+        ; the arm64 payload cannot run under emulation: the os itself
+        ; must be arm64 (43620 = IMAGE_FILE_MACHINE_ARM64). an x64 or
+        ; x86 machine cannot execute the staged exe at all, so the warn
+        ; is the only honest face - the override stays a user choice
+        ; (the install would lay down files nothing on that machine
+        ; can run).
+        ${GetNativeMachineArchitecture} $0
+        IntCmp $0 43620 arm64_ok arm64_is32 arm64_is32
+
+arm64_is32:
+
+        MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsNotArm64)" IDYES arm64_ok
+        Abort
+
+arm64_ok:
+
+!endif ; !ifdef arm64
 
 FunctionEnd
 
@@ -771,7 +831,10 @@ Function InstallOptions2
         
         !insertmacro INSTALLOPTIONS_INITDIALOG "InstallOptions2.ini"
 
-        !insertmacro MUI_HEADER_TEXT "$(MsgSelectOptionsTitle)" "$(MsgSelectOptionsSub)"
+        ; the second options page carries its own header: two
+        ; consecutive screens sharing one title read as a stuck
+        ; wizard (the field ux round's finding).
+        !insertmacro MUI_HEADER_TEXT "$(MsgSelectOptionsTitle2)" "$(MsgSelectOptionsSub2)"
         
         !insertmacro INSTALLOPTIONS_SHOW
 

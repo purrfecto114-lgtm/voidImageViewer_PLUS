@@ -266,6 +266,76 @@ void _viv_get_render_size(int *prw,int *prh)
 	*prw = rw;
 	*prh = rh;
 }
+
+// the animation tick invalidates the image rect alone: the frame
+// advance changes no pixel outside it, and the old whole-client
+// invalidate made every frame of a small sticker gif repaint and
+// re-present an entire 4k window (the performance round's headline
+// find - the same win the scroll expose always wanted). the math
+// mirrors _viv_on_wm_paint's own rx/ry/rw/rh walk - the state both
+// read is the same state, and every path that moves the image rect
+// (zoom, pan, resize, image change) still invalidates the whole
+// client on its own.
+void _viv_invalidate_frame_rect(HWND hwnd)
+{
+	RECT rect;
+	RECT client;
+	int wide;
+	int high;
+	int view_top;
+	int rw;
+	int rh;
+	
+	GetClientRect(hwnd,&client);
+	wide = client.right - client.left;
+	high = client.bottom - client.top - _viv_get_status_high() - _viv_get_view_top();
+	view_top = _viv_get_view_top();
+	
+	_viv_get_render_size(&rw,&rh);
+	
+	rect.left = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
+	rect.top = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y + view_top;
+	rect.right = rect.left + rw;
+	rect.bottom = rect.top + rh;
+	
+	// rtl layouts mirror the client x axis - the paint path mirrors
+	// its update region the same way before it trusts a rect.
+	if (os_GetLayout)
+	{
+		HDC hdc;
+		
+		hdc = GetDC(hwnd);
+		
+		if (hdc)
+		{
+			if (os_GetLayout(hdc) & LAYOUT_RTL)
+			{
+				int client_wide;
+				LONG left;
+				
+				client_wide = client.right - client.left;
+				left = rect.left;
+				
+				rect.left = client_wide - rect.right;
+				rect.right = client_wide - left;
+			}
+			
+			ReleaseDC(hwnd,hdc);
+		}
+	}
+	
+	if ((rect.right > rect.left) && (rect.bottom > rect.top))
+	{
+		InvalidateRect(hwnd,&rect,FALSE);
+	}
+	else
+	{
+		// no image rect to name: the full-client invalidate is the
+		// honest fallback (an empty rect would silently drop the
+		// frame).
+		InvalidateRect(hwnd,0,FALSE);
+	}
+}
 // cache for _viv_zoom_pos_max: the ladder top depends only on the image,
 // the viewport and the layout settings. the signature check below is
 // O(1), so a wheel tick or a window resize no longer re-walks the 1024

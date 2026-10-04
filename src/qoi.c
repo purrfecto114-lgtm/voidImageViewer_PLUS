@@ -121,6 +121,7 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 								const BYTE *d_end;
 								DWORD run;
 								int decode_ok;
+								int has_alpha;
 								
 								os_zero_memory(index,sizeof(index));
 								
@@ -130,6 +131,7 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 								g = 0;
 								b = 0;
 								a = 255;
+								has_alpha = 0;
 								
 								p = bytes + 14;
 								chunks_end = bytes + data_size - 8;
@@ -149,17 +151,6 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 								
 								while ((decode_ok) && (d < d_end))
 								{
-									// cooperative cancel: a quit or a navigation away must not
-									// wait out a huge decode. the torn buffer never ships -
-									// decode_ok drops with the break and the delivery below
-									// gates on it.
-									if (_VIV_LOAD_TERMINATED())
-									{
-										decode_ok = 0;
-										
-										break;
-									}
-									
 									if (run)
 									{
 										run--;
@@ -167,6 +158,19 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 									else if (p < chunks_end)
 									{
 										BYTE b1;
+										
+										// cooperative cancel: a quit or a navigation away must not
+										// wait out a huge decode. the check rides the chunk read -
+										// one locked read per chunk instead of one per output
+										// pixel (a run chunk emits up to 62 pixels on one check).
+										// the torn buffer never ships - decode_ok drops with the
+										// break and the delivery below gates on it.
+										if (_VIV_LOAD_TERMINATED())
+										{
+											decode_ok = 0;
+											
+											break;
+										}
 										
 										b1 = *p++;
 										
@@ -272,38 +276,25 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 									d[1] = g;
 									d[2] = b;
 									d[3] = (channels == 4) ? a : 255;
+									
+									// the alpha answer rides the write: only an rgba chunk can
+									// introduce a value under 255 (index and run copies propagate
+									// pixels an earlier rgba chunk already answered for, and the
+									// 3-channel stream pins 255 here) - the second full-buffer
+									// scan that used to walk every pixel again is gone.
+									if (d[3] != 255)
+									{
+										has_alpha = 1;
+									}
+									
 									d += 4;
 								}
 								
 								if (decode_ok)
 								{
-									int has_alpha;
-									
-									has_alpha = 0;
-									
-									// a 3-channel stream is opaque by construction; a
-									// 4-channel one may still be fully opaque, and the
-									// scan skips the backdrop blend when it is.
-									if (channels == 4)
-									{
-										const BYTE *scan;
-										const BYTE *scan_end;
-										
-										scan = pixels;
-										scan_end = pixels + buffer_size;
-										
-										while (scan < scan_end)
-										{
-											if (scan[3] != 255)
-											{
-												has_alpha = 1;
-												
-												break;
-											}
-											
-											scan += 4;
-										}
-									}
+									// the alpha answer rode the decode itself (the write site
+									// flags the first value under 255 it lays down); the old
+									// second full-buffer scan is gone with it.
 									
 									if (info_callback(user_data,1,wide,high,has_alpha))
 									{
