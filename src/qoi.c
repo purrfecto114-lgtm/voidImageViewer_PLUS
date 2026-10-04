@@ -168,10 +168,10 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 										if (_VIV_LOAD_TERMINATED())
 										{
 											decode_ok = 0;
-											
+
 											break;
 										}
-										
+
 										b1 = *p++;
 										
 										if (b1 == 0xfe) // rgb
@@ -276,7 +276,7 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 									d[1] = g;
 									d[2] = b;
 									d[3] = (channels == 4) ? a : 255;
-									
+
 									// the alpha answer rides the write: only an rgba chunk can
 									// introduce a value under 255 (index and run copies propagate
 									// pixels an earlier rgba chunk already answered for, and the
@@ -286,7 +286,7 @@ int qoi_load(IStream *stream,void *user_data,int (*info_callback)(void *user_dat
 									{
 										has_alpha = 1;
 									}
-									
+
 									d += 4;
 								}
 								

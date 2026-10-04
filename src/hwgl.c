@@ -407,16 +407,16 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		{
 			mem_free(_viv_gl_stage_buf);
 		}
-		
+
 		_viv_gl_stage_buf = (BYTE *)mem_alloc(size);
 		_viv_gl_stage_size = size;
 	}
-	
+
 	buf = _viv_gl_stage_buf;
 	if (!buf)
 	{
 		_viv_gl_stage_size = 0;
-		
+
 		return 0;
 	}
 	
@@ -534,7 +534,7 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
-		
+
 		_viv_gl_last_pot_wide = pot_wide;
 		_viv_gl_last_pot_high = pot_high;
 		_viv_gl_last_format = format;
@@ -771,7 +771,7 @@ void _viv_hwgl_shutdown(void)
 		_viv_gl_last_pot_wide = 0;
 		_viv_gl_last_pot_high = 0;
 		_viv_gl_last_format = 0;
-		
+
 		_viv_gl_wglDeleteContext(_viv_gl_context);
 		_viv_gl_context = 0;
 	}
@@ -785,7 +785,7 @@ void _viv_hwgl_shutdown(void)
 		_viv_gl_stage_buf = 0;
 		_viv_gl_stage_size = 0;
 	}
-	
+
 	_viv_gl_last_hbitmap = 0;
 	_viv_gl_failed = 0;
 	// the pixel format hwnd stays: the window keeps its format (the

@@ -130,9 +130,9 @@ void _viv_animation_minimize(HWND hwnd)
 	if (!_viv_animation_minimized)
 	{
 		_viv_animation_minimized = 1;
-		
+
 		_viv_timer_stop();
-		
+
 		KillTimer(hwnd,VIV_ID_SLIDESHOW_TIMER);
 	}
 }
@@ -146,12 +146,12 @@ void _viv_animation_restore(HWND hwnd)
 	if (_viv_animation_minimized)
 	{
 		_viv_animation_minimized = 0;
-		
+
 		if ((_viv_slot_current.frame_count > 1) && (!_viv_is_animation_timer))
 		{
 			_viv_timer_start();
 		}
-		
+
 		if (_viv_is_slideshow)
 		{
 			SetTimer(hwnd,VIV_ID_SLIDESHOW_TIMER,config_slideshow_rate,0);

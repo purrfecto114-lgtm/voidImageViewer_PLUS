@@ -2174,7 +2174,7 @@ static LRESULT _viv_on_wm_size(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 	{
 		_viv_animation_restore(hwnd);
 	}
-	
+
 	_viv_on_size();
 
 	return DefWindowProc(hwnd,msg,wParam,lParam);
@@ -2547,7 +2547,7 @@ static LRESULT _viv_on_wm_setcursor(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 		if ((_viv_status_frame_pane_index() >= 0) && (SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_frame_pane_index(),(LPARAM)&pane_rect)) && (PtInRect(&pane_rect,pt)))
 		{
 			SetCursor(LoadCursor(NULL,IDC_HAND));
-			
+
 			return TRUE;
 		}
 	}
@@ -3274,7 +3274,7 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 					// the scroll expose invalidate fractions of the client, and the
 					// four bands only pay for what the region intersects.
 					SelectClipRgn(paint_hdc,update_hrgn);
-					
+
 					os_fill_clipped_rect(paint_hdc,rect.left,rect.top,rect.right - rect.left,rect.bottom - rect.top,rx,ry + view_top,rw,rh,_viv_background_hbrush);
 					SelectClipRgn(paint_hdc,NULL);
 				}

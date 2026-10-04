@@ -285,45 +285,45 @@ void _viv_invalidate_frame_rect(HWND hwnd)
 	int view_top;
 	int rw;
 	int rh;
-	
+
 	GetClientRect(hwnd,&client);
 	wide = client.right - client.left;
 	high = client.bottom - client.top - _viv_get_status_high() - _viv_get_view_top();
 	view_top = _viv_get_view_top();
-	
+
 	_viv_get_render_size(&rw,&rh);
-	
+
 	rect.left = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
 	rect.top = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y + view_top;
 	rect.right = rect.left + rw;
 	rect.bottom = rect.top + rh;
-	
+
 	// rtl layouts mirror the client x axis - the paint path mirrors
 	// its update region the same way before it trusts a rect.
 	if (os_GetLayout)
 	{
 		HDC hdc;
-		
+
 		hdc = GetDC(hwnd);
-		
+
 		if (hdc)
 		{
 			if (os_GetLayout(hdc) & LAYOUT_RTL)
 			{
 				int client_wide;
 				LONG left;
-				
+
 				client_wide = client.right - client.left;
 				left = rect.left;
-				
+
 				rect.left = client_wide - rect.right;
 				rect.right = client_wide - left;
 			}
-			
+
 			ReleaseDC(hwnd,hdc);
 		}
 	}
-	
+
 	if ((rect.right > rect.left) && (rect.bottom > rect.top))
 	{
 		InvalidateRect(hwnd,&rect,FALSE);
