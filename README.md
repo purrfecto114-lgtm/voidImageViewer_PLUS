@@ -10,7 +10,7 @@
 
 A lightweight Windows image viewer (BMP, GIF, ICO, PNG, JPG, TIF, WEBP, JPEG-XR, HEIF, AVIF, DDS, QOI, EMF, WMF — animated GIF/WEBP included; JPEG-XR (Win7+) and DDS (Win8.1+) ride the WIC codecs Windows itself carries, HEIF/AVIF ride the store's image extensions wherever they are installed, QOI is built in) that opens and displays images as fast as possible.
 
-[Download](#download) · [What's new](#whats-new) · [Touch & zoom](#touch--zoom-controls) · [Canvas & backdrop](#canvas-backdrop--dark-mode) · [Recent files](#recent-files) · [Languages](#languages) · [Build](#build-from-source)
+[Download](#download) · [Upgrade & uninstall notes](#upgrade--uninstall-notes) · [What's new](#whats-new) · [Touch & zoom](#touch--zoom-controls) · [Canvas & backdrop](#canvas-backdrop--dark-mode) · [Recent files](#recent-files) · [Languages](#languages) · [Build](#build-from-source)
 
 Download
 --------
@@ -22,8 +22,36 @@ The binaries are unsigned (an open-source signing account is on the roadmap) —
 Every release artifact also carries a build-provenance attestation: `gh attestation verify <file> --repo purrfecto114-lgtm/voidImageViewer_PLUS`
 answers the workflow run and commit each file was built from (signing would still be its own round — attestation proves origin, not publisher identity).
 
+Upgrade & uninstall notes
+--------
+
+**Upgrading from 1.1.16 or earlier to 1.1.17-rc.x:**
+
+- This round tightens the settings-file integrity checks, so the **first launch after an upgrade may show a "Settings file problem" dialog**: the session then runs on the built-in defaults, and the original settings file is kept as a `.corrupt.date-time` copy in the same folder. **Your settings are not lost.**
+- The dialog's three buttons: **Cancel** = leave everything untouched (you will be asked again next launch); **Restore backup** = write back the last settings that loaded cleanly; **Keep** = save the defaults this session ran on.
+- Known regression: settings written by an older release can be misjudged by the stricter reader (an RC issue we will fix in the next round). Until then, choosing **Cancel** keeps your original file untouched — the dialog may reappear on every launch until the fix ships.
+- The dialog and its backup copy only touch the settings folder (`%APPDATA%\voidImageViewer`); images are never affected.
+
+**Uninstall residue:**
+
+- Even when you answer "delete settings" during uninstall, the `%APPDATA%\voidImageViewer` folder (Roaming) can remain: the `.corrupt.` backup copies the upgrade dialog leaves behind are not on the uninstall sweep list yet (known issue, fixed next round). Deleting that folder by hand is safe.
+- Per-user installs live in `%LOCALAPPDATA%\Programs\voidImageViewer`; if an upgrade moved the install to another path, the old folder may linger holding the previous version's files — safe to delete once nothing runs from it.
+- The uninstall's cleanup of file associations, shortcuts and registry entries is not affected by either of the above.
+
+**Picking the right package:**
+
+- The Setup program itself runs on any architecture, but **only the viewer that matches your device's architecture starts**: Intel/AMD 64-bit → x64, 32-bit Windows → x86, Snapdragon/ARM devices → arm64.
+- Known issue: an admin install may show warnings or the elevation prompt may fail (fixes ship with the next round). If elevation fails, use the zip from the same release instead.
+
 What's new
 --------
+
+**1.1.17-rc.1 — the p0 fix round (pre-release):**
+
+- Open-from-anywhere now answers one whitelist with one named refusal: the command line, drag-drop, folder walks and file->open agree on what is openable, and what is not is named on the status line instead of vanishing. A release-blocking reader defect shipped with this reading was caught by the smoke gate and fixed before publishing.
+- The settings file gains a corruption gate: a file that no longer reads cleanly is kept as a `.corrupt.` copy, the session runs on defaults, and the exit asks before writing anything (Cancel / Restore backup / Keep). Upgrade friction from that gate is documented above.
+- The slideshow rate clamp, the installer's settings-write honesty, the strict safety sums and the eleven memory/consistency fixes from the audit response round all ride here. Full narrative: `Changes.txt`.
+
 **1.1.16 — the field response round IV (the current stable):**
 
 - The stable was rebuilt at build 113. The settings page answers at every size — the content rows scroll under the pinned footer and their hit rects clip to the same viewport band the paint clips to (the invisible rows used to eat the Apply/Cancel/OK clicks and silently toggle checkboxes through the registry); the scroll rests on the row lattice so no row paints half-cut at the title band, the scrollbar rides a 12-dip strip the resize band no longer shadows with a thumb you can see, and a track press pages toward the click the way Windows does.
