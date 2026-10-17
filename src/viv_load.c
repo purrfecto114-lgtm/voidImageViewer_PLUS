@@ -192,14 +192,29 @@ BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy)
 	HANDLE h;
 	wchar_t full_path_and_filename[STRING_SIZE];
 	wchar_t cwd[STRING_SIZE];
+	_viv_open_skip_report_t report;
 
+	// the tally is this open's own local: one line for this call, not
+	// a running total across the session.
+	os_zero_memory(&report,sizeof(_viv_open_skip_report_t));
+	
 	ret = FALSE;
 	GetCurrentDirectory(STRING_SIZE,cwd);
-	string_path_combine(full_path_and_filename,cwd,filename);
+
+	if (!string_path_combine(full_path_and_filename,cwd,filename))
+	{
+		// the combine did not fit: the old code went on to stat an
+		// empty name and reported nothing.
+		_viv_open_report_skip(&report,filename,VIV_OPEN_SKIPPED_TOO_LONG);
+		
+		_viv_playlist_report_skips(&report);
+		
+		return FALSE;
+	}
 
 debug_printf("open filename: %S\n",full_path_and_filename);
 	
-	if ((os_GetFileAttributesExW) && (os_GetFileAttributesExW(full_path_and_filename,GetFileExInfoStandard,&fd)))
+	if (_viv_file_attributes(full_path_and_filename,&fd))
 	{
 		fd.dwReserved0 = 0;
 		fd.dwReserved1 = 0;
@@ -215,33 +230,78 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 		}
 		else
 		{
-			string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
-			
-			// the recent-list policy is declared by the caller, never guessed
-			// here: a user command (the open dialog, the drag-drop, the recent
-			// click) feeds the list unconditionally - the standard mru
-			// contract, a re-open of the displayed file re-tops it. the
-			// forwarded open (the single-instance re-entry the rotate verb's
-			// refresh and the recheck double-click ride) feeds it only when
-			// the file matches neither known identity - not the file on
-			// screen (the slot) and not the file on its way there (the
-			// request): a same-file forward is a reload, not a recent open,
-			// and must not masquerade as a new open and silently reorder the
-			// recent list. the request side catches the in-flight window
-			// (the load that never displayed yet), the slot side catches
-			// everything shown. the compare folds ascii case like the mru
-			// itself.
-			if ((recent_policy) || ((_viv_icompare_filename(full_path_and_filename,_viv_current_fd->cFileName) != 0) && (_viv_icompare_filename(full_path_and_filename,_viv_slot_current.fd.cFileName) != 0)))
+			// the one whitelist. file->open used to hand whatever the
+			// dialog returned straight to the loader while the drop,
+			// the folder walk and the command line all refused the same
+			// name - so one file opened or vanished depending on the
+			// route in. both paths now ask _viv_is_valid_filename and
+			// both answer the same status line.
+			if (!_viv_is_valid_filename(&fd))
 			{
-				_viv_recent_file_push(full_path_and_filename);
+				ret = FALSE;
+				
+				_viv_open_report_skip(&report,filename,VIV_OPEN_SKIPPED_BAD_EXTENSION);
 			}
+			else
+			if (!string_path_is_short(full_path_and_filename))
+			{
+				// the playlist and every cache name it through the
+				// MAX_PATH cFileName: a longer path cannot be named.
+				ret = FALSE;
+				
+				_viv_open_report_skip(&report,filename,VIV_OPEN_SKIPPED_TOO_LONG);
+			}
+			else
+			{
+				string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
 			
-			_viv_open(&fd,0);
+				// the recent-list policy is declared by the caller, never guessed
+				// here: a user command (the open dialog, the drag-drop, the recent
+				// click) feeds the list unconditionally - the standard mru
+				// contract, a re-open of the displayed file re-tops it. the
+				// forwarded open (the single-instance re-entry the rotate verb's
+				// refresh and the recheck double-click ride) feeds it only when
+				// the file matches neither known identity - not the file on
+				// screen (the slot) and not the file on its way there (the
+				// request): a same-file forward is a reload, not a recent open,
+				// and must not masquerade as a new open and silently reorder the
+				// recent list. the request side catches the in-flight window
+				// (the load that never displayed yet), the slot side catches
+				// everything shown. the compare folds ascii case like the mru
+				// itself.
+				if ((recent_policy) || ((_viv_icompare_filename(full_path_and_filename,_viv_current_fd->cFileName) != 0) && (_viv_icompare_filename(full_path_and_filename,_viv_slot_current.fd.cFileName) != 0)))
+				{
+					_viv_recent_file_push(full_path_and_filename);
+				}
+			
+				_viv_open(&fd,0);
+			}
 		}
 	}
 	else
 	{
-		h = FindFirstFile(full_path_and_filename,&fd);
+		// the name is not a plain existing file. it may still be a
+		// wildcard (a dropped or pasted pattern), which is what the
+		// enumeration below answers; anything else is the api's own
+		// refusal, and it is named instead of vanishing.
+		_viv_open_outcome_t outcome;
+		wchar_t search_wbuf[STRING_SIZE];
+		
+		outcome = _viv_open_outcome_from_last_error();
+		
+		// the enumeration reads the pattern through the same long path
+		// gate as every other file api call.
+		if (string_path_long(search_wbuf,STRING_SIZE,full_path_and_filename))
+		{
+			h = FindFirstFile(search_wbuf,&fd);
+		}
+		else
+		{
+			h = INVALID_HANDLE_VALUE;
+			
+			outcome = VIV_OPEN_SKIPPED_TOO_LONG;
+		}
+		
 		if (h != INVALID_HANDLE_VALUE)
 		{
 			wchar_t path[STRING_SIZE];
@@ -252,18 +312,36 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 		
 			for(;;)
 			{
-				string_path_combine(full_path_and_filename,path,fd.cFileName);
-					
 				if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 				{
-					_viv_playlist_add_path(full_path_and_filename);
+					if (!string_path_combine(full_path_and_filename,path,fd.cFileName))
+					{
+						_viv_open_report_skip(&report,fd.cFileName,VIV_OPEN_SKIPPED_TOO_LONG);
+					}
+					else
+					{
+						_viv_playlist_add_path(full_path_and_filename);
+					}
 				}
 				else
 				{
-					string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
-					_viv_playlist_add(&fd);
-				}
+					// the one per entry gate: the whitelist and the
+					// MAX_PATH cFileName limit are decided in the same
+					// place the folder walk decides them.
+					_viv_open_outcome_t entry_outcome;
 					
+					entry_outcome = _viv_playlist_add_fd(path,&fd,0);
+					
+					if (entry_outcome == VIV_OPEN_OPENED)
+					{
+						string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
+					}
+					else
+					{
+						_viv_open_report_skip(&report,fd.cFileName,entry_outcome);
+					}
+				}
+                    
 				if (!FindNextFile(h,&fd))
 				{
 					break;
@@ -274,7 +352,15 @@ debug_printf("open filename: %S\n",full_path_and_filename);
 			
 			FindClose(h);
 		}
+		else
+		{
+			_viv_open_report_skip(&report,filename,outcome);
+		}
 	}
+	
+	// one line for everything this open passed over - the same tally the
+	// drop and the command line build.
+	_viv_playlist_report_skips(&report);
 	
 	return ret;
 }
@@ -1247,8 +1333,25 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 	{
 		HANDLE h;
 		LARGE_INTEGER file_size;
+		wchar_t open_path_wbuf[STRING_SIZE];
 		
-		h = CreateFile(_viv_load_image_filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE|((os_major_version >= 5) ? FILE_SHARE_DELETE : 0),0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0);
+		h = INVALID_HANDLE_VALUE;
+		
+		// the long path gate: only a name past MAX_PATH takes the
+		// "\\?\" route, a short name is opened with exactly the
+		// spelling it always had. a name the prefixed buffer cannot
+		// carry (relative, a "." or ".." component) is not opened at
+		// all here - it fails like any other unloadable file instead
+		// of resolving to some other file.
+		if (string_path_long(open_path_wbuf,STRING_SIZE,_viv_load_image_filename))
+		{
+			h = CreateFile(open_path_wbuf,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE|((os_major_version >= 5) ? FILE_SHARE_DELETE : 0),0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0);
+		}
+		else
+		{
+			debug_printf("path too long: %S\n",_viv_load_image_filename);
+		}
+		
 		if ((h != INVALID_HANDLE_VALUE) && (!_viv_input_size_refused(h,&file_size)))
 		{
 			DWORD size;

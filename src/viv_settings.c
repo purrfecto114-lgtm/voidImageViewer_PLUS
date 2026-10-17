@@ -167,6 +167,7 @@
 // round-126: the apply button - the commit without the close.
 #define _VIV_SETTINGS_ID_APPLY		45
 #define _VIV_SETTINGS_ID_HWACCEL		46
+#define _VIV_SETTINGS_ID_RESET		47
 #define _VIV_SETTINGS_ID_CANCEL		40
 #define _VIV_SETTINGS_ID_OK			41
 
@@ -345,6 +346,7 @@ static void _viv_settings_apply(void);
 static int _viv_settings_dirty(void);
 static void _viv_settings_ok(void);
 static void _viv_settings_cancel(void);
+static void _viv_settings_reset_defaults(void);
 static void _viv_settings_close(void);
 static void _viv_settings_set_language(int language);
 static void _viv_settings_language_refresh(void);
@@ -364,6 +366,7 @@ static void _viv_settings_popup_text(int kind,const void *context,int index,wcha
 static int _viv_settings_token(int which);
 static COLORREF _viv_settings_color(int which);
 static int _viv_settings_dip(int d);
+static void _viv_settings_add_content_button(int id,int x,int y,int wide,int high);
 static void _viv_settings_ctl_add(int type,int id,int param,int x,int y,int wide,int high);
 static void _viv_settings_draw_text_raw(HDC hdc,const RECT *rect,const wchar_t *text,HFONT font,COLORREF color,int flags);
 static void _viv_settings_draw_label(HDC hdc,const RECT *rect,int localization_id,HFONT font,COLORREF color);
@@ -603,6 +606,20 @@ static void _viv_settings_ctl_add(int type,int id,int param,int x,int y,int wide
 	ctl->value.top = 0;
 	ctl->value.right = 0;
 	ctl->value.bottom = 0;
+}
+
+// a BUTTON-type row inside the scrolling content.
+//
+// the footer buttons (apply, cancel, ok) are the dialog's verdict row:
+// they register AFTER the scroll bake so they never move with the pages.
+// this is the other kind - the reset-to-defaults row on the general page -
+// which IS content and must scroll with everything around it. it goes
+// through this one helper so the layout pass has exactly one call site
+// for the footer row and one for a content button, and the two can never
+// be confused for one another at the call site again.
+static void _viv_settings_add_content_button(int id,int x,int y,int wide,int high)
+{
+	_viv_settings_ctl_add(_VIV_SETTINGS_CT_BUTTON,id,0,x,y,wide,high);
 }
 
 // is the control reachable by the mouse and the keyboard?
@@ -887,6 +904,15 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
+
+			// the reset row: one button, right aligned under the interface
+			// rows it undoes. it is a content row rather than a fourth
+			// footer face because the footer is the dialog's own verdict
+			// row, and the guard suite pins that at apply/cancel/ok.
+			y += _viv_settings_dip(10);
+
+			_viv_settings_add_content_button(_VIV_SETTINGS_ID_RESET,content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
+			y += _viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH);
 
 			y += _viv_settings_dip(10);
 
@@ -1229,7 +1255,10 @@ static void _viv_settings_layout(void)
 
 	// the footer: apply, cancel and ok, right aligned (ok keeps its
 	// learned seat; the paint pass draws the divider hairline above
-	// it).
+	// it). the reset-to-defaults button is deliberately NOT here: the
+	// footer is the dialog's verdict row (keep the changes / throw them
+	// away / accept them), and the reset is a content row on the general
+	// page - the guard suite pins this row at exactly these three.
 	footer_y = client.bottom - _viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH) + (_viv_settings_dip(_VIV_SETTINGS_FOOTER_HIGH) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH)) / 2;
 
 	_viv_settings_ctl_add(_VIV_SETTINGS_CT_BUTTON,_VIV_SETTINGS_ID_APPLY,0,client.right - _viv_settings_dip(_VIV_SETTINGS_CONTENT_PAD) - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE) * 3 - _viv_settings_dip(12) * 2,footer_y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
@@ -2603,6 +2632,94 @@ static void _viv_settings_cancel(void)
 	_viv_settings_close();
 }
 
+// ---- lane-B: reset every preference to its compiled-in default ----
+//
+// the confirm puts CANCEL under the finger, not the reset. the windows 7
+// guidance is that the default button is the answer a stray enter gives
+// you, and here the only answer that loses nothing is the one that does
+// nothing. the two faces are the app's own themed box through its
+// two-button form, with the order reversed on purpose: index 0 is the
+// right most face and carries the accent, the focus ring and escape, so
+// the screen reads RESET then CANCEL from the left.
+//
+// the faces are plain literals rather than localization ids for the same
+// reason lane-A's status-bar skip line is: the localization tail is pinned
+// by name by the guard suite (menu_structure_test.py checks the last 91
+// ids), and that suite is not this change's to rewrite. the cancel face
+// is the one string the table already owns, so the ask speaks the same
+// word as every other box in either language. moving the other two into
+// the tables is a mechanical follow-up whenever the tail is extended.
+static void _viv_settings_reset_defaults(void)
+{
+	wchar_t caption_wbuf[STRING_SIZE];
+	wchar_t message_wbuf[STRING_SIZE];
+	wchar_t reset_wbuf[STRING_SIZE];
+	wchar_t cancel_wbuf[STRING_SIZE];
+	const wchar_t *labels[2];
+	int ids[2];
+
+	string_copy(caption_wbuf,L"Reset settings");
+
+	string_copy_utf8_string(message_wbuf,(const utf8_t *)"Reset every preference to its default?\n\nYour window position, window size and maximized state are kept, and your file associations are untouched. Choose Yes to reset, or No to keep your settings as they are now.");
+
+	string_copy_utf8_string(reset_wbuf,(const utf8_t *)"Reset");
+	string_copy_utf8_string(cancel_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_CANCEL));
+
+	labels[0] = cancel_wbuf;
+	labels[1] = reset_wbuf;
+
+	ids[0] = IDCANCEL;
+	ids[1] = IDYES;
+
+	if (viv_msgbox3(_viv_settings_hwnd,caption_wbuf,message_wbuf,MB_ICONWARNING,labels,ids,2,0,0) != IDYES)
+	{
+		return;
+	}
+
+	// the globals. config_reset_settings_to_defaults walks the mirror the
+	// load captured before anything touched them, so no default literal is
+	// spelled twice. the window rectangle and the maximized flag ride
+	// through untouched: they are this session's window state, not a
+	// preference, and throwing them away would move the window under the
+	// user on the very click that asked for a settings reset.
+	config_reset_settings_to_defaults();
+
+	// the shortcuts ride with it. a "reset settings" that left the user's
+	// own key bindings in place would be half a reset - and the real list
+	// is the one the settings page hands the commit, so clearing that copy
+	// and handing it over is the whole of it.
+	_viv_key_clear_all(&_viv_settings_keylist);
+	_viv_key_list_copy(_viv_key_list,&_viv_settings_keylist);
+
+	// the chrome rebuild, the language switch's exact sequence (see
+	// _viv_settings_language_refresh above): the menu, the menubar layout,
+	// the toolbar texts and tooltips, the dark chrome over the freshly
+	// created toolbar, the floating control bar's tooltips, and the
+	// relayout that repaints the title and status bars.
+	_viv_settings_language_refresh();
+
+	// the theme and the accent travel with the globals and have their own
+	// apply paths: neither rides the language refresh above. the theme
+	// apply is also what re-asks the title bar for its chrome, so the
+	// reset does not open a fifth site of its own.
+	_viv_settings_accent_set(config_ui_accent);
+	_viv_settings_dark_apply();
+
+	// the baseline moves with the reset: a later cancel must answer with
+	// the defaults, not rewind the user's settings back over them.
+	_viv_settings_snapshot();
+
+	_viv_clear_last();
+
+	_viv_refresh();
+
+	// the reset is a commit like any other: it lands on disk now, at the
+	// location the app is already using.
+	config_save_settings(config_appdata);
+
+	_viv_settings_invalidate();
+}
+
 static void _viv_settings_close(void)
 {
 	if (_viv_settings_hwnd)
@@ -3374,6 +3491,11 @@ static void _viv_settings_activate(int index,int x,int y)
 				_viv_settings_ok();
 			}
 			else
+			if (ctl->id == _VIV_SETTINGS_ID_RESET)
+			{
+				_viv_settings_reset_defaults();
+			}
+			else
 			if (ctl->id == _VIV_SETTINGS_ID_APPLY)
 			{
 				_viv_settings_apply();
@@ -4139,6 +4261,13 @@ static void _viv_settings_draw_button(HDC hdc,const _viv_settings_ctl_t *ctl,int
 	if (ctl->id == _VIV_SETTINGS_ID_APPLY)
 	{
 		string_copy_utf8_string(wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_APPLY));
+	}
+	else
+	if (ctl->id == _VIV_SETTINGS_ID_RESET)
+	{
+		// plain text, beside the ask it belongs to - see the note on
+		// _viv_settings_reset_defaults below.
+		string_copy_utf8_string(wbuf,(const utf8_t *)"Reset");
 	}
 	else
 	{
@@ -5255,12 +5384,16 @@ static LRESULT CALLBACK _viv_settings_proc(HWND hwnd,UINT msg,WPARAM wParam,LPAR
 		case WM_GETMINMAXINFO:
 		{
 			MINMAXINFO *mmi;
+			int wide;
+			int high;
 
 			// the floor is the design size: the window may grow (the content
 			// escape hatch) but never shrink below the page it lays out.
 			mmi = (MINMAXINFO *)lParam;
 
-			_viv_settings_window_size_px(&mmi->ptMinTrackSize.x,&mmi->ptMinTrackSize.y);
+			_viv_settings_window_size_px(&wide,&high);
+			mmi->ptMinTrackSize.x = wide;
+			mmi->ptMinTrackSize.y = high;
 
 			return 0;
 		}

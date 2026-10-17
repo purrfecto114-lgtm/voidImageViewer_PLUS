@@ -157,9 +157,27 @@ void _viv_recent_file_rename(const wchar_t *old_filename,const wchar_t *new_file
 
 			if (entry)
 			{
+				int j;
+
 				mem_free(config_recent_files[i]);
 
 				config_recent_files[i] = entry;
+
+				// a deleted old target can still be in the mru. keep the
+				// renamed entry's history position and remove any collision.
+				// compare against our new copy: new_filename may alias an
+				// entry that the removal below frees.
+				for(j=config_recent_file_count - 1;j>=0;j--)
+				{
+					if ((j != i) && (_viv_icompare_filename(config_recent_files[j],entry) == 0))
+					{
+						_viv_recent_file_remove(j);
+						if (j < i)
+						{
+							i--;
+						}
+					}
+				}
 
 				_viv_recent_save_defer();
 				_viv_recent_menu_update();

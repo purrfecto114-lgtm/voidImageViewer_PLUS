@@ -36,6 +36,11 @@ typedef struct _os_COMDLG_FILTERSPEC_s
 	
 } _os_COMDLG_FILTERSPEC_t;
 	
+// establish the interface tags before their vtable parameter lists.
+// a first declaration inside a prototype has only prototype scope.
+struct _os_IFileOpenDialog_s;
+struct _os_IPropertyStore_s;
+
 typedef struct _os_IFileOpenDialogVtbl
 {
     HRESULT (STDMETHODCALLTYPE *QueryInterface)(struct _os_IFileOpenDialog_s *This,REFIID riid,void **ppvObject);
@@ -2278,7 +2283,7 @@ static IShellItem *_os_get_shellitem(const ITEMIDLIST *pidl)
 	
 	if (_os_SHCreateItemFromIDList)
 	{
-		IShellItem *si;
+		void *si;
 		
 		if (SUCCEEDED(_os_SHCreateItemFromIDList((ITEMIDLIST *)pidl,&_os_IID_IShellItem,&si)))
 		{
@@ -2322,12 +2327,14 @@ int os_browse_for_folder(HWND parent,wchar_t *filename)
 	if (config_browse_file_open_dialog)
 	{
 		_os_IFileOpenDialog_t *file_open_dialog;
+		void *object;
 		
-		if (SUCCEEDED(CoCreateInstance(&_os_CLSID_FileOpenDialog,NULL,CLSCTX_INPROC_SERVER,&_os_IID_IFileOpenDialog,&file_open_dialog)))
+		if (SUCCEEDED(CoCreateInstance(&_os_CLSID_FileOpenDialog,NULL,CLSCTX_INPROC_SERVER,&_os_IID_IFileOpenDialog,&object)))
 		{
 			int ret;
 			IShellItem *shell_item;
 			
+			file_open_dialog = object;
 			ret = 0;
 			
 			file_open_dialog->lpVtbl->SetOptions(file_open_dialog,0x2028);
@@ -2636,19 +2643,21 @@ int os_get_orientation(const wchar_t *filename)
 			if (pidl)
 			{
 				_os_IPropertyStore_t *ps;
+				void *object;
 				
 				// GPS_HANDLERPROPERTIESONLY	0x01
 				// GPS_OPENSLOWITEM	0x10 (offline files)
 				// GPS_BESTEFFORT 0x40
 
 				// without GPS_BESTEFFORT this returns 0x8007000d for some files.
-				hr = _os_SHGetPropertyStoreFromIDList(pidl,0x10|0x40,&_os_IID_IPropertyStore,&ps);
+				hr = _os_SHGetPropertyStoreFromIDList(pidl,0x10|0x40,&_os_IID_IPropertyStore,&object);
 				
 				if (SUCCEEDED(hr))
 				{
 					_os_PROPERTYKEY_t key;
 					PROPVARIANT pv;
 
+					ps = object;
 					PropVariantInit(&pv);
 					
 					//  Name:     System.Photo.Orientation -- PKEY_Photo_Orientation

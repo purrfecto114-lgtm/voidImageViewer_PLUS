@@ -14,13 +14,27 @@ position _viv_zoom_pos_max() is the first ladder entry that reaches
 the cap.
 """
 import math
+from pathlib import Path
 import random
 import re
 import sys
 
-STEP = 1.01            # _VIV_ZOOM_MAX ladder step (viv.c: "each zoom step grows 1.01x")
-ZOOM_MAX = 1024        # _VIV_ZOOM_MAX
-STEPS_PER_NOTCH = 10   # _VIV_ZOOM_STEPS_PER_NOTCH
+ROOT = Path(__file__).resolve().parents[1]
+STATE = (ROOT / "src/viv_state.h").read_text(encoding="utf-8")
+
+
+def source_integer(name):
+    match = re.search(r"(?m)^#define\s+" + re.escape(name) + r"\s+(\d+)[uUlL]*\b", STATE)
+    if not match:
+        raise ValueError(f"cannot read integer source constant {name}")
+    return int(match.group(1))
+
+
+# These remain mathematical models, but their input parameters now follow
+# the source. A too-short ladder must fail the independent 1600% contract.
+STEP = 1.01
+ZOOM_MAX = source_integer("_VIV_ZOOM_MAX")
+STEPS_PER_NOTCH = source_integer("_VIV_ZOOM_STEPS_PER_NOTCH")
 
 
 # ---------------------------------------------------------------------------
@@ -74,13 +88,16 @@ def pos_max(fit_w, fit_h, image_w, image_h):
 
 
 # ---------------------------------------------------------------------------
-# _viv_do_mousewheel_action(): steps = round(|delta| * STEPS_PER_NOTCH / 120)
+# _viv_do_mousewheel_action(): signed fixed-point accumulation, 120 units/step.
 # ---------------------------------------------------------------------------
-def steps_from_delta(delta):
-    if delta == 0:
-        return 1
-    s = (abs(delta) * STEPS_PER_NOTCH + 60) // 120
-    return s if s else 1
+def wheel_steps(deltas):
+    total = remainder = 0
+    for delta in deltas:
+        scaled = delta * STEPS_PER_NOTCH + remainder
+        steps = (1 if scaled >= 0 else -1) * (abs(scaled) // 120)
+        remainder = scaled - steps * 120
+        total += steps
+    return total
 
 
 # ---------------------------------------------------------------------------
@@ -235,17 +252,15 @@ def t_pos_max_no_dead_zone():
 
 
 def t_pinch_steps():
-    """Pinch encoding: n steps are passed as n * (120/STEPS_PER_NOTCH) delta
-    units and must decode back to exactly n steps."""
-    # the full range the old name claimed and the old body only sampled:
-    # every n from 1 to 120 roundtrips (the audit's tautology finding -
-    # a check that cannot fail under an "if all passed" is not a check).
+    """Pinches now use steps directly. Wheel partitions must preserve a notch.
+    The native suite exercises the actual C conversion and zoom renderer."""
     bad = [n for n in range(1, 121)
-           if steps_from_delta(n * (120 // STEPS_PER_NOTCH)) != n]
-    check("pinch step roundtrip (1..120)", not bad, f"failed for {bad}")
-    check("wheel notch = 10 steps", steps_from_delta(120) == 10)
-    check("wheel double-flick = 20 steps", steps_from_delta(240) == 20)
-    check("high-res 40 = 3 steps", steps_from_delta(40) == 3)
+           if any(wheel_steps([sign] * n + [sign * (120 - n)]) != sign * STEPS_PER_NOTCH
+                  for sign in (-1, 1))]
+    check("wheel partition equivalence (1..120)", not bad, f"failed for {bad}")
+    check("wheel notch preserves its configured steps", wheel_steps([120]) == STEPS_PER_NOTCH)
+    check("wheel double-flick preserves its configured steps", wheel_steps([240]) == 2 * STEPS_PER_NOTCH)
+    check("wheel fractional reversal and zero are inert", wheel_steps([1, 0, -1]) == 0)
 
 
 def t_paint_work_bound():
@@ -315,86 +330,51 @@ def t_status_percent_is_native_relative():
 
 
 # ---------------------------------------------------------------------------
-# beta.8: the 1:1 exit binary searches (equivalence + measurement bound)
-# and the ladder-top cache signature.
+# 1:1 exit boundary model and the ladder-top cache signature.
+# The native C suite separately executes the real search and step consumption.
 # ---------------------------------------------------------------------------
-def linear_exit_ascending(old_rw, fit_w, fit_h, image_w, image_h):
-    """viv.c beta.7 linear scan: first pos in [0, ZOOM_MAX) with rw > old_rw,
-    else ZOOM_MAX."""
-    for pos in range(ZOOM_MAX):
-        rw, _rh = render(fit_w, fit_h, pos, image_w, image_h)
-        if rw > old_rw:
-            return pos
-    return ZOOM_MAX
-
-
-def binary_exit_ascending(old_rw, fit_w, fit_h, image_w, image_h, counter):
-    """viv.c beta.8 binary search (mirrored exactly)."""
-    lo, hi = 0, ZOOM_MAX
+def binary_exit(direction, old_size, axis, fit_w, fit_h, image_w, image_h, top, counter):
+    lo, hi = pos_floor(), top + 1
     while lo < hi:
         mid = lo + (hi - lo) // 2
         counter[0] += 1
-        rw, _rh = render(fit_w, fit_h, mid, image_w, image_h)
-        if rw > old_rw:
+        size = render(fit_w, fit_h, mid, image_w, image_h)[axis]
+        if (size > old_size) if direction > 0 else (size >= old_size):
             hi = mid
         else:
             lo = mid + 1
-    return lo
-
-
-def linear_exit_descending(old_rw, fit_w, fit_h, image_w, image_h, top):
-    """viv.c beta.7 linear scan from the ladder top: largest pos with
-    rw < old_rw, else -1."""
-    for pos in range(top, -1, -1):
-        rw, _rh = render(fit_w, fit_h, pos, image_w, image_h)
-        if rw < old_rw:
-            return pos
-    return -1
-
-
-def binary_exit_descending(old_rw, fit_w, fit_h, image_w, image_h, top, counter):
-    """viv.c beta.8 binary search (mirrored exactly)."""
-    lo, hi = 0, top + 1
-    while lo < hi:
-        mid = lo + (hi - lo) // 2
-        counter[0] += 1
-        rw, _rh = render(fit_w, fit_h, mid, image_w, image_h)
-        if rw < old_rw:
-            lo = mid + 1
-        else:
-            hi = mid
-    return lo - 1
+    return lo if direction > 0 else lo - 1
 
 
 def t_binary_search_equivalence():
-    """beta.8: the binary-search 1:1 exits must return exactly what the beta.7
-    linear scans returned, and must measure O(log n) sizes, not O(n)."""
+    """Search the whole live range; a linear walk supplies the oracle.
+    Include upscaled fits and one-pixel axes rather than comparing two
+    implementations of the historical width-only, nonnegative search."""
     ok = True
     worst_calls = 0
-    for (iw, ih, cw, ch) in GEOMETRIES:
-        fw, fh = fit_size(iw, ih, cw, ch)
-        top = pos_max(fw, fh, iw, ih)
-        r_top = render(fw, fh, top, iw, ih)[0]
-        # exits from several old sizes: fit, native, mid ladder, cap and the
-        # cap +/-1 (a size no ladder step equals), plus degenerate 0/1.
-        olds = [fw, fh, iw, ih, 0, 1,
-                render(fw, fh, top // 2, iw, ih)[0],
-                r_top, r_top + 1, r_top - 1]
-        for old_rw in olds:
-            lin = linear_exit_ascending(old_rw, fw, fh, iw, ih)
-            ctr = [0]
-            binr = binary_exit_ascending(old_rw, fw, fh, iw, ih, ctr)
-            worst_calls = max(worst_calls, ctr[0])
-            if lin != binr:
-                ok = False
-            lin = linear_exit_descending(old_rw, fw, fh, iw, ih, top)
-            ctr = [0]
-            binr = binary_exit_descending(old_rw, fw, fh, iw, ih, top, ctr)
-            worst_calls = max(worst_calls, ctr[0])
-            if lin != binr:
-                ok = False
-    check("1:1 exit binary search == linear scan (all geometries)", ok,
-          f"worst {worst_calls} measurements, linear worst is {ZOOM_MAX}")
+    geometries = GEOMETRIES + [(1, 4000, 1600, 1000), (4000, 1, 1600, 1000)]
+    for iw, ih, cw, ch in geometries:
+        axis = 0 if iw >= ih else 1
+        for fill in (0, 1):
+            fw, fh = fit_size(iw, ih, cw, ch, fill_window=fill)
+            top = pos_max(fw, fh, iw, ih)
+            sizes = [(p, render(fw, fh, p, iw, ih)[axis])
+                     for p in range(pos_floor(), top + 1)]
+            native = iw if axis == 0 else ih
+            for old_size in (native, 0, 1, sizes[-1][1], sizes[-1][1] + 1):
+                for direction in (-1, 1):
+                    if direction > 0:
+                        expected = next((p for p, size in sizes if size > old_size), top + 1)
+                    else:
+                        expected = next((p for p, size in reversed(sizes) if size < old_size), pos_floor() - 1)
+                    counter = [0]
+                    result = binary_exit(direction, old_size, axis, fw, fh, iw, ih, top, counter)
+                    worst_calls = max(worst_calls, counter[0])
+                    if result != expected:
+                        ok = False
+    check("1:1 exit binary search == linear scan (all geometries)",
+          ok and worst_calls <= math.ceil(math.log2(ZOOM_MAX - pos_floor() + 1)),
+          f"worst {worst_calls} measurements, linear worst is {ZOOM_MAX - pos_floor()}")
 
 
 def t_pos_max_cache_signature():
@@ -666,7 +646,7 @@ def t_percent_stepping():
 # the ladder reaches down to fit * 1.01^-278 ~= fit/16 while shrinking is
 # allowed; the option off keeps the historic best-fit floor.
 # ---------------------------------------------------------------------------
-SHRINK_STEPS = 278  # _VIV_ZOOM_SHRINK_STEPS
+SHRINK_STEPS = source_integer("_VIV_ZOOM_SHRINK_STEPS")
 
 def pos_floor(allow_shrinking=1):
     """viv.c _viv_zoom_pos_floor()."""
@@ -776,11 +756,9 @@ def t_ladder_step_extracted():
     """The growth constant is read from viv.c, not self-written here.
 
     The fifth audit's unpinned-constant finding: the suites that
-    model the ladder each hand-copied 1.01 while extracting 278 and
-    1024 from the source - a drift to 1.02 passed every suite and
-    every golden hash untouched (the model would follow the drift
-    and its own tests stay green). The literal is pinned here, the
-    relation is pinned in the simulation suite (the ~16x span).
+    model the ladder must also guard the growth factor. The ladder count,
+    wheel steps and below-fit range are loaded from viv_state.h above;
+    the 1% growth contract is checked independently here.
     """
     src = open("src/viv.c", "rb").read().decode("utf-8", errors="replace")
     m = re.search(r"f \*= (\d+)\.(\d+);", src)

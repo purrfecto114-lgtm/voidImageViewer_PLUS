@@ -48,8 +48,18 @@ static int _viv_msgbox_pressed = -1;
 static int _viv_msgbox_focus = 0;
 static HFONT _viv_msgbox_font = 0;
 
-// the button rows: index 0 is the primary (right most), 1 the secondary.
-#define _VIV_MSGBOX_BUTTONS		2
+// the button rows: index 0 is the primary (right most), 1 and 2 the
+// faces to its left. two is every MessageBox subset the app uses; three
+// is what viv_msgbox3 adds (the corrupted-settings ask).
+#define _VIV_MSGBOX_BUTTONS		3
+
+// the custom row (viv_msgbox3). label_count of 0 means "the MB_* subset
+// decides", which is the state every existing call leaves it in.
+static const wchar_t *_viv_msgbox_labels[_VIV_MSGBOX_BUTTONS];
+static int _viv_msgbox_result_ids[_VIV_MSGBOX_BUTTONS];
+static int _viv_msgbox_label_count;
+static int _viv_msgbox_default_index;
+static int _viv_msgbox_cancel_index;
 
 static RECT _viv_msgbox_button_rects[_VIV_MSGBOX_BUTTONS];
 
@@ -60,6 +70,11 @@ static int _viv_msgbox_dip(int d)
 
 static int _viv_msgbox_button_count(void)
 {
+	if (_viv_msgbox_label_count)
+	{
+		return _viv_msgbox_label_count;
+	}
+
 	switch (_viv_msgbox_type & 0x0f)
 	{
 		case MB_OKCANCEL:
@@ -80,6 +95,13 @@ static const wchar_t *_viv_msgbox_button_text(int index)
 	// buffer follows the message text's own pattern (one face per draw
 	// call, ui thread only).
 	static wchar_t text[STRING_SIZE];
+
+	// the custom row's faces are already wide (the caller copied them
+	// through string_copy_utf8_string before it got here).
+	if (_viv_msgbox_label_count)
+	{
+		return _viv_msgbox_labels[index];
+	}
 
 	switch (_viv_msgbox_type & 0x0f)
 	{
@@ -103,6 +125,11 @@ static const wchar_t *_viv_msgbox_button_text(int index)
 // cancel/deny id (the ids match the MessageBox contract).
 static int _viv_msgbox_button_result(int index)
 {
+	if (_viv_msgbox_label_count)
+	{
+		return _viv_msgbox_result_ids[index];
+	}
+
 	switch (_viv_msgbox_type & 0x0f)
 	{
 		case MB_YESNO:
@@ -117,11 +144,21 @@ static int _viv_msgbox_button_result(int index)
 
 static int _viv_msgbox_default_button(void)
 {
+	if (_viv_msgbox_label_count)
+	{
+		return _viv_msgbox_default_index;
+	}
+
 	return _viv_msgbox_button_count() - 1;
 }
 
 static int _viv_msgbox_cancel_button(void)
 {
+	if (_viv_msgbox_label_count)
+	{
+		return _viv_msgbox_cancel_index;
+	}
+
 	switch (_viv_msgbox_type & 0x0f)
 	{
 		case MB_OKCANCEL:
@@ -132,17 +169,88 @@ static int _viv_msgbox_cancel_button(void)
 	return 0;
 }
 
+// does the title bar carry a close box? the native yes/no box drops it
+// (both of its answers are on the panel), and so does the custom row:
+// its three answers are all on the panel and a fourth one hiding behind
+// the X would answer something the caller never named.
+static int _viv_msgbox_no_close(void)
+{
+	if (_viv_msgbox_label_count)
+	{
+		return 1;
+	}
+
+	return (_viv_msgbox_type & 0x0f) == MB_YESNO;
+}
+
+// the button column: the widest face plus its padding, never less than
+// the two-button box's fixed 88 dip column. three faces ("Restore
+// backup") on the old fixed width would clip their own text - the
+// measure is what keeps the custom row readable in both languages.
+static int _viv_msgbox_button_wide(HDC hdc)
+{
+	HFONT old_font;
+	RECT rect;
+	int wide;
+	int i;
+
+	wide = _viv_msgbox_dip(88);
+
+	if (!hdc)
+	{
+		return wide;
+	}
+
+	old_font = 0;
+
+	if (_viv_msgbox_font)
+	{
+		old_font = (HFONT)SelectObject(hdc,_viv_msgbox_font);
+	}
+
+	for(i=0;i<_viv_msgbox_button_count();i++)
+	{
+		rect.left = 0;
+		rect.top = 0;
+		rect.right = 0;
+		rect.bottom = 0;
+
+		DrawTextW(hdc,_viv_msgbox_button_text(i),-1,&rect,DT_SINGLELINE | DT_CALCRECT);
+
+		if ((rect.right + _viv_msgbox_dip(32)) > wide)
+		{
+			wide = rect.right + _viv_msgbox_dip(32);
+		}
+	}
+
+	if (old_font)
+	{
+		SelectObject(hdc,old_font);
+	}
+
+	return wide;
+}
+
 static void _viv_msgbox_layout_buttons(void)
 {
+	HDC hdc;
 	RECT rect;
-	int i;
 	int wide;
 	int high;
 	int x;
+	int i;
 
 	GetClientRect(_viv_msgbox_hwnd,&rect);
 
-	wide = _viv_msgbox_dip(88);
+	hdc = GetDC(_viv_msgbox_hwnd);
+
+	wide = _viv_msgbox_button_wide(hdc);
+
+	if (hdc)
+	{
+		ReleaseDC(_viv_msgbox_hwnd,hdc);
+	}
+
 	high = _viv_msgbox_dip(32);
 	x = rect.right - _viv_msgbox_dip(20);
 
@@ -555,9 +663,29 @@ static void _viv_msgbox_remeasure(HWND owner,int *wide,int *high)
 	
 	*wide = _viv_msgbox_dip(24 + 32 + 20) + text_wide + _viv_msgbox_dip(24);
 	*high = _viv_msgbox_dip(22) + text_high + _viv_msgbox_dip(16) + _viv_msgbox_dip(32) + _viv_msgbox_dip(20);
-	
+
+	// the button row rides the same ceiling: three measured faces on a
+	// column sized for one 88 dip button would hang off the panel's
+	// right edge, and the right most one is the one clipped.
+	{
+		int button_wide;
+		int count;
+		int row_wide;
+
+		button_wide = _viv_msgbox_button_wide(hdc);
+		count = _viv_msgbox_button_count();
+
+		row_wide = (button_wide * count) + (_viv_msgbox_dip(8) * (count - 1)) + _viv_msgbox_dip(20 + 20);
+
+		// the text column still wins when it is the wider of the two.
+		if (row_wide > *wide)
+		{
+			*wide = row_wide;
+		}
+	}
+
 	// a yes/no box carries no close box (the native one disables it too).
-	if ((_viv_msgbox_type & 0x0f) == MB_YESNO)
+	if (_viv_msgbox_no_close())
 	{
 		style = WS_POPUP | WS_CAPTION;
 	}
@@ -762,7 +890,10 @@ static LRESULT CALLBACK _viv_msgbox_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 				case VK_TAB:
 					if (_viv_msgbox_button_count() > 1)
 					{
-						_viv_msgbox_focus = 1 - _viv_msgbox_focus;
+						// the walk wraps through every face: the two-button
+						// box toggled between two, and a toggle parks on
+						// the first once the row grows to three.
+						_viv_msgbox_focus = (_viv_msgbox_focus + 1) % _viv_msgbox_button_count();
 
 						InvalidateRect(hwnd,0,FALSE);
 					}
@@ -782,10 +913,19 @@ static LRESULT CALLBACK _viv_msgbox_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 		case WM_CLOSE:
 			// a naked close still answers instead of leaving the initialized
 			// idok: like the cancel button, ok for a lone ok box (a fire has
-			// already stored its own result).
+			// already stored its own result), and the caller's own cancel id
+			// for the custom row. the MB_YESNO row is also close-less, but it
+			// has no id table of its own - its ids come from the type.
 			if (!_viv_msgbox_done)
 			{
-				_viv_msgbox_result = (_viv_msgbox_type & 0x0f) == MB_OK ? IDOK : IDCANCEL;
+				if (_viv_msgbox_label_count)
+				{
+					_viv_msgbox_result = _viv_msgbox_result_ids[_viv_msgbox_cancel_button()];
+				}
+				else
+				{
+					_viv_msgbox_result = (_viv_msgbox_type & 0x0f) == MB_OK ? IDOK : IDCANCEL;
+				}
 			}
 
 			DestroyWindow(hwnd);
@@ -801,7 +941,10 @@ static LRESULT CALLBACK _viv_msgbox_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
-int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned int type)
+// the shared open. label_count of 0 means the MB_* subset picks the
+// faces, the ids and the default (every pre-existing call); a non-zero
+// count means the caller handed the row itself.
+static int _viv_msgbox_open(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned int type,const wchar_t *const *labels,const int *ids,int label_count,int default_index,int cancel_index)
 {
 	WNDCLASSEXW wc;
 	RECT window_rect;
@@ -809,6 +952,7 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 	int high;
 	MSG msg;
 	DWORD style;
+	int i;
 
 	if (!text)
 	{
@@ -822,6 +966,11 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 		SetActiveWindow(_viv_msgbox_hwnd);
 
 		return IDOK;
+	}
+
+	if ((label_count > 0) && (label_count > _VIV_MSGBOX_BUTTONS))
+	{
+		label_count = _VIV_MSGBOX_BUTTONS;
 	}
 
 	// the text can outrun a fixed store (the command line usage page is
@@ -840,6 +989,37 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 	_viv_msgbox_hover = -1;
 	_viv_msgbox_pressed = -1;
 	_viv_msgbox_focus = 0;
+
+	// the custom row: the faces and their ids go in as the caller spelled
+	// them (the caller owns the storage for the life of this modal call).
+	// label_count of 0 clears them, so a plain box after a three-button one
+	// cannot inherit a stale face.
+	_viv_msgbox_label_count = label_count;
+	_viv_msgbox_default_index = default_index;
+	_viv_msgbox_cancel_index = cancel_index;
+
+	for(i=0;i<_VIV_MSGBOX_BUTTONS;i++)
+	{
+		_viv_msgbox_labels[i] = (label_count && labels) ? labels[i] : 0;
+		_viv_msgbox_result_ids[i] = (label_count && ids) ? ids[i] : 0;
+	}
+
+	if (_viv_msgbox_label_count)
+	{
+		if (_viv_msgbox_default_index >= label_count)
+		{
+			_viv_msgbox_default_index = label_count - 1;
+		}
+
+		if (_viv_msgbox_cancel_index >= label_count)
+		{
+			_viv_msgbox_cancel_index = label_count - 1;
+		}
+
+		// the result id before the user answers is the default's: a box
+		// dismissed without a fire must not read as an unrelated id.
+		_viv_msgbox_result = _viv_msgbox_result_ids[_viv_msgbox_default_index];
+	}
 
 	if (!GetClassInfoExW(os_hinstance,L"VIV_MSGBOX",&wc))
 	{
@@ -874,8 +1054,9 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 	window_rect.right = wide;
 	window_rect.bottom = high;
 
-	// a yes/no box carries no close box (the native one disables it too).
-	if ((_viv_msgbox_type & 0x0f) == MB_YESNO)
+	// a yes/no box carries no close box (the native one disables it too),
+	// and so does the custom row.
+	if (_viv_msgbox_no_close())
 	{
 		style = WS_POPUP | WS_CAPTION;
 	}
@@ -980,6 +1161,16 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 		DestroyWindow(_viv_msgbox_hwnd);
 	}
 
+	// the custom row is retired with the box: a plain box opened after a
+	// three-button one must not find a stale face waiting in the table.
+	_viv_msgbox_label_count = 0;
+
+	for(i=0;i<_VIV_MSGBOX_BUTTONS;i++)
+	{
+		_viv_msgbox_labels[i] = 0;
+		_viv_msgbox_result_ids[i] = 0;
+	}
+
 	if (parent)
 	{
 		EnableWindow(parent,TRUE);
@@ -987,4 +1178,18 @@ int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned i
 	}
 
 	return _viv_msgbox_result;
+}
+
+int viv_msgbox(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned int type)
+{
+	// the MB_* subset decides the faces, the ids and the default.
+	return _viv_msgbox_open(parent,caption,text,type,0,0,0,0,0);
+}
+
+int viv_msgbox3(HWND parent,const wchar_t *caption,const wchar_t *text,unsigned int type,const wchar_t *const *labels,const int *ids,int label_count,int default_index,int cancel_index)
+{
+	// the caller's row decides the faces, the ids, the default and what
+	// escape answers. the window, the tokens and the pump are the ones
+	// every other box in the app uses.
+	return _viv_msgbox_open(parent,caption,text,type,labels,ids,label_count,default_index,cancel_index);
 }

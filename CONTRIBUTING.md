@@ -31,9 +31,15 @@ runs — see `.github/workflows/tests.yml`.
 machines can compile the same sources with zig cc:
 
 ```
-pip install ziglang
+python3 -m pip install ziglang==0.16.0
 sh build-zig/build.sh
 ```
+
+Use the same pinned Zig version as CI for reproducible toolchain behavior.
+Both `build-zig/build.sh` (x64) and `build-zig/build-arm64.sh` are compile
+gates, with strict pointer-type and prototype-scope diagnostics enabled.
+`tools/pe_header_check.py` verifies their machine and GUI subsystem fields;
+it does not replace Windows runtime tests or the release security gate.
 
 The script compiles every translation unit in `build-zig/files.txt` and
 links a 64-bit `build-zig/viv.exe`, writing `build-zig/viv.exe.manifest`
@@ -57,6 +63,22 @@ python3 tests/simulation_test.py      # the second-rework simulation (the 1.1.07
 python3 tests/pixel_golden_test.py    # the pixel-golden harness structure
 python3 tests/byte_invariant_test.py  # line endings, BOMs and final newlines per class
 ```
+
+The Python suites include mathematical models and source/manifest checks;
+they do not execute the viewer. To compile and execute selected production
+C bodies with host-side OS adapters (requires a GCC/Clang-compatible `cc`):
+
+```
+python3 tests/native_regression_test.py --sanitize
+```
+
+This covers MRU ownership, gesture/wheel input through the real zoom renderer,
+1:1 boundaries, pen/touch classification and debug allocation failure. OS
+coordinates, view positioning and window messages still use adapters; this
+is not a Windows GUI or touch-hardware test. An additional boundary matrix is
+available with `python3 audit/evidence/replay_zoom_matrix.py`; use `--output DIR`
+to retain its generated C, commands and raw logs. Current findings and pending
+device checks are in [the follow-up audit](AUDIT-2026-10-17.md).
 
 On Windows (PowerShell 5.1+), two real-machine scripts:
 
@@ -117,10 +139,8 @@ edited functions belong in the PR description, named, so the reviewer
 sees moves and edits as separate facts.
 
 The same policy asks the move to stay reviewable: one commit per slice
-when the slices are separable, so a revert can target one. The split
-spec's own rollback discipline (`docs/architecture/viv-split-spec.md`)
-records what a one-shot landing costs; the conservation gate is what it
-buys back.
+when the slices are separable, so a revert can target one. Use the repository history and `Changes.txt` for the split's historical
+context; keep unrelated fixes separate so a revert can target one.
 
 ## The vendored libwebp
 
@@ -184,6 +204,11 @@ Non-ASCII string literals are UTF-8 by contract (the sources compile
 with `/utf-8`); the Chinese tables are the working example.
 
 ## Contributor sign-off (DCO)
+
+Before committing, configure the name and email you intend to publish
+with `git config user.name` and `git config user.email`; check them with
+`git var GIT_AUTHOR_IDENT`. Do not infer the owner of historical
+placeholder identities or rewrite/map them without confirmed attribution.
 
 Every commit carries a sign-off line:
 

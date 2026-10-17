@@ -58,6 +58,99 @@ typedef struct config_key_s
 void config_load_settings(void);
 void config_save_settings(int appdata);
 
+// the settings load outcome. the ini reader is tolerant - it ignores what
+// it does not understand - so a half-written or cloud-synced file parses to
+// partial garbage and the rest of the session runs on compiled-in
+// defaults. the old exit path wrote that back unconditionally, so the
+// user's themes, shortcuts, recent files and associations were silently
+// replaced by defaults. the load now records what it found and the exit
+// path asks before it overwrites.
+enum
+{
+        // the file opened and every line parsed cleanly.
+        CONFIG_LOAD_OK = 0,
+        // the file is not there. a fresh profile answers this on every
+        // run; there is nothing to lose and nothing to ask about.
+        CONFIG_LOAD_FILE_MISSING,
+        // the file is there and parsed to something the reader could not
+        // vouch for (see the INI_ANOMALY_* bits in ini.h).
+        CONFIG_LOAD_PARSE_ANOMALY,
+        // the file is there and could not be read at all: a refused
+        // share, a size the reader refuses, a short read.
+        CONFIG_LOAD_UNREADABLE
+};
+
+extern int config_last_load_state;
+
+// the settings file the last load answered from, and the last-known-good
+// sibling it wrote beside it (the ".auditbak" the load takes before it
+// parses). both are empty when no layer of the load named a file. the exit
+// path needs them to name the file in the corruption ask and to answer the
+// restore. LANE-B additions: the prefix keeps them clear of any other
+// lane's globals.
+extern wchar_t config_lanesafe_loaded_ini[STRING_SIZE];
+extern wchar_t config_lanesafe_auditbak[STRING_SIZE];
+
+// the slideshow rate range. three writers reach config_slideshow_rate (the
+// ini load, the /rate command line switch and the custom rate dialog) and
+// two of them could put a zero or a wild value in front of SetTimer. the
+// clamp is the one range the shared writers go through.
+//
+// a non-positive rate is not a "fast slideshow", it is a missing one:
+// SetTimer answers an interval under USER_TIMER_MINIMUM with 10ms and
+// WM_TIMER still arrives, so a zero does not freeze the deck - it runs it
+// at full speed with nothing bounding it. the honest repair is the
+// compiled-in default, not a floor, so the runaway never becomes a legal
+// rate. (the custom rate dialog keeps its own one-millisecond floor: a
+// tick that quick is a thing a person can type on purpose.)
+#define CONFIG_LANESAFE_SLIDESHOW_RATE_DEFAULT    5000
+#define CONFIG_LANESAFE_SLIDESHOW_RATE_MIN     100
+#define CONFIG_LANESAFE_SLIDESHOW_RATE_MAX     3600000
+
+int config_clamp_slideshow_rate(int rate);
+
+// reset every preference to its compiled-in default. the defaults are not
+// re-spelled here: the pass captures the initialiser block itself (see
+// config.c) before the first load touches the globals, so no default
+// literal is authored twice.
+//
+// the window rectangle and the maximized flag are session state, not
+// preferences: they ride through untouched.
+void config_reset_settings_to_defaults(void);
+
+// ---- the ini file plumbing (lane-B) ----
+//
+// one atomic copy, one place. the shape is a temp file in the target's
+// OWN directory (a move across volumes is a copy, which is not atomic),
+// written through a handle this code owns, FlushFileBuffers BEFORE the
+// close (a close does not promise the data reached the medium), then
+// CloseHandle, then MoveFileExW with MOVEFILE_REPLACE_EXISTING |
+// MOVEFILE_WRITE_THROUGH so the move answers only once the new file has
+// really landed and a reader never sees the old and the new at once.
+//
+// CopyFileW is deliberately NOT used: it closes its own destination
+// handle (so there is nothing to flush) and with bFailIfExists = FALSE
+// it destroys the previous good file before it knows the new one landed
+// - precisely the failure a "known good" copy or a preserved damaged
+// original must never have.
+int config_lanesafe_atomic_copy(const wchar_t *from,const wchar_t *to);
+
+// the timestamped name a damaged settings file is preserved under:
+// "<ini>.corrupt.YYYYMMDD-HHMMSS". the stamp is local time, fixed
+// width (no locale, no separators that a file system may object to).
+// answers 0 when the name does not fit the caller's buffer, or when the
+// settings file name is empty.
+int config_lanesafe_corrupt_path(const wchar_t *ini_filename,wchar_t *wbuf,SIZE_T bufsize);
+
+// is the last-known-good sibling the load recorded there to restore
+// from? the ask only offers the restore when it is.
+int config_lanesafe_auditbak_exists(void);
+
+// the corrupted-settings gate the exit path runs before it writes. see
+// the long note over the definition in config.c. answers 1 when the
+// write may go ahead.
+int config_lanesafe_exit_gate(HWND parent);
+
 extern BYTE config_appdata;
 extern BYTE config_language; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
 extern BYTE config_dark_mode; // ui theme: 0 = light, 1 = dark, 2 = auto (follow the windows theme).

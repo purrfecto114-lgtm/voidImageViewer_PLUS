@@ -1106,7 +1106,7 @@ static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 				}
 				
 				// sort by name 
-				os_qsort(_viv_nav_items,_viv_nav_item_count,_viv_nav_compare);
+				os_qsort((void **)_viv_nav_items,_viv_nav_item_count,_viv_nav_compare);
 				
 				// find current.
 				{

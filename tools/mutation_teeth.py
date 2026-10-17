@@ -14,6 +14,7 @@ deterministic: the same rows, the same order, the same verdicts -
 a worklog.
 
 Usage: python3 tools/mutation_teeth.py  (from the repository root)
+The native regression suite requires a GCC/Clang-compatible host C compiler.
 """
 import subprocess
 import sys
@@ -34,6 +35,7 @@ SUITES = {
     "zoom": ["python3", "tests/zoom_math_test.py"],
     "byte": ["python3", "tests/byte_invariant_test.py"],
     "pixel": ["python3", "tests/pixel_golden_test.py"],
+    "native": [sys.executable, "tests/native_regression_test.py", "--sanitize"],
 }
 
 # (name, file, find, replace, suites-that-must-go-red)
@@ -580,14 +582,14 @@ MUTATIONS = [
 
     ("the arm64 os check accepts any machine again (round-151)",
      "nsis/installer.nsi",
-     "IntCmp $0 43620 arm64_ok arm64_is32 arm64_is32",
-     "IntCmp $0 12 arm64_ok arm64_ok arm64_ok",
+     "${IfNot} ${IsNativeARM64}",
+     "${IfNot} ${IsNativeAMD64}",
      ["menu"]),
 
     ("the arch gate falls back to the emulation view again (round-151)",
      "nsis/installer.nsi",
-     "${GetNativeMachineArchitecture} $0\n        IntCmp $0 43620 x64_on_arm64",
-     "System::Call \"kernel32::GetNativeSystemInfo(i r1)\"\n        IntCmp $0 43620 x64_on_arm64",
+     "${IfNot} ${IsNativeAMD64}",
+     "${IfNot} ${RunningX64}",
      ["menu"]),
 
     ("the pipeline forgets the arm64 configuration (round-151)",
@@ -673,6 +675,95 @@ MUTATIONS = [
      "{LOCALIZATION_ID_ZOOM_SET,MF_STRING,_VIV_MENU_VIEW_ZOOM,VIV_ID_VIEW_ZOOM_SET},",
      "",
      ["menu"]),
+    ("a short source ladder cannot reach the documented zoom cap",
+     "src/viv_state.h",
+     "#define _VIV_ZOOM_MAX 1024 ",
+     "#define _VIV_ZOOM_MAX 64 ",
+     ["zoom"]),
+
+    ("MRU load accepts duplicate paths again",
+     "src/config.c",
+     "if (j == config_recent_file_count)",
+     "if (1)",
+     ["native"]),
+
+    ("MRU rename keeps a stale target collision again",
+     "src/viv_recent.c",
+     "if ((j != i) && (_viv_icompare_filename(config_recent_files[j],entry) == 0))",
+     "if (0)",
+     ["native"]),
+
+    ("debug snapshot copies through a failed heap allocation again",
+     "src/mem.c",
+     "if (!new_md)",
+     "if (0)",
+     ["native"]),
+
+    ("pinch floor leaves its accumulated ratio behind again",
+     "src/viv_view.c",
+     "_viv_gesture_zoom_dist = 0;\r\n\t\t\t\t\t_viv_gesture_zoom_ratio = 1.0;",
+     "_viv_gesture_zoom_dist = 0;",
+     ["native"]),
+
+    ("gesture begin leaves the promoted drag active again",
+     "src/viv_view.c",
+     "\t\t\t\t_viv_doing_cancel();",
+     "\t\t\t\t/* drag cancellation removed */",
+     ["native"]),
+
+    ("1:1 mapping charges its first zoom step twice again",
+     "src/viv_view.c",
+     "_viv_zoom_pos = lo;\r\n\t\t\tsteps--;",
+     "_viv_zoom_pos = lo;",
+     ["native"]),
+
+    ("1:1 enlargement skips the below-fit ladder again",
+     "src/viv_view.c",
+     "lo = _viv_zoom_pos_floor();",
+     "lo = 0;",
+     ["native"]),
+
+    ("1:1 mapping ignores the long axis of a thin image again",
+     "src/viv_view.c",
+     "use_width = (old_rw >= old_rh);",
+     "use_width = 1;",
+     ["native"]),
+
+    ("a mode change at the same stored position skips redraw again",
+     "src/viv_view.c",
+     "if (old_1to1 || (_viv_zoom_pos != old_zoom_pos))",
+     "if (_viv_zoom_pos != old_zoom_pos)",
+     ["native"]),
+
+    ("zero wheel input falls through to an action again",
+     "src/viv_view.c",
+     "void _viv_do_mousewheel_action(int action,int delta,int x,int y)\r\n{\r\n\tif (!delta)",
+     "void _viv_do_mousewheel_action(int action,int delta,int x,int y)\r\n{\r\n\tif (0)",
+     ["native"]),
+
+    ("invalid zoom begin keeps a stale distance again",
+     "src/viv_view.c",
+     "\t\t\t\t\t\t_viv_gesture_zoom_dist = 0;\r\n\t\t\t\t\t\t_viv_gesture_zoom_ratio = 1.0;",
+     "\t\t\t\t\t\t_viv_gesture_zoom_ratio = 1.0;",
+     ["native"]),
+
+    ("pen double clicks use the touch action again",
+     "src/viv_view.c",
+     "(GetMessageExtraInfo() & 0xFFFFFF80) == 0xFF515780",
+     "(GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700",
+     ["native"]),
+
+    ("high-resolution wheel messages lose their fractional steps again",
+     "src/viv_view.c",
+     "remainder = (int)(steps % 120);",
+     "remainder = 0;",
+     ["native"]),
+
+    ("a missing 1:1 direction candidate reverses the zoom again",
+     "src/viv_view.c",
+     "if (((steps > 0) && (lo > pos_max)) || ((steps < 0) && (lo == _viv_zoom_pos_floor())))",
+     "if (0)",
+     ["native"]),
 ]
 
 def run_suite(key):

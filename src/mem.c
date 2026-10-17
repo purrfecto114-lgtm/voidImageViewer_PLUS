@@ -51,6 +51,9 @@ CRITICAL_SECTION mem_debug_cs;
 void mem_debug(void)
 {
 	mem_debug_t *start;
+	int snapshot_incomplete;
+
+	snapshot_incomplete = 0;
 	
 	// note: debug_printf can change the state of the memory.
 	
@@ -72,6 +75,12 @@ void mem_debug(void)
 		while(md)
 		{
 			new_md = HeapAlloc(GetProcessHeap(),0,sizeof(mem_debug_t));
+
+			if (!new_md)
+			{
+				snapshot_incomplete = 1;
+				break;
+			}
 			
 			os_copy_memory(new_md,md,sizeof(mem_debug_t));
 			
@@ -93,6 +102,13 @@ void mem_debug(void)
 	}
 	
 	LeaveCriticalSection(&mem_debug_cs);
+
+	// logging can allocate: report outside the lock and still release
+	// any snapshot nodes copied before the failed allocation.
+	if (snapshot_incomplete)
+	{
+		debug_printf("memory snapshot incomplete: out of memory\n");
+	}
 	
 	{
 		mem_debug_t *md;

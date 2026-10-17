@@ -2967,214 +2967,158 @@ void _viv_update_1to1_scroll(int x,int y)
 
 	InvalidateRect(_viv_hwnd,0,FALSE);
 }
+// Apply signed ladder steps at an anchor in screen coordinates. Wheel and
+// gesture input share this path without encoding steps as wheel deltas.
+static void _viv_zoom_steps(int steps,int x,int y)
+{
+	int cursor_x;
+	int cursor_y;
+	int rw;
+	int rh;
+	int old_rw;
+	int old_rh;
+	int old_cursor_px;
+	int old_cursor_py;
+	int wide;
+	int high;
+	int old_zoom_pos;
+	int old_1to1;
+	RECT rect;
+	POINT pt;
+	__int64 new_cursor_x;
+	__int64 new_cursor_y;
+
+	if (!steps)
+	{
+		return;
+	}
+
+	old_zoom_pos = _viv_zoom_pos;
+	old_1to1 = _viv_1to1;
+	GetClientRect(_viv_hwnd,&rect);
+	wide = rect.right - rect.left;
+	high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
+	pt.x = x;
+	pt.y = y;
+	ScreenToClient(_viv_hwnd,&pt);
+	cursor_x = pt.x;
+	cursor_y = pt.y - _viv_get_view_top();
+
+	_viv_get_render_size(&old_rw,&old_rh);
+	old_cursor_px = cursor_x - ((wide / 2) - (old_rw / 2) - _viv_view_x);
+	old_cursor_py = cursor_y - ((high / 2) - (old_rh / 2) - _viv_view_y);
+
+	if (_viv_1to1)
+	{
+		int lo;
+		int hi;
+		int pos_max;
+		int use_width;
+
+		_viv_1to1 = 0;
+		lo = _viv_zoom_pos_floor();
+		pos_max = _viv_zoom_pos_max();
+		hi = pos_max + 1;
+		use_width = (old_rw >= old_rh);
+
+		// Search the whole live range: fill-window can put 1:1 below
+		// position zero. Measure the longer axis so a one-pixel width
+		// (or height) cannot hide a large scale change on the other axis.
+		while (lo < hi)
+		{
+			int mid;
+			int size;
+			int old_size;
+
+			mid = lo + ((hi - lo) / 2);
+			_viv_zoom_pos = mid;
+			_viv_get_render_size(&rw,&rh);
+			size = use_width ? rw : rh;
+			old_size = use_width ? old_rw : old_rh;
+			if ((steps > 0) ? (size > old_size) : (size >= old_size))
+			{
+				hi = mid;
+			}
+			else
+			{
+				lo = mid + 1;
+			}
+		}
+
+		// If the live ladder has no size in the requested direction,
+		// stay at 1:1. Clamping an out-of-range search result could
+		// otherwise enlarge on zoom-out, or shrink on zoom-in.
+		if (((steps > 0) && (lo > pos_max)) || ((steps < 0) && (lo == _viv_zoom_pos_floor())))
+		{
+			_viv_1to1 = old_1to1;
+			_viv_zoom_pos = old_zoom_pos;
+			return;
+		}
+
+		// Reaching the first size in the requested direction already
+		// consumes one step; apply only the remaining steps below.
+		if (steps > 0)
+		{
+			_viv_zoom_pos = lo;
+			steps--;
+		}
+		else
+		{
+			_viv_zoom_pos = lo - 1;
+			steps++;
+		}
+	}
+
+	_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos + steps);
+	if (old_1to1 || (_viv_zoom_pos != old_zoom_pos))
+	{
+		_viv_get_render_size(&rw,&rh);
+		new_cursor_x = old_rw ? ((__int64)old_cursor_px * rw) / old_rw : 0;
+		new_cursor_y = old_rh ? ((__int64)old_cursor_py * rh) / old_rh : 0;
+		_viv_view_set((wide / 2) - (rw / 2) - cursor_x + new_cursor_x,(high / 2) - (rh / 2) - cursor_y + new_cursor_y,1);
+		InvalidateRect(_viv_hwnd,0,FALSE);
+		_viv_status_update_temp_pos_zoom();
+	}
+}
 // x,y in screen coords
 void _viv_do_mousewheel_action(int action,int delta,int x,int y)
 {
+	if (!delta)
+	{
+		return;
+	}
+
 	if (action == 0)
 	{
-		int cursor_x;
-		int cursor_y;
-		int rx;
-		int ry;
-		int rw;
-		int rh;
-		int old_rw;
-		int old_rh;
-		int old_cursor_px;
-		int old_cursor_py;
-		int wide;
-		int high;
-		RECT rect;
-		POINT pt;
-		__int64 new_cursor_x;
-		__int64 new_cursor_y;
-		int old_zoom_pos;
-		
-		old_zoom_pos = _viv_zoom_pos;
-		
-		GetClientRect(_viv_hwnd,&rect);
-		wide = rect.right - rect.left;
-		high = rect.bottom - rect.top - _viv_get_status_high() - _viv_get_view_top();
-		
-		pt.x = x;
-		pt.y = y;
-		
-		ScreenToClient(_viv_hwnd,&pt);
+		static int remainder = 0;
+		__int64 steps;
 
-		cursor_x = pt.x; 
-		cursor_y = pt.y - _viv_get_view_top();
-	
-		_viv_get_render_size(&rw,&rh);
-		
-		rx = (wide / 2) - (rw / 2) - _viv_view_x;
-		ry = (high / 2) - (rh / 2) - _viv_view_y;
-		
-		old_cursor_px = (cursor_x - rx);
-		old_cursor_py = (cursor_y - ry);
-		old_rw = rw;
-		old_rh = rh;
-		if (_viv_1to1)
+		// Preserve sub-step input: splitting one notch into smaller
+		// messages must not multiply or lose its zoom. C division keeps
+		// the signed remainder, so opposite sub-step input cancels.
+		steps = (__int64)delta * _VIV_ZOOM_STEPS_PER_NOTCH + remainder;
+		remainder = (int)(steps % 120);
+		steps /= 120;
+		if (steps > _VIV_ZOOM_MAX + _VIV_ZOOM_SHRINK_STEPS)
 		{
-			_viv_1to1 = 0;
-			
-			if (delta > 0)
-			{
-				// binary search for the first ladder position that grows past the
-				// 1:1 size. the render size is monotonic in the position, so this
-				// finds the same position as the old linear scan with ~10
-				// measurements instead of up to 1024.
-				{
-					int lo;
-					int hi;
-					
-					lo = 0;
-					hi = _VIV_ZOOM_MAX; // exclusive upper bound
-					
-					while (lo < hi)
-					{
-						int mid;
-						
-						mid = lo + ((hi - lo) / 2);
-						
-						_viv_zoom_pos = mid;
-						
-						_viv_get_render_size(&rw,&rh);
-						
-						if (rw > old_rw)
-						{
-							hi = mid;
-						}
-						else
-						{
-							lo = mid + 1;
-						}
-					}
-					
-					_viv_zoom_pos = lo;
-				}
-			}
-			else
-			{
-				// binary search for the highest ladder position below the 1:1 size,
-				// or the floor minus one when even the deepest below-fit zoom-out
-				// is at least as large (the clamp settles that on the floor). the
-				// render size is monotonic, so this matches the old linear scan from
-				// the top with ~10 measurements instead of up to 1024.
-				{
-					int lo;
-					int hi;
-					
-					lo = _viv_zoom_pos_floor();
-					hi = _viv_zoom_pos_max() + 1; // exclusive upper bound
-					
-					while (lo < hi)
-					{
-						int mid;
-						
-						mid = lo + ((hi - lo) / 2);
-						
-						_viv_zoom_pos = mid;
-						
-						_viv_get_render_size(&rw,&rh);
-						
-						if (rw < old_rw)
-						{
-							lo = mid + 1;
-						}
-						else
-						{
-							hi = mid;
-						}
-					}
-					
-					_viv_zoom_pos = lo - 1;
-				}
-			}
+			steps = _VIV_ZOOM_MAX + _VIV_ZOOM_SHRINK_STEPS;
 		}
-
-		// proportional stepping: a standard wheel notch (delta 120) applies
-		// _VIV_ZOOM_STEPS_PER_NOTCH 1% zoom steps (about 10%). fast flicks send
-		// multiples of 120 and zoom further. high resolution wheels and
-		// trackpads send smaller deltas more often. the steps also apply after
-		// the 1:1 transition above so gestures keep tracking the fingers.
+		else
+		if (steps < -(_VIV_ZOOM_MAX + _VIV_ZOOM_SHRINK_STEPS))
 		{
-			int steps;
-			
-			steps = ((delta < 0) ? (0 - delta) : delta) * _VIV_ZOOM_STEPS_PER_NOTCH;
-			
-			steps = (steps + 60) / 120;
-			
-			if (!steps)
-			{
-				steps = 1;
-			}
-			
-			if (delta > 0)
-			{
-				_viv_zoom_pos += steps;
-			}
-			else
-			{
-				_viv_zoom_pos -= steps;
-			}
+			steps = -(_VIV_ZOOM_MAX + _VIV_ZOOM_SHRINK_STEPS);
 		}
-		
-		// clamp to the live ladder range (0 .. pos_max) so the wheel never
-		// spins in a dead zone of positions that all render the same size.
-		_viv_zoom_pos = _viv_clamp_zoom_pos(_viv_zoom_pos);
-		
-		if (_viv_zoom_pos != old_zoom_pos)
-		{
-			_viv_get_render_size(&rw,&rh);
-			if (old_rw)
-			{
-				new_cursor_x = ((__int64)old_cursor_px * (__int64)rw) / (__int64)old_rw;
-			}
-			else
-			{
-				new_cursor_x = 0;
-			}
-			
-			if (old_rh)
-			{
-				new_cursor_y = ((__int64)old_cursor_py * (__int64)rh) / (__int64)old_rh;
-			}
-			else
-			{
-				new_cursor_y = 0;
-			}
-
-			_viv_view_set((wide / 2) - (rw / 2) - cursor_x + new_cursor_x,(high / 2) - (rh / 2) - cursor_y + new_cursor_y,1);
-			
-			InvalidateRect(_viv_hwnd,0,FALSE);
-			_viv_status_update_temp_pos_zoom();
-		}
+		_viv_zoom_steps((int)steps,x,y);
 	}
 	else
 	if (action == 1)
 	{
-		if (delta > 0)
-		{
-			_viv_next(1,1,0,0);
-		}
-		else
-		if (delta < 0)
-		{
-			_viv_next(0,1,0,0);
-		}
+		_viv_next((delta > 0) ? 1 : 0,1,0,0);
 	}
 	else
 	if (action == 2)
 	{
-		if (delta > 0)
-		{
-			_viv_next(0,1,0,0);
-		}
-		else
-		if (delta < 0)
-		{
-			_viv_next(1,1,0,0);
-		}
+		_viv_next((delta > 0) ? 0 : 1,1,0,0);
 	}
 }
 // 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll, 6=move-window
@@ -3309,8 +3253,9 @@ static int _viv_gesture_last_y = 0;
 static BYTE _viv_gesture_have_last = 0;
 int _viv_is_touch_click(void)
 {
-	// 0xFF515700 is the signature of touch injected mouse messages.
-	return ((GetMessageExtraInfo() & 0xFFFFFF00) == 0xFF515700) ? 1 : 0;
+	// The shared pen/touch signature needs bit 7 as well: 0 is pen,
+	// 1 is touch. The remaining low bits identify the cursor.
+	return ((GetMessageExtraInfo() & 0xFFFFFF80) == 0xFF515780) ? 1 : 0;
 }
 void _viv_touch_double_click(void)
 {
@@ -3361,6 +3306,12 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 			// gid_end are consumed. resetting the gesture state is all we need,
 			// so hand the message to defwindowproc (which also owns the info
 			// handle for anything we do not consume).
+			if (gesture_info.dwID == 1)
+			{
+				// a second contact starts the gesture while the promoted
+				// mouse drag can still own capture. retire that drag first.
+				_viv_doing_cancel();
+			}
 			_viv_gesture_reset();
 			return 0;
 
@@ -3370,10 +3321,8 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 			dist = (DWORD)gesture_info.ullArguments;
 
-			// sanity check the reported finger distance. some windows builds
-			// return the distance with a multi monitor offset added, or as a
-			// wrapped negative, which can explode the zoom ratio. a real distance
-			// is positive and never exceeds the virtual screen bounds.
+			// Reject zero and distances beyond the virtual screen envelope.
+			// This is a defensive bound, not a Windows encoding rule.
 			{
 				int vw;
 				int vh;
@@ -3383,18 +3332,22 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 				if ((vw > 0) && (vh > 0) && ((dist == 0) || (dist > (DWORD)(vw + vh))))
 				{
-					// implausible: drop this update and keep the old baseline.
+					// A new zoom sequence cannot inherit the previous one,
+					// even when its first distance is unusable.
+					if (gesture_info.dwFlags & 0x01)
+					{
+						_viv_gesture_zoom_dist = 0;
+						_viv_gesture_zoom_ratio = 1.0;
+					}
 					break;
 				}
 			}
 
-			// two fingers closer than ~9.5mm (36 logical px) report a distance
-			// made of digitizer quantization noise: the ratio of two tiny
-			// distances can be anything, so a small wobble while the fingers
-			// are almost touching used to explode the accumulated pinch ratio
-			// (pinch collapse, then spread: instant max zoom). freeze the zoom
-			// below the floor and drop the baseline: the next valid sample
-			// re-baselines with no ratio applied.
+			// Retain the existing 36 DIP floor policy: freeze below it and
+			// discard both distance and fractional steps. The next valid
+			// sample re-baselines without zooming. This trades close-contact
+			// response for noise suppression; the threshold needs hardware
+			// validation, not an assumption that all small values are noise.
 			{
 				DWORD min_dist;
 
@@ -3403,6 +3356,7 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 				if ((dist) && (dist < min_dist))
 				{
 					_viv_gesture_zoom_dist = 0;
+					_viv_gesture_zoom_ratio = 1.0;
 
 					break;
 				}
@@ -3420,10 +3374,9 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 				ratio = (double)dist / (double)_viv_gesture_zoom_dist;
 
-				// clamp the per message ratio. two consecutive messages can not
-				// honestly halve or double the finger distance; larger jumps come
-				// from corrupted values or heavily coalesced input and must not
-				// change the zoom by more than 2x in a single message.
+				// Retain the existing per-message 0.5..2.0 policy. The API
+				// specifies distance, not a speed bound; larger ratios alone
+				// do not prove corrupt input. Revisit with a hardware trace.
 				if (ratio > 2.0)
 				{
 					ratio = 2.0;
@@ -3462,13 +3415,12 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 					if (steps_in)
 					{
-						// _VIV_ZOOM_STEPS_PER_NOTCH steps per 120 wheel delta units.
-						_viv_do_mousewheel_action(0,steps_in * (120 / _VIV_ZOOM_STEPS_PER_NOTCH),gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
+						_viv_zoom_steps(steps_in,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
 					}
 
 					if (steps_out)
 					{
-						_viv_do_mousewheel_action(0,-(steps_out * (120 / _VIV_ZOOM_STEPS_PER_NOTCH)),gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
+						_viv_zoom_steps(-steps_out,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
 					}
 				}
 			}

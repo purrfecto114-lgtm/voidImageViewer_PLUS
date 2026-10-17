@@ -1,4 +1,33 @@
-﻿Stable: Version 1.1.16 (the arm arrives round)
+﻿Pre-release: Version 1.1.17-rc.1 (the p0 fix round)
+
+	the p0 silent failures stop being silent. a drop, a
+	folder browse or a command line that skips files now
+	reports them: the playlist add returns a typed outcome
+	(bad extension, not found, access denied, too long,
+	not a file), and after the walk the status bar names
+	the first skipped file and the reason. file->open now
+	answers the same one whitelist every other path uses,
+	and a helper detects an unquoted path with spaces on
+	the command line and joins it back into one file
+	(the c:\my photos class of launches lands the picture
+	instead of reporting a missing file). long paths fail
+	with a name instead of a discard, and path combine's
+	failure reaches its caller. beside them, the config
+	integrity work: a tolerant ini parse now records what
+	it did not understand (section missing, malformed
+	line, duplicate key, embedded nul), a good file is
+	snapshotted to an .auditbak beside it through the
+	atom's one temp-flush-replace form, and on exit the
+	corruption gate preserves the file as .corrupt before
+	anything writes, then asks keep / restore / cancel -
+	cancel still exits without destroying the file. the
+	settings page grows a reset-to-defaults button (the
+	confirm's focus starts on cancel), and the slideshow
+	rate is clamped at the source: /rate 0 is the default,
+	not a ten-millisecond runaway, because settimer answers
+	windows' USER_TIMER_MINIMUM floor, not "stopped".
+
+Stable: Version 1.1.16 (the arm arrives round)
 
 	the arm64 build joins the party. the
 	release grows a third platform: a native

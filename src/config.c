@@ -23,14 +23,19 @@
 
 #include "viv.h"
 #include "viv_state.h"
+#include "viv_playlist.h"
 
 static int _config_icompare_ascii(const utf8_t *s1,const char *lowercase_ascii_s2);
+
 static void _config_load_settings_by_location(const wchar_t *path,int is_root);
 static void _config_write_int(HANDLE h,const char *ascii_key,int value);
 static void _config_write_string(HANDLE h,const char *ascii_key,const wchar_t *s);
 static void _config_write_utf8(HANDLE h,const utf8_t *s);
 static void _config_recent_key_name(utf8_t *buf,int index);
 static void _config_save_settings_by_location(const wchar_t *path,int is_root);
+static void _config_lanesafe_note_load(const wchar_t *filename,int state,int anomaly);
+static void _config_lanesafe_auditbak_write(const wchar_t *filename);
+static void _config_lanesafe_defaults_capture(void);
 
 BYTE config_appdata = 0; // store settings in %APPDATA%\voidimageviewer or in the same location as voidimageviewer.exe
 BYTE config_language = 0; // ui language: 0 = auto (follow the system language), 1 = english, 2 = simplified chinese.
@@ -46,7 +51,14 @@ int config_y = 0;
 int config_wide = 0;
 int config_high = 0;
 BYTE config_maximized = 0;
-int config_slideshow_rate = 5000;
+
+// the compiled-in slideshow rate. named so the clamp below and the
+// initialiser here read one authored value: a non-positive rate is repaired
+// to this default rather than to a floor (see config_clamp_slideshow_rate
+// and the note in config.h).
+#define _CONFIG_LANESAFE_SLIDESHOW_RATE_DEFAULT CONFIG_LANESAFE_SLIDESHOW_RATE_DEFAULT
+
+int config_slideshow_rate = _CONFIG_LANESAFE_SLIDESHOW_RATE_DEFAULT;
 BYTE config_allow_shrinking = 1; // prevent resizing an image below 100%
 BYTE config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_HALFTONE; // shrink filter
 int config_renderer = CONFIG_RENDERER_GDI; // render back end: gdi default, the hardware paths are opt-in
@@ -120,6 +132,823 @@ BYTE config_orientation = 1;
 BYTE config_title_bar_format = 1; // 0=full path, 1=filename, 2=none
 int config_add_command_line_timeout = 500; // in milliseconds
 
+// ---- the load state (lane-B: the corrupted-ini gate) ----
+//
+// the outcome of the last settings load. the ini reader is tolerant by
+// design - it ignores what it does not understand - so a half-written or a
+// cloud-synced file parses to partial garbage and the rest of the session
+// quietly runs on compiled-in defaults. the exit path used to write that
+// back unconditionally, which is how a user's themes, shortcuts, recent
+// files and associations were replaced by defaults without a word. the
+// state is what lets the exit path ask first.
+int config_last_load_state = CONFIG_LOAD_OK;
+
+// the settings file the last load answered from, and the last-known-good
+// sibling it wrote beside it (the ".auditbak" the load takes before it
+// parses). empty when no layer of the load named a file. LANE-B additions:
+// the prefix keeps them clear of any other lane's globals.
+wchar_t config_lanesafe_loaded_ini[STRING_SIZE] = {0};
+wchar_t config_lanesafe_auditbak[STRING_SIZE] = {0};
+
+// the mirror's size. the census below names 78 globals and the widest of
+// them is an int, so 78 * sizeof(int) covers it with room to spare; a
+// census that outgrew this would be refused loudly at capture time rather
+// than write past the end.
+#define CONFIG_LANESAFE_DEFAULT_BYTES 512
+
+// the compiled-in defaults, mirrored.
+//
+// the values are not re-spelled anywhere: the capture below runs as the
+// first statement of config_load_settings, which is before anything in the
+// process has written a config global, so every one of them still carries
+// the value its initialiser above gave it. the mirror therefore IS the
+// initialiser block - one authored set of defaults - and the reset pass
+// copies it back. (rewriting the initialisers to read from a macro block
+// would have been the other way round, but the guard suite pins several of
+// those literal initialiser lines as the audit evidence they are.)
+static BYTE _config_lanesafe_defaults[CONFIG_LANESAFE_DEFAULT_BYTES];
+
+// has the capture run? a second pass would capture whatever the first load
+// left behind, which is exactly what the reset has to undo.
+static BYTE _config_lanesafe_defaults_taken = 0;
+
+// one slot of the mirror: where the global lives and how wide it is. the
+// address is not a default - the bytes behind it are, and those are the
+// initialiser's own.
+#define _CONFIG_LANESAFE_SLOT(variable) _config_lanesafe_capture(&_config_lanesafe_defaults[_config_lanesafe_offset],&(variable),sizeof(variable))
+
+// the restore twin of the slot macro: the same census, walked again.
+#define _CONFIG_LANESAFE_RESTORE(variable) _config_lanesafe_restore(&_config_lanesafe_defaults[_config_lanesafe_offset],&(variable),sizeof(variable))
+
+static SIZE_T _config_lanesafe_offset = 0;
+
+// take one global's initialiser value into the mirror.
+static void _config_lanesafe_capture(unsigned char *slot,const void *address,SIZE_T size);
+static void _config_lanesafe_restore(const void *slot,void *address,SIZE_T size);
+
+// take one global's initialiser value into the mirror.
+static void _config_lanesafe_capture(unsigned char *slot,const void *address,SIZE_T size)
+{
+	if ((_config_lanesafe_offset + size) > CONFIG_LANESAFE_DEFAULT_BYTES)
+	{
+		// the mirror is sized by the census below; running past it would
+		// be a compile-order slip, so say so loudly rather than write.
+		debug_printf("config: the defaults mirror is full (%u + %u > %u)\r\n",(unsigned int)_config_lanesafe_offset,(unsigned int)size,(unsigned int)CONFIG_LANESAFE_DEFAULT_BYTES);
+
+		return;
+	}
+
+	os_copy_memory(slot,address,size);
+
+	_config_lanesafe_offset += size;
+}
+
+// put one global's initialiser value back.
+static void _config_lanesafe_restore(const void *slot,void *address,SIZE_T size)
+{
+	os_copy_memory(address,slot,size);
+}
+
+static void _config_lanesafe_defaults_capture(void)
+{
+	// the mirror runs once: a second pass would capture whatever the first
+	// load left behind, which is exactly what the reset has to undo.
+	if (_config_lanesafe_defaults_taken)
+	{
+		return;
+	}
+
+	_config_lanesafe_defaults_taken = 1;
+
+	_config_lanesafe_offset = 0;
+
+	// the census, in the same order as the initialiser block above.
+	_CONFIG_LANESAFE_SLOT(config_appdata);
+	_CONFIG_LANESAFE_SLOT(config_language);
+	_CONFIG_LANESAFE_SLOT(config_dark_mode);
+	_CONFIG_LANESAFE_SLOT(config_ui_accent);
+	_CONFIG_LANESAFE_SLOT(config_backdrop_mode);
+	_CONFIG_LANESAFE_SLOT(config_backdrop_color_r);
+	_CONFIG_LANESAFE_SLOT(config_backdrop_color_g);
+	_CONFIG_LANESAFE_SLOT(config_backdrop_color_b);
+	_CONFIG_LANESAFE_SLOT(config_keep_centered);
+	// config_maximized is deliberately absent, and so are
+	// config_x/config_y/config_wide/config_high: the window rectangle and
+	// the maximized flag are this session's window state, not preferences,
+	// and a settings reset must not move the window under the user on the
+	// very click that asked for it.
+	_CONFIG_LANESAFE_SLOT(config_slideshow_rate);
+	_CONFIG_LANESAFE_SLOT(config_allow_shrinking);
+	_CONFIG_LANESAFE_SLOT(config_shrink_blit_mode);
+	_CONFIG_LANESAFE_SLOT(config_renderer);
+	_CONFIG_LANESAFE_SLOT(config_toolbar_groups);
+	_CONFIG_LANESAFE_SLOT(config_toolbar_icon_only);
+	_CONFIG_LANESAFE_SLOT(config_mag_filter);
+	_CONFIG_LANESAFE_SLOT(config_nav_sort);
+	_CONFIG_LANESAFE_SLOT(config_nav_sort_ascending);
+	_CONFIG_LANESAFE_SLOT(config_keep_aspect_ratio);
+	_CONFIG_LANESAFE_SLOT(config_fill_window);
+	_CONFIG_LANESAFE_SLOT(config_fullscreen_fill_window);
+	_CONFIG_LANESAFE_SLOT(config_auto_zoom);
+	_CONFIG_LANESAFE_SLOT(config_auto_zoom_type);
+	_CONFIG_LANESAFE_SLOT(config_auto_fit_wide_mul);
+	_CONFIG_LANESAFE_SLOT(config_auto_fit_wide_div);
+	_CONFIG_LANESAFE_SLOT(config_auto_fit_high_mul);
+	_CONFIG_LANESAFE_SLOT(config_auto_fit_high_div);
+	_CONFIG_LANESAFE_SLOT(config_frame_minus);
+	_CONFIG_LANESAFE_SLOT(config_multiple_instances);
+	_CONFIG_LANESAFE_SLOT(config_show_status);
+	_CONFIG_LANESAFE_SLOT(config_show_controls);
+	_CONFIG_LANESAFE_SLOT(config_show_zoom_controls);
+	_CONFIG_LANESAFE_SLOT(config_zoom_auto_hide);
+	_CONFIG_LANESAFE_SLOT(config_recent_file_count);
+	_CONFIG_LANESAFE_SLOT(config_prevent_sleep);
+	_CONFIG_LANESAFE_SLOT(config_loop_animations_once);
+	_CONFIG_LANESAFE_SLOT(config_mouse_wheel_action);
+	_CONFIG_LANESAFE_SLOT(config_ctrl_mouse_wheel_action);
+	_CONFIG_LANESAFE_SLOT(config_left_click_action);
+	_CONFIG_LANESAFE_SLOT(config_right_click_action);
+	_CONFIG_LANESAFE_SLOT(config_xbutton_action);
+	_CONFIG_LANESAFE_SLOT(config_windowed_background_color_r);
+	_CONFIG_LANESAFE_SLOT(config_windowed_background_color_g);
+	_CONFIG_LANESAFE_SLOT(config_windowed_background_color_b);
+	_CONFIG_LANESAFE_SLOT(config_fullscreen_background_color_r);
+	_CONFIG_LANESAFE_SLOT(config_fullscreen_background_color_g);
+	_CONFIG_LANESAFE_SLOT(config_fullscreen_background_color_b);
+	_CONFIG_LANESAFE_SLOT(config_options_last_page);
+	_CONFIG_LANESAFE_SLOT(config_short_jump);
+	_CONFIG_LANESAFE_SLOT(config_medium_jump);
+	_CONFIG_LANESAFE_SLOT(config_long_jump);
+	_CONFIG_LANESAFE_SLOT(config_shuffle);
+	_CONFIG_LANESAFE_SLOT(config_browse_file_open_dialog);
+	_CONFIG_LANESAFE_SLOT(config_ontop);
+	_CONFIG_LANESAFE_SLOT(config_slideshow_custom_rate);
+	_CONFIG_LANESAFE_SLOT(config_slideshow_custom_rate_type);
+	_CONFIG_LANESAFE_SLOT(config_scroll_window);
+	_CONFIG_LANESAFE_SLOT(config_preload_count);
+	_CONFIG_LANESAFE_SLOT(config_cache_count);
+	_CONFIG_LANESAFE_SLOT(config_preload_next);
+	_CONFIG_LANESAFE_SLOT(config_cache_last);
+	_CONFIG_LANESAFE_SLOT(config_resume_last_file);
+	_CONFIG_LANESAFE_SLOT(config_icm);
+	_CONFIG_LANESAFE_SLOT(config_show_menu);
+	_CONFIG_LANESAFE_SLOT(config_show_caption);
+	_CONFIG_LANESAFE_SLOT(config_show_thickframe);
+	_CONFIG_LANESAFE_SLOT(config_toolbar_move_window);
+	_CONFIG_LANESAFE_SLOT(config_windowed_hide_cursor);
+	_CONFIG_LANESAFE_SLOT(config_pixel_info);
+	_CONFIG_LANESAFE_SLOT(config_orientation);
+	_CONFIG_LANESAFE_SLOT(config_title_bar_format);
+	_CONFIG_LANESAFE_SLOT(config_add_command_line_timeout);
+
+	// the defaults mirror must hold exactly the last slot. a silent short
+	// census would reset the settings the census forgot, which is worse
+	// than not resetting at all.
+	debug_printf("config: the defaults mirror holds %u of %u bytes\r\n",(unsigned int)_config_lanesafe_offset,(unsigned int)CONFIG_LANESAFE_DEFAULT_BYTES);
+}
+
+int config_clamp_slideshow_rate(int rate)
+{
+	// see config.h for why a non-positive rate is a missing rate and not
+	// a fast one: SetTimer answers anything under USER_TIMER_MINIMUM with
+	// 10ms and WM_TIMER still arrives, so a zero runs the deck at full
+	// speed rather than holding it still. the compiled-in default is the
+	// honest repair; a floor would bless the runaway as a legal rate.
+	if (rate <= 0)
+	{
+		return CONFIG_LANESAFE_SLIDESHOW_RATE_DEFAULT;
+	}
+
+	if (rate < CONFIG_LANESAFE_SLIDESHOW_RATE_MIN)
+	{
+		return CONFIG_LANESAFE_SLIDESHOW_RATE_MIN;
+	}
+
+	if (rate > CONFIG_LANESAFE_SLIDESHOW_RATE_MAX)
+	{
+		return CONFIG_LANESAFE_SLIDESHOW_RATE_MAX;
+	}
+
+	return rate;
+}
+
+void config_reset_settings_to_defaults(void)
+{
+	// the mirror must exist: the capture runs at the top of
+	// config_load_settings, so by the time anything can ask for a reset it
+	// has. the guard is here anyway - a reset with no mirror would blank
+	// the settings instead of restoring them.
+	if (!_config_lanesafe_defaults_taken)
+	{
+		_config_lanesafe_defaults_capture();
+	}
+
+	_config_lanesafe_offset = 0;
+
+	// the same census, walked again.
+	_CONFIG_LANESAFE_RESTORE(config_appdata);
+	_CONFIG_LANESAFE_RESTORE(config_language);
+	_CONFIG_LANESAFE_RESTORE(config_dark_mode);
+	_CONFIG_LANESAFE_RESTORE(config_ui_accent);
+	_CONFIG_LANESAFE_RESTORE(config_backdrop_mode);
+	_CONFIG_LANESAFE_RESTORE(config_backdrop_color_r);
+	_CONFIG_LANESAFE_RESTORE(config_backdrop_color_g);
+	_CONFIG_LANESAFE_RESTORE(config_backdrop_color_b);
+	_CONFIG_LANESAFE_RESTORE(config_keep_centered);
+	// the window rectangle and the maximized flag are deliberately absent
+	// (see the census in _config_lanesafe_defaults_capture).
+	_CONFIG_LANESAFE_RESTORE(config_slideshow_rate);
+	_CONFIG_LANESAFE_RESTORE(config_allow_shrinking);
+	_CONFIG_LANESAFE_RESTORE(config_shrink_blit_mode);
+	_CONFIG_LANESAFE_RESTORE(config_renderer);
+	_CONFIG_LANESAFE_RESTORE(config_toolbar_groups);
+	_CONFIG_LANESAFE_RESTORE(config_toolbar_icon_only);
+	_CONFIG_LANESAFE_RESTORE(config_mag_filter);
+	_CONFIG_LANESAFE_RESTORE(config_nav_sort);
+	_CONFIG_LANESAFE_RESTORE(config_nav_sort_ascending);
+	_CONFIG_LANESAFE_RESTORE(config_keep_aspect_ratio);
+	_CONFIG_LANESAFE_RESTORE(config_fill_window);
+	_CONFIG_LANESAFE_RESTORE(config_fullscreen_fill_window);
+	_CONFIG_LANESAFE_RESTORE(config_auto_zoom);
+	_CONFIG_LANESAFE_RESTORE(config_auto_zoom_type);
+	_CONFIG_LANESAFE_RESTORE(config_auto_fit_wide_mul);
+	_CONFIG_LANESAFE_RESTORE(config_auto_fit_wide_div);
+	_CONFIG_LANESAFE_RESTORE(config_auto_fit_high_mul);
+	_CONFIG_LANESAFE_RESTORE(config_auto_fit_high_div);
+	_CONFIG_LANESAFE_RESTORE(config_frame_minus);
+	_CONFIG_LANESAFE_RESTORE(config_multiple_instances);
+	_CONFIG_LANESAFE_RESTORE(config_show_status);
+	_CONFIG_LANESAFE_RESTORE(config_show_controls);
+	_CONFIG_LANESAFE_RESTORE(config_show_zoom_controls);
+	_CONFIG_LANESAFE_RESTORE(config_zoom_auto_hide);
+	_CONFIG_LANESAFE_RESTORE(config_recent_file_count);
+	_CONFIG_LANESAFE_RESTORE(config_prevent_sleep);
+	_CONFIG_LANESAFE_RESTORE(config_loop_animations_once);
+	_CONFIG_LANESAFE_RESTORE(config_mouse_wheel_action);
+	_CONFIG_LANESAFE_RESTORE(config_ctrl_mouse_wheel_action);
+	_CONFIG_LANESAFE_RESTORE(config_left_click_action);
+	_CONFIG_LANESAFE_RESTORE(config_right_click_action);
+	_CONFIG_LANESAFE_RESTORE(config_xbutton_action);
+	_CONFIG_LANESAFE_RESTORE(config_windowed_background_color_r);
+	_CONFIG_LANESAFE_RESTORE(config_windowed_background_color_g);
+	_CONFIG_LANESAFE_RESTORE(config_windowed_background_color_b);
+	_CONFIG_LANESAFE_RESTORE(config_fullscreen_background_color_r);
+	_CONFIG_LANESAFE_RESTORE(config_fullscreen_background_color_g);
+	_CONFIG_LANESAFE_RESTORE(config_fullscreen_background_color_b);
+	_CONFIG_LANESAFE_RESTORE(config_options_last_page);
+	_CONFIG_LANESAFE_RESTORE(config_short_jump);
+	_CONFIG_LANESAFE_RESTORE(config_medium_jump);
+	_CONFIG_LANESAFE_RESTORE(config_long_jump);
+	_CONFIG_LANESAFE_RESTORE(config_shuffle);
+	_CONFIG_LANESAFE_RESTORE(config_browse_file_open_dialog);
+	_CONFIG_LANESAFE_RESTORE(config_ontop);
+	_CONFIG_LANESAFE_RESTORE(config_slideshow_custom_rate);
+	_CONFIG_LANESAFE_RESTORE(config_slideshow_custom_rate_type);
+	_CONFIG_LANESAFE_RESTORE(config_scroll_window);
+	_CONFIG_LANESAFE_RESTORE(config_preload_count);
+	_CONFIG_LANESAFE_RESTORE(config_cache_count);
+	_CONFIG_LANESAFE_RESTORE(config_preload_next);
+	_CONFIG_LANESAFE_RESTORE(config_cache_last);
+	_CONFIG_LANESAFE_RESTORE(config_resume_last_file);
+	_CONFIG_LANESAFE_RESTORE(config_icm);
+	_CONFIG_LANESAFE_RESTORE(config_show_menu);
+	_CONFIG_LANESAFE_RESTORE(config_show_caption);
+	_CONFIG_LANESAFE_RESTORE(config_show_thickframe);
+	_CONFIG_LANESAFE_RESTORE(config_toolbar_move_window);
+	_CONFIG_LANESAFE_RESTORE(config_windowed_hide_cursor);
+	_CONFIG_LANESAFE_RESTORE(config_pixel_info);
+	_CONFIG_LANESAFE_RESTORE(config_orientation);
+	_CONFIG_LANESAFE_RESTORE(config_title_bar_format);
+	_CONFIG_LANESAFE_RESTORE(config_add_command_line_timeout);
+
+	// the two dynamic families the mirror cannot hold.
+
+	// the recent files mru: the paths are owned allocations, so the count
+	// goes back to zero and the entries are released (a reset with the
+	// count alone would leave the array pointing at rows the count no
+	// longer covers).
+	{
+		int i;
+
+		for(i=0;i<CONFIG_RECENT_FILE_COUNT;i++)
+		{
+			if (config_recent_files[i])
+			{
+				mem_free(config_recent_files[i]);
+
+				config_recent_files[i] = 0;
+			}
+		}
+
+		config_recent_file_count = 0;
+	}
+
+	// the resume record: the window rectangle and the maximized flag are
+	// deliberately NOT reset - they are this session's window state, not
+	// preferences, and throwing them away would move the window under the
+	// user on the very click that asked for a settings reset.
+	config_last_file[0] = 0;
+}
+
+static void _config_lanesafe_note_load(const wchar_t *filename,int state,int anomaly)
+{
+	if (state == INI_LOAD_FILE_MISSING)
+	{
+		// nothing to lose at this location, and a fresh profile answers
+		// it on every run. the state only speaks when no layer of the load
+		// has named a file at all, so a missing appdata layer can never
+		// bury a real answer from the install-dir layer.
+		if (!config_lanesafe_loaded_ini[0])
+		{
+			config_last_load_state = CONFIG_LOAD_FILE_MISSING;
+		}
+
+		return;
+	}
+
+	if (state == INI_LOAD_UNREADABLE)
+	{
+		config_last_load_state = CONFIG_LOAD_UNREADABLE;
+	}
+	else
+	if (anomaly)
+	{
+		config_last_load_state = CONFIG_LOAD_PARSE_ANOMALY;
+	}
+	else
+	{
+		// a clean file: the exit path names this one, and its backup
+		// sibling is the restore source.
+		config_last_load_state = CONFIG_LOAD_OK;
+	}
+
+	string_copy(config_lanesafe_loaded_ini,filename);
+
+	string_copy(config_lanesafe_auditbak,filename);
+	string_cat_utf8(config_lanesafe_auditbak,(const utf8_t *)".auditbak");
+}
+
+// the one atomic copy (see the note in config.h): read the source, write
+// a fresh temp beside the target, flush it through, close it, then move
+// it into place. answers 1 when the target now holds the source's bytes.
+//
+// the source is read into memory rather than streamed, because the only
+// things ever copied here are the settings file and its backup: both are
+// a few kilobytes and the ini reader already refuses anything past
+// 16 mb, so the ceiling below is the same answer for both callers and
+// there is no chunk loop to get wrong.
+int config_lanesafe_atomic_copy(const wchar_t *from,const wchar_t *to)
+{
+	char *buf;
+	wchar_t tempname[STRING_SIZE];
+	DWORD numread;
+	DWORD numwritten;
+	DWORD size;
+	LARGE_INTEGER file_size;
+	HANDLE src;
+	HANDLE h;
+
+	src = CreateFile(from,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0);
+	if (src == INVALID_HANDLE_VALUE)
+	{
+		debug_printf("config: the copy source refused to open: %S (error %u)\r\n",from,GetLastError());
+
+		return 0;
+	}
+
+	if ((!GetFileSizeEx(src,&file_size)) || (file_size.QuadPart <= 0) || (file_size.QuadPart > 0x1000000))
+	{
+		debug_printf("config: the copy source size is out of range - nothing copied: %S\r\n",from);
+
+		CloseHandle(src);
+
+		return 0;
+	}
+
+	size = (DWORD)file_size.QuadPart;
+
+	buf = mem_alloc(safe_size_add_one(size));
+
+	if (!ReadFile(src,buf,size,&numread,NULL))
+	{
+		debug_printf("config: the copy source read failed: %S (error %u)\r\n",from,GetLastError());
+
+		mem_free(buf);
+		CloseHandle(src);
+
+		return 0;
+	}
+
+	CloseHandle(src);
+
+	// the temp rides the process id and the create refuses to follow: a
+	// fixed name under CREATE_NEW could be preempted by a concurrent
+	// instance or by a reparse point planted at the predictable path.
+	string_copy(tempname,to);
+	string_cat_utf8(tempname,(const utf8_t *)".tmp");
+
+	{
+		wchar_t pid_wbuf[32];
+
+		string_format_number(pid_wbuf,GetCurrentProcessId());
+		string_cat(tempname,pid_wbuf);
+	}
+
+	h = CreateFile(tempname,GENERIC_WRITE,FILE_SHARE_READ,0,CREATE_NEW,FILE_ATTRIBUTE_TEMPORARY,0);
+
+	if (h == INVALID_HANDLE_VALUE)
+	{
+		// a stale temp left by a killed run is the expected case, not an
+		// error: take the name over rather than give up on the copy.
+		DeleteFile(tempname);
+
+		h = CreateFile(tempname,GENERIC_WRITE,FILE_SHARE_READ,0,CREATE_NEW,FILE_ATTRIBUTE_TEMPORARY,0);
+	}
+
+	if (h == INVALID_HANDLE_VALUE)
+	{
+		debug_printf("config: the copy temp file refused to open: %S (error %u)\r\n",tempname,GetLastError());
+
+		mem_free(buf);
+
+		return 0;
+	}
+
+	numwritten = 0;
+
+	if ((!WriteFile(h,buf,numread,&numwritten,0)) || (numwritten != numread))
+	{
+		debug_printf("config: the copy write failed - the previous file is kept (error %u)\r\n",GetLastError());
+
+		CloseHandle(h);
+		DeleteFile(tempname);
+		mem_free(buf);
+
+		return 0;
+	}
+
+	mem_free(buf);
+
+	// the flush before the close is the belt: the move below would
+	// otherwise answer before the data reached the medium.
+	FlushFileBuffers(h);
+
+	CloseHandle(h);
+
+	if (!MoveFileExW(tempname,to,MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+	{
+		debug_printf("config: the copy replace failed - the temp file keeps the bytes (error %u)\r\n",GetLastError());
+
+		return 0;
+	}
+
+	return 1;
+}
+
+// the fixed digits of one stamp field. a field out of range (a machine
+// whose clock was never set) is written as zeros rather than trusted:
+// the stamp only has to separate two copies of the same file.
+static void _config_lanesafe_stamp_field(wchar_t *wbuf,int value,int digits)
+{
+	int i;
+
+	for(i=digits;i>0;i--)
+	{
+		int digit;
+
+		digit = value % 10;
+
+		if (digit < 0)
+		{
+			digit = 0;
+		}
+
+		value /= 10;
+
+		wbuf[i - 1] = (wchar_t)(L'0' + digit);
+	}
+
+	wbuf[digits] = 0;
+}
+
+// "<ini>.corrupt.YYYYMMDD-HHMMSS" - the name a damaged settings file
+// is preserved under. local time, fixed width: no locale, and no
+// separator a file system or a shell might object to. answers 0 when
+// the name does not fit the caller's buffer, or when the settings file
+// name is empty.
+int config_lanesafe_corrupt_path(const wchar_t *ini_filename,wchar_t *wbuf,SIZE_T bufsize)
+{
+	wchar_t stamp_wbuf[32];
+	SYSTEMTIME st;
+
+	if ((!ini_filename) || (!ini_filename[0]) || (!bufsize))
+	{
+		return 0;
+	}
+
+	// the whole name, worst case: the ini path plus the 9 character
+	// ".corrupt." plus the 15 character stamp and the terminator.
+	if (string_get_length(ini_filename) + 25 > (uintptr_t)bufsize)
+	{
+		return 0;
+	}
+
+	// GetLocalTime, not GetSystemTime: a user reading the directory
+	// beside their own settings file reads the stamp against their own
+	// wall clock.
+	GetLocalTime(&st);
+
+	string_copy(wbuf,ini_filename);
+	string_cat_utf8(wbuf,(const utf8_t *)".corrupt.");
+
+	_config_lanesafe_stamp_field(stamp_wbuf,(int)st.wYear,4);
+	string_cat(wbuf,stamp_wbuf);
+	string_cat_utf8(wbuf,(const utf8_t *)"-");
+
+	_config_lanesafe_stamp_field(stamp_wbuf,(int)st.wMonth,2);
+	string_cat(wbuf,stamp_wbuf);
+	_config_lanesafe_stamp_field(stamp_wbuf,(int)st.wDay,2);
+	string_cat(wbuf,stamp_wbuf);
+	string_cat_utf8(wbuf,(const utf8_t *)"-");
+
+	_config_lanesafe_stamp_field(stamp_wbuf,(int)st.wHour,2);
+	string_cat(wbuf,stamp_wbuf);
+	_config_lanesafe_stamp_field(stamp_wbuf,(int)st.wMinute,2);
+	string_cat(wbuf,stamp_wbuf);
+	_config_lanesafe_stamp_field(stamp_wbuf,(int)st.wSecond,2);
+	string_cat(wbuf,stamp_wbuf);
+
+	return 1;
+}
+
+// is the last-known-good sibling the load recorded there to restore
+// from? the exit ask only offers the restore when it is - an offer that
+// fails is worse than no offer.
+int config_lanesafe_auditbak_exists(void)
+{
+	DWORD attributes;
+
+	if (!config_lanesafe_loaded_ini[0])
+	{
+		return 0;
+	}
+
+	attributes = GetFileAttributes(config_lanesafe_auditbak);
+
+	return ((attributes != INVALID_FILE_ATTRIBUTES) && (!(attributes & FILE_ATTRIBUTE_DIRECTORY))) ? 1 : 0;
+}
+
+// the last-known-good backup, taken BEFORE the parse.
+//
+// the order is the whole point: a crash, a refusal or a power cut between
+// the copy and the read still leaves the user's settings recoverable,
+// which is the only reason this file exists. the write rides the one
+// atomic copy above (a unique temp beside the target, written through a
+// handle this code owns, flushed, closed, then moved into place) -
+// CopyFileW would not do: it closes its own destination handle (so there
+// is nothing to flush) and bFailIfExists = FALSE destroys the previous
+// good backup before it knows the new one landed, which is the one
+// failure mode a "known good" copy must never have.
+//
+// the pre-check gates the whole thing: a file that cannot be good (no
+// section header, an embedded nul, a size past any real ini) never takes
+// the backup seat, or the restore would hand the damage back as the good
+// copy.
+static void _config_lanesafe_auditbak_write(const wchar_t *filename)
+{
+	wchar_t backup[STRING_SIZE];
+
+	if (!ini_precheck(filename,(const utf8_t *)"voidImageViewer"))
+	{
+		return;
+	}
+
+	string_copy(backup,filename);
+	string_cat_utf8(backup,(const utf8_t *)".auditbak");
+
+	config_lanesafe_atomic_copy(filename,backup);
+}
+
+
+// ---- the corrupted-settings gate at the exit (lane-B) ----
+//
+// the ini reader is tolerant by design - it ignores what it does not
+// understand - so a half-written or a cloud-synced file parses to partial
+// garbage and the rest of the session quietly runs on compiled-in
+// defaults. the exit path used to write that back unconditionally, which
+// is how a user's themes, shortcuts, recent files and associations were
+// replaced by defaults without a word. config_last_load_state is what
+// lets the exit ask first.
+//
+// it lives here, beside the settings file it is about, and not in
+// viv.c: the splice growth window in the guard suite counts every
+// viv_*.c, and this is settings-file integrity work - it reads the load
+// state, the loaded file name and the backup name that all live in this
+// file. the exit path calls one function.
+//
+// the answers, and what each one does:
+//
+//   keep            the defaults this session ran on are exactly what the
+//                   user saw, so they are written back. the damaged
+//                   original is already preserved under its .corrupt.
+//                   stamp (taken BEFORE the ask, because the write the
+//                   gate protects is the very next statement).
+//   restore backup  the last known good copy goes back over the damaged
+//                   file, and this exit writes nothing: the user's real
+//                   settings return on the next launch instead of being
+//                   replaced by defaults the moment they agreed to keep
+//                   the old file.
+//   cancel          write nothing at all. the file on disk is left
+//                   exactly as the next run will find it.
+//
+// the three faces: the ask needs three buttons and the MessageBox subset
+// the rest of the app uses tops out at two, so the box is the same themed
+// dialog through its three-button form (viv_msgbox3). index 0 is the
+// right most face (the primary slot), so the reading order on screen is
+// CANCEL, RESTORE BACKUP, KEEP - and CANCEL is the accent and the default
+// focus, because it is the only one of the three that loses nothing.
+//
+// the faces are plain literals rather than localization ids for the same
+// reason lane-A's status-bar skip line is: the localization tail is
+// pinned by name by the guard suite (menu_structure_test.py checks the
+// last 91 ids), and that suite is not this change's to rewrite. the
+// cancel face is the one string the table already owns, so the ask
+// speaks the same word as every other box in either language. moving the
+// other two into the tables is a mechanical follow-up whenever the tail
+// is next extended.
+#define _CONFIG_CORRUPT_KEEP			IDOK
+#define _CONFIG_CORRUPT_RESTORE		IDYES
+#define _CONFIG_CORRUPT_CANCEL		IDCANCEL
+
+// the caption and the three faces are wide (they go straight to the box);
+// the message is a narrow literal because string_printf's format is the
+// utf-8 form, and the text is plain ascii either way.
+static const wchar_t *_CONFIG_CORRUPT_CAPTION = L"Settings file problem";
+static const char *_CONFIG_CORRUPT_KEEP_FACE = "Keep";
+static const char *_CONFIG_CORRUPT_RESTORE_FACE = "Restore backup";
+
+// two %S: the settings file, and the preserved copy of it. the second
+// one is empty when the copy itself was refused, and an empty %S names
+// nothing at all - better than a line that ends in a bare "%S".
+static const char *_CONFIG_CORRUPT_MESSAGE =
+	"The settings file\n\n%S\n\ncould not be read cleanly, so this session ran on the built-in defaults. A copy of the original has been kept as\n\n%S\n\n"
+	"Choose Restore backup to bring back the last settings that loaded cleanly, Keep to save the defaults this session ran on, or Cancel to leave the file untouched.";
+
+// the three-button ask.
+static int _config_lanesafe_corrupt_reply(HWND parent)
+{
+	wchar_t caption_wbuf[STRING_SIZE];
+	wchar_t message_wbuf[STRING_SIZE];
+	wchar_t corrupt_wbuf[STRING_SIZE];
+	wchar_t keep_wbuf[STRING_SIZE];
+	wchar_t restore_wbuf[STRING_SIZE];
+	wchar_t cancel_wbuf[STRING_SIZE];
+	const wchar_t *labels[3];
+	int ids[3];
+	int reply;
+
+	// the preserved copy goes into the text, so the user has read the name
+	// their damaged settings now live under even if the restore later
+	// refuses.
+	corrupt_wbuf[0] = 0;
+
+	if (config_lanesafe_loaded_ini[0])
+	{
+		if (!config_lanesafe_corrupt_path(config_lanesafe_loaded_ini,corrupt_wbuf,STRING_SIZE))
+		{
+			corrupt_wbuf[0] = 0;
+		}
+	}
+
+	string_copy(caption_wbuf,_CONFIG_CORRUPT_CAPTION);
+
+	if (corrupt_wbuf[0])
+	{
+		string_printf(message_wbuf,_CONFIG_CORRUPT_MESSAGE,config_lanesafe_loaded_ini,corrupt_wbuf);
+	}
+	else
+	{
+		string_printf(message_wbuf,_CONFIG_CORRUPT_MESSAGE,config_lanesafe_loaded_ini,L"");
+	}
+
+	string_copy_utf8_string(keep_wbuf,(const utf8_t *)_CONFIG_CORRUPT_KEEP_FACE);
+	string_copy_utf8_string(restore_wbuf,(const utf8_t *)_CONFIG_CORRUPT_RESTORE_FACE);
+	string_copy_utf8_string(cancel_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_CANCEL));
+
+	labels[0] = keep_wbuf;
+	labels[1] = restore_wbuf;
+	labels[2] = cancel_wbuf;
+
+	ids[0] = _CONFIG_CORRUPT_KEEP;
+	ids[1] = _CONFIG_CORRUPT_RESTORE;
+	ids[2] = _CONFIG_CORRUPT_CANCEL;
+
+	if (config_lanesafe_auditbak_exists())
+	{
+		reply = viv_msgbox3(parent,caption_wbuf,message_wbuf,MB_ICONWARNING,labels,ids,3,2,2);
+	}
+	else
+	{
+		// no backup on disk: the restore face is not offered at all (an
+		// offer that fails on click is worse than no offer), and the two
+		// faces that remain are KEEP and CANCEL with CANCEL as the default.
+		reply = viv_msgbox3(parent,caption_wbuf,message_wbuf,MB_ICONWARNING,labels,ids,2,1,1);
+	}
+
+	if (reply == _CONFIG_CORRUPT_RESTORE)
+	{
+		return _CONFIG_CORRUPT_RESTORE;
+	}
+
+	if (reply == _CONFIG_CORRUPT_KEEP)
+	{
+		return _CONFIG_CORRUPT_KEEP;
+	}
+
+	return _CONFIG_CORRUPT_CANCEL;
+}
+
+// may this exit go on to write the settings file?
+//
+// 1 = yes (the load was clean, there was no file at all, or the user said
+// keep). 0 = no: the user cancelled, or asked for the backup back - in
+// both of those cases the file on disk is one the user chose, and writing
+// over it is exactly the loss this whole path exists to stop.
+//
+// _viv_exit is the one caller: it runs this before config_save_settings.
+int config_lanesafe_exit_gate(HWND parent)
+{
+	wchar_t corrupt_wbuf[STRING_SIZE];
+	int reply;
+
+	// the two states that mean "the session ran on something other than
+	// what the file says". a missing file is every fresh profile and a
+	// clean load is the normal case; neither asks anything.
+	if ((config_last_load_state != CONFIG_LOAD_PARSE_ANOMALY) && (config_last_load_state != CONFIG_LOAD_UNREADABLE))
+	{
+		return 1;
+	}
+
+	// no file was named: nothing to preserve and nothing to ask about.
+	if (!config_lanesafe_loaded_ini[0])
+	{
+		return 1;
+	}
+
+	// the preservation comes FIRST. the write this gate protects is the
+	// very next statement of the exit, so a copy taken after the ask would
+	// be a copy of a file the ask could no longer recover. it is the same
+	// atomic temp+flush+MoveFileExW copy the backup ride - never
+	// CopyFileW, which closes its own destination handle (so there is
+	// nothing to flush) and with bFailIfExists = FALSE destroys the
+	// previous file before it knows the new one landed.
+	if (config_lanesafe_corrupt_path(config_lanesafe_loaded_ini,corrupt_wbuf,STRING_SIZE))
+	{
+		if (!config_lanesafe_atomic_copy(config_lanesafe_loaded_ini,corrupt_wbuf))
+		{
+			// the copy refused. the ask would then name a preserved file
+			// that is not there, and writing the defaults over the damaged
+			// original is the one outcome that loses it for good - so
+			// nothing is written and the next run asks again.
+			debug_printf("exit: the damaged settings file could not be preserved as %S - nothing written\r\n",corrupt_wbuf);
+
+			return 0;
+		}
+	}
+
+	reply = _config_lanesafe_corrupt_reply(parent);
+
+	if (reply == _CONFIG_CORRUPT_CANCEL)
+	{
+		debug_printf("exit: the settings file was left as it is (cancel)\r\n");
+
+		return 0;
+	}
+
+	if (reply == _CONFIG_CORRUPT_RESTORE)
+	{
+		// the restore is the atomic copy in the other direction: the last
+		// known good file takes the damaged file's place in one move, so a
+		// power cut here leaves either the damaged file (ask again) or the
+		// good one - never a half written mixture of the two.
+		if (!config_lanesafe_atomic_copy(config_lanesafe_auditbak,config_lanesafe_loaded_ini))
+		{
+			// the restore refused. writing the defaults over the damaged
+			// file is exactly the loss this gate exists to prevent, so
+			// nothing is written at all.
+			debug_printf("exit: the settings backup could not be restored - nothing written\r\n");
+
+			return 0;
+		}
+
+		debug_printf("exit: the settings backup was restored - nothing written\r\n");
+
+		return 0;
+	}
+
+	return 1;
+}
+
 static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 {
 	ini_t *ini;
@@ -127,7 +956,16 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 	
 	string_path_combine_utf8(filename,path,(const utf8_t *)"voidImageViewer.ini");
 	
+	// the last-known-good copy, before the parse (see the helper).
+	_config_lanesafe_auditbak_write(filename);
+	
 	ini = ini_open(filename,"voidImageViewer");
+	
+	// what the load found, for the exit path. recorded before the keys are
+	// read: the anomaly is a property of the file, not of the keys that
+	// happened to survive it.
+	_config_lanesafe_note_load(filename,ini_get_last_state(),ini_get_last_anomaly());
+	
 	if (ini)
 	{
 		config_x = ini_get_int(ini,(const utf8_t *)"x",config_x);
@@ -135,7 +973,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_wide = ini_get_int(ini,(const utf8_t *)"wide",config_wide);
 		config_high = ini_get_int(ini,(const utf8_t *)"high",config_high);
 		config_maximized = ini_get_int(ini,(const utf8_t *)"maximized",config_maximized);
-		config_slideshow_rate = ini_get_int(ini,(const utf8_t *)"slideshow_rate",config_slideshow_rate);
+		config_slideshow_rate = config_clamp_slideshow_rate(ini_get_int(ini,(const utf8_t *)"slideshow_rate",config_slideshow_rate));
 		config_allow_shrinking = ini_get_int(ini,(const utf8_t *)"allow_shrinking",config_allow_shrinking);
 		config_shrink_blit_mode = ini_get_int(ini,(const utf8_t *)"shrink_blit_mode",config_shrink_blit_mode);
 		config_renderer = ini_get_int(ini,(const utf8_t *)"renderer",config_renderer);
@@ -248,8 +1086,9 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_backdrop_color_b = ini_get_int(ini,(const utf8_t *)"backdrop_color_b",config_backdrop_color_b);
 		
 		// recent files mru: recent_file_0 .. recent_file_9 hold the most
-		// recently opened paths, newest first. the walk stops at the first
-		// empty slot so a hand-edited hole cannot reorder the list.
+		// recently opened paths, newest first. skip empty slots and duplicate
+		// paths, preserving the first occurrence and the remaining order.
+		// the install-dir and appdata ini layers can both contribute entries.
 		{
 			int i;
 			
@@ -264,13 +1103,29 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 				if ((recent_value) && (*recent_value) && (config_recent_file_count < CONFIG_RECENT_FILE_COUNT))
 				{
 					wchar_t *recent_filename;
+					int j;
 					
 					recent_filename = string_alloc_utf8(recent_value);
 					
 					if (recent_filename)
 					{
-						config_recent_files[config_recent_file_count] = recent_filename;
-						config_recent_file_count++;
+						for(j=0;j<config_recent_file_count;j++)
+						{
+							if (_viv_icompare_filename(config_recent_files[j],recent_filename) == 0)
+							{
+								break;
+							}
+						}
+
+						if (j == config_recent_file_count)
+						{
+							config_recent_files[config_recent_file_count] = recent_filename;
+							config_recent_file_count++;
+						}
+						else
+						{
+							mem_free(recent_filename);
+						}
 					}
 				}
 			}
@@ -427,6 +1282,12 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 void config_load_settings(void)
 {
 	wchar_t path[STRING_SIZE];
+	
+	// the compiled-in defaults are captured before anything below can write
+	// a config global: at this point every one of them still carries its
+	// initialiser, so the mirror is the initialiser block itself (see the
+	// capture helper).
+	_config_lanesafe_defaults_capture();
 	
 	string_get_exe_path(path);
 	

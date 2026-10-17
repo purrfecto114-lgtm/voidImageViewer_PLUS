@@ -83,10 +83,8 @@ static void _viv_drop_files(HWND hwnd,HDROP hdrop)
 		if (_viv_random)
 		{
 			mem_free(_viv_random);
-			
 			_viv_random = 0;
 		}
-		
 		
 		count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
 		
@@ -101,7 +99,6 @@ static void _viv_drop_files(HWND hwnd,HDROP hdrop)
 		is_shift = (GetKeyState(VK_SHIFT) < 0);
 		if (is_shift)
 		{
-			// add current?
 			_viv_playlist_add_current_if_empty();
 		}
 		else
@@ -109,22 +106,28 @@ static void _viv_drop_files(HWND hwnd,HDROP hdrop)
 			_viv_playlist_clearall();
 		}
 		
-		
 		if ((count >= 2) || (is_shift))
 		{
 			DWORD i;
-			
+			// this drop's own tally: one line for the whole batch, named
+			// after the home move so nothing overwrites the answer.
+			_viv_open_skip_report_t report;
+			os_zero_memory(&report,sizeof(_viv_open_skip_report_t));
 			for(i=0;i<count;i++)
 			{
 				DragQueryFile(hdrop,i,filename,STRING_SIZE);
-				
-				_viv_playlist_add_filename(filename);
+			
+				_viv_playlist_add_filename_report(filename,&report);
 			}
 			
 			if (!is_shift)
 			{
 				_viv_home(0,0);
 			}
+			
+			// what the drop could not open: the same line the folder
+			// walk, the command line and file->open answer.
+			_viv_playlist_report_skips(&report);
 		}
 		else
 		if (count == 1)
@@ -218,7 +221,6 @@ WORD _viv_context_menu_items[] =
 #ifndef SM_CXPADDEDBORDER
 #define SM_CXPADDEDBORDER 92
 #endif
-
 
 static LRESULT _viv_on_wm_nchittest(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
@@ -1356,7 +1358,6 @@ static LRESULT _viv_on_wm_lbuttondblclk(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 
 	_viv_show_cursor();
 	_viv_update_show_cursor();
-
 
 	if (_viv_is_touch_click())
 	{
@@ -3105,7 +3106,6 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 										{
 											RECT *rect_p;
 											DWORD rect_run;
-
 											
 											// StretchBlt is REALLY SLOW when there is a complex clipping region.
 											// only call StretchBlt for a simple rect clipping region.

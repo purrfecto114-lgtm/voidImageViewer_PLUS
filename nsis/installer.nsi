@@ -319,28 +319,18 @@ skip_check_app_data:
 
 !ifdef x64
 
-        ; check the native machine. the numbers are IMAGE_FILE_MACHINE
-        ; values (34404 = amd64, 43620 = arm64): an arm64 machine runs
-        ; this x64 payload in emulation - the arm64 build is the native
-        ; one, so the warn names it instead of the old "not x64" line
-        ; the machine disproves; anything else takes the original warn
-        ; path. the override stays a user choice.
-        ${GetNativeMachineArchitecture} $0
-        IntCmp $0 43620 x64_on_arm64 x64_not_arm64 x64_not_arm64
+        ; x64.nsh predicates compare IMAGE_FILE_MACHINE values. the
+        ; GetNativeSystemInfo processor-architecture enum uses different
+        ; numbers (9 means amd64 there, not in the machine enum).
+        ${If} ${IsNativeARM64}
+            MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsArm64Emulation)" IDYES x64_ok
+            Abort
+        ${EndIf}
 
-x64_on_arm64:
-
-        MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsArm64Emulation)" IDYES x64_ok
-        Abort
-
-x64_not_arm64:
-
-        IntCmp $0 9 x64_ok x64_is32 x64_is32
-
-x64_is32:
-        
-        MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsNotX64)" IDYES x64_ok
-        Abort
+        ${IfNot} ${IsNativeAMD64}
+            MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsNotX64)" IDYES x64_ok
+            Abort
+        ${EndIf}
 
 x64_ok:
 
@@ -348,19 +338,12 @@ x64_ok:
 
 !ifdef arm64
 
-        ; the arm64 payload cannot run under emulation: the os itself
-        ; must be arm64 (43620 = IMAGE_FILE_MACHINE_ARM64). an x64 or
-        ; x86 machine cannot execute the staged exe at all, so the warn
-        ; is the only honest face - the override stays a user choice
-        ; (the install would lay down files nothing on that machine
-        ; can run).
-        ${GetNativeMachineArchitecture} $0
-        IntCmp $0 43620 arm64_ok arm64_is32 arm64_is32
-
-arm64_is32:
-
-        MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsNotArm64)" IDYES arm64_ok
-        Abort
+        ; the payload requires a native arm64 os. preserve the explicit
+        ; user override, matching the existing installer's policy.
+        ${IfNot} ${IsNativeARM64}
+            MessageBox MB_YESNOCANCEL|MB_ICONEXCLAMATION "$(MsgOsNotArm64)" IDYES arm64_ok
+            Abort
+        ${EndIf}
 
 arm64_ok:
 

@@ -2,7 +2,7 @@
 # zig cc cross build for the ARM64 target: compiles every translation
 # unit listed in files.txt then links an aarch64 windows executable.
 # usage: sh build-zig/build-arm64.sh
-# requires: python3 with the ziglang wheel (pip install ziglang).
+# requires: python3 with the ziglang wheel (python3 -m pip install ziglang==0.16.0).
 #
 # the corrections review's finding: viv_state.h carries the
 # VERSION_ARM64 branch of the machine chain, but no pipeline ever
@@ -16,7 +16,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 ZIG="${ZIG:-python3 -m ziglang}"
-FLAGS="-target aarch64-windows-gnu -Os -DNDEBUG -DVERSION_ARM64 -DUNICODE -D_UNICODE -Wno-macro-redefined"
+FLAGS="-target aarch64-windows-gnu -Os -DNDEBUG -DVERSION_ARM64 -DUNICODE -D_UNICODE -Wno-macro-redefined -Werror=incompatible-pointer-types -Werror=visibility"
 OBJDIR="build-zig/obj-arm64"
 
 # a clean slate per build: the old shape only mkdir'd, so a deleted or
@@ -52,7 +52,7 @@ if [ "$fail" -ne 0 ]; then
 	exit 1
 fi
 
-$ZIG cc $FLAGS $OBJDIR/*.o -o build-zig/viv-arm64.exe -mwindows \
+$ZIG cc $FLAGS $OBJDIR/*.o -o build-zig/viv-arm64.exe -mwindows -Wl,--subsystem,windows \
 	-lcomctl32 -lcomdlg32 -lshlwapi -lshell32 -lgdi32 -luser32 -limm32 \
 	-ladvapi32 -lole32 -loleaut32 -luuid -lwinmm -ldwmapi -lversion
 

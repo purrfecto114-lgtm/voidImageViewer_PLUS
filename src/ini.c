@@ -59,6 +59,146 @@ typedef struct _ini_s
 static int _ini_keyvalue_compare(const void *va,const void *vb);
 static _ini_keyvalue_t *_ini_keyvalue_find(ini_t *ini,const utf8_t *key);
 
+// the outcome of the last ini_open, and the anomaly mask beside it. both
+// are file statics on purpose: nothing here becomes an exported global, so
+// no other translation unit's symbol can collide with the reporting.
+static int _ini_last_state = INI_LOAD_OK;
+static int _ini_last_anomaly = INI_ANOMALY_NONE;
+
+// the field ceiling. a real settings file carries numbers, short flags and
+// paths: the widest value this writer produces is a MAX_PATH in utf-8 (a
+// little over a kilobyte) and the key names are ascii. 64 kb is four
+// decades of headroom over that, so anything past it is a corrupted or a
+// planted line. the reader still copies it - it stays tolerant - but it
+// records the anomaly so the caller can ask before it overwrites.
+#define _INI_MAX_FIELD 65536
+
+// the head ceiling of the pre-check: a real ini is a few kilobytes, so a
+// file past this is not a settings file and the full parse answers an
+// anomaly of its own anyway.
+#define _INI_PRECHECK_MAX_BYTES 65536
+
+int ini_get_last_state(void)
+{
+	return _ini_last_state;
+}
+
+int ini_get_last_anomaly(void)
+{
+	return _ini_last_anomaly;
+}
+
+// is the span blank (spaces and tabs only)? a blank line inside a section
+// is legal, so it must not be counted as a malformed key line.
+static int _ini_line_is_blank(const utf8_t *p,int len)
+{
+	int i;
+	
+	for(i=0;i<len;i++)
+	{
+		if ((p[i] != ' ') && (p[i] != '\t'))
+		{
+			return 0;
+		}
+	}
+	
+	return 1;
+}
+
+int ini_precheck(const wchar_t *filename,const utf8_t *ascii_section)
+{
+	char *buf;
+	DWORD numread;
+	DWORD size;
+	int found;
+	HANDLE h;
+	LARGE_INTEGER file_size;
+	
+	found = 0;
+	
+	h = CreateFile(filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0);
+	if (h == INVALID_HANDLE_VALUE)
+	{
+		return 0;
+	}
+	
+	if ((GetFileSizeEx(h,&file_size)) && (file_size.QuadPart > 0) && (file_size.QuadPart <= _INI_PRECHECK_MAX_BYTES))
+	{
+		size = (DWORD)file_size.QuadPart;
+		
+		buf = mem_alloc(safe_size_add_one(size));
+		
+		if (ReadFile(h,buf,size,&numread,NULL))
+		{
+			DWORD i;
+			int has_nul;
+			utf8_t *needle;
+			DWORD needle_len;
+			
+			// null terminate (the scan below is over the payload only).
+			buf[size] = 0;
+			
+			// an embedded nul hides everything after it from the line
+			// walk: such a file cannot be a known-good source.
+			has_nul = 0;
+			
+			for(i=0;i<size;i++)
+			{
+				if (!buf[i])
+				{
+					has_nul = 1;
+					break;
+				}
+			}
+			
+			if (!has_nul)
+			{
+				// the section header, built once: '[' + name + ']'.
+				needle_len = 2 + (DWORD)utf8_length(ascii_section);
+				
+				needle = mem_alloc(safe_size_add_one((SIZE_T)needle_len));
+				
+				needle[0] = '[';
+				os_copy_memory(needle + 1,ascii_section,needle_len - 2);
+				needle[needle_len - 1] = ']';
+				needle[needle_len] = 0;
+				
+				for(i=0;(i + needle_len) <= size;i++)
+				{
+					// the byte walk: this tree's vocabulary has no memcmp.
+					int same;
+					DWORD j;
+
+					same = 1;
+
+					for(j=0;j<needle_len;j++)
+					{
+						if ((utf8_t)buf[i + j] != needle[j])
+						{
+							same = 0;
+							break;
+						}
+					}
+
+					if (same)
+					{
+						found = 1;
+						break;
+					}
+				}
+
+				mem_free(needle);
+			}
+		}
+
+		mem_free(buf);
+	}
+
+	CloseHandle(h);
+	
+	return found;
+}
+
 ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section)
 {
 	ini_t *ini;
@@ -66,12 +206,18 @@ ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section)
 	_ini_keyvalue_t *kv_last;
 	DWORD count;
 	HANDLE h;
+	int section_found;
 
 	kv_start = 0;
 	kv_last = 0;
 	count = 0;
 	ini = 0;
-		
+	section_found = 0;
+	
+	// every call starts from a clean report.
+	_ini_last_state = INI_LOAD_OK;
+	_ini_last_anomaly = INI_ANOMALY_NONE;
+	
 	h = CreateFile(filename,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,0,OPEN_EXISTING,FILE_FLAG_SEQUENTIAL_SCAN,0);
 	if (h != INVALID_HANDLE_VALUE)
 	{
@@ -102,6 +248,24 @@ ini_t *ini_open(const wchar_t *filename,const utf8_t *ascii_section)
 
 					// null terminate.
 					buf[size] = 0;
+					
+					// an embedded nul hides the rest of the file from
+					// every line walk below: the parse stops dead there and
+					// the keys after it silently keep their compiled-in
+					// defaults. the scan is over the payload only - the
+					// terminator this line just wrote sits at buf[size].
+					{
+						DWORD nul_scan;
+
+						for(nul_scan=0;nul_scan<size;nul_scan++)
+						{
+							if (!buf[nul_scan])
+							{
+								_ini_last_anomaly |= INI_ANOMALY_EMBEDDED_NUL;
+								break;
+							}
+						}
+					}
 				
 					is_section = 0;
 
@@ -132,6 +296,7 @@ next_line:
 										p++;
 										
 										is_section = 1;
+									section_found = 1;
 									}
 									
 									break;
@@ -177,14 +342,26 @@ next_line:
 							{
 								if (*p == '\n')
 								{
+									// a line that ends here never reached the '=': the key
+									// line is malformed. a blank line is legal in an ini
+									// and is not one.
+									if (!_ini_line_is_blank(key_start,(int)(p - key_start)))
+									{
+										_ini_last_anomaly |= INI_ANOMALY_MALFORMED_LINE;
+									}
+
 									p++;
-									goto next_line;
 								}
 
 								if ((*p == '\r') && (p[1] == '\n'))
 								{
+									// the same malformed exit on a crlf line.
+									if (!_ini_line_is_blank(key_start,(int)(p - key_start)))
+									{
+										_ini_last_anomaly |= INI_ANOMALY_MALFORMED_LINE;
+									}
+
 									p+=2;
-									goto next_line;
 								}	
 							
 								if (*p == '=')
@@ -230,6 +407,15 @@ next_line:
 										p++;
 									}
 
+									// a field past any real settings value is a
+									// corrupted line. the reader still copies it - it
+									// stays tolerant - but the caller hears about it
+									// before it writes the file back.
+									if ((key_len > _INI_MAX_FIELD) || (value_len > _INI_MAX_FIELD))
+									{
+																		_ini_last_anomaly |= INI_ANOMALY_OVERSIZED_VALUE;
+									}
+
 									// add a key / value pair.
 									kv = mem_alloc(sizeof(_ini_keyvalue_t));
 									
@@ -255,6 +441,13 @@ next_line:
 								}
 								
 								p++;
+
+							// the scan only leaves here on the buffer terminator: a
+							// last line with no '=' is as malformed as any other.
+							if (!_ini_line_is_blank(key_start,(int)(p - key_start)))
+							{
+								_ini_last_anomaly |= INI_ANOMALY_MALFORMED_LINE;
+							}
 							}
 						}
 						
@@ -285,13 +478,58 @@ next_line:
 					}
 
 				done:	 ;
+
+				// the section header never appeared: whatever parsed
+				// belongs to some other section, so every key the caller
+				// wanted fell through to its compiled-in default and the
+				// session is now running on defaults it will write back.
+				if (!section_found)
+				{
+					_ini_last_anomaly |= INI_ANOMALY_SECTION_MISSING;
+				}
 				}
 			}
 			
 			mem_free(buf);
 		}
+		else
+		{
+			// the two refusals the size gate answers. a zero-length file
+			// held no settings at all (a fresh profile writes one on the
+			// first exit), so it answers as "missing" and the exit path
+			// asks nothing; a size the reader refuses, or a size it could
+			// not read, answers as unreadable - a file the user must not
+			// lose is very much not the same as no file.
+			if ((GetFileSizeEx(h,&file_size)) && (file_size.QuadPart == 0))
+			{
+				_ini_last_state = INI_LOAD_FILE_MISSING;
+			}
+			else
+			{
+				_ini_last_state = INI_LOAD_UNREADABLE;
+			}
+		}
 
 		CloseHandle(h);
+	}
+	else
+	{
+		// the open refusal is the one place the reader can say why it
+		// found nothing, and the two answers mean opposite things to the
+		// caller: "not there" is every fresh profile, "there and not
+		// readable" is a file the user must not lose.
+		DWORD open_error;
+
+		open_error = GetLastError();
+
+		if ((open_error == ERROR_FILE_NOT_FOUND) || (open_error == ERROR_PATH_NOT_FOUND))
+		{
+			_ini_last_state = INI_LOAD_FILE_MISSING;
+		}
+		else
+		{
+			_ini_last_state = INI_LOAD_UNREADABLE;
+		}
 	}
 	
 
@@ -331,7 +569,7 @@ next_line:
 		}
 		
 		// sort indexes
-		os_qsort(indexes,count,_ini_keyvalue_compare);
+		os_qsort((void **)indexes,count,_ini_keyvalue_compare);
 		
 		// find and remove dupes
 		{		
@@ -351,6 +589,16 @@ next_line:
 				{
 					if (utf8_compare(last->key,(*kv_p)->key) == 0)
 					{
+							// the same key twice. the sort keeps the last one (the
+							// ini contract), but two different values for one key is
+							// a file disagreeing with itself - the shape a half
+							// written or a merged file takes. identical values are
+							// harmless, so only a real disagreement counts.
+							if (utf8_compare(last->value,(*kv_p)->value) != 0)
+							{
+								_ini_last_anomaly |= INI_ANOMALY_DUPLICATE_KEY;
+							}
+
 						// free last
 						mem_free(last->key);
 						mem_free(last->value);

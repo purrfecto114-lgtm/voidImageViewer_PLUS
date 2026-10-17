@@ -674,6 +674,18 @@ void _viv_exit(void)
 	// a blank screen clears the record - there is nothing to resume.
 	string_copy_with_bufsize(config_last_file,MAX_PATH,_viv_slot_current.fd.cFileName);
 	
+	// lane-B: the corrupted-settings gate, and the preservation of the
+	// damaged file it depends on, both land before this write. a refusal
+	// is a refusal to write at all - the user said cancel, or asked for
+	// the backup back. the gate itself lives beside the settings file in
+	// config.c (see config_lanesafe_exit_gate).
+	if (!config_lanesafe_exit_gate(_viv_hwnd))
+	{
+		PostQuitMessage(0);
+		
+		return;
+	}
+	
 	config_save_settings(config_appdata);
 	PostQuitMessage(0);
 }
@@ -725,6 +737,98 @@ static void _viv_apply_config_language(void)
 }
 
 
+// does this word start an absolute windows path? a drive root
+// ("C:\..."), a unc share ("\\server\share\...") or a root relative
+// path ("\dir\...") - the three shapes that can still be completed by
+// the words after it.
+static int _viv_command_line_is_path_start(const wchar_t *s)
+{
+	if (*s == L'\\')
+	{
+		return 1;
+	}
+	
+	if (((s[0] >= L'A') && (s[0] <= L'Z')) || ((s[0] >= L'a') && (s[0] <= L'z')))
+	{
+		if (s[1] == L':')
+		{
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+// the unquoted path with spaces repair. a launch typed (or relayed)
+// without quotes hands "C:\My" and "Photos\a.png" over as two words:
+// quoting is the only thing that ever kept them one, so an unquoted
+// path lost its directory and the file was reported missing.
+// CommandLineToArgvW cannot answer this - it splits on unquoted
+// whitespace by design, exactly like the reader below - so the join is
+// done here, with the three conditions that make it safe: the word
+// must start an absolute path, it must not itself name something on
+// disk, and the join must be kept only while the growing text still
+// names nothing. the first text that does name something is the file;
+// every word after it is parsed as it always was, and a run of words
+// that never names a file is returned exactly as it was found.
+static wchar_t *_viv_command_line_join_path(wchar_t *p,wchar_t *buf)
+{
+	wchar_t joined_wbuf[STRING_SIZE];
+	wchar_t word_wbuf[STRING_SIZE];
+	WIN32_FIND_DATA fd;
+	
+	if (!_viv_command_line_is_path_start(buf))
+	{
+		return p;
+	}
+	
+	if (_viv_file_attributes(buf,&fd))
+	{
+		// the word was already the whole path.
+		return p;
+	}
+	
+	joined_wbuf[0] = 0;
+	string_copy(joined_wbuf,buf);
+	
+	for(;;)
+	{
+		wchar_t *q;
+		
+		if (!wchar_is_ws(*p))
+		{
+			break;
+		}
+		
+		q = string_skip_ws(p);
+		
+		// a switch is never part of a path.
+		if ((*q == L'/') || (*q == L'-'))
+		{
+			break;
+		}
+		
+		if (!*q)
+		{
+			break;
+		}
+		
+		p = string_get_word(q,word_wbuf,STRING_SIZE);
+		
+		string_cat_utf8(joined_wbuf,(const utf8_t *)" ");
+		string_cat(joined_wbuf,word_wbuf);
+		
+		if (_viv_file_attributes(joined_wbuf,&fd))
+		{
+			string_copy(buf,joined_wbuf);
+			
+			break;
+		}
+	}
+	
+	return p;
+}
+
+
 void _viv_process_command_line(wchar_t *cl)
 {
 	wchar_t *p;
@@ -742,8 +846,13 @@ void _viv_process_command_line(wchar_t *cl)
 	RECT rect;
 	int start_maximized;
 	int is_add;
+	_viv_open_skip_report_t report;
 
 	debug_printf("cl: %S\n",cl);
+	
+	// the tally is this command line's own local: one line for the
+	// whole launch, no global carries it into the next one.
+	os_zero_memory(&report,sizeof(_viv_open_skip_report_t));
 	
 	start_slideshow = 0;
 	start_fullscreen = 0;
@@ -823,6 +932,15 @@ void _viv_process_command_line(wchar_t *cl)
 		}
 
 		p = string_get_word(p,buf,STRING_SIZE);
+		
+		if (!was_quote)
+		{
+			// the unquoted path with spaces repair: an unquoted word
+			// that starts an absolute path keeps absorbing the words
+			// after it until the joined text names a file.
+			p = _viv_command_line_join_path(p,buf);
+		}
+		
 		p = string_skip_ws(p);
 		
 		bufstart = buf;
@@ -960,7 +1078,15 @@ void _viv_process_command_line(wchar_t *cl)
 				p = string_get_word(p,buf,STRING_SIZE);
 				p = string_skip_ws(p);
 
-				config_slideshow_rate = string_to_int(buf);
+				// the same range the ini load goes through, and for the
+				// same reason (see config.h): "/rate 0" is not a stopped
+				// slideshow, it is a missing rate. SetTimer answers an
+				// interval under USER_TIMER_MINIMUM with 10ms and WM_TIMER
+				// still arrives, so a zero runs the deck at full speed with
+				// nothing bounding it. the helper repairs a non-positive
+				// rate to the compiled-in default rather than blessing the
+				// runaway as a legal rate.
+				config_slideshow_rate = config_clamp_slideshow_rate(string_to_int(buf));
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"name") == 0)
@@ -1047,13 +1173,13 @@ void _viv_process_command_line(wchar_t *cl)
 					// we have two modes:
 					// 1) playlist mode. (navigate the playlist)
 					// 2) single file mode. (navigate the folder from the single file)
-					_viv_playlist_add_filename(single);
+					_viv_playlist_add_filename_report(single,&report);
 				}
 
 				if (file_count >= 1)
 				{
 					// add this file
-					_viv_playlist_add_filename(buf);
+					_viv_playlist_add_filename_report(buf,&report);
 				}
 			
 				if (file_count == 0)
@@ -1074,15 +1200,20 @@ void _viv_process_command_line(wchar_t *cl)
 		{
 			if (*_viv_current_fd->cFileName)
 			{
-				_viv_playlist_add_filename(_viv_current_fd->cFileName);	
+				_viv_playlist_add_filename_report(_viv_current_fd->cFileName,&report);	
 			}
 		}
 	
 		if (file_count == 1)
 		{
-			_viv_playlist_add_filename(single);
+			_viv_playlist_add_filename_report(single,&report);
 		}
 	}
+	
+	// what this launch could not open, named - the same line the drop,
+	// the folder walk and file->open answer. it goes on last so
+	// nothing the open below set is overwritten by it.
+	_viv_playlist_report_skips(&report);
 	
 	debug_printf("file count %d\n",file_count);
 

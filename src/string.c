@@ -690,19 +690,186 @@ const wchar_t *string_get_filename_part(const wchar_t *s)
 	return last;
 }
 
-void string_path_combine_utf8(wchar_t *wbuf,const wchar_t *path,const utf8_t *filename)
+BOOL string_path_combine_utf8(wchar_t *wbuf,const wchar_t *path,const utf8_t *filename)
 {
 	wchar_t subpath[STRING_SIZE];
 	
 	string_copy_utf8_string(subpath,filename);
 	
-	string_path_combine(wbuf,path,subpath);
+	return string_path_combine(wbuf,path,subpath);
 }
 
 // if path is null the current directory is used.
-void string_path_combine(wchar_t *wbuf,const wchar_t *path,const wchar_t *filename)
+// answers FALSE when the combination does not fit: PathCombineW signals
+// the overflow only through its return value, and the void signature
+// dropped it on the floor - the caller then went on to stat, open or
+// copy a buffer the combine never finished filling. the destination is
+// emptied on failure so no caller can read a half written name.
+BOOL string_path_combine(wchar_t *wbuf,const wchar_t *path,const wchar_t *filename)
 {
-	PathCombine(wbuf,path,filename);
+	if (!PathCombine(wbuf,path,filename))
+	{
+		wbuf[0] = 0;
+		
+		return FALSE;
+	}
+	
+	// the belt: a successful combine that still answered a name longer
+	// than MAX_PATH would defeat every MAX_PATH gate downstream.
+	if (!string_path_is_short(wbuf))
+	{
+		wbuf[0] = 0;
+		
+		return FALSE;
+	}
+	
+	return TRUE;
+}
+
+// the long path boundary: windows spells a plain path limit as
+// MAX_PATH characters *including* the terminator, so a name of
+// MAX_PATH - 1 characters is the last one that needs no help.
+int string_path_is_short(const wchar_t *path)
+{
+	SIZE_T len;
+
+	len = (SIZE_T)string_get_length(path);
+	
+	return (safe_size_add(len,(SIZE_T)1)) <= (SIZE_T)MAX_PATH;
+}
+
+// can this name carry the "\\?\" prefix at all? the prefix hands the
+// string to the object manager verbatim, which is only correct for a
+// fully qualified name: a drive root ("C:\...") or a unc share
+// ("\\server\share\..."). a relative or drive-relative name has no
+// root for the prefix to hang on.
+static int _viv_string_path_is_absolute(const wchar_t *path)
+{
+	if (path[0] == L'\\')
+	{
+		// a unc share only - a bare "\dir" is drive relative and the
+		// object manager would read it as the machine itself.
+		return (path[1] == L'\\');
+	}
+	
+	if (((path[0] >= L'A') && (path[0] <= L'Z')) || ((path[0] >= L'a') && (path[0] <= L'z')))
+	{
+		if (path[1] == L':')
+		{
+			return ((path[2] == L'\\') || (path[2] == L'/'));
+		}
+	}
+	
+	return 0;
+}
+
+// a "." or ".." component: the normalization that used to fold those
+// away does not run under the prefix, so the object manager would look
+// for a directory literally named "." instead.
+static int _viv_string_path_has_dot_component(const wchar_t *path)
+{
+	const wchar_t *p;
+	
+	p = path;
+	
+	while(*p)
+	{
+		const wchar_t *component;
+		SIZE_T len;
+		
+		component = p;
+		
+		while((*p) && (*p != L'\\') && (*p != L'/'))
+		{
+			p++;
+		}
+		
+		len = (SIZE_T)(p - component);
+		
+		if ((len == 1) && (component[0] == L'.'))
+		{
+			return 1;
+		}
+		
+		if ((len == 2) && (component[0] == L'.') && (component[1] == L'.'))
+		{
+			return 1;
+		}
+		
+		if (!*p)
+		{
+			break;
+		}
+		
+		p++;
+	}
+	
+	return 0;
+}
+
+// "\\?\" - the device path prefix that lifts the MAX_PATH ceiling.
+// it is added ONLY when the path would not fit unprefixed: a short path
+// is copied exactly as it was, because the prefix also changes the
+// rules the object manager applies (no forward slash translation, no
+// dot component folding) and must not perturb the names that never
+// needed it. the api family this gate feeds (CreateFileW, CopyFileW,
+// GetFileAttributesExW, FindFirstFileW) all accept the prefixed form.
+// a long name that cannot carry the prefix - a relative name, one with
+// a "." or ".." component - is refused here, so the caller answers
+// SKIPPED_TOO_LONG instead of handing the api a name that resolves to
+// somewhere else.
+int string_path_long(wchar_t *wbuf,SIZE_T bufsize,const wchar_t *path)
+{
+	SIZE_T len;
+	SIZE_T need;
+	SIZE_T i;
+	
+	len = (SIZE_T)string_get_length(path);
+	
+	if (string_path_is_short(path))
+	{
+		need = safe_size_add(len,(SIZE_T)1);
+	}
+	else
+	{
+		// the 4 character prefix plus the terminator.
+		need = safe_size_add(safe_size_add(len,(SIZE_T)4),(SIZE_T)1);
+	}
+	
+	if (need > bufsize)
+	{
+		return 0;
+	}
+	
+	if (string_path_is_short(path))
+	{
+		string_copy_with_bufsize(wbuf,bufsize,path);
+	}
+	else
+	{
+		if ((!_viv_string_path_is_absolute(path)) || (_viv_string_path_has_dot_component(path)))
+		{
+			debug_printf("long path needs a form the prefix cannot carry: %S\n",path);
+			
+			return 0;
+		}
+		
+		wbuf[0] = L'\\';
+		wbuf[1] = L'\\';
+		wbuf[2] = L'?';
+		wbuf[3] = L'\\';
+		
+		for(i=0;i<len;i++)
+		{
+			// the prefix stops the slash translation the win32 layer
+			// would otherwise do, so it is spelled out here.
+			wbuf[4 + i] = (path[i] == L'/') ? L'\\' : path[i];
+		}
+		
+		wbuf[4 + len] = 0;
+	}
+	
+	return 1;
 }
 
 void string_get_path_part(wchar_t *wbuf,const wchar_t *s)

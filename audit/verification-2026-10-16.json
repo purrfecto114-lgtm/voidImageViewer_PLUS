@@ -1,0 +1,229 @@
+{
+  "date": "2026-10-16",
+  "input_files": [
+    {
+      "name": "voidImageViewer_PLUS-main.zip",
+      "sha256": "7ff764cd8dee34061c429a92dba39b8c191c080c428db3226640ff70546daaf4"
+    },
+    {
+      "name": "voidImageViewer-master.zip",
+      "sha256": "e4bae215b855a17b9a64c3dbd3a9b118a0202dcff457a50e7eb601292cf9aca3"
+    },
+    {
+      "name": "superpowers-zh-1.7.1.zip",
+      "sha256": "a155d5bd5e59eaba64470063a085accdc4d10658598bce2228101a1661bd0023"
+    }
+  ],
+  "baseline_revision_from_zip_comment": "f6c3d4ea457349d760c31c203069c119fc5f6613",
+  "host_compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0",
+  "toolchains": [
+    {
+      "version": "0.16.0",
+      "wheel_sha256": "9fcda73f62b851dd72a54b710ad40a209896db14cfb13649e62191243556342b",
+      "original_zig_sha256": "2317bbb91798556d9d0f38aabdac23db83f0979b25f767259ae474546724087c",
+      "adapted_zig_sha256": "974a24ec8ac42f67f3ead4bd9c5d0e366fe8395283c8c3bca73115e81636e75e",
+      "adaptation": "Only the self-location path literal /proc/self/exe was replaced with equal-length ./zig-selfpath; see TOOLCHAIN-NOTES.md."
+    },
+    {
+      "version": "0.17.0",
+      "wheel_sha256": "40eda29b8b23d14f78bc125a330b180e7c9c6b4964a4f9eb77641b0a5929b782",
+      "original_zig_sha256": "7c61539af19fa4082c94848f1c2b57b89e76dc6cfd5bd4c57764c3caf8f82272",
+      "adapted_zig_sha256": "b8a6f7d84e9a4b3e4c9c71001ca87209a2975b595769d3d3857eb461e0228d1e",
+      "adaptation": "Only the self-location path literal /proc/self/exe was replaced with equal-length ./zig-selfpath; see TOOLCHAIN-NOTES.md."
+    }
+  ],
+  "builds": [
+    {
+      "name": "baseline-zig016-x64",
+      "bytes": 531968,
+      "sha256": "d3f87f1387a02d993fda24f854b84c17413461797bf5a23b26eff4286ce1518d",
+      "machine": "0x8664",
+      "subsystem": 3,
+      "dll_characteristics": "0x8160",
+      "error_count": 0,
+      "warning_count": 830,
+      "warning_categories": {
+        "-Wpointer-sign": 772,
+        "-Wunused-value": 1,
+        "-Wincompatible-pointer-types": 14,
+        "-Wvisibility": 37,
+        "-Wint-to-void-pointer-cast": 2,
+        "-Wtautological-constant-out-of-range-compare": 1,
+        "-Wpointer-to-int-cast": 2,
+        "-Winconsistent-dllimport": 1
+      }
+    },
+    {
+      "name": "fixed-zig016-x64",
+      "bytes": 532480,
+      "sha256": "ca401546cc3fa77f10c893403b122fe4d7d1e3942c4985fb1a0c623898d94962",
+      "machine": "0x8664",
+      "subsystem": 2,
+      "dll_characteristics": "0x8160",
+      "error_count": 0,
+      "warning_count": 779,
+      "warning_categories": {
+        "-Wpointer-sign": 772,
+        "-Wunused-value": 1,
+        "-Wint-to-void-pointer-cast": 2,
+        "-Wtautological-constant-out-of-range-compare": 1,
+        "-Wpointer-to-int-cast": 2,
+        "-Winconsistent-dllimport": 1
+      }
+    },
+    {
+      "name": "fixed-zig016-arm64",
+      "bytes": 413184,
+      "sha256": "9a8af6f8152226e2e4ed5f2da3084d7e40b381e8c79c4ed9dd24cc1acfcf5a8d",
+      "machine": "0xaa64",
+      "subsystem": 2,
+      "dll_characteristics": "0x8160",
+      "error_count": 0,
+      "warning_count": 779,
+      "warning_categories": {
+        "-Wpointer-sign": 772,
+        "-Wunused-value": 1,
+        "-Wint-to-void-pointer-cast": 2,
+        "-Wtautological-constant-out-of-range-compare": 1,
+        "-Wpointer-to-int-cast": 2,
+        "-Winconsistent-dllimport": 1
+      }
+    },
+    {
+      "name": "fixed-zig017-x64",
+      "bytes": 531968,
+      "sha256": "2379394d80ebe095c1c31e854b234802f0c8f9d2612b050d2ca69f11c85a10ed",
+      "machine": "0x8664",
+      "subsystem": 2,
+      "dll_characteristics": "0x8160",
+      "error_count": 0,
+      "warning_count": 779,
+      "warning_categories": {
+        "-Wpointer-sign": 772,
+        "-Wunused-value": 1,
+        "-Wint-to-void-pointer-cast": 2,
+        "-Wtautological-constant-out-of-range-compare": 1,
+        "-Wpointer-to-int-cast": 2,
+        "-Winconsistent-dllimport": 1
+      }
+    },
+    {
+      "name": "fixed-zig016-selfshot",
+      "bytes": 875520,
+      "sha256": "f3b85b97b98c3e75c7bfaee41203ac8f53f5cbd2d1a441110c614cb5d8c2e8f1",
+      "machine": "0x8664",
+      "subsystem": 2,
+      "dll_characteristics": "0x8160",
+      "error_count": 0,
+      "warning_count": 780,
+      "warning_categories": {
+        "-Wpointer-sign": 773,
+        "-Wunused-value": 1,
+        "-Wint-to-void-pointer-cast": 2,
+        "-Wtautological-constant-out-of-range-compare": 1,
+        "-Wpointer-to-int-cast": 2,
+        "-Winconsistent-dllimport": 1
+      }
+    }
+  ],
+  "python_and_native_suites": [
+    {
+      "suite": "menu_structure",
+      "exit_code": 0,
+      "pass_lines": 2475
+    },
+    {
+      "suite": "simulation",
+      "exit_code": 0,
+      "pass_lines": 492
+    },
+    {
+      "suite": "zoom_math",
+      "exit_code": 0,
+      "pass_lines": 137
+    },
+    {
+      "suite": "byte_invariant",
+      "exit_code": 0,
+      "pass_lines": 38
+    },
+    {
+      "suite": "pixel_golden",
+      "exit_code": 0,
+      "pass_lines": 31
+    },
+    {
+      "suite": "native_regression",
+      "exit_code": 0,
+      "pass_lines": 0
+    }
+  ],
+  "mutation": {
+    "total": 112,
+    "caught": 112,
+    "shards": 4,
+    "each_shard_green_baseline": true,
+    "each_shard_restored_source": true,
+    "subject_sha256": {
+      ".github/workflows/release.yml": "048e63823d1a5b067cf26eeb29a9130fcd03885645b031468fac3b6761ce5c49",
+      "libwebp/src/dec/alpha_dec.c": "dc40bd1820c4c1efd823f8a462fecd56f1472b0e386218e0525de7b43909b383",
+      "libwebp/src/dec/frame_dec.c": "cc448ef63f7ab93a346c2688560aa1430341cb26fcaa9ab9a6bb5cd742af4ab4",
+      "libwebp/src/utils/palette.c": "6e4ee5745d54f065b1711152f58c2efca8c16aac74b60ea7c5cb6c8f82149cd7",
+      "libwebp/src/utils/quant_levels_dec_utils.c": "b0f59a966463b14762be25b6700d87e678538ff312a70fdc7e0d4aa81d7d7618",
+      "nsis/InstallOptions2.ini": "67bbd3c752fa01a7116a31be1de51190238b0e3072d8ae3f6b649ce726c1e612",
+      "nsis/installer.nsi": "18e96050e7a5000541a734c92d9a81ed2de80fae5c4c618487ca234a0348117f",
+      "src/config.c": "2424fb0f4e23a7a5f75cd99cddddaded011e83ef3d4f54d0a84bfa09cbc9aff0",
+      "src/hwgl.c": "894dfe19bae62f1c153c4c42df841b511d4272ebac562ce3621146af7a550fe7",
+      "src/localization_en_us.h": "526ffbef2764afe3b3d5a373ac8c555a1b67a107bfc9352e4d66308d68c540b8",
+      "src/mem.c": "f5248bc94f51e74933e16023ddce1968732d8f671b07e2ccca4d1862ce3971d0",
+      "src/os.c": "a1286990c321f2ee7a3bdc00219e6ee0d444a7c9cb04a53968074e3ce53a8c91",
+      "src/os.h": "faf6aaa7e15b64307c8ba6fccfa2fe329d6df26af945d07a2150114c12515c17",
+      "src/qoi.c": "aa55d3491ad152be44323b7f44ef6391cf82aa67900db6c25477c3f437792dc9",
+      "src/viv.c": "c1fd40a90df721fd2c294a623db5180128955a070e42aec27e583173976c9a33",
+      "src/viv_anim.c": "0f2c28c2941d7d0b0ebeec851b16fc9d935e3499728fb3382557e433e2938c13",
+      "src/viv_chrome.c": "55bc2381ad0fd90587d39d4e3b940f11eb77a193b49f71c004f8a5811bd8047d",
+      "src/viv_dialogs.c": "ebf40830ba98a2ef058f6ae2c46bb49870c2f7d246327b567ea75d034c0ed3b4",
+      "src/viv_export.c": "111714954fb05afca8a84befb461d9512d1b6df1bc6782b1db89857a1606d1fb",
+      "src/viv_install.c": "0f4aaa357a5c883a4aa7b9bd3c63ba157b4edc1aad7d395786cc455d4f963bc7",
+      "src/viv_load.c": "4ee4f5f3e9996495d228612dcb4e8ee39bfbe34e7b15ab4fec36a7b1a43679de",
+      "src/viv_menu.c": "387511e508ed0ff47b62cf1dd719c64fa989b87908a53385d08f872fa17fea15",
+      "src/viv_msgbox.c": "193f50135c54ab501cb8da194c025f7f835514110953535f2b269d417ec8c1d3",
+      "src/viv_playlist.c": "c9409b283778ae10ef6b28582788686ffb62ccccf977dd67c847eeab4d79ec17",
+      "src/viv_recent.c": "dd672ed9c0d91eb52b004913882cd5db0b2c4b8929c4e2597d7c731d45d8d9fc",
+      "src/viv_render.c": "08687d0ef8c8ef74070fb0f652b9bcb3d21692f5009b89ca21db11b4fbed278b",
+      "src/viv_settings.c": "1a201cf0f3796a4ee0eac84c7db3bedc6977cc98ae83d80888b1990ab04a9be4",
+      "src/viv_state.h": "bf26bff957cd0a935551ea08e4236b8678393f5975e1c71e9ec1af819e62f8c0",
+      "src/viv_toolbar.c": "04c07b22f6a25371c16354f4024c8c2b29fe037996b1471d80d0bdb9271fc08e",
+      "src/viv_view.c": "de7751bf4722519e9f394f86dd03051fa01f70a08d6747489e8434013a7b9653",
+      "src/viv_wndproc.c": "5147d8db19bd8e3efb5ba57a4dc8f45420addca3b78318cc04959c6038a44dcd",
+      "src/webp.c": "3a00d9f6939ae84c7c1055db8623ffefb2b530c47a647b6128d1cd0dc28c4697",
+      "src/zoomui.c": "e3e16fa97829acee696407d07ad2e4fb0aa46662a51e36fa5b4f783363785ba5",
+      "tests/menu_structure_test.py": "883e5926e7cef426b8c11e2383808430d94c8217f4e4f31ebf5d7f2bfad01079",
+      "tests/native/gesture.c": "913dd0b68ee424a2609762d4fe699c1a92b0ddee6ab11b5984a5787a4215d141",
+      "tests/native/memory.c": "9d83865f7bee237febcd43bc7e2281307230ec9538f7d9b752e4ad9721b00951",
+      "tests/native/mru.c": "fea085c6f9c9e5a363d6ab81711eddefc2be6f5c8adf7ae3bcb12d0f4c4c4d22",
+      "tests/native_regression_test.py": "0225b58110e945a2c367f47c5e10f3622871bb4acfb2ed959776cf6f897a8672",
+      "tests/zoom_math_test.py": "7e55f0f11cfea0d2724fa33efc1f68a38b09ba3f631fd53027ee0a46b240c0ea",
+      "tools/mutation_teeth.py": "71d1bb5c7427f80bb20ca1e36eac2b9dce97b2ecec464ff8387922258e34b455"
+    },
+    "results": "evidence/mutation-results-2026-10-16.json",
+    "first_attempt": "110/112 caught; two obsolete NSIS anchors detected, updated, then all 112 rerun across four isolated copies."
+  },
+  "not_executed": [
+    "NSIS compilation and installer runtime",
+    "Windows/MSVC builds and release security gate",
+    "Windows smoke/render/QOI PowerShell scripts",
+    "ARM64 runtime",
+    "Real touch hardware and DPI visual verification",
+    "GPU/driver working-set attribution"
+  ],
+  "evidence_archive": {
+    "file": "evidence/verification-logs.zip",
+    "sha256": "0cdd71fab83bbcd97f925fca3bd9411102eecfd0403f12ac528d2605096abf2f",
+    "members": 44,
+    "raw_bytes_preserved": true
+  },
+  "input_hash_provenance": "Computed from original ZIP bytes earlier in this task; the upload staging directory was empty at final packaging.",
+  "patch_baseline_local_snapshot": "a5c5e30b1d9b5d47be76cc47046b40f57962ea6d",
+  "historical_scope": "First repair round only; current state is verification.json dated 2026-10-17."
+}

@@ -5,7 +5,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 ZIG="${ZIG:-python3 -m ziglang}"
-FLAGS="-target x86_64-windows-gnu -O1 -DNDEBUG -DVERSION_X64 -DUNICODE -D_UNICODE -DVIVP_SELF_SHOT -Wno-macro-redefined"
+FLAGS="-target x86_64-windows-gnu -O1 -DNDEBUG -DVERSION_X64 -DUNICODE -D_UNICODE -DVIVP_SELF_SHOT -Wno-macro-redefined -Werror=incompatible-pointer-types -Werror=visibility"
 OBJDIR="build-zig/obj-self"
 
 # a clean slate per build: the old shape only mkdir'd, so a deleted or
@@ -39,8 +39,8 @@ if [ "$fail" -ne 0 ]; then
 	exit 1
 fi
 
-$ZIG cc $FLAGS $OBJDIR/*.o -o build-zig/viv_self.exe -mwindows \
-	-lcomctl32 -lcomdlg32 -lshlwapi -lshell32 -lgdi32 -luser32 \
+$ZIG cc $FLAGS $OBJDIR/*.o -o build-zig/viv_self.exe -mwindows -Wl,--subsystem,windows \
+	-lcomctl32 -lcomdlg32 -lshlwapi -lshell32 -lgdi32 -luser32 -limm32 \
 	-ladvapi32 -lole32 -loleaut32 -luuid -lwinmm -ldwmapi -lversion
 
 cp res/voidImageViewer.Manifest build-zig/viv_self.exe.manifest

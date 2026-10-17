@@ -1,7 +1,7 @@
 #define VERSION_YEAR 2026
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 1
-#define VERSION_REVISION 16
+#define VERSION_REVISION 17
 
 #define VERSION_BUILD 114
 
@@ -10,4 +10,4 @@
 // compare against the string, so the type field carries no second identity.
 #define VERSION_TYPE ""
 
-#define VERSION_STRING "1.1.16"
+#define VERSION_STRING "1.1.17-rc.1"

@@ -73,6 +73,9 @@ jobs:
       - name: Byte invariant tests (line endings, BOMs, final newlines)
         run: python3 tests/byte_invariant_test.py
 
+      - name: Native C regressions (MRU, input and zoom, debug allocation failure)
+        run: python3 tests/native_regression_test.py --sanitize
+
       # the whitespace gate: git's own diff --check over the pushed
       # range (the merge base for pull requests). catches trailing
       # whitespace and space-before-tab in added lines before they
@@ -120,6 +123,12 @@ jobs:
         run: |
           python3 -m pip install --quiet ziglang==0.16.0
           sh build-zig/build-arm64.sh
+          python3 tools/pe_header_check.py build-zig/viv-arm64.exe --machine arm64
+
+      - name: x64 cross-compile gate (documented contributor build)
+        run: |
+          sh build-zig/build.sh
+          python3 tools/pe_header_check.py build-zig/viv.exe --machine x64
 
   # The mutation teeth table: the guard suites' own audit. every row
   # names one mutation the round's pins must catch; the harness runs a

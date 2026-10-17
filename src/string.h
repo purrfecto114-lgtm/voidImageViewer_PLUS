@@ -44,8 +44,23 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr);
 void string_printf(wchar_t *wbuf,const char *format,...);
 const wchar_t *string_get_filename_part(const wchar_t *s);
 void string_get_path_part(wchar_t *wbuf,const wchar_t *s);
-void string_path_combine(wchar_t *wbuf,const wchar_t *path,const wchar_t *filename);
-void string_path_combine_utf8(wchar_t *wbuf,const wchar_t *path,const utf8_t *filename);
+// string_path_combine answers FALSE when path + filename does not fit
+// the destination. the old void return threw that away: every caller
+// went on to open a name the combine never finished building.
+BOOL string_path_combine(wchar_t *wbuf,const wchar_t *path,const wchar_t *filename);
+BOOL string_path_combine_utf8(wchar_t *wbuf,const wchar_t *path,const utf8_t *filename);
+// the long path gate for the file apis that take a plain path name.
+// a path that does not fit MAX_PATH is handed on with the "\\?\"
+// prefix (windows passes such a name to the object manager verbatim);
+// a short path is copied unchanged, so its spelling and its behaviour
+// are exactly what they were. returns 0 when even the prefixed form
+// would not fit bufsize - the caller must refuse the name rather than
+// hand the api a clipped one.
+int string_path_long(wchar_t *wbuf,SIZE_T bufsize,const wchar_t *path);
+// does this path name fit an unprefixed call? (length + terminator <=
+// MAX_PATH). the long path gate and the playlist's own MAX_PATH
+// cFileName both ask it.
+int string_path_is_short(const wchar_t *path);
 void string_copy_utf8_string(wchar_t *buf,const utf8_t *s);
 void string_cat_utf8(wchar_t *buf,const utf8_t *s);
 void string_cat_path_separator(wchar_t *buf);

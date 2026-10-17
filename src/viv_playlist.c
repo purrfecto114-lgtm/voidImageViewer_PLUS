@@ -25,6 +25,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_playlist.h"
+#include "viv_chrome.h"
 #include "viv_dark.h"
 #include "viv_load.h"
 #include "viv_view.h"
@@ -42,8 +43,9 @@ void _viv_playlist_clearall(void);
 void _viv_playlist_delete(const WIN32_FIND_DATA *fd);
 void _viv_playlist_rename(const wchar_t *old_filename,const wchar_t *new_filename);
 _viv_playlist_t *_viv_playlist_add(const WIN32_FIND_DATA *fd);
-void _viv_playlist_add_path(const wchar_t *full_path_and_filename);
-void _viv_playlist_add_filename(const wchar_t *filename);
+_viv_open_outcome_t _viv_playlist_add_path(const wchar_t *full_path_and_filename);
+_viv_open_outcome_t _viv_playlist_add_filename(const wchar_t *filename);
+static _viv_open_outcome_t _viv_playlist_add_path_ex(const wchar_t *full_path_and_filename,_viv_open_skip_report_t *report);
 static void _viv_shuffle_playlist(void);
 void _viv_nav_item_free_all(void);
 void _viv_nav_item_add(WIN32_FIND_DATA *fd);
@@ -293,41 +295,225 @@ int _viv_fd_compare(const WIN32_FIND_DATA *a,const WIN32_FIND_DATA *b)
 	
 	return ret;
 }
+// the ONE decision: not a folder, and an extension the viewer decodes.
+// this is the function every entry point answers through - file->open,
+// the drop, the folder walk, the command line, the recent click - so the
+// set of openable names is written once and a whitelist change edits one
+// function. (the open dialog used to open whatever it was handed while
+// every other path refused it, so the same file could open or vanish
+// depending on the route in.)
 int _viv_is_valid_filename(WIN32_FIND_DATA *fd)
 {
-	if (!(fd->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-	{
-		const wchar_t *s;
-		const wchar_t *e;
-		
-		e = 0;
-		s = fd->cFileName;
-		
-		while(*s)
-		{
-			if (*s == '.')
-			{
-				e = s + 1;
-			}
-			
-			s++;
-		}
+	const wchar_t *s;
+	const wchar_t *e;
+	int exti;
 
-		if (e)
+	// a folder is never an image, whatever it is named.
+	if (fd->dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+	{
+		return 0;
+	}
+	
+	// the last dot wins, and a name with no dot has no extension to
+	// compare against at all (the ".bashrc" shape: a leading dot is not
+	// an extension).
+	e = 0;
+	s = fd->cFileName;
+	
+	while(*s)
+	{
+		if (*s == '.')
 		{
-			int exti;
-			
-			for(exti=0;exti<_VIV_SUPPORTED_EXTENSION_COUNT;exti++)
-			{
-				if (string_icompare_lowercase_ascii(e,_viv_supported_extensions[exti]) == 0) 
-				{
-					return 1;
-				}
-			}
+			e = s + 1;
+		}
+		
+		s++;
+	}
+	
+	if (!e)
+	{
+		return 0;
+	}
+	
+	// the supported table, not the association table: the two are
+	// deliberately different sets (the association list carries only the
+	// formats the installer registers).
+	for(exti=0;exti<_VIV_SUPPORTED_EXTENSION_COUNT;exti++)
+	{
+		if (string_icompare_lowercase_ascii(e,_viv_supported_extensions[exti]) == 0) 
+		{
+			return 1;
 		}
 	}
 	
-	return 0;		
+	return 0;
+}
+// the reason text for one outcome. plain ascii: the line is assembled
+// from the names the caller already holds, so it stays readable in any
+// language the viewer runs in.
+static const char *_viv_open_outcome_reason(_viv_open_outcome_t outcome)
+{
+	switch(outcome)
+	{
+		case VIV_OPEN_SKIPPED_BAD_EXTENSION:
+			return "unsupported extension";
+			
+		case VIV_OPEN_SKIPPED_NOT_FOUND:
+			return "not found";
+			
+		case VIV_OPEN_SKIPPED_ACCESS_DENIED:
+			return "access denied";
+			
+		case VIV_OPEN_SKIPPED_TOO_LONG:
+			return "path too long";
+			
+		case VIV_OPEN_SKIPPED_NOT_A_FILE:
+			return "not a file";
+			
+		// the two ends of the enum are not refusals and never reach
+		// here, but the switch stays exhaustive so a new outcome
+		// cannot slip past the line without a reason.
+		case VIV_OPEN_OPENED:
+		case VIV_OPEN_SKIPPED_ERROR:
+		default:
+			break;
+	}
+	
+	return "could not be read";
+}
+// the api's answer as an outcome. the last error is read once, right
+// after the call that set it.
+_viv_open_outcome_t _viv_open_outcome_from_last_error(void)
+{
+	switch(GetLastError())
+	{
+		case ERROR_FILE_NOT_FOUND:
+		case ERROR_PATH_NOT_FOUND:
+			return VIV_OPEN_SKIPPED_NOT_FOUND;
+			
+		case ERROR_ACCESS_DENIED:
+			return VIV_OPEN_SKIPPED_ACCESS_DENIED;
+			
+		case ERROR_FILENAME_EXCED_RANGE:
+			return VIV_OPEN_SKIPPED_TOO_LONG;
+	}
+	
+	return VIV_OPEN_SKIPPED_ERROR;
+}
+// the attributes of one path, through the long path gate: a short path
+// is handed to the api exactly as it was, a long one carries the "\\?\"
+// prefix. a name the prefixed buffer cannot hold is refused here with
+// error_filename_exced_range, so the caller maps it to the same
+// SKIPPED_TOO_LONG a too long name from the api itself would give.
+int _viv_file_attributes(const wchar_t *full_path_and_filename,WIN32_FIND_DATA *fd)
+{
+	wchar_t path_wbuf[STRING_SIZE];
+	
+	if (!os_GetFileAttributesExW)
+	{
+		return 0;
+	}
+	
+	if (!string_path_long(path_wbuf,STRING_SIZE,full_path_and_filename))
+	{
+		debug_printf("path too long\n");
+		
+		SetLastError(ERROR_FILENAME_EXCED_RANGE);
+		
+		return 0;
+	}
+	
+	if (!os_GetFileAttributesExW(path_wbuf,GetFileExInfoStandard,fd))
+	{
+		return 0;
+	}
+	
+	// GetFileAttributesExW fills only the attribute block of the
+	// find-data layout - cFileName is one of FindFirstFile's fields
+	// and the caller's buffer here answers whatever the stack left.
+	// every consumer names the entry through this field (the
+	// whitelist's extension, the playlist row's combine), so it
+	// holds the bare name of the path that was asked about before
+	// the caller reads on.
+	string_copy_with_bufsize(fd->cFileName,MAX_PATH,string_get_filename_part(full_path_and_filename));
+	
+	return 1;
+}
+void _viv_open_report_skip(_viv_open_skip_report_t *report,const wchar_t *name,_viv_open_outcome_t outcome)
+{
+	if (!report)
+	{
+		// a walk that only wanted the gate (the startup seed) keeps no
+		// tally: nothing to count, nothing to say.
+		return;
+	}
+	
+	// a name is only ever a skip. OPENED never reaches here: the
+	// callers check it first and an outcome list full of "opened"
+	// would be a lie, not a report.
+	if (outcome == VIV_OPEN_OPENED)
+	{
+		return;
+	}
+	
+	report->count++;
+	
+	// the line names the first few and counts the rest.
+	if (report->named_count < _VIV_OPEN_SKIP_NAMES_MAX)
+	{
+		report->outcomes[report->named_count] = outcome;
+		
+		// the name part, not the whole path: the line is about what
+		// was refused, and a full path would eat the pane.
+		string_copy_with_bufsize(report->names[report->named_count],MAX_PATH,string_get_filename_part(name));
+		
+		report->named_count++;
+	}
+}
+// the tally on the status bar. the temporary status text is the
+// existing helper every transient line uses (the slideshow rate, the
+// zoom readout): it shows for three seconds, then the ordinary file
+// line returns underneath it.
+void _viv_playlist_report_skips(_viv_open_skip_report_t *report)
+{
+	wchar_t wbuf[STRING_SIZE];
+	wchar_t more_wbuf[64];
+	int i;
+	
+	if ((!report) || (!report->count))
+	{
+		// nothing was refused: leave any other line alone.
+		return;
+	}
+	
+	string_printf(wbuf,"Skipped %d: ",report->count);
+	
+	for(i=0;i<report->named_count;i++)
+	{
+		if (i)
+		{
+			string_cat_utf8(wbuf,(const utf8_t *)", ");
+		}
+		
+		string_cat(wbuf,report->names[i]);
+		string_cat_utf8(wbuf,(const utf8_t *)" (");
+		string_cat_utf8(wbuf,(const utf8_t *)_viv_open_outcome_reason(report->outcomes[i]));
+		string_cat_utf8(wbuf,(const utf8_t *)")");
+	}
+	
+	if (report->count > report->named_count)
+	{
+		// its own buffer: string_printf measures its STRING_SIZE budget
+		// from the pointer it is handed, so an offset into wbuf would
+		// size the budget past the end of wbuf.
+		string_printf(more_wbuf,", and %d more",report->count - report->named_count);
+		
+		string_cat(wbuf,more_wbuf);
+	}
+	
+	string_cat_utf8(wbuf,(const utf8_t *)".");
+	
+	_viv_status_set_temp_text(wbuf);
 }
 const char *_viv_get_copydata_string(const char *p,const char *e,wchar_t *buf,int bufsize)
 {
@@ -558,42 +744,128 @@ _viv_playlist_t *_viv_playlist_add(const WIN32_FIND_DATA *fd)
 	
 	return d;
 }
-void _viv_playlist_add_path(const wchar_t *full_path_and_filename)
+// one directory entry of a walk: the whitelist decision, the full
+// path, and the playlist entry. the long path gate is here, not at the
+// caller: every entry reaches the playlist through
+// WIN32_FIND_DATA.cFileName, a MAX_PATH buffer, so a path that would
+// not fit there cannot be named and used to be copied in clipped - a
+// playlist entry cannot represent it and used to be copied in clipped
+// - a playlist entry pointing at a name that does not exist. the
+// caller owns the tally (report may be 0).
+_viv_open_outcome_t _viv_playlist_add_fd(const wchar_t *full_path_and_filename,WIN32_FIND_DATA *fd,_viv_open_skip_report_t *report)
+{
+	WIN32_FIND_DATA entry_fd;
+	wchar_t path_wbuf[STRING_SIZE];
+	
+	// the whitelist: the directory attribute came from the directory
+	// itself, the extension from the name.
+	if (!_viv_is_valid_filename(fd))
+	{
+		return VIV_OPEN_SKIPPED_BAD_EXTENSION;
+	}
+	
+	if (!string_path_combine(path_wbuf,full_path_and_filename,fd->cFileName))
+	{
+		return VIV_OPEN_SKIPPED_TOO_LONG;
+	}
+	
+	if (!string_path_is_short(path_wbuf))
+	{
+		// FindFirstFile cannot name an entry longer than MAX_PATH, so
+		// the name it answered with is already a clipped prefix and
+		// the real file is out of reach for the playlist.
+		// FindFirstFileExW(FindExInfoBasic + FIND_FIRST_EX_LARGE_FETCH)
+		// is the documented way to fetch the full name, but the flag
+		// only exists on windows 7 / 2008 r2 and later: this tree
+		// declares _WIN32_WINNT 0x0501, so using it would mean either
+		// a _WIN32_WINNT bump or a runtime os_is_windows_7_or_later()
+		// guard around a second enumeration. the walk is also bounded
+		// by the playlist's own storage - every entry is named through
+		// WIN32_FIND_DATA.cFileName, a MAX_PATH buffer - so the long
+		// name has nowhere to land even when it is fetched. the honest
+		// answer is the skip, not a clipped entry that names a file
+		// which does not exist.
+		debug_printf("path too long: %S\n",path_wbuf);
+		
+		return VIV_OPEN_SKIPPED_TOO_LONG;
+	}
+	
+	os_copy_memory(&entry_fd,fd,sizeof(WIN32_FIND_DATA));
+	
+	string_copy_with_bufsize(entry_fd.cFileName,MAX_PATH,path_wbuf);
+	
+	_viv_playlist_add(&entry_fd);
+	
+	return VIV_OPEN_OPENED;
+}
+// the walk. the tally rides in through report so one drop, one command
+// line or one open dialog names every refusal the whole tree produced
+// instead of one line per folder.
+static _viv_open_outcome_t _viv_playlist_add_path_ex(const wchar_t *full_path_and_filename,_viv_open_skip_report_t *report)
 {
 	WIN32_FIND_DATA fd;
-	wchar_t buf[STRING_SIZE];
+	wchar_t search_wbuf[STRING_SIZE];
+	wchar_t path_wbuf[STRING_SIZE];
 	HANDLE h;
+	int added;
 
-	string_copy(buf,full_path_and_filename);
-	string_cat_utf8(buf,(const utf8_t *)"\\*.*");
-
-	h = FindFirstFile(buf,&fd);
+	// the walk answers the folder's own outcome: at least one entry
+	// became a playlist row.
+	added = 0;
+	
+	// the search pattern rides the long path gate too: FindFirstFile
+	// cannot enumerate a folder whose own path is past MAX_PATH.
+	if (!string_path_combine(search_wbuf,full_path_and_filename,(const wchar_t *)L"*.*"))
+	{
+		_viv_open_report_skip(report,full_path_and_filename,VIV_OPEN_SKIPPED_TOO_LONG);
+		
+		return VIV_OPEN_SKIPPED_TOO_LONG;
+	}
+	
+	if (!string_path_long(path_wbuf,STRING_SIZE,search_wbuf))
+	{
+		_viv_open_report_skip(report,full_path_and_filename,VIV_OPEN_SKIPPED_TOO_LONG);
+		
+		return VIV_OPEN_SKIPPED_TOO_LONG;
+	}
+	
+	h = FindFirstFile(path_wbuf,&fd);
 	if (h != INVALID_HANDLE_VALUE)
 	{
 		for(;;)
 		{
+			_viv_open_outcome_t outcome;
+			
 			if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			{
 				if (!((string_compare_ascii(fd.cFileName,".") == 0) || (string_compare_ascii(fd.cFileName,"..") == 0)))
 				{
-					string_copy(buf,full_path_and_filename);
-					string_cat_path_separator(buf);
-					string_cat(buf,fd.cFileName);
-					
-					_viv_playlist_add_path(buf);
+					if (!string_path_combine(search_wbuf,full_path_and_filename,fd.cFileName))
+					{
+						_viv_open_report_skip(report,fd.cFileName,VIV_OPEN_SKIPPED_TOO_LONG);
+					}
+					else
+					{
+						outcome = _viv_playlist_add_path_ex(search_wbuf,report);
+						
+						if (outcome == VIV_OPEN_OPENED)
+						{
+							added = 1;
+						}
+					}
 				}
 			}
 			else
 			{
-				if (_viv_is_valid_filename(&fd))
+				outcome = _viv_playlist_add_fd(full_path_and_filename,&fd,report);
+				
+				if (outcome == VIV_OPEN_OPENED)
 				{
-					string_copy(buf,full_path_and_filename);
-					string_cat_path_separator(buf);
-					string_cat(buf,fd.cFileName);
-					
-					string_copy_with_bufsize(fd.cFileName,MAX_PATH,buf);
-					
-					_viv_playlist_add(&fd);
+					added = 1;
+				}
+				else
+				{
+					_viv_open_report_skip(report,fd.cFileName,outcome);
 				}
 			}
 
@@ -602,33 +874,98 @@ void _viv_playlist_add_path(const wchar_t *full_path_and_filename)
 		
 		FindClose(h);
 	}
+	else
+	if (GetLastError() == ERROR_FILE_NOT_FOUND)
+	{
+		// an empty folder is not a refusal.
+	}
+	else
+	if (GetLastError() == ERROR_ACCESS_DENIED)
+	{
+		_viv_open_report_skip(report,full_path_and_filename,VIV_OPEN_SKIPPED_ACCESS_DENIED);
+		
+		return VIV_OPEN_SKIPPED_ACCESS_DENIED;
+	}
+	
+	// a folder that yielded no openable file is itself a refusal, but
+	// only the caller names it - the entries inside it are already in
+	// the tally.
+	return added ? VIV_OPEN_OPENED : VIV_OPEN_SKIPPED_BAD_EXTENSION;
 }
-void _viv_playlist_add_filename(const wchar_t *filename)
+_viv_open_outcome_t _viv_playlist_add_path(const wchar_t *full_path_and_filename)
+{
+	_viv_open_skip_report_t report;
+	_viv_open_outcome_t outcome;
+	
+	// the tally is this call's own local: the whole walk, one line.
+	os_zero_memory(&report,sizeof(_viv_open_skip_report_t));
+	
+	outcome = _viv_playlist_add_path_ex(full_path_and_filename,&report);
+	
+	_viv_playlist_report_skips(&report);
+	
+	return outcome;
+}
+_viv_open_outcome_t _viv_playlist_add_filename_report(const wchar_t *filename,_viv_open_skip_report_t *report)
 {
 	WIN32_FIND_DATA fd;
 	wchar_t full_path_and_filename[STRING_SIZE];
 	wchar_t cwd[STRING_SIZE];
-	
+	_viv_open_outcome_t outcome;
+
 	GetCurrentDirectory(STRING_SIZE,cwd);
-
-	string_path_combine(full_path_and_filename,cwd,filename);
 	
-	if ((os_GetFileAttributesExW) && (os_GetFileAttributesExW(full_path_and_filename,GetFileExInfoStandard,&fd)))
+	if (!string_path_combine(full_path_and_filename,cwd,filename))
 	{
-		if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-		{
-			_viv_playlist_add_path(full_path_and_filename);
-		}
-		else
-		{
-			string_copy_with_bufsize(fd.cFileName,MAX_PATH,full_path_and_filename);
-
-			if (_viv_is_valid_filename(&fd))
-			{
-				_viv_playlist_add(&fd);
-			}
-		}
+		_viv_open_report_skip(report,filename,VIV_OPEN_SKIPPED_TOO_LONG);
+		
+		return VIV_OPEN_SKIPPED_TOO_LONG;
 	}
+	
+	if (!_viv_file_attributes(full_path_and_filename,&fd))
+	{
+		outcome = _viv_open_outcome_from_last_error();
+		
+		_viv_open_report_skip(report,filename,outcome);
+		
+		return outcome;
+	}
+	
+	if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+	{
+		outcome = _viv_playlist_add_path_ex(full_path_and_filename,report);
+		
+		if (outcome != VIV_OPEN_OPENED)
+		{
+			// a folder with nothing the viewer decodes in it: the
+			// entries that were passed over are already counted.
+			_viv_open_report_skip(report,filename,VIV_OPEN_SKIPPED_BAD_EXTENSION);
+		}
+		
+		return outcome;
+	}
+	
+	outcome = _viv_playlist_add_fd(full_path_and_filename,&fd,report);
+	
+	if (outcome != VIV_OPEN_OPENED)
+	{
+		_viv_open_report_skip(report,filename,outcome);
+	}
+	
+	return outcome;
+}
+_viv_open_outcome_t _viv_playlist_add_filename(const wchar_t *filename)
+{
+	_viv_open_skip_report_t report;
+	_viv_open_outcome_t outcome;
+	
+	os_zero_memory(&report,sizeof(_viv_open_skip_report_t));
+	
+	outcome = _viv_playlist_add_filename_report(filename,&report);
+	
+	_viv_playlist_report_skips(&report);
+	
+	return outcome;
 }
 static void _viv_shuffle_playlist(void)
 {
@@ -917,13 +1254,25 @@ static void _viv_add_current_path_to_playlist(void)
 {
 	WIN32_FIND_DATA fd;
 	HANDLE h;
+	wchar_t pattern_wbuf[STRING_SIZE];
 	wchar_t search_wbuf[STRING_SIZE];
 	wchar_t path_wbuf[STRING_SIZE];
 
 	string_get_path_part(path_wbuf,_viv_current_fd->cFileName);
 
-	string_copy(search_wbuf,path_wbuf);
-	string_cat_utf8(search_wbuf,(const utf8_t *)"\\*.*");
+	// the shared combines: a folder around the current file that does
+	// not fit, or one the long path gate cannot carry, has no seed
+	// walk at all - the old copy clamped and enumerated a truncated
+	// name instead.
+	if (!string_path_combine(pattern_wbuf,path_wbuf,(const wchar_t *)L"*.*"))
+	{
+		return;
+	}
+
+	if (!string_path_long(search_wbuf,STRING_SIZE,pattern_wbuf))
+	{
+		return;
+	}
 
 	h = FindFirstFile(search_wbuf,&fd);
 	if (h != INVALID_HANDLE_VALUE)
@@ -934,19 +1283,26 @@ static void _viv_add_current_path_to_playlist(void)
 			{
 				_viv_playlist_t *d;
 				
-				string_path_combine(search_wbuf,path_wbuf,fd.cFileName);
-				// cFileName is only MAX_PATH wchars: clamp the full path
-				// copy or a deep directory smashes the stack find data.
-				string_copy_with_bufsize(fd.cFileName,MAX_PATH,search_wbuf);
-				
-				d = _viv_playlist_add(&fd);
-				
-				if (string_compare(fd.cFileName,_viv_current_fd->cFileName) == 0)
+				// the shared per entry gate: the whitelist, the full
+				// path and the MAX_PATH cFileName limit are decided in
+				// one place for every walk now, so this seed cannot
+				// queue an entry whose name was clipped into a file
+				// that does not exist. the seed keeps no tally (a
+				// startup shuffle is not a user refusal), so an
+				// unopenable entry is passed over rather than named.
+				if (_viv_playlist_add_fd(path_wbuf,&fd,0) == VIV_OPEN_OPENED)
 				{
-					// copy back the FD ID.
-					// so when we get the next image we get the next image from the current image instead of the home image.
-					_viv_current_fd->dwReserved0 = d->fd.dwReserved0;
-					_viv_current_fd->dwReserved1 = d->fd.dwReserved1;
+					// the entry's full path is in the playlist, not in
+					// the walk's find data: read the row back by name.
+					d = _viv_playlist_from_fd(&fd);
+					
+					if ((d) && (string_compare(fd.cFileName,_viv_current_fd->cFileName) == 0))
+					{
+						// copy back the FD ID.
+						// so when we get the next image we get the next image from the current image instead of the home image.
+						_viv_current_fd->dwReserved0 = d->fd.dwReserved0;
+						_viv_current_fd->dwReserved1 = d->fd.dwReserved1;
+					}
 				}
 			}
 			

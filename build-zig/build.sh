@@ -1,12 +1,12 @@
 #!/bin/sh
 # zig cc cross build: compiles every translation unit listed in files.txt
 # then links a 64 bit windows executable. usage: sh build-zig/build.sh
-# requires: python3 with the ziglang wheel (pip install ziglang).
+# requires: python3 with the ziglang wheel (python3 -m pip install ziglang==0.16.0).
 set -e
 cd "$(dirname "$0")/.."
 
 ZIG="${ZIG:-python3 -m ziglang}"
-FLAGS="-target x86_64-windows-gnu -Os -DNDEBUG -DVERSION_X64 -DUNICODE -D_UNICODE -Wno-macro-redefined"
+FLAGS="-target x86_64-windows-gnu -Os -DNDEBUG -DVERSION_X64 -DUNICODE -D_UNICODE -Wno-macro-redefined -Werror=incompatible-pointer-types -Werror=visibility"
 OBJDIR="build-zig/obj"
 
 # a clean slate per build: the old shape only mkdir'd, so a deleted or
@@ -42,7 +42,7 @@ if [ "$fail" -ne 0 ]; then
 	exit 1
 fi
 
-$ZIG cc $FLAGS $OBJDIR/*.o -o build-zig/viv.exe -mwindows \
+$ZIG cc $FLAGS $OBJDIR/*.o -o build-zig/viv.exe -mwindows -Wl,--subsystem,windows \
 	-lcomctl32 -lcomdlg32 -lshlwapi -lshell32 -lgdi32 -luser32 -limm32 \
 	-ladvapi32 -lole32 -loleaut32 -luuid -lwinmm -ldwmapi -lversion
 
