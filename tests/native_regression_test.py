@@ -2,9 +2,10 @@
 """Compile and execute selected production C bodies with small OS adapters.
 
 This is a host-side regression gate, not a Windows GUI test. Bodies are read
-from the working tree on every run; no Python copy of the MRU/gesture logic
-is used. A full Windows cross-build still checks headers and integration.
-Requires a host C compiler (CC, default cc). Run from any directory.
+from the working tree on every run; no Python copy of the MRU/gesture/ini
+logic is used. A full Windows cross-build still checks headers and
+integration. Requires a host C compiler (CC, default cc). Run from any
+directory.
 """
 import argparse
 import os
@@ -93,19 +94,77 @@ def production(suite):
         if not magic:
             raise ValueError("debug allocation magic-size definition missing")
         return magic.group() + "\n", text[start:end] + function("mem.c", "mem_debug")
+    if suite == "ini":
+        ini_h = source("ini.h")
+        ini_c = source("ini.c")
+        # the two report enums, verbatim from the header
+        a_start = ini_h.rindex("enum", 0, ini_h.index("INI_ANOMALY_NONE"))
+        anomaly_enum = ini_h[a_start:ini_h.index(";", ini_h.index("INI_ANOMALY_OVERSIZED_VALUE")) + 1]
+        l_start = ini_h.rindex("enum", 0, ini_h.index("INI_LOAD_OK"))
+        load_enum = ini_h[l_start:ini_h.index(";", ini_h.index("INI_LOAD_UNREADABLE")) + 1]
+        field = re.search(r"(?m)^#define\s+_INI_MAX_FIELD\s+\d+", ini_c)
+        if not field:
+            raise ValueError("ini field-ceiling definition missing")
+        # the types and the semantic functions, verbatim from the reader
+        kv_typedef = ini_c[ini_c.index("// an ini key to load."):ini_c.index("}_ini_keyvalue_t;") + len("}_ini_keyvalue_t;")]
+        ini_typedef = ini_c[ini_c.index("// an ini file."):ini_c.index("}_ini_t;") + len("}_ini_t;")]
+        nul_brace = ini_c.rindex("{", 0, ini_c.index("DWORD nul_scan;"))
+        nul_block = block(ini_c, nul_brace)
+        walk_begin = ini_c.index("is_section = 0;")
+        walk_end = ini_c.index("}", ini_c.index("INI_ANOMALY_SECTION_MISSING;")) + 1
+        walk_region = ini_c[walk_begin:walk_end]
+        dedup_head = ini_c.index("if (count)")
+        dedup_brace = ini_c.index("{", dedup_head)
+        dedup_body = block(ini_c, dedup_brace)
+        dedup_region = ini_c[dedup_head:dedup_brace + len(dedup_body)]
+        # the walk region is ini_open's parse core: its locals and its
+        # report globals are provided by the wrapper, the way ini_open
+        # declares them before the parse. the nul scan rides with it.
+        bodies = (
+            kv_typedef + "\n" + ini_typedef + "\n"
+            + "static _ini_keyvalue_t *kv_start;\n"
+              "static _ini_keyvalue_t *kv_last;\n"
+              "static size_t count;\n"
+              "static int section_found;\n"
+              "static _ini_t *ini;\n"
+            + function("ini.c", "_ini_line_is_blank") + "\n"
+            + function("utf8.c", "utf8_skip_utf8_header") + "\n"
+            + function("utf8.c", "utf8_compare") + "\n"
+            + function("ini.c", "_ini_keyvalue_compare") + "\n"
+            + "static void the_nul_scan(utf8_t *buf, size_t size)\n{\n"
+            + nul_block + "\n}\n"
+            + "static void the_walk(utf8_t *buf, size_t size, const utf8_t *ascii_section)\n{\n"
+              "    const utf8_t *p;\n"
+              "    int is_section;\n"
+              "    kv_start = 0;\n"
+              "    kv_last = 0;\n"
+              "    count = 0;\n"
+              "    section_found = 0;\n"
+              "    _ini_last_state = INI_LOAD_OK;\n"
+              "    _ini_last_anomaly = INI_ANOMALY_NONE;\n"
+              "    the_nul_scan(buf, size);\n"
+            + walk_region + "\n"
+              "}\n"
+              "static _ini_t *the_result(void)\n{\n"
+              "    ini = 0;\n"
+            + dedup_region + "\n"
+              "    return ini;\n"
+              "}\n"
+        )
+        return "\n".join([anomaly_enum, load_enum, field.group()]) + "\n", bodies
     raise ValueError(suite)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("suites", nargs="*", choices=["mru", "gesture", "memory"])
+    parser.add_argument("suites", nargs="*", choices=["mru", "gesture", "memory", "ini"])
     parser.add_argument("--sanitize", action="store_true", help="enable undefined-behavior sanitizer")
     parser.add_argument("--mru-case", choices=["rename", "load"], help="run one MRU scenario group")
     parser.add_argument("--gesture-case", choices=["policy", "zoom", "zero", "begin", "touch", "wheel", "bounds"], help="run one input scenario group")
     args = parser.parse_args()
     failed = 0
     with tempfile.TemporaryDirectory(prefix="viv-native-") as directory:
-        for suite in args.suites or ["mru", "gesture", "memory"]:
+        for suite in args.suites or ["mru", "gesture", "memory", "ini"]:
             prefix, bodies = production(suite)
             template = (ROOT / "tests" / "native" / f"{suite}.c").read_text()
             code = prefix + template.replace("/* PRODUCTION */", bodies)
@@ -117,7 +176,7 @@ def main():
                 command += ["-fsanitize=undefined", "-fno-sanitize-recover=all"]
             result = subprocess.run(command + [str(path), "-o", str(exe)])
             if result.returncode == 0:
-                selected = args.mru_case if suite == "mru" else args.gesture_case if suite == "gesture" else None
+                selected = args.mru_case if suite == "mru" else args.gesture_case if suite == "gesture" else None  # ini has no case selector
                 case = [selected] if selected else []
                 result = subprocess.run([str(exe)] + case)
             print(f"{suite}: {'PASS' if result.returncode == 0 else 'FAIL'}", flush=True)

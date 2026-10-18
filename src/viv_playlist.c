@@ -409,6 +409,15 @@ int _viv_file_attributes(const wchar_t *full_path_and_filename,WIN32_FIND_DATA *
 {
 	wchar_t path_wbuf[STRING_SIZE];
 	
+	// the caller's buffer is stack memory and the api fills only the
+	// attribute block of the find-data layout, so every field past it
+	// answers whatever the stack held. the name fill below covers the
+	// one field every consumer reads; this zeroing covers the rest of
+	// the layout, so the garbage class stays dead even if a future
+	// round retires that fill (the rc.1 regression read the whitelist's
+	// extension out of exactly that garbage).
+	os_zero_memory(fd,sizeof(WIN32_FIND_DATA));
+
 	if (!os_GetFileAttributesExW)
 	{
 		return 0;
@@ -752,7 +761,13 @@ _viv_playlist_t *_viv_playlist_add(const WIN32_FIND_DATA *fd)
 // playlist entry cannot represent it and used to be copied in clipped
 // - a playlist entry pointing at a name that does not exist. the
 // caller owns the tally (report may be 0).
-_viv_open_outcome_t _viv_playlist_add_fd(const wchar_t *full_path_and_filename,WIN32_FIND_DATA *fd,_viv_open_skip_report_t *report)
+// the first parameter is a directory: the entry's name is built as
+// directory\cFileName. the walk callers pass the folder they are
+// enumerating and the add-by-name caller passes the file's parent
+// with its trailing separator kept - the documented combine
+// maintains a trailing backslash, so the separator form is the
+// deterministic join.
+_viv_open_outcome_t _viv_playlist_add_fd(const wchar_t *directory,WIN32_FIND_DATA *fd,_viv_open_skip_report_t *report)
 {
 	WIN32_FIND_DATA entry_fd;
 	wchar_t path_wbuf[STRING_SIZE];
@@ -764,7 +779,7 @@ _viv_open_outcome_t _viv_playlist_add_fd(const wchar_t *full_path_and_filename,W
 		return VIV_OPEN_SKIPPED_BAD_EXTENSION;
 	}
 	
-	if (!string_path_combine(path_wbuf,full_path_and_filename,fd->cFileName))
+	if (!string_path_combine(path_wbuf,directory,fd->cFileName))
 	{
 		return VIV_OPEN_SKIPPED_TOO_LONG;
 	}
@@ -910,6 +925,7 @@ _viv_open_outcome_t _viv_playlist_add_filename_report(const wchar_t *filename,_v
 {
 	WIN32_FIND_DATA fd;
 	wchar_t full_path_and_filename[STRING_SIZE];
+	wchar_t directory_wbuf[STRING_SIZE];
 	wchar_t cwd[STRING_SIZE];
 	_viv_open_outcome_t outcome;
 
@@ -945,7 +961,34 @@ _viv_open_outcome_t _viv_playlist_add_filename_report(const wchar_t *filename,_v
 		return outcome;
 	}
 	
-	outcome = _viv_playlist_add_fd(full_path_and_filename,&fd,report);
+	// the entry rides its parent directory: add_fd's first parameter
+	// is a directory the entry name is joined onto, and this file's
+	// own full path used to sit in that seat, so a file added by name
+	// queued a playlist row at ...\\a.png\\a.png (the rc.1 field report's
+	// File, Add File ask). the parent keeps its trailing separator -
+	// string_get_path_part drops it, and the documented combine
+	// maintains a trailing backslash, so the separator form is the
+	// deterministic join.
+	{
+		const wchar_t *filename_part;
+		int dir_len;
+
+		filename_part = string_get_filename_part(full_path_and_filename);
+
+		dir_len = (int)(filename_part - full_path_and_filename);
+
+		if ((dir_len <= 0) || (dir_len >= STRING_SIZE))
+		{
+			_viv_open_report_skip(report,filename,VIV_OPEN_SKIPPED_TOO_LONG);
+
+			return VIV_OPEN_SKIPPED_TOO_LONG;
+		}
+
+		os_copy_memory(directory_wbuf,full_path_and_filename,(size_t)dir_len * sizeof(wchar_t));
+		directory_wbuf[dir_len] = 0;
+	}
+
+	outcome = _viv_playlist_add_fd(directory_wbuf,&fd,report);
 	
 	if (outcome != VIV_OPEN_OPENED)
 	{

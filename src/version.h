@@ -10,4 +10,4 @@
 // compare against the string, so the type field carries no second identity.
 #define VERSION_TYPE ""
 
-#define VERSION_STRING "1.1.17-rc.1"
+#define VERSION_STRING "1.1.17-rc.2"

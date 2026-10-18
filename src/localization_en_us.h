@@ -391,4 +391,9 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Pick a command, then click Add or Edit to record its shortcut", // LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_IDLE
 	"Press the key combination (Enter to confirm, Esc to cancel)", // LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_PRESS
 	"%S (Enter to confirm, Esc to cancel)", // LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_CONFIRM
+	"Settings file problem", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_CAPTION
+	"Keep", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_KEEP
+	"Restore backup", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_RESTORE
+	"The settings file\n\n%S\n\ncould not be read cleanly, so this session ran on the built-in defaults. A copy of the original has been kept as\n\n%S\n\n"
+	"Choose Restore backup to bring back the last settings that loaded cleanly, Keep to save the defaults this session ran on, or Cancel to leave the file untouched.", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE
 };

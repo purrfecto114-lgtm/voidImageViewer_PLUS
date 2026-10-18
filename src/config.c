@@ -768,31 +768,26 @@ static void _config_lanesafe_auditbak_write(const wchar_t *filename)
 // CANCEL, RESTORE BACKUP, KEEP - and CANCEL is the accent and the default
 // focus, because it is the only one of the three that loses nothing.
 //
-// the faces are plain literals rather than localization ids for the same
-// reason lane-A's status-bar skip line is: the localization tail is
-// pinned by name by the guard suite (menu_structure_test.py checks the
-// last 91 ids), and that suite is not this change's to rewrite. the
-// cancel face is the one string the table already owns, so the ask
-// speaks the same word as every other box in either language. moving the
-// other two into the tables is a mechanical follow-up whenever the tail
-// is next extended.
+// the faces and the caption read the localization tables (rc.2 moved
+// them off the plain literals the rc.1 round shipped: that round left
+// them outside because the tables' tail was pinned by name and the
+// pin was not that round's to rewrite; the tail is extended now, so
+// the ask speaks the same word as every other box in either tongue -
+// the keep and restore faces and the caption joined the cancel face's
+// table seat, and the message body rides with them).
 #define _CONFIG_CORRUPT_KEEP			IDOK
 #define _CONFIG_CORRUPT_RESTORE		IDYES
 #define _CONFIG_CORRUPT_CANCEL		IDCANCEL
 
-// the caption and the three faces are wide (they go straight to the box);
-// the message is a narrow literal because string_printf's format is the
-// utf-8 form, and the text is plain ascii either way.
-static const wchar_t *_CONFIG_CORRUPT_CAPTION = L"Settings file problem";
-static const char *_CONFIG_CORRUPT_KEEP_FACE = "Keep";
-static const char *_CONFIG_CORRUPT_RESTORE_FACE = "Restore backup";
-
+// every face and the caption speak the localization tables now (the
+// rc.1 round shipped them as plain literals because this tail was
+// pinned by name; the tail is extended this round, so the ask reads
+// its words in either tongue). the message stays a utf-8 format
+// string because string_printf's format is the utf-8 form.
+//
 // two %S: the settings file, and the preserved copy of it. the second
 // one is empty when the copy itself was refused, and an empty %S names
 // nothing at all - better than a line that ends in a bare "%S".
-static const char *_CONFIG_CORRUPT_MESSAGE =
-	"The settings file\n\n%S\n\ncould not be read cleanly, so this session ran on the built-in defaults. A copy of the original has been kept as\n\n%S\n\n"
-	"Choose Restore backup to bring back the last settings that loaded cleanly, Keep to save the defaults this session ran on, or Cancel to leave the file untouched.";
 
 // the three-button ask.
 static int _config_lanesafe_corrupt_reply(HWND parent)
@@ -820,19 +815,19 @@ static int _config_lanesafe_corrupt_reply(HWND parent)
 		}
 	}
 
-	string_copy(caption_wbuf,_CONFIG_CORRUPT_CAPTION);
+	string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_CAPTION));
 
 	if (corrupt_wbuf[0])
 	{
-		string_printf(message_wbuf,_CONFIG_CORRUPT_MESSAGE,config_lanesafe_loaded_ini,corrupt_wbuf);
+		string_printf(message_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE),config_lanesafe_loaded_ini,corrupt_wbuf);
 	}
 	else
 	{
-		string_printf(message_wbuf,_CONFIG_CORRUPT_MESSAGE,config_lanesafe_loaded_ini,L"");
+		string_printf(message_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE),config_lanesafe_loaded_ini,L"");
 	}
 
-	string_copy_utf8_string(keep_wbuf,(const utf8_t *)_CONFIG_CORRUPT_KEEP_FACE);
-	string_copy_utf8_string(restore_wbuf,(const utf8_t *)_CONFIG_CORRUPT_RESTORE_FACE);
+	string_copy_utf8_string(keep_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_KEEP));
+	string_copy_utf8_string(restore_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_RESTORE));
 	string_copy_utf8_string(cancel_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_CANCEL));
 
 	labels[0] = keep_wbuf;

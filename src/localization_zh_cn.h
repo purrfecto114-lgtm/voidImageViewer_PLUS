@@ -365,4 +365,9 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"先选择命令，再点击「添加」或「编辑」录入快捷键", // LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_IDLE
 	"请按下快捷键组合（Enter 确认，Esc 取消）", // LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_PRESS
 	"%S（Enter 确认，Esc 取消）", // LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_CONFIRM
+	"设置文件问题", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_CAPTION
+	"保留", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_KEEP
+	"恢复备份", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_RESTORE
+	"设置文件\n\n%S\n\n未能完整读取，本次会话以内置默认设置运行。原文件的副本已保存为\n\n%S\n\n"
+	"选择“恢复备份”找回上次完整加载的设置，选择“保留”保存本次会话使用的默认设置，选择“取消”则不改动文件。", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE
 };

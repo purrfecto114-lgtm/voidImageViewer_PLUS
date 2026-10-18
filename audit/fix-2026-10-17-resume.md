@@ -266,3 +266,49 @@ settings page hands the commit. The confirm text says so.
    snapshot.
 7. Whether to extend the pinned localisation tail so LANE-B's strings (§5a) stop being
    English-only for `zh_cn`.
+---
+
+## the rc.2 follow-up (2026-10-18) - the field report's three answers
+
+the rc.1 lanes left three questions this record now closes with
+measurements:
+
+1. **the false corruption ask (the field report's A).** the rc.1 walk
+   shipped its "buffer terminator" malformed-line check inside the
+   character loop: after the first `p++` of any well-formed key line the
+   span `key_start..p` is one non-blank character, `_ini_line_is_blank`
+   answers 0, and `INI_ANOMALY_MALFORMED_LINE` is set - so every settings
+   file with a key line under the section answered parse-anomaly, and
+   the exit gate asked on every exit (the 1.1.16 upgrade met it on the
+   first close). the check now sits after the loop where its comment
+   always said it sat, and the two line-end branches restart the walk at
+   the next line, so a malformed line costs one line, not two (the
+   folding that keyed blank-line and lf-only files as `\r\n`-prefixed
+   strangers is gone with it). found host-side by extracting the walk
+   verbatim from `src/ini.c` into a harness (the same shape the native
+   regression gate now pins: `tests/native/ini.c` reads the production
+   walk, the nul scan and the dedup, and bites on fdb1300); the lab's
+   legacy 4106-byte original reads clean at 171 keys, and the only
+   surviving flag in the corpus is the genuinely malformed line.
+2. **the add-by-name seat (the field report's File, Add File).**
+   `_viv_playlist_add_filename_report` passed the file's own full path
+   in `_viv_playlist_add_fd`'s directory seat, so the row was queued at
+   `...\a.png\a.png`. the parent directory rides the seat now with its
+   trailing separator kept; the handoff feared a bare drive name would
+   answer the combine drive-relative paths, and the documented contract
+   says the combine inserts the backslash itself ("C:" +
+   "One\Two\Three" becomes "C:\One\Two\Three") and maintains a
+   trailing one - the separator form is dominant under both readings, so
+   it is the form the code keeps. `_viv_file_attributes` zeroes the
+   whole find-data layout at entry beside the existing name fill (the
+   GetFileAttributesEx layout root cause this record's lane carried,
+   held dead for good).
+3. **the uninstall residue (the field report's B).** the sweep only knew
+   the temps; the `.corrupt.<stamp>` family and the `.auditbak` now ride
+   the ask's delete answer at both homes, so a cleanup uninstall stops
+   leaving them holding the settings home for `RemoveDirectory` to
+   refuse.
+
+the open items this record's tail left the lead: #6's growth window was
+recalibrated by the p0 round and rides again at 37026/37500, and #7's
+localization tail carries the ask's four ids (en + zh) - both closed.

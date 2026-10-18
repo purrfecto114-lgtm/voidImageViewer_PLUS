@@ -296,3 +296,25 @@ as the platform convention, not as current Fluent guidance.
   8. On Windows 10 1607+ an alternative exists (manifest `longPathAware` + `LongPathsEnabled`
      registry), but that requires an admin-level registry change and does nothing for XP/Win7
      users, so the `\\?\` route is the correct one for this project's support matrix.
+---
+
+## rc.2 addendum (2026-10-18) - two contracts the round leaned on
+
+- **PathCombineW**
+  (https://learn.microsoft.com/en-us/windows/win32/api/shlwapi/nf-shlwapi-pathcombinea):
+  the remarks spell the directory form - "The directory path should be
+  in the form of A:,B:, ..., Z:. ... If the directory path ends with a
+  backslash, the backslash will be maintained." - and the page's own
+  example joins "C:" + "One\Two\Three" into "C:\One\Two\Three". the
+  handoff feared a bare drive name would answer drive-relative paths;
+  the documented contract inserts the backslash itself. the code keeps
+  the parent's trailing separator (dominant under both readings), and
+  the comments cite the documented form.
+- **GetFileAttributesExW**
+  (https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfileattributesexw):
+  with GetFileExInfoStandard the buffer is a WIN32_FILE_ATTRIBUTE_DATA -
+  the attribute block only. the caller's WIN32_FIND_DATA layout is a
+  superset; everything past the attribute block is whatever the stack
+  held (the rc.1 regression's root cause). the name fill covers the one
+  field every consumer reads, and rc.2's entry zeroing holds the whole
+  layout dead regardless.

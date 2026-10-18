@@ -29,22 +29,30 @@ Upgrade & uninstall notes
 
 - This round tightens the settings-file integrity checks, so the **first launch after an upgrade may show a "Settings file problem" dialog**: the session then runs on the built-in defaults, and the original settings file is kept as a `.corrupt.date-time` copy in the same folder. **Your settings are not lost.**
 - The dialog's three buttons: **Cancel** = leave everything untouched (you will be asked again next launch); **Restore backup** = write back the last settings that loaded cleanly; **Keep** = save the defaults this session ran on.
-- Known regression: settings written by an older release can be misjudged by the stricter reader (an RC issue we will fix in the next round). Until then, choosing **Cancel** keeps your original file untouched — the dialog may reappear on every launch until the fix ships.
+- Fixed in rc.2: settings written by an older release could be misjudged by the stricter reader (the rc.1 regression). rc.2 reads files written by every writer of this line cleanly, so the dialog now appears only for genuinely damaged files.
 - The dialog and its backup copy only touch the settings folder (`%APPDATA%\voidImageViewer`); images are never affected.
 
 **Uninstall residue:**
 
-- Even when you answer "delete settings" during uninstall, the `%APPDATA%\voidImageViewer` folder (Roaming) can remain: the `.corrupt.` backup copies the upgrade dialog leaves behind are not on the uninstall sweep list yet (known issue, fixed next round). Deleting that folder by hand is safe.
+- Fixed in rc.2: a cleanup uninstall now takes the `.corrupt.` backup copies and the `.auditbak` with the delete answer, so `%APPDATA%\voidImageViewer` goes when you ask it to (they used to hold the folder — `RemoveDirectory` cannot take one that is not empty).
 - Per-user installs live in `%LOCALAPPDATA%\Programs\voidImageViewer`; if an upgrade moved the install to another path, the old folder may linger holding the previous version's files — safe to delete once nothing runs from it.
 - The uninstall's cleanup of file associations, shortcuts and registry entries is not affected by either of the above.
 
 **Picking the right package:**
 
 - The Setup program itself runs on any architecture, but **only the viewer that matches your device's architecture starts**: Intel/AMD 64-bit → x64, 32-bit Windows → x86, Snapdragon/ARM devices → arm64.
-- Known issue: an admin install may show warnings or the elevation prompt may fail (fixes ship with the next round). If elevation fails, use the zip from the same release instead.
+- Standing note: an admin install may show warnings or the elevation prompt may fail. If elevation fails, use the zip from the same release instead.
 
 What's new
 --------
+
+**1.1.17-rc.2 — the corrupted-settings round (pre-release):**
+
+- The rc.1 reader asked about settings files it should have read cleanly: the malformed-line check sat inside the character loop, so any file with a key line under the section was reported as a parse anomaly and met the ask on every exit. The check now sits after the walk; files written by every writer of this line read clean again, and genuinely damaged lines still report — and cost one line, not two, so the keys that follow parse as themselves.
+- The ask speaks your language: its caption, its keep and restore faces and its message body moved into the localization tables (English and Simplified Chinese).
+- File, Add File rides its parent directory — the rc.1 call queued playlist rows at `...\a.png\a.png`; the row now points at the file you picked. The attributes helper zeroes the whole find-data layout at entry, holding the stack-garbage class dead for good.
+- A cleanup uninstall now takes the preserved copies with the delete answer (see the residue notes above).
+- Full narrative: `Changes.txt`.
 
 **1.1.17-rc.1 — the p0 fix round (pre-release):**
 

@@ -82,8 +82,12 @@ int _viv_file_attributes(const wchar_t *full_path_and_filename,WIN32_FIND_DATA *
 _viv_open_outcome_t _viv_open_outcome_from_last_error(void);
 // one entry of a walk: the whitelist decision, the full path and the
 // MAX_PATH cFileName limit, in one place every walk answers through.
+// the first parameter is a directory - the entry's name is built as
+// directory\cFileName, and the trailing separator stays in the seat
+// (the documented combine maintains a trailing backslash; a directory
+// spelled bare leaves the join to the combine's own insertion).
 // report may be 0 - the caller owns the tally.
-_viv_open_outcome_t _viv_playlist_add_fd(const wchar_t *full_path_and_filename,WIN32_FIND_DATA *fd,_viv_open_skip_report_t *report);
+_viv_open_outcome_t _viv_playlist_add_fd(const wchar_t *directory,WIN32_FIND_DATA *fd,_viv_open_skip_report_t *report);
 const char *_viv_get_copydata_string(const char *p,const char *e,wchar_t *buf,int bufsize);
 void _viv_playlist_add_current_if_empty(void);
 void _viv_playlist_clearall(void);

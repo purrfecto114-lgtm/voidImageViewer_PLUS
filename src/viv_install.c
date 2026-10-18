@@ -44,6 +44,7 @@ static int _viv_is_voidimageviewer_process(DWORD process_id);
 static void _viv_close_existing_process(void);
 static void _viv_uninstall_delete_file(const wchar_t *path,const utf8_t *filename);
 static void _viv_uninstall_sweep_config_temps(const wchar_t *path);
+static void _viv_uninstall_sweep_config_copies(const wchar_t *path);
 int _viv_is_start_menu_shortcuts(void);
 static void _viv_install_start_menu_shortcuts(void);
 static void _viv_uninstall_start_menu_shortcuts(void);
@@ -607,6 +608,11 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 			if (delete_settings)
 			{
 				_viv_uninstall_delete_file(path,(const utf8_t *)"voidImageViewer.ini");
+
+				// the preserved copies and the last-known-good backup
+				// ride the same answer: they are settings, not garbage,
+				// and a kept answer keeps them with the ini.
+				_viv_uninstall_sweep_config_copies(path);
 			}
 
 			_viv_uninstall_sweep_config_temps(path);
@@ -650,6 +656,10 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 			if ((delete_settings) || (is_pointer_ini))
 			{
 				_viv_uninstall_delete_file(uninstall_path,(const utf8_t *)"voidImageViewer.ini");
+
+				// a stale settings home in the install dir (an appdata=0
+				// era, or a pointer dir) carries the same family.
+				_viv_uninstall_sweep_config_copies(uninstall_path);
 			}
 		}
 
@@ -1928,6 +1938,50 @@ static void _viv_uninstall_sweep_config_temps(const wchar_t *path)
 
 		FindClose(find_handle);
 	}
+}
+// the preserved copies the lanesafe gate can leave beside the
+// settings (the .corrupt.<stamp> the exit gate takes before its ask,
+// and the .auditbak the load refreshes as the last known good): the
+// rc.1 round added them beside the ini, and the uninstall's sweep
+// only knew the temps, so a cleanup uninstall left them holding the
+// settings home - removedirectory cannot take a folder that is not
+// empty (the field report's residue). they are settings, not
+// garbage: the ask's delete answer is what sends this sweep, so a
+// kept answer keeps them with the ini.
+static void _viv_uninstall_sweep_config_copies(const wchar_t *path)
+{
+	wchar_t pattern[STRING_SIZE];
+	wchar_t full_path[STRING_SIZE];
+	WIN32_FIND_DATAW find_data;
+	HANDLE find_handle;
+
+	string_path_combine_utf8(pattern,path,(const utf8_t *)"voidImageViewer.ini.corrupt.*");
+
+	find_handle = FindFirstFileW(pattern,&find_data);
+
+	if (find_handle != INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			// only the file shape - a directory named like a preserved
+			// copy is not ours to take.
+			if (!(find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+			{
+				string_path_combine(full_path,path,find_data.cFileName);
+
+				if (!DeleteFile(full_path))
+				{
+					debug_printf("DeleteFile corrupt copy %S failed %u\n",full_path,GetLastError());
+				}
+			}
+		}
+		while(FindNextFileW(find_handle,&find_data));
+
+		FindClose(find_handle);
+	}
+
+	// the last-known-good backup is one fixed name, not a family.
+	_viv_uninstall_delete_file(path,(const utf8_t *)"voidImageViewer.ini.auditbak");
 }
 int _viv_is_start_menu_shortcuts(void)
 {

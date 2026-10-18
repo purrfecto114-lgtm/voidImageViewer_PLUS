@@ -1,4 +1,52 @@
-﻿Pre-release: Version 1.1.17-rc.1 (the p0 fix round)
+﻿Pre-release: Version 1.1.17-rc.2 (the corrupted-settings round)
+
+	the false corruption ask is gone. the rc.1 reader's anomaly
+	walk ran its "buffer terminator" malformed-line check inside
+	the character loop, so after the first character of any
+	well-formed key line the span answered as one non-blank
+	character and the file was reported malformed: every settings
+	file with a key line under the section - every file every
+	writer of this line has ever written - tripped the exit
+	gate's ask on every exit, and the upgrade from 1.1.16 met it
+	on the first close (the rc.1 field report). the check now
+	sits after the walk where its comment always said it sat, and
+	the two line-end branches restart the walk at the next line,
+	so a malformed line costs one line, not two: the blank line
+	before a key, the bare-lf blank between crlf blanks, the
+	lf-only file and the double-lf file all read clean now, and
+	their keys parse as themselves, not as \r\n-prefixed
+	strangers the lookups silently missed. the ask itself speaks
+	both tongues: its caption, its keep and restore faces and its
+	message body joined the cancel face's table seats (english
+	and simplified chinese). the add-by-name entry rides its
+	parent directory - add_fd's first parameter is a directory
+	the entry name is joined onto, and the file's own full path
+	used to sit in that seat, so file, add file queued a playlist
+	row at ...\a.png\a.png; the parent keeps its trailing
+	separator, because a bare drive name would answer the combine
+	drive-relative paths. the attributes helper zeroes the whole
+	find-data layout at entry - the rc.1 regression read the
+	whitelist's extension out of the stack garbage the api leaves
+	past the attribute block, and the zero holds that class dead
+	even if the name fill were ever retired. the uninstall sweep
+	learns the preserved copies: the .corrupt.<stamp> family the
+	exit gate takes and the .auditbak the load refreshes now go
+	with the ask's delete answer (they are settings, not
+	garbage), so a cleanup uninstall stops leaving them holding
+	the settings home for removedirectory to refuse. the nsis
+	corners stand as documented: the per-user probe's
+	%LOCALAPPDATA%\Programs fallback is the designed default for
+	a standard user, and the arm64 installer warns on a
+	non-arm64 machine while its x86 shell still installs - only
+	the matching architecture launches, and the zip from the same
+	release is the answer when the arch does not match. the guard
+	suites grew with the round: the ini reader walk rides the
+	native regression gate host-side (the legacy shapes read
+	clean, the hostile ones still report), the localization tail
+	carries the ask's four ids, and the growth window rides the
+	measured splice.
+
+Pre-release: Version 1.1.17-rc.1 (the p0 fix round)
 
 	the p0 silent failures stop being silent. a drop, a
 	folder browse or a command line that skips files now

@@ -455,6 +455,15 @@ enum
 	LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_IDLE,
 	LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_PRESS,
 	LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_CONFIRM,
+
+	// rc.2: the corrupted-settings ask at the exit moves from its
+	// rc.1 plain literals into the tables - the caption, the keep
+	// and restore faces (the cancel face already owned a seat) and
+	// the message body. the ask speaks both tongues now.
+	LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_CAPTION,
+	LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_KEEP,
+	LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_RESTORE,
+	LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE,
 	LOCALIZATION_ID_COUNT,
 };
 

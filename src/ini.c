@@ -351,6 +351,11 @@ next_line:
 									}
 
 									p++;
+
+									// the line is over: restart at the next line, so the walk
+									// cannot fold the line that follows into this key's span
+									// (a malformed line costs one line, not two).
+									goto next_line;
 								}
 
 								if ((*p == '\r') && (p[1] == '\n'))
@@ -362,6 +367,9 @@ next_line:
 									}
 
 									p+=2;
+
+									// the same restart on a crlf line.
+									goto next_line;
 								}	
 							
 								if (*p == '=')
@@ -441,13 +449,19 @@ next_line:
 								}
 								
 								p++;
+							}
 
 							// the scan only leaves here on the buffer terminator: a
-							// last line with no '=' is as malformed as any other.
+							// last line with no '=' is as malformed as any other. the
+							// check belongs after the loop, not inside it: inside, it
+							// ran after every character step, and the first character
+							// of a well-formed key line is a one-character non-blank
+							// span - the shape that read every settings file ever
+							// written as malformed and asked about it on every exit
+							// (the rc.1 field report).
 							if (!_ini_line_is_blank(key_start,(int)(p - key_start)))
 							{
 								_ini_last_anomaly |= INI_ANOMALY_MALFORMED_LINE;
-							}
 							}
 						}
 						
