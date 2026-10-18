@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.17.114",
-          (major, minor, rev, build) == (1, 1, 17, 114), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.17-rc.2",
-          vstr is not None and vstr.group(1) == "1.1.17-rc.2", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.17.115",
+          (major, minor, rev, build) == (1, 1, 17, 115), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.17",
+          vstr is not None and vstr.group(1) == "1.1.17", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -705,8 +705,8 @@ def t_sim_version_117():
     check("the changelog carries the crlf line discipline",
           "\r\n" in CHANGES)
     readme = read("README.md").decode("utf-8", errors="replace")
-    check("the readme previous-stable line says 1.1.15",
-          "**1.1.15 — the previous stable**" in readme)
+    check("the readme previous-stable line says 1.1.16",
+          "**1.1.16 — the previous stable**" in readme)
     check("the 1.1.16 diet retired the readme ladder (the ledger keeps the arc)",
           "**1.1.15-rc.14 —" not in readme and
           "**1.1.15-rc.7 —" not in readme and

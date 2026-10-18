@@ -1,4 +1,53 @@
-﻿Pre-release: Version 1.1.17-rc.2 (the corrupted-settings round)
+﻿Stable: Version 1.1.17 (the corrupted-settings round)
+
+        the arc takes its stable. the p0 round made the
+        openings honest first: every path that opens a
+        file answers one whitelist and names what it
+        refuses - the command line, the drop, the folder
+        walk and file->open agree on what is openable,
+        the skipped are named with their reasons on the
+        status line, and the reader defect that shipped
+        with that round was caught by the smoke gate
+        before it could publish. the corruption gate
+        arrived with it: a settings file that no longer
+        reads cleanly is kept as a .corrupt copy, the
+        session runs on built-in defaults, and the exit
+        asks before anything writes (cancel / restore
+        backup / keep - cancel still exits without
+        destroying the file).
+
+        the corrupted-settings round then fixed the
+        gate's own false ask. the walk ran its "buffer
+        terminator" malformed-line check inside the
+        character loop, so every settings file with a
+        key line under the section answered parse-anomaly
+        and the exit gate asked on every exit - the
+        1.1.16 upgrade met it on the first close. the
+        check now sits after the walk, the two line-end
+        branches restart at the next line, files written
+        by every writer of this line read clean again,
+        and genuinely damaged lines still report and
+        cost one line, not two. the ask itself speaks
+        both tongues, the add-by-name entry rides its
+        parent directory (the documented combine answers
+        the join with its own backslash), the attributes
+        helper zeroes the whole find-data layout at
+        entry, and the uninstall sweep takes the
+        preserved copies with the delete answer so a
+        cleanup uninstall stops leaving them holding the
+        settings home.
+
+        the guards grew with the arc: the ini reader
+        walk rides the native regression gate host-side
+        and bites on the tree before the fix, the
+        mutation teeth table carries the walk's own
+        tooth, and the release path's tests job rides
+        the native suite and a whitespace check over
+        the tag's own range. the promotion rides the
+        contributing rule's build bump - 115 answers
+        underneath the stable.
+
+Pre-release: Version 1.1.17-rc.2 (the corrupted-settings round)
 
 	the false corruption ask is gone. the rc.1 reader's anomaly
 	walk ran its "buffer terminator" malformed-line check inside

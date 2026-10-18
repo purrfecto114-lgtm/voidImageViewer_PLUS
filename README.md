@@ -25,7 +25,7 @@ answers the workflow run and commit each file was built from (signing would stil
 Upgrade & uninstall notes
 --------
 
-**Upgrading from 1.1.16 or earlier to 1.1.17-rc.x:**
+**Upgrading from 1.1.16 or earlier to 1.1.17:**
 
 - This round tightens the settings-file integrity checks, so the **first launch after an upgrade may show a "Settings file problem" dialog - with rc.2 only for a genuinely damaged file** (see the rc.2 fix below): the session then runs on the built-in defaults, and the original settings file is kept as a `.corrupt.date-time` copy in the same folder. **Your settings are not lost.**
 - The dialog's three buttons: **Cancel** = leave everything untouched (you will be asked again next launch); **Restore backup** = write back the last settings that loaded cleanly; **Keep** = save the defaults this session ran on.
@@ -46,30 +46,23 @@ Upgrade & uninstall notes
 What's new
 --------
 
-**1.1.17-rc.2 — the corrupted-settings round (pre-release):**
+**1.1.17 — the corrupted-settings round (the current stable):**
 
-- The rc.1 reader asked about settings files it should have read cleanly: the malformed-line check sat inside the character loop, so any file with a key line under the section was reported as a parse anomaly and met the ask on every exit. The check now sits after the walk; files written by every writer of this line read clean again, and genuinely damaged lines still report — and cost one line, not two, so the keys that follow parse as themselves.
+- The two-round arc takes its stable. The p0 round made every open path answer one whitelist and name its refusals: the command line, drag-drop, folder walks and file->open agree on what is openable, what is not is named with its reason on the status line, and a release-blocking reader defect that shipped with that round was caught by the smoke gate before publishing.
+
+- The settings file gained a corruption gate: a file that no longer reads cleanly is kept as a `.corrupt.` copy, the session runs on built-in defaults, and the exit asks before writing anything (Cancel / Restore backup / Keep). The rc.2 round fixed the gate's own false ask — the malformed-line check sat inside the character loop and read every settings file ever written as damaged; files written by every writer of this line now read clean, and genuinely damaged lines still report.
+
 - The ask speaks your language: its caption, its keep and restore faces and its message body moved into the localization tables (English and Simplified Chinese).
-- File, Add File rides its parent directory — the rc.1 call queued playlist rows at `...\a.png\a.png`; the row now points at the file you picked. The attributes helper zeroes the whole find-data layout at entry, holding the stack-garbage class dead for good.
-- A cleanup uninstall now takes the preserved copies with the delete answer (see the residue notes above).
-- Full narrative: `Changes.txt`.
 
-**1.1.17-rc.1 — the p0 fix round (pre-release):**
+- File, Add File rides its parent directory — the rc.1 call queued playlist rows at `...\a.png\a.png`; the row now points at the file you picked. The attributes helper zeroes the whole find-data layout at entry, holding the stack-garbage class dead for good.
+
+- A cleanup uninstall now takes the preserved copies (`.corrupt.`, `.auditbak`) with the delete answer, and the guard suites grew with the arc: the ini reader walk rides the native regression gate host-side. Full narrative: `Changes.txt`.
 
 - Open-from-anywhere now answers one whitelist with one named refusal: the command line, drag-drop, folder walks and file->open agree on what is openable, and what is not is named on the status line instead of vanishing. A release-blocking reader defect shipped with this reading was caught by the smoke gate and fixed before publishing.
 - The settings file gains a corruption gate: a file that no longer reads cleanly is kept as a `.corrupt.` copy, the session runs on defaults, and the exit asks before writing anything (Cancel / Restore backup / Keep). Upgrade friction from that gate is documented above.
 - The slideshow rate clamp, the installer's settings-write honesty, the strict safety sums and the eleven memory/consistency fixes from the audit response round all ride here. Full narrative: `Changes.txt`.
 
-**1.1.16 — the field response round IV (the current stable):**
-
-- The stable was rebuilt at build 113. The settings page answers at every size — the content rows scroll under the pinned footer and their hit rects clip to the same viewport band the paint clips to (the invisible rows used to eat the Apply/Cancel/OK clicks and silently toggle checkboxes through the registry); the scroll rests on the row lattice so no row paints half-cut at the title band, the scrollbar rides a 12-dip strip the resize band no longer shadows with a thumb you can see, and a track press pages toward the click the way Windows does.
-- The formats you select, associate — the takeover guard misspelled the jpg family's stock owner (`jpgfile`; Windows ships `jpegfile`), so every stock machine read as a foreign viewer and the checkbox silently bounced back; the table is corrected, and every explicit selection (a single click, select-all, the installer's wizard checkboxes) now takes the extension over directly, previous owner or not. The UserChoice lock wears a padlock with a two-line caption under the grid; the locked boxes spell the extension in full and deep-link to the viewer's own row in Windows' default-apps page.
-- The uninstall leaves nothing behind — failed-save temps are swept from both homes, empty OpenWithProgids keys go when truly empty, a UserChoice naming our own removed ProgID goes with it, the extension's own key goes when bare or a redundant shadow of what HKLM already answers, the FileExts parents and the RegisteredApplications key take the same bare-key rule, and a legacy autolaunch value retires too. Your settings get the question Windows apps owe — keep them for a future install or delete them now; keep is the default, and a silent uninstall carries the keep word.
-- The installed footprint drops a quarter megabyte — `Changes.txt` stays in the repository and the release notes (an upgrade still cleans the copy an older setup laid down), and the Apps list shows the measured size.
-- Hardware acceleration answers the machine's own answer — a capability probe gates the settings switch (greyed with an unavailable face where Direct3D cannot come up), the menu radios, and the installer's checkbox; the runtime GDI fallback stays as the safety net. The shortcut page explains itself — a persistent instruction row (idle flow, live capture states), buttons that answer the selection, an empty keys list that starts the add capture, and the page opening with the command's first binding shown.
-- The zoom readout shows clean numbers — a rapid click chain lands on scale pairs the geometric ladder cannot hit exactly (121, 131, 219 in the measured chains); the shown number rounds to the nearest multiple of ten within two points, never below 20%, and the render position itself never moves.
-
-**1.1.15 — the previous stable** — the cache-set ceiling, the honest faces (both Open With homes, the UserChoice ask), every frame delivered (multi-frame HEIF/AVIF sequences), the frame counter that counts either way, the cache ring and preload chain you size, and the narrow-window toolbar paging. Full narrative: `Changes.txt`.
+**1.1.16 — the previous stable** — the arm64 platform joins the release (a native aarch64 build, installer and portable zip), the performance round's five wins and a courtesy, the settings page answering at every size, the jpg family's takeover guard corrected, and the uninstall that leaves nothing behind. Full narrative: `Changes.txt`.
 
 **The 1.1.16 arc — twelve release candidates:** the fourth fusion response (the zombie class tree falls), the fifth report's judgment, the parallel sweep, the field feedback round (the poison probe retires, the Windows registration, the hardware-acceleration offer), the layout migration (the upgrade never opens with the pill), the field feedback round II (the caption catches up, the installer's elevation honesty), the default programs round (one name everywhere, the nineteen-format installer), the documentation round, the codeql hardening (five libwebp widenings), the instruments round (the suites audit themselves), the audit response (the relay whitelist and eight memory fixes), and the review verdict (the completion event, the pid-named temp save, the safe sums). Full narrative: `Changes.txt`.
 
