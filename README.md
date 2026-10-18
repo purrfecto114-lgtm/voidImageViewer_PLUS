@@ -27,14 +27,14 @@ Upgrade & uninstall notes
 
 **Upgrading from 1.1.16 or earlier to 1.1.17-rc.x:**
 
-- This round tightens the settings-file integrity checks, so the **first launch after an upgrade may show a "Settings file problem" dialog**: the session then runs on the built-in defaults, and the original settings file is kept as a `.corrupt.date-time` copy in the same folder. **Your settings are not lost.**
+- This round tightens the settings-file integrity checks, so the **first launch after an upgrade may show a "Settings file problem" dialog - with rc.2 only for a genuinely damaged file** (see the rc.2 fix below): the session then runs on the built-in defaults, and the original settings file is kept as a `.corrupt.date-time` copy in the same folder. **Your settings are not lost.**
 - The dialog's three buttons: **Cancel** = leave everything untouched (you will be asked again next launch); **Restore backup** = write back the last settings that loaded cleanly; **Keep** = save the defaults this session ran on.
 - Fixed in rc.2: settings written by an older release could be misjudged by the stricter reader (the rc.1 regression). rc.2 reads files written by every writer of this line cleanly, so the dialog now appears only for genuinely damaged files.
 - The dialog and its backup copy only touch the settings folder (`%APPDATA%\voidImageViewer`); images are never affected.
 
 **Uninstall residue:**
 
-- Fixed in rc.2: a cleanup uninstall now takes the `.corrupt.` backup copies and the `.auditbak` with the delete answer, so `%APPDATA%\voidImageViewer` goes when you ask it to (they used to hold the folder — `RemoveDirectory` cannot take one that is not empty).
+- Fixed in rc.2: a cleanup uninstall now takes the `.corrupt.` backup copies and the `.auditbak` with the delete answer, so `%APPDATA%\voidImageViewer` is no longer held back by them (they used to hold the folder — `RemoveDirectory` cannot take one that is not empty).
 - Per-user installs live in `%LOCALAPPDATA%\Programs\voidImageViewer`; if an upgrade moved the install to another path, the old folder may linger holding the previous version's files — safe to delete once nothing runs from it.
 - The uninstall's cleanup of file associations, shortcuts and registry entries is not affected by either of the above.
 

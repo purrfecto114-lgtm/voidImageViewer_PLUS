@@ -149,7 +149,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.validate.outputs.tag }}
-          fetch-depth: 1
+          fetch-depth: 2
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -169,6 +169,23 @@ jobs:
 
       - name: Byte invariant tests (line endings, BOMs, final newlines)
         run: python3 tests/byte_invariant_test.py
+
+      # the native gate rides the release path with the python suites:
+      # the ini walk, the mru and the input math answer in c, on the tag.
+      - name: Native C regressions (MRU, input and zoom, the ini reader walk, debug allocation failure)
+        run: python3 tests/native_regression_test.py --sanitize
+
+      # the whitespace gate over the tag's own range: a tag push that
+      # never rode a branch push cannot borrow the push path's check.
+      - name: Whitespace discipline (git diff --check over the tag's range)
+        run: |
+          WS="blank-at-eol,space-before-tab,blank-at-eof,cr-at-eol"
+          if git -c core.whitespace="$WS" diff --check "HEAD^" HEAD; then
+            echo "whitespace clean over the tag's own range"
+          else
+            echo "whitespace errors above - fix them before this can release"
+            exit 1
+          fi
 
       # the vendored libwebp tree: the offline verifier proves the file
       # set, the version record and the include closure carry no drift.

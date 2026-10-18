@@ -4989,7 +4989,7 @@ def t_todo_closure_round96():
     #     closure round rides one line in the readme list below).
     check("the changelog carries the todo closure pre-release (below the fixture round)",
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
-    check("the version is 1.1.17-rc.1 build 114 (the navigation visibility round pins ride it)",
+    check("the version is 1.1.17-rc.2 build 114 (the navigation visibility round pins ride it)",
           '#define VERSION_BUILD 114' in version and
           '#define VERSION_STRING "1.1.17-rc.2"' in version)
 
@@ -5354,7 +5354,7 @@ def t_fixture_round98():
     #     entry; the fixture round rides one line in the readme list below).
     check("the changelog carries the fixture round pre-release (below the navigation visibility round)",
           "Pre-release: Version 1.1.14-rc.2 (the fixture round)" in changes)
-    check("the version is 1.1.17-rc.1 build 114 (the navigation visibility round pins ride it)",
+    check("the version is 1.1.17-rc.2 build 114 (the navigation visibility round pins ride it)",
           '#define VERSION_BUILD 114' in version and
           '#define VERSION_STRING "1.1.17-rc.2"' in version)
 
@@ -5428,7 +5428,7 @@ def t_navigation_visibility_round99():
     #     below).
     check("the changelog carries the navigation visibility round pre-release (below the corner and audit response round)",
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
-    check("the version is 1.1.17-rc.1 build 114 (the corner and audit response round pins ride it)",
+    check("the version is 1.1.17-rc.2 build 114 (the corner and audit response round pins ride it)",
           '#define VERSION_BUILD 114' in version and
           '#define VERSION_STRING "1.1.17-rc.2"' in version)
 
@@ -8777,7 +8777,7 @@ def t_round147():
     check("the timer stop waits for the callback it stops",
           "os_DeleteTimerQueueTimer(NULL,_viv_timer_queue_timer_handle,INVALID_HANDLE_VALUE);" in anim)
     check("the config temp name rides the process id",
-          "string_format_number(pid_wbuf,GetCurrentProcessId());" in config)
+          config.count("string_format_number(pid_wbuf,GetCurrentProcessId());") == 2)
     check("the config temp create refuses to follow (twice, never truncates)",
           config.count(",CREATE_NEW,FILE_ATTRIBUTE_NORMAL,0);") == 2 and
           ",CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,0);" not in config)
@@ -9491,7 +9491,7 @@ def t_default_app_honesty_round129():
           '"默认应用"' in zh and "打开方式" in zh and "默认应用吗" in zh)
 
     # 6. THE VERSION
-    check("the version is 1.1.17-rc.1 build 114 (the default-app honesty round)",
+    check("the version is 1.1.17-rc.2 build 114 (the default-app honesty round)",
           '#define VERSION_BUILD 114' in version and
           '#define VERSION_STRING "1.1.17-rc.2"' in version)
 

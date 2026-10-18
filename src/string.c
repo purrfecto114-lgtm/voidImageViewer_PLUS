@@ -699,7 +699,9 @@ BOOL string_path_combine_utf8(wchar_t *wbuf,const wchar_t *path,const utf8_t *fi
 	return string_path_combine(wbuf,path,subpath);
 }
 
-// if path is null the current directory is used.
+// path may be null - the documented contract marks the parameter
+// optional without saying what a null directory answers; no caller
+// here passes one, so nothing rides on it.
 // answers FALSE when the combination does not fit: PathCombineW signals
 // the overflow only through its return value, and the void signature
 // dropped it on the floor - the caller then went on to stat, open or

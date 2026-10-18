@@ -408,8 +408,14 @@ MUTATIONS = [
 
     ("the config temp name loses its process id again (rc.12)",
      "src/config.c",
-     "string_format_number(pid_wbuf,GetCurrentProcessId());",
-     "string_format_number(pid_wbuf,4);",
+     "string_format_number(pid_wbuf,GetCurrentProcessId());\r\n"
+     "\t\tstring_cat(tempname,pid_wbuf);\r\n"
+     "\t}\r\n\r\n"
+     "\th = CreateFile(tempname,GENERIC_WRITE,FILE_SHARE_READ,0,",
+     "string_format_number(pid_wbuf,4);\r\n"
+     "\t\tstring_cat(tempname,pid_wbuf);\r\n"
+     "\t}\r\n\r\n"
+     "\th = CreateFile(tempname,GENERIC_WRITE,FILE_SHARE_READ,0,",
      ["menu"]),
 
     ("the config temp create truncates again (rc.12)",
@@ -763,6 +769,12 @@ MUTATIONS = [
      "src/viv_view.c",
      "if (((steps > 0) && (lo > pos_max)) || ((steps < 0) && (lo == _viv_zoom_pos_floor())))",
      "if (0)",
+     ["native"]),
+
+    ("the crlf line-end branch stops restarting the walk again (rc.2)",
+     "src/ini.c",
+     "// the same restart on a crlf line.\r\n\t\t\t\t\t\t\t\t\tgoto next_line;",
+     "// the same restart on a crlf line.\r\n\t\t\t\t\t\t\t\t\t;",
      ["native"]),
 ]
 

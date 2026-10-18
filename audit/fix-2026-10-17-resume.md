@@ -11,7 +11,7 @@ No MSVC, no Python in the build path.
 ## 1. What each of the 11 files was found in
 
 State read at the start of the session, per file, from the working tree as inherited
-(crash snapshot: `C:\Users\aza0\AppData\Local\Temp\opencode\snapshot-after-crash-20261017-122359.zip`).
+(crash snapshot: the session temp's opencode snapshot `snapshot-after-crash-20261017-122359.zip`).
 
 | File | State found | Verdict |
 |---|---|---|
@@ -268,9 +268,9 @@ settings page hands the commit. The confirm text says so.
    English-only for `zh_cn`.
 ---
 
-## the rc.2 follow-up (2026-10-18) - the field report's three answers
+## the rc.2 follow-up (2026-10-18) - the field report's answers
 
-the rc.1 lanes left three questions this record now closes with
+the rc.1 lanes left the questions this record now closes with
 measurements:
 
 1. **the false corruption ask (the field report's A).** the rc.1 walk
@@ -310,5 +310,8 @@ measurements:
    refuse.
 
 the open items this record's tail left the lead: #6's growth window was
-recalibrated by the p0 round and rides again at 37026/37500, and #7's
-localization tail carries the ask's four ids (en + zh) - both closed.
+recalibrated by the p0 round and rides again at 37026/37500 - closed.
+#7's localization tail carries the ask's four ids (en + zh) - half
+closed: the dialog speaks both tongues, while the settings page's
+reset confirmation and the skipped-file status line remain english
+(next round).

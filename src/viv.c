@@ -1200,7 +1200,7 @@ void _viv_process_command_line(wchar_t *cl)
 		{
 			if (*_viv_current_fd->cFileName)
 			{
-				_viv_playlist_add_filename_report(_viv_current_fd->cFileName,&report);	
+				_viv_playlist_add_filename_report(_viv_current_fd->cFileName,&report);
 			}
 		}
 	

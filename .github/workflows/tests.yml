@@ -73,7 +73,7 @@ jobs:
       - name: Byte invariant tests (line endings, BOMs, final newlines)
         run: python3 tests/byte_invariant_test.py
 
-      - name: Native C regressions (MRU, input and zoom, debug allocation failure)
+      - name: Native C regressions (MRU, input and zoom, the ini reader walk, debug allocation failure)
         run: python3 tests/native_regression_test.py --sanitize
 
       # the whitespace gate: git's own diff --check over the pushed
@@ -154,7 +154,7 @@ jobs:
       - name: Mutation teeth (every landed pin must bite)
         run: python3 tools/mutation_teeth.py
 
-  # Compile both shipping configurations on every push (since rc.2), pull
+  # Compile both shipping configurations on every push (since 1.1.0-rc.2), pull
   # request, tag and daily schedule so a build break is caught before
   # tagging a release.
   #

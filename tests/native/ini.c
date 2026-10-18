@@ -11,7 +11,9 @@
  * key lines, lf-only endings, the double-lf file, empty values, a
  * slice of the real field-report file) and the hostile ones (a
  * genuinely malformed line, duplicate keys, an embedded nul, an
- * oversized field, a missing section), and asserts the verdicts and
+ * oversized field, a missing section), the boundary ones (a value or
+ * an empty value that ends at the buffer terminator, comment lines, a
+ * key carrying its own equals), and asserts the verdicts and
  * the key/value pairs the walk produces.
  *
  * the semantic bodies (the blank test, the byte compare, the key
@@ -294,10 +296,53 @@ static void scenarios_hostile_forms(void)
     release(ini);
 }
 
+static void scenarios_boundary_forms(void)
+{
+    _ini_t *ini;
+
+    /* a value that ends at the buffer terminator: the value loop's
+     * !*p exit commits the pair without a final newline behind it. */
+    ini = readz("[voidImageViewer]\r\nx=1");
+    assert(_ini_last_state == INI_LOAD_OK);
+    assert(_ini_last_anomaly == INI_ANOMALY_NONE);
+    assert(ini && ini->count == 1);
+    assert(value_of(ini, "x") && strcmp(value_of(ini, "x"), "1") == 0);
+    release(ini);
+
+    /* an empty value at the terminator is a value too. */
+    ini = readz("[voidImageViewer]\r\nx=");
+    assert(_ini_last_state == INI_LOAD_OK);
+    assert(_ini_last_anomaly == INI_ANOMALY_NONE);
+    assert(ini && ini->count == 1);
+    assert(value_of(ini, "x") != 0 && *value_of(ini, "x") == 0);
+    release(ini);
+
+    /* comment lines are ignored: no keys from them, no anomaly, and
+     * the key that follows parses as its own. */
+    ini = readz("[voidImageViewer]\r\n# a comment\r\n; another\r\nx=1\r\n");
+    assert(_ini_last_state == INI_LOAD_OK);
+    assert(_ini_last_anomaly == INI_ANOMALY_NONE);
+    assert(ini && ini->count == 1);
+    assert(value_of(ini, "x") && strcmp(value_of(ini, "x"), "1") == 0);
+    assert(value_of(ini, "# a comment") == 0);
+    release(ini);
+
+    /* a key that carries its own '=': the first equals splits it, so
+     * a=b=c answers key "a" with value "b=c" - not three keys. */
+    ini = readz("[voidImageViewer]\r\na=b=c\r\n");
+    assert(_ini_last_state == INI_LOAD_OK);
+    assert(_ini_last_anomaly == INI_ANOMALY_NONE);
+    assert(ini && ini->count == 1);
+    assert(value_of(ini, "a") && strcmp(value_of(ini, "a"), "b=c") == 0);
+    assert(value_of(ini, "b") == 0 && value_of(ini, "c") == 0);
+    release(ini);
+}
+
 int main(void)
 {
     scenarios_legacy_forms();
     scenarios_hostile_forms();
+    scenarios_boundary_forms();
     printf("ini reader walk: %d allocations answered, report ends at state %d anomaly %d\n",
            allocated, _ini_last_state, _ini_last_anomaly);
     return 0;

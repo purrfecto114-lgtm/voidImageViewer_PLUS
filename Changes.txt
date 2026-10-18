@@ -23,8 +23,8 @@
 	the entry name is joined onto, and the file's own full path
 	used to sit in that seat, so file, add file queued a playlist
 	row at ...\a.png\a.png; the parent keeps its trailing
-	separator, because a bare drive name would answer the combine
-	drive-relative paths. the attributes helper zeroes the whole
+	separator; the documented combine answers the join with its
+	own backslash. the attributes helper zeroes the whole
 	find-data layout at entry - the rc.1 regression read the
 	whitelist's extension out of the stack garbage the api leaves
 	past the attribute block, and the zero holds that class dead
