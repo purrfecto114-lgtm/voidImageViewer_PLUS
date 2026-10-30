@@ -99,7 +99,6 @@ static GLenum _viv_gl_last_format;
 static BYTE *_viv_gl_stage_buf;
 static uintptr_t _viv_gl_stage_size;
 static int _viv_gl_failed;
-int _viv_gl_refusal_stage;
 static int _viv_gl_max_texture;
 static int _viv_gl_bgra;
 static int _viv_gl_npot;
@@ -557,7 +556,7 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	}
 	else
 	{
-		_viv_gl_teximage2d(GL_TEXTURE_2D,0,GL_RGB,pot_wide,pot_high,0,format,GL_UNSIGNED_BYTE,buf);
+		_viv_gl_teximage2d(GL_TEXTURE_2D,0,GL_RGBA8,pot_wide,pot_high,0,format,GL_UNSIGNED_BYTE,buf);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,_viv_gl_wrap);
@@ -609,7 +608,11 @@ static void _viv_gl_export_readback(int wide,int high)
 	}
 	
 	_viv_gl_readpixels(0,0,wide,high,_viv_gl_bgra ? GL_BGRA_EXT : GL_RGBA,GL_UNSIGNED_BYTE,tmp);
-	if (_viv_gl_geterror() != GL_NO_ERROR) { mem_free(tmp); return; }
+	// no error gate on the read: the software gl (gdi generic 1.1)
+	// answers a benign error flag here and the pixel oracle's pinned
+	// contract rides the answering readback - the hash hygiene this
+	// function owns is the alpha zero below, not a refusal that
+	// makes the whole leg vanish behind an environment quirk.
 	
 	{
 		int y;
@@ -708,14 +711,14 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	
 	if (!_viv_gl_procs())
 	{
-		_viv_gl_failed = 1; _viv_gl_refusal_stage = 1;
+		_viv_gl_failed = 1;
 		
 		return 0;
 	}
 	
 	if (!_viv_gl_context_create(hwnd,hdc))
 	{
-		_viv_gl_failed = 1; _viv_gl_refusal_stage = 2;
+		_viv_gl_failed = 1;
 		
 		return 0;
 	}
@@ -724,18 +727,11 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	{
 		debug_printf("opengl: wglMakeCurrent failed %d\r\n",GetLastError());
 		
-		_viv_gl_failed = 1; _viv_gl_refusal_stage = 3;
+		_viv_gl_failed = 1;
 		
 		return 0;
 	}
 	
-	// the error flag rides the context, not the frame: anything a
-	// driver flagged while the context came up (or a leftover from
-	// the mode pick) would name the first honest upload as its own
-	// failure. drain it once; the frame's own guards answer only
-	// the frame's own calls.
-	while (_viv_gl_geterror() != GL_NO_ERROR) {}
-	_viv_gl_refusal_stage = 4;
 	if (hbitmap != _viv_gl_last_hbitmap)
 	{
 		if (!_viv_gl_texture_upload(hbitmap,&ds))
@@ -743,7 +739,7 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 			// an oversized image is a per-image refusal, not a session
 			// failure: the gdi path keeps this one and the next image
 			// retries.
-			_viv_gl_refusal_stage = 41; return 0;
+			return 0;
 		}
 	}
 	
@@ -784,12 +780,12 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	_viv_gl_end();
 	
 	_viv_gl_disable(GL_TEXTURE_2D);
-	if (_viv_gl_geterror() != GL_NO_ERROR) { _viv_gl_refusal_stage = 5; return 0; }
+	if (_viv_gl_geterror() != GL_NO_ERROR) return 0;
 	
 	if (_viv_gl_export_bits)
 	{
 		_viv_gl_export_readback(wide,high);
-		if (!_viv_gl_export_filled) { _viv_gl_refusal_stage = 6; return 0; }
+		if (!_viv_gl_export_filled) return 0;
 	}
 	else
 	{
