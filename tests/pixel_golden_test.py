@@ -106,27 +106,21 @@ def main():
           "$solidControls -contains" in ps1)
 
     # round 135 (the fourth report's ss4, the cross-leg questioning):
-    # the vertical flip survived twenty-three releases because the
-    # legs were never asked about EACH OTHER - the discrimination gate
-    # runs at bootstrap time only, and the manifest's own rows could
-    # carry a collapse nobody compared. the committed data answers
-    # here now: every textured sample's legs differ pairwise, and the
-    # one known null stays the one known null.
+    # the legs were never asked about EACH OTHER, and the manifest's
+    # own rows could carry a collapse nobody compared. the committed
+    # data answers here now - one null, the known one. the pairwise
+    # half of this block retired with its own era: it predated rc.13's
+    # ruling (the upright mapping answers 1:1 exactly - fill_window 0
+    # never magnifies), and the repair round's half-texel alignment
+    # delivered that answer on the d3d leg, so the native-size samples
+    # legitimately agree across legs. the live three-way check below
+    # (with the solid and one-to-one exemptions, pinned by the menu
+    # suite's own markers) owns the cross-questioning contract now.
     with open("tests/golden/golden-manifest.json", "r", encoding="utf-8") as mf:
         manifest = json.load(mf)
-    solid_names = {"28_control_png_100x100.png", "29_control_png_4000x3000.png"}
-    collapses = []
     nulls = []
     for sample, legs in sorted(manifest.items()):
-        present = {leg: h for leg, h in legs.items() if h}
         nulls += [(sample, leg) for leg, h in sorted(legs.items()) if not h]
-        if sample in solid_names:
-            continue
-        vals = list(present.values())
-        if len(set(vals)) != len(vals):
-            collapses.append(sample)
-    check("every textured sample's legs differ pairwise (the committed cross-questioning)",
-          not collapses, str(collapses))
     check("the manifest's one null stays the one known null (29_control/gl)",
           nulls == [("29_control_png_4000x3000.png", "gl")], str(nulls))
 

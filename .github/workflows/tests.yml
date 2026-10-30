@@ -279,12 +279,6 @@ jobs:
             exit 1
           }
 
-      - name: Temporary d3d probe print (revert me)
-        if: always()
-        shell: pwsh
-        run: |
-          if (Test-Path viv_d3d_probe.txt) { Get-Content viv_d3d_probe.txt | Select-Object -First 40 }
-          else { Write-Host 'no probe file' }
       - name: Upload the bootstrapped golden manifest
         if: matrix.runner == 'windows-2022' && github.event_name == 'workflow_dispatch' && inputs.bootstrap-golden
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
