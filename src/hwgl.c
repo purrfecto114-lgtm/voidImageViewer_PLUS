@@ -102,6 +102,10 @@ static int _viv_gl_failed;
 static int _viv_gl_max_texture;
 static int _viv_gl_bgra;
 static int _viv_gl_npot;
+// the wrap mode this machine honors: CLAMP_TO_EDGE where gl answers
+// it, the 1.1 GL_CLAMP where it does not (an invalid enum there -
+// the driver would ignore it and ride the REPEAT default).
+static GLint _viv_gl_wrap = GL_CLAMP;
 static GLfloat _viv_gl_u;
 static GLfloat _viv_gl_v;
 
@@ -320,11 +324,19 @@ static int _viv_gl_context_create(HWND hwnd,HDC hdc)
 			int major = 0,minor = 0;
 			if (version) sscanf(version,"%d.%d",&major,&minor);
 			_viv_gl_npot = (major >= 2) || _viv_gl_has_extension("GL_ARB_texture_non_power_of_two");
-			if (!((major > 1) || ((major == 1) && (minor >= 2)) ||
-				_viv_gl_has_extension("GL_SGIS_texture_edge_clamp") || _viv_gl_has_extension("GL_EXT_texture_edge_clamp")))
+			if ((major > 1) || ((major == 1) && (minor >= 2)) ||
+				_viv_gl_has_extension("GL_SGIS_texture_edge_clamp") || _viv_gl_has_extension("GL_EXT_texture_edge_clamp"))
 			{
-				debug_printf("opengl: edge clamping unavailable; using GDI\r\n");
-				return 0;
+				_viv_gl_wrap = GL_CLAMP_TO_EDGE;
+			}
+			else
+			{
+				// the 1.1 mode keeps the leg honest where it can be (the
+				// pad answers the sub-rectangle border) and names the
+				// downgrade instead of making the renderer vanish - the
+				// golden oracle pins the answering contract.
+				_viv_gl_wrap = GL_CLAMP;
+				debug_printf("opengl: edge clamping unavailable; using the 1.1 GL_CLAMP\r\n");
 			}
 		}
 		_viv_gl_bgra = _viv_gl_has_extension("GL_EXT_bgra");
@@ -547,8 +559,8 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		_viv_gl_teximage2d(GL_TEXTURE_2D,0,GL_RGBA8,pot_wide,pot_high,0,format,GL_UNSIGNED_BYTE,buf);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,_viv_gl_wrap);
+		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,_viv_gl_wrap);
 
 		_viv_gl_last_pot_wide = pot_wide;
 		_viv_gl_last_pot_high = pot_high;

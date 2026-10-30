@@ -49,8 +49,8 @@ SUITES = {
 MUTATIONS = [
     ("the toggle anchor regresses to the wrong pane",
      "src/viv_wndproc.c",
-     "if (item == _viv_status_frame_pane_index())",
-     "if (item == (int)SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2)",
+     "else if ((item >= 0) && (item == _viv_status_frame_pane_index()))",
+     "else if ((item >= 0) && (item == (int)SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2))",
      ["menu"]),
 
     ("the layout measures the opening text again (the 9-to-10 hitch)",
@@ -813,7 +813,7 @@ MUTATIONS = [
      "itself - recover now or the session wedges into the gdi\r\n"
      "\t\t// fallback with a full-size texture churn on every paint.\r\n"
      "\t\t_viv_d3d_attempt_reset();\r\n"
-     "\t\t\r\n"
+     "\r\n"
      "\t\treturn 0;",
      "itself - recover now or the session wedges into the gdi\r\n"
      "\t\t// fallback with a full-size texture churn on every paint.\r\n"
@@ -824,7 +824,7 @@ MUTATIONS = [
      "src/hwd3d.c",
      "// a scene that could not run is the same lost-device news.\r\n"
      "\t\t_viv_d3d_attempt_reset();\r\n"
-     "\t\t\r\n"
+     "\r\n"
      "\t\treturn 0;",
      "// a scene that could not run is the same lost-device news.\r\n"
      "\t\treturn 0;",
