@@ -130,16 +130,16 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	GLenum format;
 	BYTE *buf;
 	uintptr_t size;
-	
+
 	wide = ds->dsBm.bmWidth;
 	high = ds->dsBm.bmHeight;
 
-	
+
 	if ((wide <= 0) || (high <= 0))
 	{
 		return 0;
 	}
-	
+
 	pot_wide = wide;
 	pot_high = high;
 	if (!_viv_gl_npot)
@@ -157,17 +157,17 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	if ((pot_wide < wide) || (pot_high < high) || (pot_wide > _viv_gl_max_texture) || (pot_high > _viv_gl_max_texture))
 	{
 		debug_printf("opengl: the image exceeds the max texture size (%d)\r\n",_viv_gl_max_texture);
-		
+
 		return 0;
 	}
-	
+
 	if (safe_size_mul(safe_size_mul((SIZE_T)pot_wide,(SIZE_T)pot_high),8) > VIV_MAX_HARDWARE_BYTES)
 	{
 		debug_printf("opengl: the stage + texture exceed the hardware byte budget\r\n");
-		
+
 		return 0;
 	}
-	
+
 	// The byte gate bounds the row; calculate before narrowing.
 	stride = (int)((((SIZE_T)wide * ds->dsBm.bmBitsPixel + 31) / 32) * 4);
 
@@ -181,7 +181,7 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		format = GL_RGBA;
 		size = (uintptr_t)pot_wide * pot_high * 4;
 	}
-	
+
 	// Reuse equal-sized frames; shrink high-water allocations on a size change.
 	if (_viv_gl_stage_size != size)
 	{
@@ -199,15 +199,15 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 
 		return 0;
 	}
-	
+
 	{
 		const BYTE *s;
 		BYTE *d;
 		int y;
-		
+
 		s = (const BYTE *)ds->dsBm.bmBits;
 		d = buf;
-		
+
 		for(y=0;y<high;y++)
 		{
 			if (format == GL_BGR_EXT)
@@ -219,9 +219,9 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 			{
 				const BYTE *p;
 				int x;
-				
+
 				p = s;
-				
+
 				for(x=0;x<wide;x++)
 				{
 					if (ds->dsBm.bmBitsPixel == 24)
@@ -238,21 +238,21 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 						d[2] = p[0]; // b
 						p += 4;
 					}
-					
+
 				// the frames arrive pre-flattened: the load path composites
 				// the alpha onto the backdrop before the frame ever answers,
 				// so the opaque write matches the gdi path's own semantics.
 				d[3] = 255;
 				d += 4;
 				}
-				
+
 				d += (pot_wide - wide) * 4;
 			}
-			
+
 			s += stride;
 		}
 	}
-	
+
 	// the pad must answer as if the texture border sat at the image
 	// border. the linear sampler's half texel at the sub-rectangle
 	// edge reads the neighbouring texel, and the clamp modes only
@@ -268,24 +268,24 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	{
 		int bpp;
 		int y;
-		
+
 		bpp = (format == GL_BGR_EXT) ? 3 : 4;
-		
+
 		for(y=0;y<high;y++)
 		{
 			BYTE *row;
 			const BYTE *last;
 			int x;
-			
+
 			row = buf + (uintptr_t)y * (uintptr_t)pot_wide * (uintptr_t)bpp;
 			last = row + (uintptr_t)(wide - 1) * (uintptr_t)bpp;
-			
+
 			for(x=wide;x<pot_wide;x++)
 			{
 				memcpy(row + (uintptr_t)x * (uintptr_t)bpp,last,(size_t)bpp);
 			}
 		}
-		
+
 		for(y=high;y<pot_high;y++)
 		{
 			memcpy(buf + (uintptr_t)y * (uintptr_t)pot_wide * (uintptr_t)bpp,
@@ -293,10 +293,10 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 			       (uintptr_t)pot_wide * (uintptr_t)bpp);
 		}
 	}
-	
+
 	_viv_gl_pixelstorei(GL_UNPACK_ALIGNMENT,1);
 	_viv_gl_bindtexture(GL_TEXTURE_2D,_viv_gl_texture);
-	
+
 	// the d3d twin's reuse gate, translated: a same-shape frame (every
 	// frame of an animation) refills the texture with glTexSubImage2D
 	// instead of re-specifying it - the re-spec makes the driver
@@ -319,7 +319,7 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		_viv_gl_last_pot_high = pot_high;
 		_viv_gl_last_format = format;
 	}
-	
+
 	if (_viv_gl_geterror() != GL_NO_ERROR)
 	{
 		_viv_gl_last_hbitmap = 0;
@@ -330,7 +330,7 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	_viv_gl_u = (GLfloat)wide / (GLfloat)pot_wide;
 	_viv_gl_v = (GLfloat)high / (GLfloat)pot_high;
 	_viv_gl_last_hbitmap = hbitmap;
-	
+
 	return 1;
 }
 int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int dst_wide,int dst_high,COLORREF clear_color)
@@ -339,22 +339,22 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	RECT rect;
 	int wide;
 	int high;
-	
+
 	if (_viv_gl_failed)
 	{
 		return 0;
 	}
-	
+
 	if ((!hbitmap) || (dst_wide <= 0) || (dst_high <= 0))
 	{
 		return 0;
 	}
-	
+
 	if (GetObject(hbitmap,sizeof(DIBSECTION),&ds) == 0)
 	{
 		return 0;
 	}
-	
+
 	if ((!ds.dsBm.bmBits) || ((ds.dsBm.bmBitsPixel != 24) && (ds.dsBm.bmBitsPixel != 32)))
 	{
 		// the refusal names its reason: a silent return 0 is how an
@@ -370,42 +370,42 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 		{
 			debug_printf("opengl: the frame is %d bpp (24 or 32 answer) - the gdi path paints it\r\n",ds.dsBm.bmBitsPixel);
 		}
-		
+
 		return 0;
 	}
-	
+
 	GetClientRect(hwnd,&rect);
 	wide = rect.right - rect.left;
 	high = rect.bottom - rect.top;
-	
+
 	if ((!wide) || (!high))
 	{
 		return 0;
 	}
-	
+
 	if (!_viv_gl_procs())
 	{
 		_viv_gl_failed = 1;
-		
+
 		return 0;
 	}
-	
+
 	if (!_viv_gl_context_create(hwnd,hdc))
 	{
 		_viv_gl_failed = 1;
-		
+
 		return 0;
 	}
-	
+
 	if (!_viv_gl_wglMakeCurrent(hdc,_viv_gl_context))
 	{
 		debug_printf("opengl: wglMakeCurrent failed %d\r\n",GetLastError());
-		
+
 		_viv_gl_failed = 1;
-		
+
 		return 0;
 	}
-	
+
 	if (hbitmap != _viv_gl_last_hbitmap)
 	{
 		if (!_viv_gl_texture_upload(hbitmap,&ds))
@@ -416,21 +416,21 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 			return 0;
 		}
 	}
-	
+
 	_viv_gl_viewport(0,0,wide,high);
 	_viv_gl_matrixmode(GL_PROJECTION);
 	_viv_gl_loadidentity();
 	_viv_gl_ortho(0,wide,high,0,-1,1);
 	_viv_gl_matrixmode(GL_MODELVIEW);
 	_viv_gl_loadidentity();
-	
+
 	_viv_gl_clearcolor(GetRValue(clear_color) / 255.0f,GetGValue(clear_color) / 255.0f,GetBValue(clear_color) / 255.0f,1.0f);
 	_viv_gl_clear(GL_COLOR_BUFFER_BIT);
-	
+
 	_viv_gl_enable(GL_TEXTURE_2D);
-	
+
 	_viv_gl_begin(GL_QUADS);
-	
+
 	// every frame this app builds is a top-down dib, and the sign that
 	// says so is unrecoverable through getobject - it answers the
 	// absolute height for both orientations (the wine test suite
@@ -441,21 +441,21 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	// the texture's row zero, the image's own top.
 	_viv_gl_texcoord2f(0.0f,0.0f);
 	_viv_gl_vertex2f((GLfloat)dst_x,(GLfloat)dst_y);
-	
+
 	_viv_gl_texcoord2f(_viv_gl_u,0.0f);
 	_viv_gl_vertex2f((GLfloat)(dst_x + dst_wide),(GLfloat)dst_y);
-	
+
 	_viv_gl_texcoord2f(_viv_gl_u,_viv_gl_v);
 	_viv_gl_vertex2f((GLfloat)(dst_x + dst_wide),(GLfloat)(dst_y + dst_high));
-	
+
 	_viv_gl_texcoord2f(0.0f,_viv_gl_v);
 	_viv_gl_vertex2f((GLfloat)dst_x,(GLfloat)(dst_y + dst_high));
-	
+
 	_viv_gl_end();
-	
+
 	_viv_gl_disable(GL_TEXTURE_2D);
 	if (_viv_gl_geterror() != GL_NO_ERROR) return 0;
-	
+
 	if (_viv_gl_export_bits)
 	{
 		_viv_gl_export_readback(wide,high);
@@ -465,7 +465,7 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	{
 		if (!SwapBuffers(hdc)) return 0;
 	}
-	
+
 	return 1;
 }
 typedef void*EGLDisplay,*EGLConfig,*EGLContext,*EGLSurface;

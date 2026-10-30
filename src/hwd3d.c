@@ -77,9 +77,9 @@ static void _viv_d3d_export_readback(void);
 static void _viv_d3d_attempt_reset(void)
 {
 	if (!_viv_d3d_device) return;
-	
+
 	if (_viv_d3d_device->lpVtbl->TestCooperativeLevel(_viv_d3d_device) != D3DERR_DEVICENOTRESET) return;
-	
+
 	_viv_d3d_params.BackBufferWidth = _viv_d3d_client_wide;
 	_viv_d3d_params.BackBufferHeight = _viv_d3d_client_high;
 	_viv_d3d_device->lpVtbl->Reset(_viv_d3d_device,&_viv_d3d_params);
@@ -592,7 +592,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 		// itself - recover now or the session wedges into the gdi
 		// fallback with a full-size texture churn on every paint.
 		_viv_d3d_attempt_reset();
-		
+
 		return 0;
 	}
 	hresult = _viv_d3d_device->lpVtbl->BeginScene(_viv_d3d_device);
@@ -663,7 +663,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	{
 		// a scene that could not run is the same lost-device news.
 		_viv_d3d_attempt_reset();
-		
+
 		return 0;
 	}
 	if (_viv_d3d_export_bits)

@@ -296,9 +296,9 @@ int string_to_int(wchar_t *s)
 		if ((*s >= '0') && (*s <= '9'))
 		{
 			int digit;
-			
+
 			digit = *s - '0';
-			
+
 			if (i <= (2147483647 - digit) / 10)
 			{
 				i = (i * 10) + digit;
@@ -633,7 +633,7 @@ void string_printf(wchar_t *wbuf,const char *format,...)
 void string_printf_n(wchar_t *wbuf,int wbuf_size,const char *format,...)
 {
 	va_list args;
-	
+
 	va_start(args,format);
 	string_vprintf_n(wbuf,wbuf_size,format,args);
 	va_end(args);

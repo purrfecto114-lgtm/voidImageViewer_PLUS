@@ -668,20 +668,20 @@ static void _viv_msgbox_remeasure(HWND owner,int *wide,int *high)
 			*wide = row_wide;
 		}
 	}
-	
+
 	ReleaseDC(owner ? owner : 0,hdc);
-	
+
 	text_high = text_rect.bottom - text_rect.top;
 	if (text_high < _viv_msgbox_dip(32))
 	{
 		text_high = _viv_msgbox_dip(32);
 	}
-	
+
 	_viv_msgbox_text_rect.left = _viv_msgbox_dip(24 + 32 + 20);
 	_viv_msgbox_text_rect.right = _viv_msgbox_text_rect.left + text_wide;
 	_viv_msgbox_text_rect.top = _viv_msgbox_dip(22);
 	_viv_msgbox_text_rect.bottom = _viv_msgbox_text_rect.top + text_high;
-	
+
 	*wide = _viv_msgbox_dip(24 + 32 + 20) + text_wide + _viv_msgbox_dip(VIV_UI_PAD * 3);
 	*high = _viv_msgbox_dip(22) + text_high + _viv_msgbox_dip(16) + _viv_msgbox_dip(32) + _viv_msgbox_dip(VIV_UI_PAD * 2 + VIV_UI_GAP);
 

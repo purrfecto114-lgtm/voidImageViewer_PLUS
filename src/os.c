@@ -2535,30 +2535,30 @@ HRGN os_mirror_region(HRGN hrgn,int wide)
 	small_pool_init(&small_pool);
 
 	region_size = GetRegionData(hrgn,0,0);
-	
+
 	// the size probe can answer zero (an empty region, a failure):
 	// the old code ran the pool against a zero byte budget, then
 	// walked whatever the null region_data pointed at.
 	if (!region_size)
 	{
 		small_pool_kill(&small_pool);
-		
+
 		return 0;
 	}
-	
+
 	region_data = small_pool_alloc(&small_pool,region_size);
-	
+
 	if (!region_data)
 	{
 		small_pool_kill(&small_pool);
-		
+
 		return 0;
 	}
-	
+
 	if (!GetRegionData(hrgn,region_size,region_data))
 	{
 		small_pool_kill(&small_pool);
-		
+
 		return 0;
 	}
 	

@@ -5659,7 +5659,7 @@ def t_pixel_oracle_round102():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the version is 1.1.17 build 115",
           '#define VERSION_BUILD 117' in version and
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
@@ -5984,7 +5984,7 @@ def t_input_ceiling_round104():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the version is 1.1.17 build 115",
           '#define VERSION_BUILD 117' in version and
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
@@ -6154,7 +6154,7 @@ def t_renderer_parity_round105():
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the version is 1.1.17 build 115",
           '#define VERSION_BUILD 117' in version and
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
@@ -6271,7 +6271,7 @@ def t_navigation_faces_round106():
     # 6. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the version is 1.1.17 build 115",
           '#define VERSION_BUILD 117' in version and
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
@@ -6401,17 +6401,19 @@ def t_corrections_round107():
           "build-zig/obj-arm64/" in gitignore and
           "build-zig/*.manifest" in gitignore)
 
-    # 6. the renderer honesty line: the refusal point sets a per-image
-    #    flag once, the status line names the fallback beside the
-    #    filename, and the next load dispatch clears it where the
-    #    budget refusal flags clear.
+    # 6. the renderer honesty line: the refusal point gates the hw
+    #    attempt on the per-image flag (one attempt, one release - the
+    #    paints after a refusal skip the hardware entirely), the status
+    #    line names the fallback beside the filename, and the next load
+    #    dispatch clears it where the budget refusal flags clear.
     check("the fallback flag is shared state with its own comment",
           "extern BYTE _viv_hw_render_fallback;" in stateh and
           "BYTE _viv_hw_render_fallback = 0;" in viv)
     check("the paint path sets the flag once and pays for one status refresh",
           "_viv_hw_render_fallback = 1;" in wnd and
           wnd.count("_viv_status_update();") >= 1 and
-          "if (!_viv_hw_render_fallback)" in wnd)
+          "config_renderer != CONFIG_RENDERER_GDI &&" in wnd and
+          "!_viv_hw_render_fallback)" in wnd)
     check("every load dispatch reset clears the fallback flag (four sites)",
           vivload.count("_viv_hw_render_fallback = 0;") == 4)
     check("the status line appends the fallback notice beside the filename",
@@ -6586,7 +6588,7 @@ def t_stable_promotion_round108():
 
     # 8. the changelog, the readme and the demotion ride the promotion
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Stable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.lstrip("\ufeff").startswith("Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
     check("the readme current-stable line says 1.1.14",
           "**1.1.16 \u2014 the previous stable**" in readme)
     check("the 1.1.13 full section demotes to the one-line list",
@@ -6738,7 +6740,7 @@ def t_slot_architecture_round109():
 
     # 12. the changelog, the readme and the candidate block
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Stable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.lstrip("\ufeff").startswith("Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
     check("the readme carries one stable block and the diet retired the candidate ladder",
           readme.count("(the current stable):**") == 1 and
           "**1.1.15-rc.6 \u2014" not in readme)
@@ -6841,7 +6843,7 @@ def t_audit_response_round110():
 
     # 6. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fourth audit response round",
-          changes.lstrip("\ufeff").startswith("Stable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.lstrip("\ufeff").startswith("Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
     check("the rc.1 one-liner retired with the 1.1.16 diet (the ledger keeps the arc)",
           "**1.1.15-rc.6 \u2014" not in readme and
           readme.count("(the current stable):**") == 1)
@@ -6991,7 +6993,7 @@ def t_audit_response_round111():
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fifth audit response round",
-          changes.lstrip("\ufeff").startswith("Stable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.lstrip("\ufeff").startswith("Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
     check("the changelog carries the round's own ledger",
           "the navigation trio first, because two of the three are ordering defects" in changes and
           "the ladder step is extracted, not self-written" in changes and
@@ -7403,7 +7405,7 @@ def t_command_picker_round112():
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the command picker round",
-          changes.lstrip("\ufeff").startswith("Stable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.lstrip("\ufeff").startswith("Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
     check("the changelog carries the round's own ledger",
           "eighty-six commands\r\n\twere unreachable" in changes and
           "the cascade is the real menu tree" in changes and
@@ -7813,7 +7815,7 @@ def t_gui_limits_round121():
     # 10. the version and the changelog.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the version is 1.1.17 build 115",
           "#define VERSION_BUILD 117" in version and
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
@@ -7953,7 +7955,7 @@ def t_resume_and_chain_round122():
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the version is 1.1.17 build 115",
           "#define VERSION_BUILD 117" in version and
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
@@ -8464,7 +8466,7 @@ def t_report_fusion_round123():
     # 22. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the version is 1.1.17 build 115",
           "#define VERSION_BUILD 117" in version and
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
@@ -8653,7 +8655,7 @@ def t_settings_capacity_round126():
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the settings footer round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the version is 1.1.17 build 115",
           "#define VERSION_BUILD 117" in version and
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
@@ -8746,7 +8748,7 @@ def t_pill_field_round127():
     # 5. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the pill field round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the version is 1.1.17 build 115",
           "#define VERSION_BUILD 117" in version and
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
@@ -9315,7 +9317,7 @@ def t_parallel_eval_round128():
           '#define VERSION_STRING "1.1.17-repair.2"' in version)
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the parallel evaluation round pre-release",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
 
 
 def t_default_app_honesty_round129():
@@ -9668,7 +9670,7 @@ def t_stable_promotion_round133():
     check("the build rides the live tree (112 at the 1.1.16 promotion)",
           "#define VERSION_BUILD 117" in version)
     check("the changelog top entry is the stable round's own heading",
-          top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
+          top == "Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)", top)
     check("the readme twins promote the stable block",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -10293,7 +10295,7 @@ def t_round143():
 
     # 2. the changelog tops with the round.
     check("the changelog tops with the codeql hardening round",
-          changes.startswith("\ufeffStable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.startswith("\ufeffRepair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
 
     # 3. the five libwebp widenings, one by one (the alerts' exact sites).
     check("alpha_dec multiplies in the wide type (codeql #5)",
@@ -10358,7 +10360,7 @@ def t_round144():
 
     # 2. the changelog tops with the round.
     check("the changelog tops with the instruments round",
-          changes.startswith("\ufeffStable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.startswith("\ufeffRepair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
 
     # 3. the menu suite's one bash call is a pure-python port now: no
     #    bash spawns anywhere in the suite, and the port's key lines
@@ -10469,7 +10471,7 @@ def t_round142():
 
     # 2. the changelog: the round's section tops it and names its passengers.
     check("the changelog tops with the documentation round",
-          changes.startswith("\ufeffStable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.startswith("\ufeffRepair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
     check("the changelog names the passengers this release carries",
           "Version 1.1.16-rc.6 (the field feedback round II)" in changes and
           "Version 1.1.16-rc.7 (the default programs round)" in changes)
@@ -10587,7 +10589,7 @@ def t_round141():
           '#define VERSION_TYPE ""' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog tops with the default programs round",
-          changes.startswith("\ufeffStable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.startswith("\ufeffRepair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
     check("the changelog states the name-match contract",
           "applicationname must always match" in " ".join(changes.split()))
 
@@ -10692,7 +10694,7 @@ def t_round140():
     readme = read("README.md").decode("utf-8", errors="replace")
     readme_cn = read("README_CN.md").decode("utf-8", errors="replace")
     check("the changelog tops with the field feedback round II",
-          changes.lstrip("\ufeff").startswith("Stable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.lstrip("\ufeff").startswith("Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
     check("the rc.6 one-liner retired with the 1.1.16 diet (the ledger keeps the arc)",
           "**1.1.16-rc.6 \u2014 the field feedback round II:**" not in readme and
           "**1.1.16-rc.6 \u2014 \u5b9e\u673a\u53cd\u9988\u8f6e II\uff1a**" not in readme_cn)
@@ -10915,7 +10917,7 @@ def t_round145():
           "#define VERSION_BUILD 117" in vh and
           '#define VERSION_STRING "1.1.17-repair.2"' in vh)
     check("the changelog tops with the audit response round",
-          changes.startswith("\ufeffStable: Version 1.1.17 (the corrupted-settings round)"))
+          changes.startswith("\ufeffRepair: Version 1.1.17-repair.2 (the carpet-diagnosis round)"))
 
     # 2. P0-1: the elevated relay only forwards words it can spell
     #    itself (the quote guard was dead - the tokenizer ate the

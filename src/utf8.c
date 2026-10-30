@@ -60,9 +60,9 @@ int utf8_to_int(const utf8_t *str)
 			{
 				int digit;
 				int hex_digit;
-				
+
 				hex_digit = -1;
-				
+
 				if ((*s >= '0') && (*s <= '9'))
 				{
 					hex_digit = *s - '0';
@@ -77,7 +77,7 @@ int utf8_to_int(const utf8_t *str)
 				{
 					hex_digit = *s - 'a' + 10;
 				}
-				
+
 				if (hex_digit < 0)
 				{
 					break;
@@ -86,7 +86,7 @@ int utf8_to_int(const utf8_t *str)
 				// same saturation as the decimal walk: a shifted product
 				// past INT_MAX is undefined behaviour, not a wrap.
 				digit = hex_digit;
-				
+
 				if (i <= (2147483647 - digit) / 16)
 				{
 					i = (i * 16) + digit;
@@ -95,7 +95,7 @@ int utf8_to_int(const utf8_t *str)
 				{
 					i = 2147483647;
 				}
-				
+
 				s++;
 			}
 			
@@ -123,9 +123,9 @@ int utf8_to_int(const utf8_t *str)
 		if ((*s >= '0') && (*s <= '9'))
 		{
 			int digit;
-			
+
 			digit = *s - '0';
-			
+
 			if (i <= (2147483647 - digit) / 10)
 			{
 				i = (i * 10) + digit;

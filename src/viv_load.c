@@ -202,19 +202,19 @@ BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy)
 	os_zero_memory(&report,sizeof(_viv_open_skip_report_t));
 	
 	ret = FALSE;
-	
+
 	// a working directory longer than the buffer leaves the old cwd
 	// unterminated on the stack - the combine below would walk past
 	// it. a directory that cannot fit is the same refusal as a path
 	// that cannot.
 	cwd_len = GetCurrentDirectory(STRING_SIZE,cwd);
-	
+
 	if ((cwd_len == 0) || (cwd_len >= (DWORD)STRING_SIZE))
 	{
 		_viv_open_report_skip(&report,filename,VIV_OPEN_SKIPPED_TOO_LONG);
-		
+
 		_viv_playlist_report_skips(&report);
-		
+
 		return FALSE;
 	}
 

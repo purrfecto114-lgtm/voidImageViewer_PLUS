@@ -1,4 +1,40 @@
-﻿Stable: Version 1.1.17 (the corrupted-settings round)
+﻿Repair: Version 1.1.17-repair.2 (the carpet-diagnosis round)
+
+        the two rounds after the stable take their
+        ledger. the refine round polished the chrome
+        (the dark hover ladder, the status bar's two
+        columns and zoom chip, the shared layout
+        tokens) and the carpet-diagnosis round then
+        cleared the debts an external sweep named:
+        the msgbox measurement block releases its hdc
+        before reuse, the string printf contract walks
+        with its own capacity (the _n variant, the live
+        caller migrated), string_cat keeps its
+        terminator floor, the ini precheck refuses a
+        short read, the int parsers saturate instead of
+        overflowing, and the config walker stops
+        discarding through its own pointer.
+
+        the qoi decoder - the one production body
+        with zero behavior coverage - earned a host
+        suite: twenty-three cases run the real
+        qoi_load body against hostile streams under
+        the sanitizer, and the teeth table carries six
+        qoi teeth (four new, two promoted) that bite
+        it. the zig verification line instruments
+        -mguard=cf and links the weak dispatch thunk,
+        honest on the box: the GUARD_CF bit itself
+        stays a mingw and msvc claim. the installer's
+        error paths abort instead of falling through
+        the admin failure, the pe checks gained LAA
+        beside ASLR and DEP, the notices disclose the
+        five libwebp widenings this tree carries, and
+        the refine and integration suites ride the ci
+        legs with the rest. repair.N tags ride the
+        release whitelist, and this section is their
+        changelog anchor.
+
+Stable: Version 1.1.17 (the corrupted-settings round)
 
         the arc takes its stable. the p0 round made the
         openings honest first: every path that opens a

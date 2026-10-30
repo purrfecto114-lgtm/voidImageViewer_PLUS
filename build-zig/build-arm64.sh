@@ -16,9 +16,13 @@ set -e
 cd "$(dirname "$0")/.."
 
 ZIG="${ZIG:-python3 -m ziglang}"
-# -mguard=cf matches the x64 line: both release gates assert the
-# GUARD_CF dllcharacteristics bit, and arm64 windows carries the
-# same load-config contract.
+# -mguard=cf matches the x64 line: this verification build stays in
+# the same cfg-instrumented code shape as the mingw/msvc production
+# lines (the dispatch thunk itself rides __x86_64__ only). note: zig
+# cc 0.16 filters the linker-side /guard:cf, so the GUARD_CF
+# dllcharacteristics bit does NOT get set on zig products - pe
+# hardening is delivered by the build-mingw and vs lines, not by
+# this one.
 FLAGS="-target aarch64-windows-gnu -Os -DNDEBUG -DVERSION_ARM64 -DUNICODE -D_UNICODE -mguard=cf -Wno-macro-redefined -Werror=incompatible-pointer-types -Werror=visibility"
 OBJDIR="build-zig/obj-arm64"
 

@@ -41,6 +41,8 @@ SUITES = {
     # structure nails - a decoder that never ran was invisible to them).
     "qoi": [sys.executable, "tests/qoi_decode_test.py", "--sanitize"],
     "repair": [sys.executable, "tests/repair_regression_test.py"],
+    "refine": [sys.executable, "tests/refine_regression_test.py"],
+    "integ": [sys.executable, "tests/repair_integration_test.py"],
 }
 
 # (name, file, find, replace, suites-that-must-go-red)

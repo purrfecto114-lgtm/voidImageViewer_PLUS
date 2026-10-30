@@ -79,6 +79,12 @@ jobs:
       - name: Memory, renderer and installer repair regressions
         run: python3 tests/repair_regression_test.py
 
+      - name: Refine round regressions (theme contrast, status layout, clock wrap)
+        run: python3 tests/refine_regression_test.py
+
+      - name: Installer and PE integration regressions (static control flow)
+        run: python3 tests/repair_integration_test.py
+
       # the whitespace gate: git's own diff --check over the pushed
       # range (the merge base for pull requests). catches trailing
       # whitespace and space-before-tab in added lines before they

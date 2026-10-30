@@ -1676,9 +1676,9 @@ static int _viv_get_registry_string(HKEY hkey,const utf8_t *value,wchar_t *wbuf,
 			// walking past the end. terminate at the data's own edge,
 			// or the buffer's, whichever comes first.
 			DWORD data_wchars;
-			
+
 			data_wchars = cbData / sizeof(wchar_t);
-			
+
 			if ((data_wchars > 0) && (wbuf[data_wchars - 1] == 0))
 			{
 				// the value carries its own terminator.
@@ -1694,7 +1694,7 @@ static int _viv_get_registry_string(HKEY hkey,const utf8_t *value,wchar_t *wbuf,
 					wbuf[data_wchars] = 0;
 				}
 			}
-			
+
 			return 1;
 		}
 	}

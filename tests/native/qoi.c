@@ -3,9 +3,9 @@
 // the adapters below stand in for the win32 surface qoi_load touches -
 // the hglobal-backed stream, the interlocked stage marker, the debug
 // allocator macros and the pixel budget family. everything between
-// the production marker and main() bracket what is extracted
-// src/safe_size.c at every run by tests/qoi_decode_test.py, so the
-// bytes under test are the working tree's own.
+// the production markers brackets what is extracted from src/qoi.c
+// and src/safe_size.c at every run by tests/qoi_decode_test.py, so
+// the bytes under test are the working tree's own.
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -227,10 +227,24 @@ static int info_callback(void *user_data, DWORD frame_count, DWORD wide, DWORD h
 
 static int frame_callback(void *user_data, BYTE *pixels, int delay)
 {
+    SIZE_T budget;
     (void)user_data;
     (void)delay;
     frame_calls++;
-    memcpy(got_pixels, pixels, 4096);
+    // the production side hands exactly wide*high*4 bytes; the sink
+    // is a fixed 4096 scratch, so the copy honors the reported
+    // canvas (info always arrives first - a frame without info
+    // copies nothing) and the harness itself stays inside the
+    // sanitizer's sight instead of relying on its blind spot.
+    budget = (SIZE_T)got_wide * (SIZE_T)got_high * 4;
+    if (budget > sizeof(got_pixels))
+    {
+        budget = sizeof(got_pixels);
+    }
+    if (budget != 0)
+    {
+        memcpy(got_pixels, pixels, budget);
+    }
     return 1;
 }
 
