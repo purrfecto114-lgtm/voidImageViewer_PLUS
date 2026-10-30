@@ -556,7 +556,7 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	}
 	else
 	{
-		_viv_gl_teximage2d(GL_TEXTURE_2D,0,GL_RGBA8,pot_wide,pot_high,0,format,GL_UNSIGNED_BYTE,buf);
+		_viv_gl_teximage2d(GL_TEXTURE_2D,0,GL_RGB,pot_wide,pot_high,0,format,GL_UNSIGNED_BYTE,buf);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,_viv_gl_wrap);
@@ -728,6 +728,12 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 		return 0;
 	}
 	
+	// the error flag rides the context, not the frame: anything a
+	// driver flagged while the context came up (or a leftover from
+	// the mode pick) would name the first honest upload as its own
+	// failure. drain it once; the frame's own guards answer only
+	// the frame's own calls.
+	while (_viv_gl_geterror() != GL_NO_ERROR) {}
 	if (hbitmap != _viv_gl_last_hbitmap)
 	{
 		if (!_viv_gl_texture_upload(hbitmap,&ds))
