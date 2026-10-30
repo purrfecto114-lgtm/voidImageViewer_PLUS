@@ -46,6 +46,8 @@ void _viv_hwgl_export_end(void);
 // before the paint, the next render fills it instead of presenting. the
 // query tells a refused renderer (the gdi fallback painted instead)
 // from a successful readback.
+// temporary diagnostic (revert me)
+extern int _viv_gl_refusal_stage;
 int _viv_hwgl_export_begin(BYTE *bits,int wide,int high);
 int _viv_hwgl_export_filled(void);
 

@@ -99,6 +99,7 @@ static GLenum _viv_gl_last_format;
 static BYTE *_viv_gl_stage_buf;
 static uintptr_t _viv_gl_stage_size;
 static int _viv_gl_failed;
+int _viv_gl_refusal_stage;
 static int _viv_gl_max_texture;
 static int _viv_gl_bgra;
 static int _viv_gl_npot;
@@ -707,14 +708,14 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	
 	if (!_viv_gl_procs())
 	{
-		_viv_gl_failed = 1;
+		_viv_gl_failed = 1; _viv_gl_refusal_stage = 1;
 		
 		return 0;
 	}
 	
 	if (!_viv_gl_context_create(hwnd,hdc))
 	{
-		_viv_gl_failed = 1;
+		_viv_gl_failed = 1; _viv_gl_refusal_stage = 2;
 		
 		return 0;
 	}
@@ -723,7 +724,7 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	{
 		debug_printf("opengl: wglMakeCurrent failed %d\r\n",GetLastError());
 		
-		_viv_gl_failed = 1;
+		_viv_gl_failed = 1; _viv_gl_refusal_stage = 3;
 		
 		return 0;
 	}
@@ -734,6 +735,7 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	// failure. drain it once; the frame's own guards answer only
 	// the frame's own calls.
 	while (_viv_gl_geterror() != GL_NO_ERROR) {}
+	_viv_gl_refusal_stage = 4;
 	if (hbitmap != _viv_gl_last_hbitmap)
 	{
 		if (!_viv_gl_texture_upload(hbitmap,&ds))
@@ -741,7 +743,7 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 			// an oversized image is a per-image refusal, not a session
 			// failure: the gdi path keeps this one and the next image
 			// retries.
-			return 0;
+			_viv_gl_refusal_stage = 41; return 0;
 		}
 	}
 	
@@ -782,12 +784,12 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	_viv_gl_end();
 	
 	_viv_gl_disable(GL_TEXTURE_2D);
-	if (_viv_gl_geterror() != GL_NO_ERROR) return 0;
+	if (_viv_gl_geterror() != GL_NO_ERROR) { _viv_gl_refusal_stage = 5; return 0; }
 	
 	if (_viv_gl_export_bits)
 	{
 		_viv_gl_export_readback(wide,high);
-		if (!_viv_gl_export_filled) return 0;
+		if (!_viv_gl_export_filled) { _viv_gl_refusal_stage = 6; return 0; }
 	}
 	else
 	{

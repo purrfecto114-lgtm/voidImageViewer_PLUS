@@ -524,11 +524,11 @@ int _viv_export_run(void)
 	{
 		if (!_viv_hwgl_export_filled())
 		{
-			debug_printf("render-export: the opengl renderer refused\r\n");
+			debug_printf("render-export: the opengl renderer refused (stage %d)\r\n", _viv_gl_refusal_stage);
 			
 			_viv_export_free(bits);
 			
-			return 3;
+			return 30 + _viv_gl_refusal_stage;;
 		}
 	}
 	else
