@@ -24,6 +24,7 @@
 #include "viv.h"
 #include "hwd3d.h"
 #include <d3d9.h>
+#include <stdio.h>
 
 typedef IDirect3D9 * (__stdcall *_viv_d3d_create9_t)(UINT sdk_version);
 
@@ -61,6 +62,11 @@ static float _viv_d3d_v;
 // the export harness readback state: a top-down bgra buffer armed before
 // the paint, filled by the render instead of a present.
 static BYTE *_viv_d3d_export_bits;
+// temporary diagnostic (revert me)
+static int _viv_d3d_probe_dst[4];
+static int _viv_d3d_probe_frame[2];
+static int _viv_d3d_probe_reuse;
+
 static int _viv_d3d_export_wide;
 static int _viv_d3d_export_high;
 static int _viv_d3d_export_filled;
@@ -578,6 +584,8 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	if (hbitmap != _viv_d3d_last_hbitmap)
 	{
 		// an oversized image is a per-image refusal, not a session failure.
+		_viv_d3d_probe_frame[0] = ds.dsBm.bmWidth;
+		_viv_d3d_probe_frame[1] = ds.dsBm.bmHeight;
 		if (!_viv_d3d_texture_upload(hbitmap,&ds))
 		{
 			return 0;
@@ -668,6 +676,9 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	}
 	if (_viv_d3d_export_bits)
 	{
+		_viv_d3d_probe_dst[0] = dst_x; _viv_d3d_probe_dst[1] = dst_y;
+		_viv_d3d_probe_dst[2] = dst_wide; _viv_d3d_probe_dst[3] = dst_high;
+		_viv_d3d_probe_reuse = (_viv_d3d_last_pot_wide != 0);
 		_viv_d3d_export_readback();
 		return _viv_d3d_export_filled;
 	}
@@ -739,6 +750,21 @@ static void _viv_d3d_export_readback(void)
 						// after the run) - a second render must never touch it.
 						_viv_d3d_export_bits = 0;
 						_viv_d3d_export_filled = 1;
+	{
+		// temporary diagnostic (revert me)
+		FILE *f = fopen("viv_d3d_probe.txt","a");
+		if (f)
+		{
+			fprintf(f,"bb=%lux%lu dst=%d,%d,%d,%d frame=%dx%d pot=%dx%d u=%.4f v=%.4f reuse=%d failed=%d\r\n",
+				(unsigned long)desc.Width,(unsigned long)desc.Height,
+				_viv_d3d_probe_dst[0],_viv_d3d_probe_dst[1],_viv_d3d_probe_dst[2],_viv_d3d_probe_dst[3],
+				_viv_d3d_probe_frame[0],_viv_d3d_probe_frame[1],
+				_viv_d3d_last_pot_wide,_viv_d3d_last_pot_high,
+				_viv_d3d_u,_viv_d3d_v,_viv_d3d_probe_reuse,_viv_d3d_failed);
+			fclose(f);
+		}
+	}
+
 					}
 				}
 			}
