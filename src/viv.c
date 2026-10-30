@@ -1629,12 +1629,33 @@ static int _viv_init(int nCmdShow)
 		
 		if (config_auto_fit_wide_div)
 		{
-			default_wide = ((monitor_rect.right - monitor_rect.left) * config_auto_fit_wide_mul) / config_auto_fit_wide_div;
+			__int64 auto_fit;
+
+			// 64 bit intermediate: an ini pair can overflow the 32 bit
+			// product, and INT_MIN over -1 raises a hardware fault. the
+			// clamps keep the window size a sane positive int.
+			auto_fit = ((__int64)(monitor_rect.right - monitor_rect.left) * config_auto_fit_wide_mul) / config_auto_fit_wide_div;
+
+			if (auto_fit < 0)
+			{
+				auto_fit = 0;
+			}
+
+			default_wide = (int)auto_fit;
 		}
 
 		if (config_auto_fit_high_div)
 		{
-			default_high = ((monitor_rect.bottom - monitor_rect.top) * config_auto_fit_high_mul) / config_auto_fit_high_div;
+			__int64 auto_fit;
+
+			auto_fit = ((__int64)(monitor_rect.bottom - monitor_rect.top) * config_auto_fit_high_mul) / config_auto_fit_high_div;
+
+			if (auto_fit < 0)
+			{
+				auto_fit = 0;
+			}
+
+			default_high = (int)auto_fit;
 		}
 		
 		rect.left = ((monitor_rect.right - monitor_rect.left) / 2) - (default_wide / 2);

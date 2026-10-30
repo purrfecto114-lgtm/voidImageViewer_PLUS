@@ -252,7 +252,7 @@ static void _viv_msgbox_layout_buttons(void)
 	}
 
 	high = _viv_msgbox_dip(32);
-	x = rect.right - _viv_msgbox_dip(20);
+	x = rect.right - _viv_msgbox_dip(VIV_UI_PAD * 2 + VIV_UI_GAP);
 
 	for(i=0;i<_VIV_MSGBOX_BUTTONS;i++)
 	{
@@ -260,10 +260,10 @@ static void _viv_msgbox_layout_buttons(void)
 		{
 			_viv_msgbox_button_rects[i].left = x - wide;
 			_viv_msgbox_button_rects[i].right = x;
-			_viv_msgbox_button_rects[i].top = rect.bottom - _viv_msgbox_dip(20) - high;
+			_viv_msgbox_button_rects[i].top = rect.bottom - _viv_msgbox_dip(VIV_UI_PAD * 2 + VIV_UI_GAP) - high;
 			_viv_msgbox_button_rects[i].bottom = _viv_msgbox_button_rects[i].top + high;
 
-			x = _viv_msgbox_button_rects[i].left - _viv_msgbox_dip(8);
+			x = _viv_msgbox_button_rects[i].left - _viv_msgbox_dip(VIV_UI_GAP * 2);
 		}
 		else
 		{
@@ -332,7 +332,7 @@ static void _viv_msgbox_draw_button(HDC hdc,int index)
 		HBRUSH old_brush;
 		int radius;
 
-		radius = _viv_msgbox_dip(6);
+		radius = _viv_msgbox_dip(VIV_UI_RADIUS);
 
 		pen = CreatePen(PS_SOLID,1,index == _viv_msgbox_default_button() ? fill : viv_theme_color(VIV_TK_LINE));
 		old_pen = (HPEN)SelectObject(hdc,pen);
@@ -364,7 +364,7 @@ static void _viv_msgbox_draw_button(HDC hdc,int index)
 		old_pen = (HPEN)SelectObject(hdc,pen);
 		old_null_brush = SelectObject(hdc,GetStockObject(NULL_BRUSH));
 
-		RoundRect(hdc,ring.left,ring.top,ring.right,ring.bottom,_viv_msgbox_dip(3) * 2,_viv_msgbox_dip(3) * 2);
+		RoundRect(hdc,ring.left,ring.top,ring.right,ring.bottom,_viv_msgbox_dip(VIV_UI_RADIUS - 3) * 2,_viv_msgbox_dip(VIV_UI_RADIUS - 3) * 2);
 
 		SelectObject(hdc,old_null_brush);
 		SelectObject(hdc,old_pen);
@@ -463,7 +463,7 @@ static void _viv_msgbox_draw_icon(HDC hdc,int x,int y,int size)
 				break;
 
 			case MB_ICONWARNING:
-				MoveToEx(hdc,cx,cy - _viv_msgbox_dip(8),0);
+				MoveToEx(hdc,cx,cy - _viv_msgbox_dip(VIV_UI_GAP * 2),0);
 				LineTo(hdc,cx,cy + _viv_msgbox_dip(2));
 
 				// the dot: a short stub on the same pen.
@@ -516,7 +516,7 @@ static void _viv_msgbox_paint(void)
 	// skip the icon when the type carries no icon flag.
 	if (_viv_msgbox_type & 0xf0)
 	{
-		_viv_msgbox_draw_icon(hdc,_viv_msgbox_dip(24),_viv_msgbox_dip(24),_viv_msgbox_dip(32));
+		_viv_msgbox_draw_icon(hdc,_viv_msgbox_dip(VIV_UI_PAD * 3),_viv_msgbox_dip(VIV_UI_PAD * 3),_viv_msgbox_dip(32));
 	}
 
 	old_font = 0;
@@ -648,6 +648,27 @@ static void _viv_msgbox_remeasure(HWND owner,int *wide,int *high)
 		SelectObject(hdc,old_font);
 	}
 	
+	// the button row rides the same ceiling and needs a live dc:
+	// _viv_msgbox_button_wide selects the msgbox font and measures
+	// with DrawTextW, so it is measured before the dc goes back to
+	// the owner. the released handle must never reach a gdi call.
+	{
+		int button_wide;
+		int count;
+		int row_wide;
+
+		button_wide = _viv_msgbox_button_wide(hdc);
+		count = _viv_msgbox_button_count();
+
+		row_wide = (button_wide * count) + (_viv_msgbox_dip(VIV_UI_GAP * 2) * (count - 1)) + _viv_msgbox_dip(20 + 20);
+
+		// the text column still wins when it is the wider of the two.
+		if (row_wide > *wide)
+		{
+			*wide = row_wide;
+		}
+	}
+	
 	ReleaseDC(owner ? owner : 0,hdc);
 	
 	text_high = text_rect.bottom - text_rect.top;
@@ -661,28 +682,8 @@ static void _viv_msgbox_remeasure(HWND owner,int *wide,int *high)
 	_viv_msgbox_text_rect.top = _viv_msgbox_dip(22);
 	_viv_msgbox_text_rect.bottom = _viv_msgbox_text_rect.top + text_high;
 	
-	*wide = _viv_msgbox_dip(24 + 32 + 20) + text_wide + _viv_msgbox_dip(24);
-	*high = _viv_msgbox_dip(22) + text_high + _viv_msgbox_dip(16) + _viv_msgbox_dip(32) + _viv_msgbox_dip(20);
-
-	// the button row rides the same ceiling: three measured faces on a
-	// column sized for one 88 dip button would hang off the panel's
-	// right edge, and the right most one is the one clipped.
-	{
-		int button_wide;
-		int count;
-		int row_wide;
-
-		button_wide = _viv_msgbox_button_wide(hdc);
-		count = _viv_msgbox_button_count();
-
-		row_wide = (button_wide * count) + (_viv_msgbox_dip(8) * (count - 1)) + _viv_msgbox_dip(20 + 20);
-
-		// the text column still wins when it is the wider of the two.
-		if (row_wide > *wide)
-		{
-			*wide = row_wide;
-		}
-	}
+	*wide = _viv_msgbox_dip(24 + 32 + 20) + text_wide + _viv_msgbox_dip(VIV_UI_PAD * 3);
+	*high = _viv_msgbox_dip(22) + text_high + _viv_msgbox_dip(16) + _viv_msgbox_dip(32) + _viv_msgbox_dip(VIV_UI_PAD * 2 + VIV_UI_GAP);
 
 	// a yes/no box carries no close box (the native one disables it too).
 	if (_viv_msgbox_no_close())
@@ -998,10 +999,14 @@ static int _viv_msgbox_open(HWND parent,const wchar_t *caption,const wchar_t *te
 	_viv_msgbox_default_index = default_index;
 	_viv_msgbox_cancel_index = cancel_index;
 
+	// the caller owns only label_count faces: a two-element array
+	// must never read its third slot - the old full-width loop
+	// walked one element past every short array, a stack read the
+	// count gate below could not undo.
 	for(i=0;i<_VIV_MSGBOX_BUTTONS;i++)
 	{
-		_viv_msgbox_labels[i] = (label_count && labels) ? labels[i] : 0;
-		_viv_msgbox_result_ids[i] = (label_count && ids) ? ids[i] : 0;
+		_viv_msgbox_labels[i] = ((label_count > i) && labels) ? labels[i] : 0;
+		_viv_msgbox_result_ids[i] = ((label_count > i) && ids) ? ids[i] : 0;
 	}
 
 	if (_viv_msgbox_label_count)

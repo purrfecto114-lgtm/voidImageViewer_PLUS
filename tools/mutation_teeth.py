@@ -36,6 +36,11 @@ SUITES = {
     "byte": ["python3", "tests/byte_invariant_test.py"],
     "pixel": ["python3", "tests/pixel_golden_test.py"],
     "native": [sys.executable, "tests/native_regression_test.py", "--sanitize"],
+    # the qoi decoder's behavioral gate: hostile streams against the real
+    # production decode body (the round-151 teeth only had the menu
+    # structure nails - a decoder that never ran was invisible to them).
+    "qoi": [sys.executable, "tests/qoi_decode_test.py", "--sanitize"],
+    "repair": [sys.executable, "tests/repair_regression_test.py"],
 }
 
 # (name, file, find, replace, suites-that-must-go-red)
@@ -632,13 +637,37 @@ MUTATIONS = [
      "src/qoi.c",
      "if (_VIV_LOAD_TERMINATED())",
      "if (0)",
-     ["menu"]),
+     ["menu", "qoi"]),
 
     ("the qoi alpha scan rides the buffer again (round-151)",
      "src/qoi.c",
      "if (d[3] != 255)",
      "if (0)",
-     ["menu"]),
+     ["menu", "qoi"]),
+
+    ("the qoi rgb chunk drops its tail bound",
+     "src/qoi.c",
+     "if ((chunks_end - p) < 3)",
+     "if (0)",
+     ["qoi"]),
+
+    ("the qoi run loses its canvas bound (the 62-pixel walk)",
+     "src/qoi.c",
+     "while ((decode_ok) && (d < d_end))",
+     "while ((decode_ok) && (d < d_end + 4))",
+     ["qoi"]),
+
+    ("the qoi end marker check comes off",
+     "src/qoi.c",
+     "decode_ok = (memcmp(chunks_end,_qoi_end_marker,8) == 0);",
+     "decode_ok = 1;",
+     ["qoi"]),
+
+    ("the qoi channels gate comes off",
+     "src/qoi.c",
+     "if (((channels == 3) || (channels == 4)) && (colorspace <= 1) && (wide) && (high))",
+     "if (1)",
+     ["qoi"]),
 
     ("the webp blend pays the opaque math again (round-151)",
      "src/viv_anim.c",
@@ -776,6 +805,64 @@ MUTATIONS = [
      "// the same restart on a crlf line.\r\n\t\t\t\t\t\t\t\t\tgoto next_line;",
      "// the same restart on a crlf line.\r\n\t\t\t\t\t\t\t\t\t;",
      ["native"]),
+
+    ("the lost device loses its reset road again",
+     "src/hwd3d.c",
+     "itself - recover now or the session wedges into the gdi\r\n"
+     "\t\t// fallback with a full-size texture churn on every paint.\r\n"
+     "\t\t_viv_d3d_attempt_reset();\r\n"
+     "\t\t\r\n"
+     "\t\treturn 0;",
+     "itself - recover now or the session wedges into the gdi\r\n"
+     "\t\t// fallback with a full-size texture churn on every paint.\r\n"
+     "\t\treturn 0;",
+     ["repair"]),
+
+    ("the scene refusal loses its reset road again",
+     "src/hwd3d.c",
+     "// a scene that could not run is the same lost-device news.\r\n"
+     "\t\t_viv_d3d_attempt_reset();\r\n"
+     "\t\t\r\n"
+     "\t\treturn 0;",
+     "// a scene that could not run is the same lost-device news.\r\n"
+     "\t\treturn 0;",
+     ["repair"]),
+
+    ("the msgbox face loop reads past the caller's array again",
+     "src/viv_msgbox.c",
+     "_viv_msgbox_labels[i] = ((label_count > i) && labels) ? labels[i] : 0;",
+     "_viv_msgbox_labels[i] = (label_count && labels) ? labels[i] : 0;",
+     ["menu"]),
+
+    ("the lowercase terminator writes past its buffer again",
+     "src/viv_install.c",
+     "for(i=0;(choice_wbuf[i]) && (i < (STRING_SIZE - 1));i++)",
+     "for(i=0;(choice_wbuf[i]) && (i < STRING_SIZE);i++)",
+     ["menu"]),
+
+    ("the registry reader drops the terminator contract",
+     "src/viv_install.c",
+     "wbuf[data_wchars] = 0;",
+     "wbuf[data_wchars + 1] = 0;",
+     ["menu"]),
+
+    ("the title's failure line dies with its block again",
+     "src/viv_chrome.c",
+     "wchar_t failure_buf[STRING_SIZE];\r\n\r\n\twindow_title[0] = 0;",
+     "window_title[0] = 0;",
+     ["menu"]),
+
+    ("the picker's fallback text dies with its block again",
+     "src/viv_settings.c",
+     "wchar_t text_wbuf[STRING_SIZE];\r\n\tPOINT pt;",
+     "POINT pt;",
+     ["menu"]),
+
+    ("the mirror walks its failures again",
+     "src/os.c",
+     "\tif (!region_size)\r\n\t{",
+     "\tif (0)\r\n\t{",
+     ["menu"]),
 ]
 
 def run_suite(key):

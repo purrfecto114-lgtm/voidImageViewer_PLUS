@@ -296,6 +296,7 @@ def t_localization_alignment():
             # round-128: the rotate ask and the silent-ini boxes
             "LOCALIZATION_ID_ROTATE_IMAGE_CAPTION",
             "LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE",
+            "LOCALIZATION_ID_ROTATE_IMAGE_FAILED",
             "LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION",
             "LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT",
@@ -389,10 +390,13 @@ def t_localization_alignment():
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_CAPTION",
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_KEEP",
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_RESTORE",
-            "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE")
-    check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(ids[-91:]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more (the consent pair, the lock caption, the uninstall ask); rc.2: four more (the exit ask's caption, faces and message)
-    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(en[-91:]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
-    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(zh[-91:]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
+            "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE",
+            "LOCALIZATION_ID_STATUS_BAR_DIMENSION_FORMAT",
+            "LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT",
+            "LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT")
+    check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(ids[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more (the consent pair, the lock caption, the uninstall ask); rc.2: four more (the exit ask's caption, faces and message)
+    check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(en[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
+    check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(zh[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
 
     # rc.2: the corrupted-settings ask's faces and caption read the
     # tables, and the literals they replaced left config.c behind.
@@ -450,10 +454,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.17.115 (the stable round)",
-          (major, minor, rev, build) == ("1", "1", "17", "115") and vtype == "")
+    check("version.h = 1.1.17.117 (the residual fix round)",
+          (major, minor, rev, build) == ("1", "1", "17", "117") and vtype == "")
     check("VERSION_STRING is the release identity (the 1.1.17 tag)",
-          vstr == "1.1.17")
+          vstr == "1.1.17-repair.2")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -525,7 +529,7 @@ def t_status_vararg_safety():
     # the zoom pane call: exactly one string_printf uses the zoom format,
     # inside _viv_status_update, passing exactly one int-returning call.
     calls = re.findall(
-        r"string_printf\(\s*zoom_buf,\s*localization_get_string\(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT\)\s*,([^;]*)\);",
+        r"string_printf\(\s*zoom_buf,\s*localization_get_string\(LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT\)\s*,([^;]*)\);",
         viv, re.S)
     check("exactly one zoom pane format call", len(calls) == 1, repr(calls))
     if calls:
@@ -1060,14 +1064,14 @@ def t_zoom_percent_wiring():
           "int part_array[_VIV_STATUS_PART_MAX];" in viv)
     check("zoom text is built for the pane",
           "wchar_t zoom_buf[STRING_SIZE];" in viv and "*zoom_buf = 0;" in viv)
-    check("the zoom pane is the leftmost fixed part",
-          "part_array[parti] = zoom_wide;" in viv)
+    check("the zoom chip has a semantic right-side role",
+          "widths[_VIV_STATUS_ZOOM] = zoom_wide;" in viv and "_viv_status_zoom_pane = parti;" in viv)
     check("the pane is measured like the other parts",
           "GetTextExtentPoint32(hdc,zoom_buf,string_get_length(zoom_buf),&size)" in viv)
-    check("the message pane moved to part 1",
-          "_viv_status_set(1,text);" in viv and "_viv_status_set(0,zoom_buf);" in viv)
-    check("the right parts start after the message pane (rc.7 layout)",
-          "parti = preload_wide ? 3 : 2;" in viv)
+    check("the index and message panes have separate texts",
+          "texts[_VIV_STATUS_INDEX] = index_buf;" in viv and "texts[_VIV_STATUS_MESSAGE] = text;" in viv)
+    check("texts use the same role map as layout",
+          "_viv_status_set(parti,texts[_viv_status_roles[parti]]);" in viv)
     check("the pane width is never below the minimum",
           "if (zoom_wide < minwide)" in viv)
 
@@ -1076,7 +1080,7 @@ def t_zoom_percent_wiring():
     check("status click case 0 opens the editor",
           "_viv_set_zoom_dialog();" in viv)
     check("the frame toggle pane is located by its live index (the date pane's birth moved parts-minus-two onto the wrong pane)",
-          "if (item == _viv_status_frame_pane_index())" in viv and
+          "else if ((item >= 0) && (item == _viv_status_frame_pane_index()))" in viv and
           "int _viv_status_frame_pane_index(void)" in open("src/viv_chrome.c","rb").read().decode("latin-1") and
           "SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2" not in viv)
     check("hand cursor over the zoom pane",
@@ -1227,8 +1231,8 @@ def t_review_fixes():
           viv.count("if (*pixel_rgb_buf)") >= 1 and
           "if (pixel_pos_buf)" not in viv and
           "if (pixel_rgb_buf)" not in viv and
-          "if (pixel_pos_wide)" in viv and
-          "if (pixel_rgb_wide)" in viv)
+          "widths[_VIV_STATUS_POS] = pixel_pos_wide;" in viv and
+          "widths[_VIV_STATUS_RGB] = pixel_rgb_wide;" in viv)
 
     # preload OOB: the additional frame write is bounds checked
     check("preload additional frame write is bounds checked",
@@ -1297,7 +1301,7 @@ def t_review_fixes_round2():
     check("webp additional frame builds no mipmap (the paint path is lazy)",
           "_viv_get_mipmap(hbitmap,frame_wide,frame_high," not in viv and
           "_viv_get_mipmap(hbitmap,viv_webp->wide," not in viv and
-          viv.count("_viv_get_mipmap(hbitmap") == 2)
+          viv.count("_viv_get_mipmap(hbitmap") == 0)
 
     # R5 hardening: the reply consumer clamps the frame count
     check("first frame reply clamps zero frame counts",
@@ -1376,9 +1380,8 @@ def t_review_fixes_round4():
 
     # F1: the rotate buffer allocations multiply in SIZE_T
     # (round 16 upgraded the multiplication to the checked safe_size helpers)
-    check("rotate buffer allocations multiply through the checked helpers",
-          "mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)bitmap.bmWidth,(SIZE_T)bitmap.bmHeight),sizeof(DWORD)));" in viv and
-          "mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)ret_wide,(SIZE_T)ret_high),sizeof(DWORD)));" in viv)
+    check('orientation has no full-image scratch (native regression verifies pixels)',
+          "old_pixels" not in viv and "new_pixels" not in viv and "total = safe_size_mul((SIZE_T)stride,(SIZE_T)high);" in viv)
     check("the uncast rotate allocations are gone",
           "mem_alloc(bitmap.bmWidth * bitmap.bmHeight" not in viv and
           "mem_alloc(ret_wide * ret_high" not in viv)
@@ -1440,7 +1443,7 @@ def t_release_engineering_round5():
     check("artifact hashes are re-verified after download",
           "Re-verify artifact SHA-256" in ry and "sha256sum -c sha256.txt" in ry)
     check("tag whitelist regex accepts 3 or 4 numeric segments",
-          "grep -Eq '^v?[0-9]+\\.[0-9]+(\\.[0-9]+){1,2}(-(beta|rc)\\.[0-9]+)?$'" in ry)
+          "grep -Eq '^v?[0-9]+\\.[0-9]+(\\.[0-9]+){1,2}(-(beta|rc|repair)\\.[0-9]+)?$'" in ry)
     check("tag must match src/version.h",
           "Verify the tag matches src/version.h" in ry)
     check("release notes are generated from Changes.txt, not embedded",
@@ -1758,17 +1761,17 @@ def t_round7():
 
     # the status hud layout: preload left, resolution pinned right.
     check("the preload pane is capped at a quarter of the bar",
-          "if (preload_wide > (avail_wide / 4))" in viv)
+          "if (widths[_VIV_STATUS_PRELOAD] > avail_wide / 4)" in viv)
     check("the right cluster gives way (frame, rgb, date, pos)",
-          "while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide + date_wide > avail_wide)" in viv)
+          "if ((total <= avail_wide) && (count <= _VIV_STATUS_PART_MAX))" in viv)
     check("the resolution pane clips instead of vanishing",
-          "dimension_wide = avail_wide - zoom_wide - preload_wide;" in viv)
+          "widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_ZOOM] - widths[_VIV_STATUS_PRELOAD];" in viv)
     check("the panes use cumulative coordinates",
-          "part_array[parti] = part_array[parti - 1] + flex_wide;" in viv)
+          "edge += widths[role];" in viv and "edges[count] = (role == _VIV_STATUS_DIMENSION) ? -1 : edge;" in viv)
     check("the message pane index follows the preload pane",
-          "parti = preload_wide ? 3 : 2;" in viv)
+          "texts[_VIV_STATUS_PRELOAD] = preload_buf;" in viv and "texts[_VIV_STATUS_MESSAGE] = text;" in viv)
     check("right cluster panes are width driven, not buffer driven",
-          "if (pixel_pos_wide)\n" in viv.replace("\r\n", "\n"))
+          "if (widths[_VIV_STATUS_POS])" in viv and "if (widths[_VIV_STATUS_RGB])" in viv)
 
     # the owner drawn dark panes.
     # R70: the pane text store left the static prefix (chrome reads it
@@ -1777,7 +1780,7 @@ def t_round7():
           "wchar_t _viv_status_part_text[_VIV_STATUS_PART_MAX][STRING_SIZE];" in viv and
           "static wchar_t _viv_status_part_text" not in viv)
     check("SB_SETTEXTW uses SBT_OWNERDRAW with the pane index as data",
-          "SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);" in viv)
+          "SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW | SBT_NOBORDERS),(LPARAM)part);" in viv)
     check("the old SB_GETTEXTW compare is gone",
           "SB_GETTEXTW" not in viv)
     check("the draw function paints through the chrome tokens",
@@ -1947,7 +1950,7 @@ def t_dark_menu_bar():
     check("the frame menu sites became bar show/hide calls",
           viv.count("_viv_menubar_show(") == 6)  # 5 call sites + the module definition (r117: the iconic restyle branch in _viv_update_frame carries its own strip-visibility call)
     check("the layout air is a fixed dpi-scaled constant (both themes)",
-          "pad = (4 * os_logical_wide) / 96;" in menubar)
+          "pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);" in menubar)
     check("the slots are label extent plus the air",
           "_viv_menubar_item_wide[_viv_menubar_item_count] = size.cx + (pad * 2);" in menubar)
     check("the strip height floors at the remake bar height (28 dip)",
@@ -2024,8 +2027,8 @@ def t_dark_menu_bar():
           "viv_theme_brush(VIV_TK_FRAME)" in mb_src and
           "WM_ERASEBKGND" in tb_src2 and
           "return viv_theme_brush(VIV_TK_CHROME);" in tb_src2)
-    check("the light strip face stays the system menu color",
-          "case VIV_TK_FRAME: return GetSysColor(COLOR_MENU);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
+    check("the light canvas frame has a calibrated inset tone",
+          "case VIV_TK_FRAME: return RGB(0xD8,0xD8,0xDC);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
 
 
 def t_dark_layers_round():
@@ -2201,9 +2204,8 @@ def t_audit_round16():
           viv.count("mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)_viv_playlist_shuffle_allocated))") == 2)
     check("nav pointer array multiplies through the helper",
           "mem_alloc(safe_size_mul_sizeof_pointer((SIZE_T)_viv_nav_item_count))" in viv)
-    check("rotate pixel buffers multiply through the helper",
-          "mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)bitmap.bmWidth,(SIZE_T)bitmap.bmHeight),sizeof(DWORD)))" in viv and
-          "mem_alloc(safe_size_mul(safe_size_mul((SIZE_T)ret_wide,(SIZE_T)ret_high),sizeof(DWORD)))" in viv)
+    check('rotation row and canvas sizes use checked helpers',
+          "safe_size_mul((SIZE_T)wide,bpp)" in viv and "safe_size_mul((SIZE_T)stride,(SIZE_T)high)" in viv)
     check("ipc reply and query sizes go through the helpers",
           "mem_alloc(safe_size_add(sizeof(_viv_reply_t),size))" in viv and
           viv.count("safe_size_mul_sizeof_wchar(safe_size_add_one(string_get_length(new_search)))") == 2)
@@ -2463,8 +2465,8 @@ def t_field_fixes_round42():
           "_viv_light_chrome_brush" not in viv)
     check("the dark chrome brushes are released on kill",
           viv.count("DeleteObject(_viv_dark_chrome_hbrushes[i]);") == 1)
-    check("the light strip faces stay the system menu color",
-          "case VIV_TK_FRAME: return GetSysColor(COLOR_MENU);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
+    check("the light frame keeps its calibrated layer",
+          "case VIV_TK_FRAME: return RGB(0xD8,0xD8,0xDC);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
 
     # --- the dark flip repaint hardening ---
     i = viv.find("void _viv_apply_dark_mode(int repaint)")
@@ -3215,7 +3217,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the reentry state round sweeps the pin)",
-          "#define VERSION_BUILD 115" in version)
+          "#define VERSION_BUILD 117" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3261,7 +3263,7 @@ def t_white_band_round67():
           "_viv_menu_bar_capture_pad" not in viv and
           "_viv_menu_bar_pad" not in viv)
     check("the fixed air serves both themes",
-          "pad = (4 * os_logical_wide) / 96;" in viv)
+          "pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);" in viv)
 
     # 4. the toolbar window width: tb_getmaxsize (the official total size
     #    of all the visible buttons and separators) leads, the content
@@ -3286,8 +3288,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the reentry state round sweeps them)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3533,8 +3535,8 @@ def t_structure_round76():
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3592,8 +3594,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the reentry state round sweeps them)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -3797,7 +3799,7 @@ def t_field_repair_round78():
     check("the msgbox buttons take the pill radius",
           b"RoundRect" in msgbox and b"pill geometry" in msgbox)
     check("the light hover token has real contrast",
-          b"RGB(0xDC,0xDC,0xDC)" in theme)
+          b"RGB(0xC8,0xC8,0xCC)" in theme)
     check("the light nav face layers against the content face",
           b"RGB(0xE4,0xE4,0xE4)" in theme)
     check("the light strip ties to the system menu color",
@@ -3844,7 +3846,7 @@ def t_zoom_pane_editor_round79():
           "os_statusbar_index_from_x" not in osh)
     check("the status subclass answers the editor colors (the chrome tokens)",
           "case WM_CTLCOLOREDIT:" in chrome and
-          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));" in chrome and
+          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_NAV_FACE));" in chrome and
           "SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));" in chrome)
 
     # the field: created on the pane, themed by the strip.
@@ -3852,8 +3854,8 @@ def t_zoom_pane_editor_round79():
           re.search(r'os_CreateWindowEx\(\s*\r\n\s*0,\s*\r\n\s*"EDIT",', dialogs) is not None and
           "WS_CHILD|WS_VISIBLE|ES_NUMBER|ES_AUTOHSCROLL" in dialogs)
     check("the field is placed and sized from the pane rect",
-          "SB_GETRECT,0,(LPARAM)&pane_rect" in dialogs and
-          "wide < 32" in dialogs)
+          "SB_GETRECT,(WPARAM)_viv_status_zoom_pane_index(),(LPARAM)&pane_rect" in dialogs and
+          "wide < VIV_UI_SCALE(VIV_UI_PAD * 4,os_logical_wide,96)" in dialogs)
     check("the old proc lives in the userdata (the edit key idiom, two steps)",
           "old_proc = (WNDPROC)SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)_viv_zoom_edit_proc);" in dialogs and
           "SetWindowLongPtr(hwnd,GWLP_USERDATA,(LONG_PTR)old_proc);" in dialogs and
@@ -3994,10 +3996,10 @@ def t_field_report_round80():
 
     # 5. the status strip font: pinned, and re-pinned on dpi change.
     check("the status bar creation pins the menu font",
-          "SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));" in chrome)
+          "SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_ui_font(VIV_UI_FONT_STATUS),MAKELPARAM(TRUE,0));" in chrome)
     dpi = wndproc.split("static LRESULT _viv_on_wm_dpichanged")[1].split("static LRESULT")[0]
     check("a dpi change re-pins the strip font",
-          "SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));" in dpi and
+          "SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_ui_font(VIV_UI_FONT_STATUS),MAKELPARAM(TRUE,0));" in dpi and
           dpi.index("_viv_menu_font_drop();") < dpi.index("WM_SETFONT"))
 
     # 6. the menu window theming owns its process.
@@ -4098,21 +4100,21 @@ def t_review_absorption_round82():
           chrome.find("part = (int)draw_item->itemID;") <
           chrome.find("part = (int)draw_item->itemData;"))
     check("an unresolvable pane paints the face instead of returning unhandled",
-          chrome.count("FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_CHROME));") == 2 and
+          chrome.count("FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_NAV_FACE));") == 2 and
           "the rc.11 bottom white bar was exactly a" in chrome)
     check("the pane text rides the text token",
           "text_color = viv_theme_color(VIV_TK_TEXT);" in chrome)
 
     # 2. the status strip is on the tokens, no hardcoded palette of its own.
     check("the erase rides the chrome brush",
-          "FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_CHROME));" in chrome)
+          "FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_NAV_FACE));" in chrome)
     check("the grip fill and dots ride the tokens",
-          "FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_CHROME));" in chrome and
+          "FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_NAV_FACE));" in chrome and
           "grip_rect.bottom - 2 - (dot_y * step),viv_theme_color(VIV_TK_TEXT2));" in chrome)
     check("the zoom editor field rides the tokens",
-          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));" in chrome and
+          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_NAV_FACE));" in chrome and
           "SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));" in chrome and
-          "return (LRESULT)viv_theme_brush(VIV_TK_CHROME);" in chrome)
+          "return (LRESULT)viv_theme_brush(VIV_TK_NAV_FACE);" in chrome)
     check("the strip carries no hardcoded palette of its own",
           "RGB(0xE8,0xE8,0xE8)" not in chrome and
           "RGB(0x20,0x20,0x20)" not in chrome and
@@ -4156,8 +4158,8 @@ def t_review_absorption_round82():
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4332,8 +4334,8 @@ def t_halftone_palette_round89():
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3 \u2014" not in readme)
     # 5. the changelog carries the round.
@@ -4453,8 +4455,8 @@ def t_high_dpi_icons_round90():
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4 \u2014" not in readme)
     # 5. the changelog carries the round.
@@ -4529,8 +4531,8 @@ def t_dead_residue_round91():
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.16 \u2014 the previous stable**" in readme)
     # 6. the changelog carries the round.
@@ -4664,8 +4666,8 @@ def t_peripheral_residue_round92():
                if ts_light.get(k) != light_c.get(k)}))
     # 6. the version and the readme slot.
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.16 \u2014 the previous stable**" in readme)
     # 7. the changelog carries the round.
@@ -4779,8 +4781,8 @@ def t_format_horizons_round94():
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4990,8 +4992,8 @@ def t_todo_closure_round96():
     check("the changelog carries the todo closure pre-release (below the fixture round)",
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
     check("the version is 1.1.17 build 115 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -5071,7 +5073,7 @@ def t_field_sweep_round93():
           "the keyboard focus ring (2 dip accent stroke)" not in settings and
           "_viv_settings_draw_focus_ring(mem,&ctl->rect)" not in settings)
     check("the control ring survives (the switch still rings its capsule, round-132: with the capsule's own radius)",
-          "_viv_settings_draw_focus_ring(hdc,&ctl->value,(ctl->value.bottom - ctl->value.top) / 2);" in settings)
+          "_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(VIV_UI_RADIUS));" in settings)
 
     # 5. the legacy sweep.
     for gone in ("_viv_is_alt", "_viv_tooltip", "_viv_low_priority_paint",
@@ -5133,8 +5135,8 @@ def t_field_sweep_round93():
 
     # 7. the version and the readme slot.
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.16 \u2014 the previous stable**" in readme)
     check("the rc.6 entry rides the one-line list",
@@ -5355,8 +5357,8 @@ def t_fixture_round98():
     check("the changelog carries the fixture round pre-release (below the navigation visibility round)",
           "Pre-release: Version 1.1.14-rc.2 (the fixture round)" in changes)
     check("the version is 1.1.17 build 115 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5429,8 +5431,8 @@ def t_navigation_visibility_round99():
     check("the changelog carries the navigation visibility round pre-release (below the corner and audit response round)",
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
     check("the version is 1.1.17 build 115 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
 
 def t_audit_response_round101():
@@ -5548,8 +5550,8 @@ def t_audit_response_round101():
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the readme discloses the unsigned binaries",
           "binaries are unsigned" in readme)
     check("the readme's format line conditions the store-backed codecs",
@@ -5659,8 +5661,8 @@ def t_pixel_oracle_round102():
     check("the changelog top entry is the review verdict round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.16 \u2014 the previous stable**" in readme)
     flat_changes = " ".join(changes.split())
@@ -5984,8 +5986,8 @@ def t_input_ceiling_round104():
     check("the changelog top entry is the review verdict round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.16 \u2014 the previous stable**" in readme)
     flat_changes = " ".join(changes.split())
@@ -6114,11 +6116,8 @@ def t_renderer_parity_round105():
           "hbitmap = _viv_load_create_frame_dib(screen_hdc,load_wide,load_high);" in vivload and
           "hbitmap = _viv_load_create_frame_dib(screen_hdc,(int)thumb_wide,(int)thumb_high);" in vivload and
           vivload.count("CreateCompatibleBitmap(") == 1)
-    check("the orientation copies keep the dib contract (32bpp top-down, the native section write)",
-          "ret_hbitmap = CreateDIBSection(screen_hdc,&bmi,DIB_RGB_COLORS,&ret_bits,NULL,0);" in vivrender and
-          "os_copy_memory(ret_bits,new_pixels,safe_size_mul(safe_size_mul((SIZE_T)ret_wide,(SIZE_T)ret_high),sizeof(DWORD)));" in vivrender and
-          "SetDIBits(" not in vivrender and
-          vivrender.count("CreateCompatibleBitmap(") == 2)
+    check('orientation preserves top-down 24/32bpp DIBs',
+          "bmi.bmiHeader.biHeight = -high;" in vivrender and "bmi.bmiHeader.biBitCount = bitmap.bmBitsPixel;" in vivrender and "result = CreateDIBSection(NULL,&bmi,DIB_RGB_COLORS,(void **)&bits,NULL,0);" in vivrender and "SetDIBits(" not in vivrender)
     check("the renderer refusals name their reason (the silent zero retired)",
           'debug_printf("opengl: the frame is not a dib section (no bits answered) - the gdi path paints it\\r\\n");' in hwgl and
           'debug_printf("direct3d: the frame is not a dib section (no bits answered) - the gdi path paints it\\r\\n");' in hwd3d and
@@ -6157,8 +6156,8 @@ def t_renderer_parity_round105():
     check("the changelog top entry is the review verdict round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.16 \u2014 the previous stable**" in readme)
     flat_changes = " ".join(changes.split())
@@ -6274,8 +6273,8 @@ def t_navigation_faces_round106():
     check("the changelog top entry is the review verdict round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the version is 1.1.17 build 115",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.16 \u2014 the previous stable**" in readme)
     flat_changes = " ".join(changes.split())
@@ -6488,8 +6487,8 @@ def t_stable_promotion_round108():
     # 1. the version marks the stable promotion (the rc phase suffix
     #    is gone; the plain tag form is the stable release form).
     check("version.h = 1.1.15-rc.11.90 (the stable promotion round pins ride the slot architecture round)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version and
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the defaults the promotion promises, pinned as facts: both
@@ -6508,13 +6507,10 @@ def t_stable_promotion_round108():
     #    worst-case 32bpp frame set with the mipmap chain's extra
     #    third, every multiplication through the safe helpers so a
     #    hostile dimension pair cannot wrap into an "it fits" answer.
-    check("the frame-set estimator multiplies through safe_size_mul",
-          "pixels = safe_size_mul((SIZE_T)(unsigned int)wide,(SIZE_T)(unsigned int)high);" in vivload and
-          "bytes = safe_size_mul(pixels,4);" in vivload and
-          "bytes = safe_size_mul(bytes,(SIZE_T)(unsigned int)frame_count);" in vivload)
-    check("the estimator prices the mipmap third and keeps the sentinel",
-          "if (bytes == SIZE_MAX)" in vivload and
-          "return bytes / 3;" in vivload)
+    check('the frame-set estimator checks each pyramid level',
+          "safe_size_mul(safe_size_mul((SIZE_T)wide,(SIZE_T)high),4)" in vivload and "return safe_size_mul(bytes,(SIZE_T)frame_count);" in vivload)
+    check('the estimator prices thin-image mips and keeps the sentinel',
+          "if (bytes == SIZE_MAX)" in vivload and "wide = wide / 2 + wide % 2;" in vivload and "high = high / 2 + high % 2;" in vivload)
     check("the ceiling prices current, last and preload together",
           "_viv_slot_bytes(&_viv_slot_current)" in vivload and
           "total = safe_size_add(total,_viv_slot_bytes(&_viv_slot_cache[i]));" in vivload and
@@ -6626,8 +6622,8 @@ def t_slot_architecture_round109():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the slot architecture round's pins ride the audit response round)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
     # 2. the type: one held image - the file identity, the frames,
     #    both counts, the dimensions and the preload role's state -
@@ -6711,14 +6707,17 @@ def t_slot_architecture_round109():
           "static SIZE_T _viv_slot_bytes(const _viv_image_slot_t *slot)" in vivload and
           "return _viv_frame_set_bytes(slot->image_wide,slot->image_high,slot->frame_count);" in vivload)
 
-    # 9. the nav-index cache: the pointer key could never invalidate
-    #    (the frame fd has one stable address), so the index pane froze
-    #    on the first file the walk ever saw. the name is the identity.
-    check("the nav-index cache keys on the file name, not the address",
-          "static wchar_t last_filename[STRING_SIZE];" in chrome and
-          "string_compare(last_filename,_viv_slot_current.fd.cFileName) == 0" in chrome and
-          "last_fd ==" not in chrome and
-          "string_copy(last_filename,_viv_slot_current.fd.cFileName);" in chrome)
+    # 9. the nav-index walk is uncached: the name-keyed cache had no
+    #    invalidation channel for reorder/add/delete, so a shuffle served
+    #    stale indices. the walk is one string compare per entry on an
+    #    event driven status update - redoing it is cheaper than keeping
+    #    the cache honest.
+    check("the nav-index walk is uncached",
+          "static wchar_t last_filename[STRING_SIZE];" not in chrome and
+          "last_filename_valid" not in chrome and
+          "static int last_index;" not in chrome and
+          "string_compare(item->fd.cFileName,_viv_slot_current.fd.cFileName) == 0" in chrome and
+          "walk is deliberately uncached" in chrome)
 
     # 10. the fd heap blocks: the three slot fds are embedded members
     #     now; only the navigation fd and the load fd stay allocated.
@@ -6776,8 +6775,8 @@ def t_audit_response_round110():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the fourth audit response round)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
     # 2. the neighbor predicate: one helper in the navigation domain,
     #    declared on the navigation's own export face, carrying the
@@ -6890,8 +6889,8 @@ def t_audit_response_round111():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the fifth audit response round)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
     # 2. the navigation trio - the sort pollution: the path completes
     #    before the first compare, at all three scan sites, and the six
@@ -6923,10 +6922,8 @@ def t_audit_response_round111():
           "d->fd.dwReserved1 == fd->dwReserved1" not in playlist)
 
     # 5. the mipmap node is born complete before the dc dance
-    check("the mipmap node is born complete",
-          "the node is born complete before the dc dance" in render and
-          "(*pmip)->hbitmap = 0;" in render and
-          render.count("(*pmip)->mipmap = NULL;") == 1)
+    check('mipmap node publishes only a valid bitmap (native failure/retry regression)',
+          "node->hbitmap = bitmap;" in render and "node->mipmap = NULL;" in render and "*pmip = node;" in render)
 
     # 6. the blank state refreshes the toolbar faces
     check("the blank state updates the toolbar faces",
@@ -6942,7 +6939,7 @@ def t_audit_response_round111():
     #    editor follows both
     check("the theme change re-pins the status font",
           "the theme flip is the same lifecycle" in wndproc and
-          wndproc.count("SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));") == 2)
+          wndproc.count("SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_ui_font(VIV_UI_FONT_STATUS),MAKELPARAM(TRUE,0));") == 2)
     check("the zoom editor re-pins on both paths",
           "void _viv_zoom_edit_refont(void)" in dialogs and
           "void _viv_zoom_edit_refont(void);" in dialogsh and
@@ -7315,8 +7312,8 @@ def t_audit_response_round113():
 
     # 9. the version mark.
     check("version.h = 1.1.15-rc.11.90 (the sixth audit response round)",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
 
 def t_command_picker_round112():
@@ -7345,8 +7342,8 @@ def t_command_picker_round112():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the command picker round)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
     # 2. the command dropdown answers through the cascade picker, and
     #    the flat call that used to feed it retired.
@@ -7680,8 +7677,8 @@ def t_memory_and_cache_round120():
 
     # 10. the lazy mipmap and the honest animation gate.
     check("the additional frames stop building mipmaps eagerly",
-          vivload.count("_viv_get_mipmap(hbitmap") == 1 and
-          anim.count("_viv_get_mipmap(hbitmap") == 1)
+          vivload.count("_viv_get_mipmap(hbitmap") == 0 and
+          anim.count("_viv_get_mipmap(hbitmap") == 0)
     check("the animation gates price the mipmap's third (round-132: the one family's)",
           "(VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 16 / 3 > VIV_MAX_ANIMATION_TOTAL_BYTES" in vivload and
           "(VIV_UINT64)frame_count * (VIV_UINT64)canvas_pixels * 16 / 3 > VIV_MAX_ANIMATION_TOTAL_BYTES" not in webp)
@@ -7694,8 +7691,8 @@ def t_memory_and_cache_round120():
 
     # 12. the version moved to rc.11 build 90 (the sweep that renamed this round's pins).
     check("the version moved to 1.1.15-rc.11 build 90",
-          "#define VERSION_BUILD 115" in vh and
-          '#define VERSION_STRING "1.1.17"' in vh)
+          "#define VERSION_BUILD 117" in vh and
+          '#define VERSION_STRING "1.1.17-repair.2"' in vh)
 
 
 def t_gui_limits_round121():
@@ -7724,23 +7721,23 @@ def t_gui_limits_round121():
 
     # 1. the breathing gap between the stamp and the size pane.
     check("the stamp pane carries the breathing gap",
-          "date_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5 + ((12 * os_logical_wide) / 96);" in chrome)
+          "date_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96) + VIV_UI_SCALE(VIV_UI_GAP * 3,os_logical_wide,96);" in chrome)
     check("the gap comment names the pair",
           "the stamp carries twelve extra logical" in chrome and
           "so the time and the size never touch" in chrome)
 
     # 2. the give-way order: pos, rgb, frame, date (the stamp survives
     #    longest as half of the bottom-right pair).
-    i = chrome.find("while ((zoom_wide + preload_wide + dimension_wide")
-    body = chrome[i:chrome.find("if (zoom_wide + preload_wide + dimension_wide > avail_wide)", i)]
+    i = chrome.find("static int _viv_status_layout_parts(")
+    body = chrome[i:chrome.find("// the new index is optional", i)]
     check("the give-way body orders pos before rgb",
-          0 <= body.find("pixel_pos_wide = 0;") < body.find("pixel_rgb_wide = 0;"))
+          0 <= body.find("widths[_VIV_STATUS_POS] = 0;") < body.find("widths[_VIV_STATUS_RGB] = 0;"))
     check("the give-way body orders rgb before frame",
-          0 <= body.find("pixel_rgb_wide = 0;") < body.find("frame_wide = 0;"))
+          0 <= body.find("widths[_VIV_STATUS_RGB] = 0;") < body.find("widths[_VIV_STATUS_FRAME] = 0;"))
     check("the give-way body orders frame before date (the stamp holds out longest)",
-          0 <= body.find("frame_wide = 0;") < body.find("date_wide = 0;"))
+          0 <= body.find("widths[_VIV_STATUS_FRAME] = 0;") < body.find("widths[_VIV_STATUS_DATE] = 0;"))
     check("the give-way comment names the priority",
-          "give way by" in chrome and "the stamp is half of the bottom-" in chrome)
+          "gives way by the same priority" in chrome and "the stamp is half of the bottom-right pair" in chrome)
 
     # 3. the explicit buffer budgets.
     check("the date concat reserves the full time tail",
@@ -7750,11 +7747,11 @@ def t_gui_limits_round121():
 
     # 4. the pane budget: both sections gate the same way.
     check("the layout gates every optional right-cluster pane",
-          chrome.count("&& (parti < (_VIV_STATUS_PART_MAX - 1))") == 8)
+          "(count >= _VIV_STATUS_PART_MAX - 2)" in chrome and "(count <= _VIV_STATUS_PART_MAX)" in chrome)
     check("the final pane writes are budget gated",
-          chrome.count("if (parti < _VIV_STATUS_PART_MAX)") == 2)
+          "if (count >= _VIV_STATUS_PART_MAX)" in chrome and "(parti<_VIV_STATUS_PART_MAX)" in chrome)
     check("the budget comment names the lockstep rule",
-          "the text section below gates on the same budget" in chrome)
+          "the layout and the text store share one role map" in chrome)
 
     # 5. the stale comments tell the truth.
     check("the last-pane comment is single and names the resolution",
@@ -7818,8 +7815,8 @@ def t_gui_limits_round121():
     check("the changelog top entry is the review verdict round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the version is 1.1.17 build 115",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
 
 def t_resume_and_chain_round122():
@@ -7958,8 +7955,8 @@ def t_resume_and_chain_round122():
     check("the changelog top entry is the review verdict round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the version is 1.1.17 build 115",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the readme twins carry the promotion as the stable",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -8469,8 +8466,8 @@ def t_report_fusion_round123():
     check("the changelog top entry is the review verdict round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the version is 1.1.17 build 115",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the readme twins carry the promotion as the stable",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -8658,8 +8655,8 @@ def t_settings_capacity_round126():
     check("the changelog top entry is the settings footer round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the version is 1.1.17 build 115",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the readme twins carry the promotion as the stable",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -8699,10 +8696,10 @@ def t_pill_field_round127():
           "_zoomui_cell_wide = (48 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96);" in zc and
           "_zoomui_cell_high = (44 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);" in zc)
     check("the margin, the gap, the separator and the text pad ride the scale too",
-          "(6 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc and
-          "(4 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc and
+          "(VIV_UI_PAD * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc and
+          "(VIV_UI_GAP * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc and
           "(24 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc and
-          "(16 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc)
+          "(VIV_UI_PAD * 2 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96)" in zc)
     check("the hairline separator stays one pixel (a scaled hairline vanishes)",
           "_zoomui_sep_wide = (1 * os_logical_wide) / 96;" in zc)
     check("the metric floors shrink with the row (29/25/11/7)",
@@ -8751,8 +8748,8 @@ def t_pill_field_round127():
     check("the changelog top entry is the pill field round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the version is 1.1.17 build 115",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the readme twins carry the promotion as the stable",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -8793,8 +8790,8 @@ def t_round147():
     check("the help url launch names its refusals (the return check)",
           "(INT_PTR)ShellExecuteA(_viv_hwnd,NULL,url,NULL,NULL,SW_SHOWNORMAL) <= 32" in view)
     check("the round rides the live tree (1.1.16 build 114 at the promotion)",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the changelog answers the review with its verdicts",
           "the second carpet review's asks meet the tree's" in changes and
           "fail-if-exists, and false overwrites" in changes)
@@ -8849,8 +8846,8 @@ def t_round148():
     changes = read("Changes.txt").decode("utf-8", errors="replace")
 
     check("the round is 1.1.16 build 114",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
     # 1. the hit test clips to the viewport the paint already clips to.
     body = body148(settings, "static int _viv_settings_hit_test(int x,int y)")
@@ -9056,12 +9053,10 @@ def t_parallel_eval_round128():
     #    it touches the desktop, the rotation asks before it touches
     #    the source. the memory rotation rides inside the yes.
     rot = body128(v, "static void _viv_edit_rotate(int counterclockwise)")
-    check("the rotation asks before the verb",
-          "LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE" in rot and
-          "viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OKCANCEL | MB_ICONQUESTION) != IDOK" in rot)
-    check("a refused ask returns before the verb and the memory rotation",
-          -1 < rot.find("!= IDOK)") < rot.find("return;") < rot.find("os_shell_execute(") and
-          rot.find("!= IDOK)") < rot.find("_viv_orientate_hbitmap("))
+    check('rotation asks before the disk verb',
+          "LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE" in rot and "viv_msgbox(_viv_hwnd,caption,message,MB_OKCANCEL | MB_ICONQUESTION) != IDOK" in rot)
+    check('a refused ask returns before preparation or the verb',
+          -1 < rot.find("!= IDOK)") < rot.find("return;",rot.find("!= IDOK)")) < rot.find("_viv_prepare_oriented_frames(") < rot.find("os_shell_execute("))
 
     # 5. THE USAGE PAIR: two implemented command line switches shipped
     #    commented out of the usage text (the /everything and /random
@@ -9316,8 +9311,8 @@ def t_parallel_eval_round128():
           '#define VERSION_MAJOR 1' in version and
           '#define VERSION_MINOR 1' in version and
           '#define VERSION_REVISION 17' in version and
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the parallel evaluation round pre-release",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
@@ -9492,8 +9487,8 @@ def t_default_app_honesty_round129():
 
     # 6. THE VERSION
     check("the version is 1.1.17 build 115 (the default-app honesty round)",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
 
 def t_toolbar_paging_round132():
@@ -9596,20 +9591,20 @@ def t_toolbar_paging_round132():
     check("the square ring survives where the face is square",
           "Rectangle(hdc,rect->left - 1,rect->top - 1,rect->right + 1,rect->bottom + 1);" in st)
     check("the button ring carries the button radius",
-          "_viv_settings_draw_focus_ring(hdc,&ctl->rect,_viv_settings_dip(6));" in st)
+          "_viv_settings_draw_focus_ring(hdc,&ctl->rect,_viv_settings_dip(VIV_UI_RADIUS));" in st)
     check("the dropdown ring carries the dropdown radius",
-          "_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(4));" in st)
+          "_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(VIV_UI_RADIUS));" in st)
     check("the switch ring carries the capsule radius",
-          "_viv_settings_draw_focus_ring(hdc,&ctl->value,(ctl->value.bottom - ctl->value.top) / 2);" in st)
+          "_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(VIV_UI_RADIUS));" in st)
     check("the checkbox ring carries the box radius",
-          "_viv_settings_draw_focus_ring(hdc,&box,_viv_settings_dip(3));" in st)
+          "_viv_settings_draw_focus_ring(hdc,&box,_viv_settings_dip(VIV_UI_RADIUS));" in st)
     check("the color swatch and the accent row keep the square ring",
           st.count("_viv_settings_draw_focus_ring(hdc,&ctl->value,0);") == 1 and
           st.count("_viv_settings_draw_focus_ring(hdc,&ctl->rect,0);") == 1)
     check("the nav pill insets inside its row (stacked pills never share an edge)",
           "InflateRect(&rect,0,-_viv_settings_dip(2));" in st)
     check("the nav ring rides the inset pill",
-          "_viv_settings_draw_focus_ring(hdc,&rect,_viv_settings_dip(6));" in st)
+          "_viv_settings_draw_focus_ring(hdc,&rect,_viv_settings_dip(VIV_UI_RADIUS));" in st)
 
     # 6. THE PILL FOCUS (the capsule, not the dotted square).
     check("the pill's dotted focus square is gone",
@@ -9667,11 +9662,11 @@ def t_stable_promotion_round133():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
 
     check("the version string carries the release identity (the exact identity)",
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
     check("the type field stays empty (the string is the identity)",
           '#define VERSION_TYPE ""' in version)
     check("the build rides the live tree (112 at the 1.1.16 promotion)",
-          "#define VERSION_BUILD 115" in version)
+          "#define VERSION_BUILD 117" in version)
     check("the changelog top entry is the stable round's own heading",
           top == "Stable: Version 1.1.17 (the corrupted-settings round)", top)
     check("the readme twins promote the stable block",
@@ -9973,7 +9968,7 @@ def t_round136():
     #    was a mode nothing advertised, set by a click on a pane that
     #    shows no counter).
     check("the toggle asks the chrome for the pane's live index",
-          "if (item == _viv_status_frame_pane_index())" in wnd)
+          "else if ((item >= 0) && (item == _viv_status_frame_pane_index()))" in wnd)
     check("the pane index export answers -1 when the layout dropped the pane",
           "int _viv_status_frame_pane_index(void)" in chrome and
           "int _viv_status_frame_pane_index(void);" in read("src/viv_chrome.h").decode("latin-1"))
@@ -10292,8 +10287,8 @@ def t_round143():
 
     # 1. the version (the round's own face).
     check("version.h = 1.1.17.114 (the codeql hardening round)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version and
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the changelog tops with the round.
@@ -10357,8 +10352,8 @@ def t_round144():
 
     # 1. the version (the round's own face).
     check("version.h = 1.1.17.114 (the instruments round)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version and
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the changelog tops with the round.
@@ -10404,8 +10399,8 @@ def t_round144():
     check("the four recalibrated light tokens cross as parsed values",
           '"VIV_TK_NAV_FACE": "#e4e4e4"' in theme_ts and
           '"VIV_TK_CHROME": "sys:COLOR_MENU"' in theme_ts and
-          '"VIV_TK_FRAME": "sys:COLOR_MENU"' in theme_ts and
-          '"VIV_TK_HOVER": "#dcdcdc"' in theme_ts)
+          '"VIV_TK_FRAME": "#d8d8dc"' in theme_ts and
+          '"VIV_TK_HOVER": "#c8c8cc"' in theme_ts)
     check("the theme guard compares both tables token for token",
           ("ts_dark" + " == dark_c") in menu_src and
           ("ts_light" + " == light_c") in menu_src)
@@ -10468,8 +10463,8 @@ def t_round142():
 
     # 1. the version (the round's own face).
     check("version.h = 1.1.17.114 (the documentation round)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version and
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the changelog: the round's section tops it and names its passengers.
@@ -10587,8 +10582,8 @@ def t_round141():
     # 8. the version.
     version = read("src/version.h").decode("latin-1")
     check("version.h = 1.1.17.114 (the default programs round)",
-          "#define VERSION_BUILD 115" in version and
-          '#define VERSION_STRING "1.1.17"' in version and
+          "#define VERSION_BUILD 117" in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version and
           '#define VERSION_TYPE ""' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog tops with the default programs round",
@@ -10755,8 +10750,8 @@ def t_round149():
     loch = read("src/localization.h").decode()
 
     check("the round is 1.1.16 build 114 (the re-release)",
-          '#define VERSION_BUILD 115' in version and
-          '#define VERSION_STRING "1.1.17"' in version)
+          '#define VERSION_BUILD 117' in version and
+          '#define VERSION_STRING "1.1.17-repair.2"' in version)
 
     # 1. the scroll lattice: no row paints half-cut under the title.
     check("the lattice helper answers both directions",
@@ -10879,7 +10874,7 @@ def t_round149():
     # 8. the status bar tokens.
     check("the status bar custom draw rides the theme tokens",
           "SetTextColor(custom_draw->hdc,viv_theme_color(VIV_TK_TEXT));" in wnd and
-          "SetBkColor(custom_draw->hdc,viv_theme_color(VIV_TK_CHROME));" in wnd)
+          "SetBkColor(custom_draw->hdc,viv_theme_color(VIV_TK_NAV_FACE));" in wnd)
 
     # 9. the changelog carries the round.
     check("the changelog states the re-release round",
@@ -10916,9 +10911,9 @@ def t_round145():
     vh = read("src/version.h").decode("utf-8", errors="replace")
 
     # 1. the version (the round's own face).
-    check("version.h = 1.1.17.115 (the stable round)",
-          "#define VERSION_BUILD 115" in vh and
-          '#define VERSION_STRING "1.1.17"' in vh)
+    check("version.h = 1.1.17.117 (the residual fix round)",
+          "#define VERSION_BUILD 117" in vh and
+          '#define VERSION_STRING "1.1.17-repair.2"' in vh)
     check("the changelog tops with the audit response round",
           changes.startswith("\ufeffStable: Version 1.1.17 (the corrupted-settings round)"))
 
@@ -11023,9 +11018,8 @@ def t_repository_hygiene_round150():
     # 1. the session documents are gone from the tree.
     check("the engineering ledger is retired from the repository",
           not os.path.exists("experience.md"))
-    check("the split planning spec is retired with its directory",
-          not os.path.exists("docs/architecture/viv-split-spec.md") and
-          not os.path.exists("docs"))
+    check("the split planning spec is retired",
+          not os.path.exists("docs/architecture/viv-split-spec.md"))
     # 2. the readme twins carry no link to the retired documents.
     check("the readme carries no ledger link (either tongue)",
           "experience.md" not in readme and "experience.md" not in readme_cn)
@@ -11170,6 +11164,90 @@ def t_arm_arrives_round151():
           "(_viv_status_frame_pane_index() >= 0) && (SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_frame_pane_index()" in wnd)
 
 
+
+def t_residual_fix_round152():
+    """Guards for the residual fix round (repair.2): the four confirmed
+    memory-safety residues close - the msgbox short-array read, the
+    lowercase terminator write past its buffer, the two scope borrows -
+    the registry reader owns the terminator contract, the lost d3d
+    device can find its reset again (with a harness tooth), the mirror
+    and the working directory answer their failures honestly, and the
+    release gate learns the repair phase it could not spell."""
+    msgbox = read("src/viv_msgbox.c").decode(errors="replace")
+    install = read("src/viv_install.c").decode(errors="replace")
+    chrome = read("src/viv_chrome.c").decode(errors="replace")
+    settings = read("src/viv_settings.c").decode(errors="replace")
+    hwd3d = read("src/hwd3d.c").decode(errors="replace")
+    osc = read("src/os.c").decode(errors="replace")
+    load = read("src/viv_load.c").decode(errors="replace")
+    memc = read("src/mem.c").decode(errors="replace")
+    export = read("src/viv_export.c").decode(errors="replace")
+    anim = read("src/viv_anim.c").decode(errors="replace")
+    wnd = read("src/viv_wndproc.c").decode(errors="replace")
+    ry = read(".github/workflows/release.yml").decode(errors="replace")
+    d3dh = read("tests/repair/d3d.c").decode(errors="replace")
+    mt = read("tools/mutation_teeth.py").decode(errors="replace")
+
+    # 1. F-1: the msgbox face loop reads only what the caller owns.
+    check("the msgbox loop reads only label_count faces",
+          "_viv_msgbox_labels[i] = ((label_count > i) && labels) ? labels[i] : 0;" in msgbox and
+          "_viv_msgbox_result_ids[i] = ((label_count > i) && ids) ? ids[i] : 0;" in msgbox)
+
+    # 2. F-2: the lowercase terminator cannot leave its buffer.
+    check("the lowercase loops cap one short of the buffer",
+          "for(i=0;(choice_wbuf[i]) && (i < (STRING_SIZE - 1));i++)" in install and
+          "for(i=0;(class_name[i]) && (i < (STRING_SIZE - 1));i++)" in install)
+
+    # 3. L-1: the registry reader owns the terminator contract.
+    check("the registry reader terminates the string it returns",
+          "data_wchars = cbData / sizeof(wchar_t);" in install and
+          "wbuf[data_wchars] = 0;" in install and
+          "wbuf[size_in_wchars - 1] = 0;" in install)
+
+    # 4. F-3: the title's failure line survives its block.
+    check("the title's failure buffer lives at function scope",
+          "wchar_t failure_buf[STRING_SIZE];\r\n\r\n\twindow_title[0] = 0;" in chrome)
+
+    # 5. F-4: the picker's fallback text survives its block.
+    check("the picker's fallback text lives at picker scope",
+          "MENUITEMINFOW mii;\r\n\t// the native-row fallback's text lives at picker scope:" in settings and
+          settings.count("wchar_t text_wbuf[STRING_SIZE];") == 1)
+
+    # 6. RV-A-1: the lost device has a reset road from every refusal.
+    check("the d3d lost device has a reset road from every refusal",
+          "static void _viv_d3d_attempt_reset(void)" in hwd3d and
+          hwd3d.count("_viv_d3d_attempt_reset();") == 3 and
+          "TestCooperativeLevel(_viv_d3d_device) != D3DERR_DEVICENOTRESET) return;" in hwd3d)
+    check("the d3d harness bites on the lost device",
+          "(fault==7||fault==8)?D3DERR_DEVICENOTRESET:0" in d3dh and
+          "assert(reset_count==1)" in d3dh)
+
+    # 7. the mirror and the working directory answer their failures.
+    check("the mirror answers its failures instead of walking null",
+          "if (!region_size)" in osc and
+          "if (!GetRegionData(hrgn,region_size,region_data))" in osc)
+    check("an unbuildable mirror keeps the original region",
+          "if (mirror_hrgn)" in wnd)
+    check("a working directory that cannot fit is refused by name",
+          "cwd_len = GetCurrentDirectory(STRING_SIZE,cwd);" in load and
+          "(cwd_len == 0) || (cwd_len >= (DWORD)STRING_SIZE)" in load)
+
+    # 8. the small honesty fixes.
+    check("the oom fatal passes the int the formatter reads",
+          'debug_fatal("alloc %u",(unsigned int)size);' in memc)
+    check("the export buffer size rides the safe chain",
+          "mem_alloc(safe_size_mul(safe_size_mul((uintptr_t)_viv_export_wide,(uintptr_t)_viv_export_high),4));" in export)
+    check("the lazy frame carries no dead mipmap dimensions",
+          "frame_wide = viv_webp->wide;" not in anim)
+
+    # 9. the gates: the release whitelist and the teeth table.
+    check("the release whitelist spells the repair phase",
+          "grep -Eq '^v?[0-9]+\\.[0-9]+(\\.[0-9]+){1,2}(-(beta|rc|repair)\\.[0-9]+)?$'" in ry)
+    check("the teeth table owns a repair suite and rows for the round",
+          '"repair": [sys.executable, "tests/repair_regression_test.py"]' in mt and
+          mt.count("the lost device loses its reset road again") == 1)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -11279,6 +11357,7 @@ if __name__ == "__main__":
     t_round149()
     t_repository_hygiene_round150()
     t_arm_arrives_round151()
+    t_residual_fix_round152()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

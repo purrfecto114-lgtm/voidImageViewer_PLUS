@@ -83,6 +83,8 @@ def production(suite):
                   function("viv_view.c", "_viv_zoom_steps"),
                   function("viv_view.c", "_viv_do_mousewheel_action"), text[start:end],
                   function("viv_view.c", "_viv_is_touch_click"),
+                  function("viv_view.c", "_viv_suppress_gesture_mouse"),
+                  function("viv_load.c", "_viv_doing_cancel"),
                   function("viv_view.c", "_viv_gesture_reset"),
                   function("viv_view.c", "_viv_on_gesture")]
         return "\n".join(constants) + "\n", "\n".join(bodies)

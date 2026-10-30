@@ -154,7 +154,7 @@ void mem_debug(void)
 
 
 // allocate
-void *mem_alloc_debug(const char *file,int line,uintptr_t size)
+void *mem_try_alloc_debug(const char *file,int line,uintptr_t size)
 {
 	mem_debug_t *p;
 	SIZE_T alloc_size;
@@ -172,9 +172,7 @@ void *mem_alloc_debug(const char *file,int line,uintptr_t size)
 	// past that block's end.
 	alloc_size = safe_size_add(safe_size_add(sizeof(mem_debug_t),size),safe_size_mul_sizeof_pointer(MEM_MAGIC_SIZE));
 
-	// a wrapped sum is refused the same way a refused heap is: the
-	// fatal path below is this file's only answer for an allocation
-	// it cannot honestly hand out.
+	// Refuse overflow and heap exhaustion without publishing ownership.
 	if (alloc_size == SIZE_MAX)
 	{
 		p = 0;
@@ -184,20 +182,7 @@ void *mem_alloc_debug(const char *file,int line,uintptr_t size)
 		p = HeapAlloc(GetProcessHeap(),0,alloc_size);
 	}
 
-	// this is fatal
-	if (!p) 
-	{
-		// enter critical section to block any other threads from running out of memory and throwing another error.
-		EnterCriticalSection(&mem_debug_cs);
-		
-		MessageBoxA(0,"Out of Memory","Everything",MB_SYSTEMMODAL|MB_OK|MB_ICONERROR);
-
-		DebugBreak();
-		
-		debug_fatal("out of memory");
-
-		LeaveCriticalSection(&mem_debug_cs);
-	}
+	if (!p) return NULL;
 
 	EnterCriticalSection(&mem_debug_cs);
 	
@@ -233,13 +218,24 @@ void *mem_alloc_debug(const char *file,int line,uintptr_t size)
 
 	{
 		int magici;
+		void *magic = (void *)(p + 1);
 		for(magici=0;magici<MEM_MAGIC_SIZE;magici++)
-		((void **)(((char *)p) + sizeof(mem_debug_t) + size))[magici] = (p+1);
+		{
+			// A payload need not end at a pointer-aligned address.
+			memcpy((BYTE *)(p + 1) + size + (SIZE_T)magici*sizeof(magic),&magic,sizeof(magic));
+		}
 	}
 
 	LeaveCriticalSection(&mem_debug_cs);
 
 	return (void *)(p + 1);
+}
+
+void *mem_alloc_debug(const char *file,int line,uintptr_t size)
+{
+	void *p = mem_try_alloc_debug(file,line,size);
+	if (!p) debug_fatal("out of memory at %s(%d)",file,line);
+	return p;
 }
 
 void mem_cc(void *p,int size)
@@ -287,9 +283,11 @@ void mem_free_debug(const char *file,int line,void *p)
 		int magici;
 		for(magici=0;magici<MEM_MAGIC_SIZE;magici++)
 		{
-			if (((void **)(((char *)p) + (((mem_debug_t *)p)-1)->size))[magici] != p)
+			void *magic;
+			memcpy(&magic,(BYTE *)p + (((mem_debug_t *)p)-1)->size + (SIZE_T)magici*sizeof(magic),sizeof(magic));
+			if (magic != p)
 			{
-				debug_fatal("INVALID FREE from %s(%d): %p bad magic 2 %u: %p",file,line,p,magici,((void **)(((char *)p) + (((mem_debug_t *)p)-1)->size))[magici]);
+				debug_fatal("INVALID FREE from %s(%d): %p bad magic 2 %u: %p",file,line,p,magici,magic);
 			}
 		}
 	}
@@ -337,6 +335,12 @@ void mem_free_debug(const char *file,int line,void *p)
 
 #else
 
+void *mem_try_alloc(uintptr_t size)
+{
+	if (size == SIZE_MAX) return NULL;
+	return HeapAlloc(GetProcessHeap(),0,size);
+}
+
 void *mem_alloc(uintptr_t size)
 {
 	void *p;
@@ -345,7 +349,8 @@ void *mem_alloc(uintptr_t size)
 	
 	if (!p)
 	{
-		debug_fatal("alloc %d",size);
+		// the formatter's %d reads an int-sized slot: hand it one.
+		debug_fatal("alloc %u",(unsigned int)size);
 	}
 	
 	return p;

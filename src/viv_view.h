@@ -47,6 +47,7 @@ void _viv_do_mousewheel_action(int action,int delta,int x,int y);
 void _viv_do_left_click_action(int action);
 void _viv_start_move_window(void);
 int _viv_is_touch_click(void);
+int _viv_suppress_gesture_mouse(int is_down);
 void _viv_touch_double_click(void);
 int _viv_on_gesture(HWND hwnd,void *gesture_info_handle);
 

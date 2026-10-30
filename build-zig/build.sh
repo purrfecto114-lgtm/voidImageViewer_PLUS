@@ -6,7 +6,13 @@ set -e
 cd "$(dirname "$0")/.."
 
 ZIG="${ZIG:-python3 -m ziglang}"
-FLAGS="-target x86_64-windows-gnu -Os -DNDEBUG -DVERSION_X64 -DUNICODE -D_UNICODE -Wno-macro-redefined -Werror=incompatible-pointer-types -Werror=visibility"
+# -mguard=cf keeps this verification line in the same cfg-instrumented
+# code shape as the mingw/msvc production lines (os.c carries the weak
+# dispatch thunk the gnu crt wants). note: zig cc 0.16 filters the
+# linker-side /guard:cf, so the GUARD_CF dllcharacteristics bit does
+# NOT get set on zig products - pe hardening is delivered by the
+# build-mingw and vs lines, not by this one.
+FLAGS="-target x86_64-windows-gnu -Os -DNDEBUG -DVERSION_X64 -DUNICODE -D_UNICODE -mguard=cf -Wno-macro-redefined -Werror=incompatible-pointer-types -Werror=visibility"
 OBJDIR="build-zig/obj"
 
 # a clean slate per build: the old shape only mkdir'd, so a deleted or

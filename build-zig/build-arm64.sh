@@ -16,7 +16,10 @@ set -e
 cd "$(dirname "$0")/.."
 
 ZIG="${ZIG:-python3 -m ziglang}"
-FLAGS="-target aarch64-windows-gnu -Os -DNDEBUG -DVERSION_ARM64 -DUNICODE -D_UNICODE -Wno-macro-redefined -Werror=incompatible-pointer-types -Werror=visibility"
+# -mguard=cf matches the x64 line: both release gates assert the
+# GUARD_CF dllcharacteristics bit, and arm64 windows carries the
+# same load-config contract.
+FLAGS="-target aarch64-windows-gnu -Os -DNDEBUG -DVERSION_ARM64 -DUNICODE -D_UNICODE -mguard=cf -Wno-macro-redefined -Werror=incompatible-pointer-types -Werror=visibility"
 OBJDIR="build-zig/obj-arm64"
 
 # a clean slate per build: the old shape only mkdir'd, so a deleted or

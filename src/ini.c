@@ -128,7 +128,7 @@ int ini_precheck(const wchar_t *filename,const utf8_t *ascii_section)
 		
 		buf = mem_alloc(safe_size_add_one(size));
 		
-		if (ReadFile(h,buf,size,&numread,NULL))
+		if ((ReadFile(h,buf,size,&numread,NULL)) && (numread == size))
 		{
 			DWORD i;
 			int has_nul;

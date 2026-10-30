@@ -21,6 +21,22 @@
 //
 // Operating System calls
 
+// control flow guard support for the gnu toolchains (zig cc, mingw).
+// the mingw crt links mingw_cfguard_support, whose __guard_dispatch_icall_fptr
+// wants this symbol; msvc resolves the pair from vcruntime instead, so the
+// block is empty there and the four build lists stay identical. on a
+// cfg-enabled process the pe loader overwrites the pointer with ntdll's
+// real dispatcher, so the trampoline only serves legacy loaders: the
+// dispatch sequence parks the call target in rax, and the thunk forwards
+// to it - a bare ret would swallow every guarded indirect call.
+#if defined(__GNUC__) && defined(__x86_64__)
+__asm__(
+	".weak __guard_dispatch_icall_dummy\n"
+	"__guard_dispatch_icall_dummy:\n"
+	"jmp *%rax\n"
+);
+#endif
+
 #include "viv.h"
 #include <imm.h>
 
@@ -2247,9 +2263,14 @@ int os_shell_execute(HWND hwnd,const wchar_t *filename,int wait,const char *verb
 			
 			if (wait)
 			{
-				WaitForSingleObject(sei.hProcess,INFINITE);
-			
-				CloseHandle(sei.hProcess);
+				DWORD exit_code;
+				ret = 0;
+				if (sei.hProcess)
+				{
+					if ((WaitForSingleObject(sei.hProcess,INFINITE) == WAIT_OBJECT_0) &&
+						GetExitCodeProcess(sei.hProcess,&exit_code) && (exit_code == 0)) ret = 1;
+					CloseHandle(sei.hProcess);
+				}
 			}
 		}
 	
@@ -2514,10 +2535,32 @@ HRGN os_mirror_region(HRGN hrgn,int wide)
 	small_pool_init(&small_pool);
 
 	region_size = GetRegionData(hrgn,0,0);
-
+	
+	// the size probe can answer zero (an empty region, a failure):
+	// the old code ran the pool against a zero byte budget, then
+	// walked whatever the null region_data pointed at.
+	if (!region_size)
+	{
+		small_pool_kill(&small_pool);
+		
+		return 0;
+	}
+	
 	region_data = small_pool_alloc(&small_pool,region_size);
-
-	GetRegionData(hrgn,region_size,region_data);
+	
+	if (!region_data)
+	{
+		small_pool_kill(&small_pool);
+		
+		return 0;
+	}
+	
+	if (!GetRegionData(hrgn,region_size,region_data))
+	{
+		small_pool_kill(&small_pool);
+		
+		return 0;
+	}
 	
 	for(i=0;i<region_data->rdh.nCount;i++)
 	{

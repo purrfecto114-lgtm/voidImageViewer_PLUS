@@ -599,8 +599,6 @@ int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 		// Set RGB data to the bitmap
 		if ((hbitmap) && (bits)) 
 		{
-			int mip_wide;
-			int mip_high;
 			HGDIOBJ last_hbitmap;
 			const BYTE *p;
 			BYTE *d;
@@ -687,11 +685,9 @@ int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 					HBITMAP new_hbitmap;
 				
 					new_hbitmap = _viv_orientate_hbitmap(hbitmap,viv_webp->orientation);
-					if (new_hbitmap)
-					{
-						DeleteObject(hbitmap);
-						hbitmap = new_hbitmap;
-					}
+					DeleteObject(hbitmap);
+					hbitmap = new_hbitmap;
+					if (!hbitmap) return 0;
 				}
 			
 				if (viv_webp->frame_index == 0)
@@ -733,16 +729,13 @@ int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 						first_frame.frame.delay = delay;
 					}
 
-					// preload first mipmap
-					_viv_get_mipmap(hbitmap,first_frame.wide,first_frame.high,_viv_load_render_wide/2,_viv_load_render_high/2,&mip_wide,&mip_high,&first_frame.frame.mipmap);
+					// Mipmaps are built lazily by GDI paint.
 
 					_viv_reply_add(_VIV_REPLY_LOAD_IMAGE_FIRST_FRAME,sizeof(_viv_reply_load_image_first_frame_t),&first_frame);
 				}
 				else
 				{
 					_viv_frame_t frame;
-					int frame_wide;
-					int frame_high;
 				
 					frame.hbitmap = hbitmap;
 					frame.mipmap = NULL;
@@ -750,22 +743,6 @@ int _viv_webp_frame_proc(_viv_webp_t *viv_webp,BYTE *pixels,int delay)
 				
 	//printf("DELAY %d\n",delay)				;
 
-					frame_wide = viv_webp->wide;
-					frame_high = viv_webp->high;
-				
-					// apply orientation: transposed orientations (5-8) swap the axes
-					// for the mipmap too (the hbitmap above is already rotated).
-					switch (viv_webp->orientation)
-					{
-						case 5:
-						case 6:
-						case 7:
-						case 8:
-						
-								frame_wide = viv_webp->high;
-								frame_high = viv_webp->wide;
-								break;
-					}
 				
 					// the mipmap chain stays lazy here: the paint path builds it
 					// for the frame on screen when the scaling wants it - the

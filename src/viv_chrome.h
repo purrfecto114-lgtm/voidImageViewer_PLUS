@@ -37,6 +37,16 @@ void _viv_paint_kill(void);
 int _viv_paint_readback(BYTE *bits,int wide,int high);
 void _viv_toggle_fullscreen(void);
 HFONT _viv_menu_font(void);
+enum
+{
+	VIV_UI_FONT_TOOLBAR,
+	VIV_UI_FONT_STATUS,
+	VIV_UI_FONT_NUMBER,
+	VIV_UI_FONT_PERCENT,
+	VIV_UI_FONT_COUNT
+};
+HFONT _viv_ui_font(int role);
+void _viv_ui_text_rect(HDC hdc,RECT *rect);
 const wchar_t *_viv_status_failure_line(wchar_t *buf);
 void _viv_paint_failure_face(HDC hdc,int view_top,int wide,int high);
 void _viv_menu_font_drop(void);
@@ -49,6 +59,7 @@ void _viv_controls_show(int show);
 void _viv_status_update(void);
 void _viv_status_update_frame(void);
 int _viv_status_frame_pane_index(void);
+int _viv_status_zoom_pane_index(void);
 int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item);
 int _viv_get_status_high(void);
 int _viv_get_controls_high(void);

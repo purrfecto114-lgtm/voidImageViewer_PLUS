@@ -28,15 +28,18 @@ extern "C" {
 
 #ifdef _DEBUG
 
+	#define mem_try_alloc(size)		mem_try_alloc_debug(__FILE__,__LINE__,size)
 	#define mem_alloc(size)			mem_alloc_debug(__FILE__,__LINE__,size)
 	#define mem_free(ptr)			mem_free_debug(__FILE__,__LINE__,ptr)
 
+	void *mem_try_alloc_debug(const char *file,int line,uintptr_t size);
 	void *mem_alloc_debug(const char *file,int line,uintptr_t size);
 	void mem_free_debug(const char *file,int line,void *ptr);
 	void mem_debug(void);
 
 #else
 
+	void *mem_try_alloc(uintptr_t size);
 	void *mem_alloc(uintptr_t size);
 	void mem_free(void *ptr);
 

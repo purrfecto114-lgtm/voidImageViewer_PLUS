@@ -290,6 +290,7 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"将当前图片设置为桌面壁纸？", // LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_MESSAGE
 	"旋转图片", // LOCALIZATION_ID_ROTATE_IMAGE_CAPTION
 	"旋转磁盘上的图片文件？", // LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE
+	"无法旋转图片，已保留原有显示帧。", // LOCALIZATION_ID_ROTATE_IMAGE_FAILED
 	"设置未保存", // LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION
 	"设置文件写入失败，已保留原设置。", // LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE
 	"%s B", // LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT
@@ -370,4 +371,7 @@ static const utf8_t *_localization_string_array_zh_cn[LOCALIZATION_ID_COUNT] =
 	"恢复备份", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_RESTORE
 	"设置文件\n\n%S\n\n未能完整读取，本次会话以内置默认设置运行。原文件的副本已保存为\n\n%S\n\n"
 	"选择“恢复备份”找回上次完整加载的设置，选择“保留”保存本次会话使用的默认设置，选择“取消”则不改动文件。", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE
+	"%S × %S", // LOCALIZATION_ID_STATUS_BAR_DIMENSION_FORMAT
+	"%d%%", // LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT
+	"坐标 %d, %d", // LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT
 };

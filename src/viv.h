@@ -73,10 +73,14 @@ extern "C" {
 // keep their 100 mp behavior (1.2 gb). the canvas ceilings stay on as
 // the coarse first gate and give the hardware renderers headroom for
 // their power-of-two padding above the accepted size.
+// 12 B/px is an input heuristic, not a measured process peak.
+// Hardware copies and prepared rotation frames have separate gates.
 #define VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL	12
 #if defined(_WIN64)
 #define VIV_MAX_IMAGE_PIXELS	400000000
 #define VIV_MAX_IMAGE_BYTES	2400000000
+#define VIV_MAX_HARDWARE_BYTES	(512u * 1024u * 1024u)
+#define VIV_MAX_ROTATION_BYTES	(512u * 1024u * 1024u)
 // the cache-set ceiling is its own line: the ring and the preload
 // are opportunistic residency and never deserved to compete against
 // the same 2.4 gb ceiling one image's whole working set uses - three
@@ -95,6 +99,8 @@ extern "C" {
 #else
 #define VIV_MAX_IMAGE_PIXELS	100000000
 #define VIV_MAX_IMAGE_BYTES	1200000000
+#define VIV_MAX_HARDWARE_BYTES	(128u * 1024u * 1024u)
+#define VIV_MAX_ROTATION_BYTES	(128u * 1024u * 1024u)
 #define VIV_CACHE_SET_MAX_BYTES	600000000
 // 32-bit: the static behavior is unchanged (100 mp prices to the same
 // 1.2 gb working set); the animation canvas keeps its quarter-ceiling

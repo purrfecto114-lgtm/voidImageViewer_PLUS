@@ -52,11 +52,11 @@
 // design metrics in 96 dpi units, scaled through the dip macros below.
 #define _VIV_TOOLBAR_BAR_HIGH 40 // the strip height.
 #define _VIV_TOOLBAR_ICON_SIZE 20 // the glyph box.
-#define _VIV_TOOLBAR_ICON_TEXT_GAP 6 // between the glyph and the label.
-#define _VIV_TOOLBAR_BUTTON_PAD 12 // inside the button, left and right.
-#define _VIV_TOOLBAR_BUTTON_GAP 8 // between the buttons.
+#define _VIV_TOOLBAR_ICON_TEXT_GAP VIV_UI_GAP // between the glyph and the label.
+#define _VIV_TOOLBAR_BUTTON_PAD VIV_UI_PAD // inside the button, left and right.
+#define _VIV_TOOLBAR_BUTTON_GAP VIV_UI_GAP // between the buttons.
 #define _VIV_TOOLBAR_SEP_HIGH 16 // the separator line height.
-#define _VIV_TOOLBAR_RADIUS 4 // the hover face corner radius.
+#define _VIV_TOOLBAR_RADIUS VIV_UI_RADIUS // the hover face corner radius.
 
 // the strip content: fifteen slots, ten buttons and five separators. the
 // groups are the overflow units - a separator carries the group of the
@@ -647,7 +647,7 @@ static void _viv_toolbar_measure(void)
 		return;
 	}
 	
-	font = _viv_menu_font();
+	font = _viv_ui_font(VIV_UI_FONT_TOOLBAR);
 	old_font = 0;
 	
 	if (font)
@@ -1019,7 +1019,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			
 			FillRect(hdc,&fill_rect,_viv_toolbar_line_brush());
 			
-			font = _viv_menu_font();
+			font = _viv_ui_font(VIV_UI_FONT_TOOLBAR);
 			old_font = 0;
 			
 			if (font)

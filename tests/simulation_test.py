@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.17.115",
-          (major, minor, rev, build) == (1, 1, 17, 115), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.17",
-          vstr is not None and vstr.group(1) == "1.1.17", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.17.117",
+          (major, minor, rev, build) == (1, 1, 17, 117), str((major, minor, rev, build)))
+    check("the repair identity string is 1.1.17-repair.2",
+          vstr is not None and vstr.group(1) == "1.1.17-repair.2", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -1846,11 +1846,11 @@ def t_sim_gui_limits_round121():
     dialogs = read("src/viv_dialogs.c").decode()
 
     # --- the give-way priority, extracted and replayed ---
-    i = chrome.find("while ((zoom_wide + preload_wide + dimension_wide")
-    body = chrome[i:chrome.find("if (zoom_wide + preload_wide + dimension_wide > avail_wide)", i)]
+    i = chrome.find("static int _viv_status_layout_parts(")
+    body = chrome[i:chrome.find("// the new index is optional", i)]
     order = []
-    for name in ("pixel_pos_wide", "pixel_rgb_wide", "frame_wide", "date_wide"):
-        pos = body.find(name + " = 0;")
+    for name in ("POS", "RGB", "FRAME", "DATE"):
+        pos = body.find("widths[_VIV_STATUS_" + name + "] = 0;")
         check(f"the give-way body drops {name}",
               pos >= 0)
         if pos >= 0:
@@ -1858,7 +1858,7 @@ def t_sim_gui_limits_round121():
     order.sort()
     names = [n for _, n in order]
     check("the give-way priority is pos, rgb, frame, date",
-          names == ["pixel_pos_wide", "pixel_rgb_wide", "frame_wide", "date_wide"], str(names))
+          names == ["POS", "RGB", "FRAME", "DATE"], str(names))
 
     # replay: the drop loop against a shrinking bar.
     def drop_sequence(panes, avail):
@@ -1895,29 +1895,19 @@ def t_sim_gui_limits_round121():
     m = re.search(r"#define\s+_VIV_STATUS_PART_MAX\s+(\d+)", state)
     check("the parts array holds eight slots", m is not None and m.group(1) == "8")
     MAX = int(m.group(1)) if m else 0
-    # unconditional panes: zoom, message, edge. optional: preload, pos, rgb, frame, date.
-    unconditional, optional = 3, 5
-    check("the structural worst case fills the array exactly",
-          unconditional + optional == MAX)
-    # replay the real sequence: zoom, preload (ungated: parti=1 always
-    # fits), message, then the four gated right-cluster panes, then the
-    # gated final -1 pane.
-    parti = 0
-    parti += 1  # zoom (unconditional)
-    assert parti - 1 < (MAX - 1)  # preload's slot is structurally guaranteed
-    parti += 1  # preload (optional but always in bounds here)
-    parti += 1  # message (unconditional)
-    for k in range(4):  # pos, rgb, frame, date - the gated four
-        if parti < (MAX - 1):  # the gate the tree rides
-            parti += 1
-    if parti < MAX:
-        parti += 1  # the final -1 pane
-    check("the budget never lets parti pass the array",
-          parti <= MAX and parti == MAX, str(parti))
-    # a hypothetical ninth pane (a future feature) meets a closed gate.
-    refused = not (parti < (MAX - 1))
-    check("a future ninth pane is refused by the budget, not written past the end",
-          refused)
+    # six optional candidates now include the split index. a wide bar
+    # with every candidate must still drop POS to stay inside eight slots.
+    unconditional, optional = 3, 6
+    check("the ninth candidate needs the explicit budget",
+          unconditional + optional == MAX + 1)
+    check("the production budget prices slots as well as width",
+          "(count <= _VIV_STATUS_PART_MAX)" in body)
+    check("the writer reserves the two pinned right panes",
+          "(count >= _VIV_STATUS_PART_MAX - 2)" in chrome)
+    check("the final write remains bounded",
+          "if (count >= _VIV_STATUS_PART_MAX)" in chrome)
+    check("the layout and text use the same roles",
+          "_viv_status_set(parti,texts[_viv_status_roles[parti]])" in chrome)
 
     # --- the count ladder against the config clamps ---
     m = re.search(r"_viv_settings_popup\(hwnd,&drop_ctl->value,_VIV_SETTINGS_POPUP_COUNT,0,(\d+),config_preload_count\)", settings)
@@ -2852,11 +2842,11 @@ def t_sim_paging_round132():
     # constants extract from the source - the gap lived as a sim-side 8
     # while the c-side define answered to no pin, and the walk floor
     # mutation reddened only the menu's own string pin.
-    GAP = int(re.findall(r"#define _VIV_TOOLBAR_BUTTON_GAP (\d+)", tb)[0])
+    GAP = int(re.findall(r"#define VIV_UI_GAP (\d+)", read("src/viv_theme.h").decode())[0])
     AW = 40
     GROUP_MAX = int(re.findall(r"#define _VIV_TOOLBAR_GROUP_MAX (\d+)", tb)[0])
-    check("the extracted constants are the shipped ones (gap 8, six groups)",
-          (GAP, GROUP_MAX) == (8, 5), str((GAP, GROUP_MAX)))
+    check("the extracted constants are the shipped ones (shared gap 4, six groups)",
+          (GAP, GROUP_MAX) == (4, 5), str((GAP, GROUP_MAX)))
 
     def widths_for(scale):
         return [scale + g if t == "BUTTON" else 17 for t, g in items]

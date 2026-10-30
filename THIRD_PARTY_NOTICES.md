@@ -39,6 +39,15 @@ repository; this file maps them to their sources.
   `README.md`, `VERSION.imported` and `configure.ac` (the R70 housekeeping
   round pruned `tests/`, `doc/`, `cmake/`, `ChangeLog` and `NEWS`; this
   list now names what the tree actually keeps).
+- Local modifications: the tree is **not** byte-identical to the 1.6.0
+  tarball. Five integer-widening hardenings (rc.9, 2026-09-30) close this
+  fork's open CodeQL high alerts — in `src/dec/alpha_dec.c` (the alpha
+  decoded-size product), `src/utils/palette.c` (the co-occurrence
+  square), `src/utils/quant_levels_dec_utils.c` (the scratch sizing) and
+  `src/dec/frame_dec.c` (both per-mb array sizes). Each multiplication
+  now happens in the wide type it feeds and is behavior-preserving on
+  legal inputs; the exact record and re-check duty live in
+  [libwebp/VERSION.imported](libwebp/VERSION.imported).
 - License: BSD-3-Clause — see [libwebp/COPYING](libwebp/COPYING); the
   WebP patent grant is in [libwebp/PATENTS](libwebp/PATENTS). The BSD
   notice is also reproduced in the `webp` section of [LICENSE](LICENSE).

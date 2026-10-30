@@ -512,10 +512,10 @@ void _viv_playlist_report_skips(_viv_open_skip_report_t *report)
 	
 	if (report->count > report->named_count)
 	{
-		// its own buffer: string_printf measures its STRING_SIZE budget
-		// from the pointer it is handed, so an offset into wbuf would
-		// size the budget past the end of wbuf.
-		string_printf(more_wbuf,", and %d more",report->count - report->named_count);
+		// its own buffer with its own capacity handed to the _n form:
+		// the budget follows the argument, so a 64 wchar note can never
+		// be written with the plain family's STRING_SIZE stride.
+		string_printf_n(more_wbuf,(int)(sizeof(more_wbuf) / sizeof(more_wbuf[0])),", and %d more",report->count - report->named_count);
 		
 		string_cat(wbuf,more_wbuf);
 	}

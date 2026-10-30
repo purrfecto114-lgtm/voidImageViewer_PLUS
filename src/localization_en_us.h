@@ -316,6 +316,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Set the current image as the desktop wallpaper?", // LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_MESSAGE
 	"Rotate Image", // LOCALIZATION_ID_ROTATE_IMAGE_CAPTION
 	"Rotate the image file on disk?", // LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE
+	"Unable to rotate the image. The displayed frames were kept.", // LOCALIZATION_ID_ROTATE_IMAGE_FAILED
 	"Settings Not Saved", // LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION
 	"Writing the settings file failed. The previous settings were kept.", // LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE
 	"%s B", // LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT
@@ -396,4 +397,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Restore backup", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_RESTORE
 	"The settings file\n\n%S\n\ncould not be read cleanly, so this session ran on the built-in defaults. A copy of the original has been kept as\n\n%S\n\n"
 	"Choose Restore backup to bring back the last settings that loaded cleanly, Keep to save the defaults this session ran on, or Cancel to leave the file untouched.", // LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE
+	"%S × %S", // LOCALIZATION_ID_STATUS_BAR_DIMENSION_FORMAT
+	"%d%%", // LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT
+	"POS %d, %d", // LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT
 };

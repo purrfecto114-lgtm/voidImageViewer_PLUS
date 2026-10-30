@@ -34,9 +34,10 @@ INT_PTR CALLBACK _viv_about_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 // opens the in place zoom editor on the status bar pane (the name
 // keeps the old dialog's call sites stable).
 void _viv_set_zoom_dialog(void);
-// re-pins the open in place zoom editor to the fresh menu font
+// re-pins the open in place zoom editor to the fresh percentage font
 // (the dpi and theme paths drop the old one).
 void _viv_zoom_edit_refont(void);
+void _viv_zoom_edit_layout(void);
 void _viv_command_line_options(void);
 void _viv_show_jumpto(void);
 

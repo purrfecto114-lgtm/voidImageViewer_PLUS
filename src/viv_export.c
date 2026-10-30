@@ -388,6 +388,13 @@ static int _viv_export_readback_gdi(BYTE *bits,int wide,int high)
 }
 
 // the run: pump, paint, read back, write, answer the harness contract.
+static void _viv_export_free(BYTE *bits)
+{
+	_viv_hwgl_export_end();
+	_viv_hwd3d_export_end();
+	mem_free(bits);
+}
+
 int _viv_export_run(void)
 {
 	BYTE *bits;
@@ -419,7 +426,9 @@ int _viv_export_run(void)
 	// the renderer the harness asked for.
 	config_renderer = _viv_export_renderer;
 	
-	bits = (BYTE *)mem_alloc((uintptr_t)_viv_export_wide * (uintptr_t)_viv_export_high * 4);
+	// the parse-time clamps bound the product far below any wrap:
+	// the safe chain removes the "far" from that sentence.
+	bits = (BYTE *)mem_alloc(safe_size_mul(safe_size_mul((uintptr_t)_viv_export_wide,(uintptr_t)_viv_export_high),4));
 	
 	if (!bits)
 	{
@@ -450,7 +459,7 @@ int _viv_export_run(void)
 		{
 			if (msg.message == WM_QUIT)
 			{
-				mem_free(bits);
+				_viv_export_free(bits);
 				
 				return 1;
 			}
@@ -468,7 +477,7 @@ int _viv_export_run(void)
 		{
 			debug_printf("render-export: the load was refused\r\n");
 			
-			mem_free(bits);
+			_viv_export_free(bits);
 			
 			return 2;
 		}
@@ -477,7 +486,7 @@ int _viv_export_run(void)
 		{
 			debug_printf("render-export: the load timed out\r\n");
 			
-			mem_free(bits);
+			_viv_export_free(bits);
 			
 			return 4;
 		}
@@ -505,7 +514,7 @@ int _viv_export_run(void)
 		{
 			debug_printf("render-export: the gdi readback failed\r\n");
 			
-			mem_free(bits);
+			_viv_export_free(bits);
 			
 			return 1;
 		}
@@ -517,7 +526,7 @@ int _viv_export_run(void)
 		{
 			debug_printf("render-export: the opengl renderer refused\r\n");
 			
-			mem_free(bits);
+			_viv_export_free(bits);
 			
 			return 3;
 		}
@@ -528,7 +537,7 @@ int _viv_export_run(void)
 		{
 			debug_printf("render-export: the direct3d renderer refused\r\n");
 			
-			mem_free(bits);
+			_viv_export_free(bits);
 			
 			return 3;
 		}
@@ -536,12 +545,12 @@ int _viv_export_run(void)
 	
 	if (!_viv_export_write_bmp(_viv_export_path,bits,_viv_export_wide,_viv_export_high))
 	{
-		mem_free(bits);
+		_viv_export_free(bits);
 		
 		return 1;
 	}
 	
-	mem_free(bits);
+	_viv_export_free(bits);
 	
 	debug_printf("render-export: wrote %S\r\n",_viv_export_path);
 	

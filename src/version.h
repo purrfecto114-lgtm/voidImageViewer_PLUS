@@ -3,11 +3,11 @@
 #define VERSION_MINOR 1
 #define VERSION_REVISION 17
 
-#define VERSION_BUILD 115
+#define VERSION_BUILD 117
 
 // VERSION_TYPE stays empty on every line - rc and stable differ only in
 // VERSION_STRING: the tag, the ci validate leg and the guard suites all
 // compare against the string, so the type field carries no second identity.
 #define VERSION_TYPE ""
 
-#define VERSION_STRING "1.1.17"
+#define VERSION_STRING "1.1.17-repair.2"

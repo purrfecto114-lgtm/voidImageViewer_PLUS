@@ -37,6 +37,18 @@
 // how many accents the settings picker shows.
 #define VIV_THEME_ACCENT_COUNT	5
 
+// shared design units (dip; font sizes use half-dip units for 11.5).
+#define VIV_UI_RADIUS 6
+#define VIV_UI_PAD 8
+#define VIV_UI_GAP 4
+#define VIV_UI_STATUS_HIGH 26
+#define VIV_UI_MENU_FONT_DIP2 26
+#define VIV_UI_TOOLBAR_FONT_DIP2 24
+#define VIV_UI_STATUS_FONT_DIP2 23
+#define VIV_UI_PERCENT_FONT_DIP2 32
+// positive design units only; keep scaling in C without a new API import.
+#define VIV_UI_SCALE(value,dpi,base) (((value) * (dpi) + (base) / 2) / (base))
+
 // semantic color tokens. resolve them through viv_theme_color / viv_theme_brush.
 enum
 {

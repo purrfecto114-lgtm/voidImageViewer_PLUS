@@ -711,6 +711,8 @@ no_install_options_word:
 exec_admin_error:
         
         MessageBox MB_OK|MB_ICONSTOP "$(MsgExecAdminFailed)"
+        SetErrorLevel 2
+        Abort
 
 exec_admin_ok:
 
@@ -722,6 +724,8 @@ exec_admin_ok:
 exec_install_options_error:
         
         MessageBox MB_OK|MB_ICONSTOP "$(MsgExecOptionsFailed)"
+        SetErrorLevel 2
+        Abort
 
 exec_install_options_ok:
 
@@ -778,6 +782,10 @@ Section "Uninstall"
 uninstall_stage_error:
 
         MessageBox MB_OK|MB_ICONSTOP "$(MsgUninstallStageFailed)"
+        Delete /REBOOTOK "$0\voidImageViewer.exe"
+        RMDir /REBOOTOK $0
+        SetErrorLevel 2
+        Abort
 
 uninstall_stage_ok:
 

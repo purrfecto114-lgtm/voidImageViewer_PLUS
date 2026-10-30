@@ -1256,7 +1256,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 							{
 								if (*p == ',')
 								{
-									*p++;
+									p++;
 									break;
 								}
 								

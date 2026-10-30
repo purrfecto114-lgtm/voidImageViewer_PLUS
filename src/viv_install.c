@@ -547,7 +547,7 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 				string_cat_utf8(install_options,(const utf8_t *)" /isrunas");
 			}
 
-			os_shell_execute(0,new_exe_filename_wbuf,1,NULL,install_options);
+			if (!os_shell_execute(0,new_exe_filename_wbuf,1,NULL,install_options)) return 2;
 		}
 	}
 	
@@ -1449,18 +1449,23 @@ void _viv_uninstall_association_by_extension(const char *association)
 			int is_ours;
 			int i;
 
-			for(i=0;(choice_wbuf[i]) && (i < STRING_SIZE);i++)
+			for(i=0;(choice_wbuf[i]) && (i < (STRING_SIZE - 1));i++)
 			{
 				lower_wbuf[i] = ((choice_wbuf[i] >= L'A') && (choice_wbuf[i] <= L'Z')) ? (choice_wbuf[i] - L'A' + L'a') : choice_wbuf[i];
 			}
 
+			// the loop caps one short of the buffer so this store can
+			// never land past its edge - a registry value that fills
+			// the whole buffer (no terminator to stop the walk) used to
+			// write the zero at [STRING_SIZE].
 			lower_wbuf[i] = 0;
 
-			for(i=0;(class_name[i]) && (i < STRING_SIZE);i++)
+			for(i=0;(class_name[i]) && (i < (STRING_SIZE - 1));i++)
 			{
 				lower_class[i] = ((class_name[i] >= L'A') && (class_name[i] <= L'Z')) ? (class_name[i] - L'A' + L'a') : class_name[i];
 			}
 
+			// the same cap on the class side.
 			lower_class[i] = 0;
 
 			is_ours = string_compare(lower_wbuf,lower_class) == 0;
@@ -1666,6 +1671,30 @@ static int _viv_get_registry_string(HKEY hkey,const utf8_t *value,wchar_t *wbuf,
 	{
 		if ((type == REG_SZ) || (type == REG_EXPAND_SZ))
 		{
+			// the registry owes no terminator contract: a value that
+			// fills the buffer to its last wchar leaves every reader
+			// walking past the end. terminate at the data's own edge,
+			// or the buffer's, whichever comes first.
+			DWORD data_wchars;
+			
+			data_wchars = cbData / sizeof(wchar_t);
+			
+			if ((data_wchars > 0) && (wbuf[data_wchars - 1] == 0))
+			{
+				// the value carries its own terminator.
+			}
+			else
+			{
+				if (data_wchars >= (DWORD)size_in_wchars)
+				{
+					wbuf[size_in_wchars - 1] = 0;
+				}
+				else
+				{
+					wbuf[data_wchars] = 0;
+				}
+			}
+			
 			return 1;
 		}
 	}

@@ -1220,7 +1220,6 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				if (_viv_animation_play)
 				{
 					DWORD frames_skipped;
-//debug_printf("%p %p\n",_viv_timer_tick,elapsed)							;
 					
 					_viv_timer_tick += elapsed;
 					
@@ -1326,7 +1325,6 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 					}
 				}					
 				
-//debug_printf("_viv_frame_position %u\n",_viv_frame_position);
 				if (invalidate)
 				{
 					_viv_update_src_pixel(1,0);
@@ -1355,15 +1353,16 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 
 static LRESULT _viv_on_wm_lbuttondblclk(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-
+	if (_viv_suppress_gesture_mouse(1))
+	{
+		return 0;
+	}
 	_viv_show_cursor();
 	_viv_update_show_cursor();
-
 	if (_viv_is_touch_click())
 	{
 		// double tap on a touch screen: toggle 1:1 / best fit.
 		_viv_touch_double_click();
-
 		return DefWindowProc(hwnd,msg,wParam,lParam);
 	}
 	// 0 = scroll, 1 = play/pause slideshow, 2 = play/pause animation, 3=zoom in, 4=next, 5=1:1 scroll
@@ -1376,17 +1375,18 @@ static LRESULT _viv_on_wm_lbuttondblclk(HWND hwnd,UINT msg,WPARAM wParam,LPARAM 
 		case 6:
 			_viv_toggle_fullscreen();
 			break;
-
 		default:
 			_viv_do_left_click_action(config_left_click_action);
 			break;
 	}
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-
 static LRESULT _viv_on_wm_lbuttondown(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-
+	if (_viv_suppress_gesture_mouse(1))
+	{
+		return 0;
+	}
 	// a canvas click takes the keyboard home: the zoom pane editor and
 	// the pill rows hold the focus while they are alive, and without this
 	// the arrow keys and the page keys stay routed into their fields (a
@@ -1394,15 +1394,11 @@ static LRESULT _viv_on_wm_lbuttondown(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lP
 	// focus move is what commits an open zoom editor (its kill focus
 	// path).
 	SetFocus(hwnd);
-	
 	_viv_show_cursor();
 	_viv_update_show_cursor();
-	
 	_viv_do_left_click_action(config_left_click_action);
-
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
-
 static LRESULT _viv_on_wm_mbuttondown(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	if (_viv_doing == _VIV_DOING_NOTHING)
@@ -1828,9 +1824,11 @@ static LRESULT _viv_on_wm_mousemove(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 
 static LRESULT _viv_on_wm_lbuttonup_wm_mbuttonup(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-
+	if ((msg == WM_LBUTTONUP) && (_viv_suppress_gesture_mouse(0)))
+	{
+		return 0;
+	}
 	_viv_doing_cancel();
-	
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
@@ -1840,8 +1838,8 @@ static LRESULT _viv_on_wm_lbuttonup_wm_mbuttonup(HWND hwnd,UINT msg,WPARAM wPara
 // pointer back to its anchor on bare motion, the scroll legs keep
 // panning, and the hidden cursor never comes back. the
 // _viv_doing_cancel reset is the same one the button-up path
-// runs; its releasecapture on an already-lost capture is the
-// win32 no-op (false, no fault).
+// runs; its ownership guard leaves a new same-thread owner's
+// capture alone.
 static LRESULT _viv_on_wm_capturechanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	if (_viv_doing != _VIV_DOING_NOTHING)
@@ -2207,7 +2205,7 @@ static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		// handle through wm_getfont).
 		if (_viv_status_hwnd)
 		{
-			SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));
+			SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_ui_font(VIV_UI_FONT_STATUS),MAKELPARAM(TRUE,0));
 		}
 		
 		// the in-place zoom editor rides the same handle: it is
@@ -2490,7 +2488,7 @@ static LRESULT _viv_on_wm_themechanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM l
 	// already re-pins; the theme flip is the same lifecycle.
 	if (_viv_status_hwnd)
 	{
-		SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));
+		SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_ui_font(VIV_UI_FONT_STATUS),MAKELPARAM(TRUE,0));
 	}
 	
 	_viv_zoom_edit_refont();
@@ -2528,7 +2526,7 @@ static LRESULT _viv_on_wm_themechanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM l
 static LRESULT _viv_on_wm_setcursor(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 
-	// hand cursor over the clickable zoom pane (status bar part 0).
+	// hand cursor over the zoom chip at its live pane index.
 	if (_viv_status_hwnd && ((HWND)wParam == _viv_status_hwnd))
 	{
 		POINT pt;
@@ -2537,7 +2535,7 @@ static LRESULT _viv_on_wm_setcursor(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 		GetCursorPos(&pt);
 		ScreenToClient(_viv_status_hwnd,&pt);
 		
-		if ((SendMessage(_viv_status_hwnd,SB_GETRECT,0,(LPARAM)&pane_rect)) && (PtInRect(&pane_rect,pt)))
+		if ((_viv_status_zoom_pane_index() >= 0) && (SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_zoom_pane_index(),(LPARAM)&pane_rect)) && (PtInRect(&pane_rect,pt)))
 		{
 			SetCursor(LoadCursor(NULL,IDC_HAND));
 			
@@ -2587,7 +2585,7 @@ static LRESULT _viv_on_wm_notify(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 							if (_viv_is_dark())
 							{
 								SetTextColor(custom_draw->hdc,viv_theme_color(VIV_TK_TEXT));
-								SetBkColor(custom_draw->hdc,viv_theme_color(VIV_TK_CHROME));
+								SetBkColor(custom_draw->hdc,viv_theme_color(VIV_TK_NAV_FACE));
 							}
 							
 							return CDRF_DODEFAULT;
@@ -2608,25 +2606,14 @@ static LRESULT _viv_on_wm_notify(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 							item = (int)SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 1;
 						}
 						
-						switch(item)
+						if ((item >= 0) && (item == _viv_status_zoom_pane_index()))
 						{
-							case 0:
-								// the zoom pane: type an exact percent.
-								_viv_set_zoom_dialog();
-								break;
-							
-							default:
-								// the frame counter pane, by its live index (the date
-								// pane's birth moved parts-minus-two onto the wrong
-								// pane: clicking the date flipped a counter nothing
-								// showed, and a still image wrote the mode to the
-								// ini unseen).
-								if (item == _viv_status_frame_pane_index())
-								{
-									config_frame_minus = !config_frame_minus;
-									_viv_status_update();
-								}
-								break;
+							_viv_set_zoom_dialog();
+						}
+						else if ((item >= 0) && (item == _viv_status_frame_pane_index()))
+						{
+							config_frame_minus = !config_frame_minus;
+							_viv_status_update();
 						}
 													
 						break;
@@ -2820,9 +2807,7 @@ static LRESULT _viv_on_wm_enter_idle(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	return 0;
 }
 
-// the hardware dispatch: one call for both back ends, the frame and
-// the clear color the only inputs beyond the view rectangle (the
-// frame answers from the live position exactly like the gdi blit).
+// Dispatch the current frame and clear color to the selected renderer.
 static int _viv_hw_render_frame(HWND hwnd,HDC hdc,int dst_x,int dst_y,int dst_wide,int dst_high,COLORREF clear_color)
 {
 	if (config_renderer == CONFIG_RENDERER_OPENGL)
@@ -2917,9 +2902,13 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			
 			mirror_hrgn = os_mirror_region(update_hrgn,rect.right - rect.left);
 			
-			DeleteObject(update_hrgn);
-			
-			update_hrgn = mirror_hrgn;
+			// an unbuildable mirror keeps the original region - the
+			// unmirrored paint beats a null one.
+			if (mirror_hrgn)
+			{
+				DeleteObject(update_hrgn);
+				update_hrgn = mirror_hrgn;
+			}
 		}
 
 		// double buffer: render into a memory bitmap and present it to the
@@ -2929,7 +2918,6 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		paint_use_backbuffer = 0;
 		paint_hdc = ps.hdc;
 		
-//debug_printf("WM_PAINT\n")			;
 		if ((wide) && (high))
 		{
 			// the render rect starts empty (a refused frame state leaves the fill
@@ -2947,8 +2935,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			// flags keep the answer stable for the session.
 			
 			// the frame-state guard runs once for both render legs: the
-			// hardware dispatch and the gdi mipmap read below both index
-			// frames[] - a refused guard (an empty animation, a stale
+			// A refused guard (an empty animation, a stale
 			// position) leaves this paint to the background fill alone,
 			// and the refusal must not wear the hardware-fallback face
 			// (a zero return from the hw frame is the renderer's own
@@ -2966,6 +2953,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				{
 					if (_viv_hw_render_frame(hwnd,ps.hdc,rx,ry + view_top,rw,rh,brush_color))
 					{
+						_viv_paint_kill();
 						_viv_is_animation_paint = 0;
 
 						DeleteObject(update_hrgn);
@@ -2975,6 +2963,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 						return 0;
 					}
 
+					_viv_hw_release_image();
 					// the refusal the debug channel already names reaches
 					// the user: a hardware back end the user picked that
 					// cannot take this image says so on the status line

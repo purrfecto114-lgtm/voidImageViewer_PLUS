@@ -14,16 +14,20 @@ typedef struct {
     uint64_t ullArguments;
 } os_GestureInfo_t;
 #define FALSE 0
+#define TRUE 1
 #define SM_CXVIRTUALSCREEN 78
 #define SM_CYVIRTUALSCREEN 79
 static int os_logical_wide = 96, _viv_1to1, _viv_zoom_pos;
 static int _viv_view_x, _viv_view_y, _viv_doing, captured;
+static int _viv_doing_x, _viv_doing_y;
+static DWORD clock_ms;
+static DWORD GetTickCount(void) { return clock_ms; }
 static int _viv_is_fullscreen, config_fullscreen_fill_window, config_fill_window;
 static int config_keep_aspect_ratio = 1, config_allow_shrinking = 1;
 static struct { int image_wide, image_high; } _viv_slot_current;
 static float _viv_zoom_scales[_VIV_ZOOM_MAX];
 static int client_wide = 1600, client_high = 1000;
-static HWND _viv_hwnd;
+static HWND _viv_hwnd = (HWND)(uintptr_t)1;
 static int closed, invalidated, status_updates, navigated;
 static uintptr_t message_extra;
 static os_GestureInfo_t next_info;
@@ -43,7 +47,10 @@ static void _viv_view_scroll(int x, int y) { _viv_view_x -= x; _viv_view_y -= y;
 static void _viv_view_set(int x, int y, int update) { _viv_view_x = x; _viv_view_y = y; }
 static void InvalidateRect(HWND hwnd, void *rect, int erase) { invalidated++; }
 static void _viv_status_update_temp_pos_zoom(void) { status_updates++; }
-static void _viv_doing_cancel(void) { _viv_doing = captured = 0; }
+static HWND GetCapture(void) { return captured ? (captured==1 ? _viv_hwnd : (HWND)(uintptr_t)2) : NULL; }
+static void ReleaseCapture(void) { captured=0; }
+static void ShowCursor(int visible) { (void)visible; }
+void _viv_doing_cancel(void);
 
 /* PRODUCTION */
 
@@ -184,8 +191,55 @@ static void begin(void)
     }
     puts("gesture: invalid per-type BEGIN cannot keep a stale baseline");
 }
+static void transition(void)
+{
+    int rw, rh;
+    geometry(4000, 3000, 1600, 1000, 0);
+    _viv_doing = _VIV_DOING_1TO1SCROLL; captured = 1;
+    _viv_doing_x = 7; _viv_doing_y = 9;
+    _viv_view_x = 321; _viv_view_y = -222;
+    send(1, 0, 0);
+    assert(!_viv_doing && !captured && _viv_1to1);
+    assert(_viv_view_x == 321 && _viv_view_y == -222);
+    _viv_get_render_size(&rw, &rh);
+    assert(rw == 4000 && rh == 3000);
+    send(3, 1, 100);
+    assert(_viv_view_x == 321 && _viv_view_y == -222);
+
+    geometry(4000, 3000, 1600, 1000, 0);
+    _viv_doing = _VIV_DOING_SCROLL; captured = 1;
+    _viv_view_x = 61; _viv_view_y = -12;
+    send(1, 0, 0);
+    assert(!_viv_doing && !captured && !_viv_1to1);
+    assert(_viv_view_x == 61 && _viv_view_y == -12);
+
+    /* ordinary release still restores the temporary mode's entry view. */
+    _viv_doing = _VIV_DOING_1TO1SCROLL;
+    _viv_doing_x = 7; _viv_doing_y = 9;
+    _viv_doing_cancel();
+    assert(_viv_view_x == 7 && _viv_view_y == 9);
+
+    clock_ms=1000; send(2, 0, 0);
+    message_extra=0; assert(!_viv_suppress_gesture_mouse(1));
+    message_extra=0xff515701u; assert(!_viv_suppress_gesture_mouse(1));
+    message_extra=0xff515780u; assert(_viv_suppress_gesture_mouse(1));
+    clock_ms=2000; assert(_viv_suppress_gesture_mouse(0));
+    assert(!_viv_suppress_gesture_mouse(1));
+    clock_ms=3000; send(2, 0, 0); clock_ms=3151;
+    assert(!_viv_suppress_gesture_mouse(1));
+    clock_ms=UINT32_MAX-20; send(2, 0, 0); clock_ms=20;
+    assert(_viv_suppress_gesture_mouse(1));
+    assert(_viv_suppress_gesture_mouse(0));
+    /* capture was handed to a toolbar/pill on the same thread. */
+    _viv_doing=_VIV_DOING_SCROLL; captured=2;
+    _viv_doing_cancel();
+    assert(!_viv_doing && captured==2);
+    captured=0;
+    puts("transition: temporary/native pan adoption, ordinary scroll, normal cancel, touch tail, mouse/pen and wrap passed");
+}
 static void touch(void)
 {
+    transition();
     message_extra = 0; assert(!_viv_is_touch_click());
     message_extra = 0xff515701u; assert(!_viv_is_touch_click()); /* pen */
     message_extra = 0xff515780u; assert(_viv_is_touch_click());

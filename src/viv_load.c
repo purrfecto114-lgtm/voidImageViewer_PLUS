@@ -110,6 +110,8 @@ static void _viv_slot_take(_viv_image_slot_t *dst,_viv_image_slot_t *src)
 // _viv_process_pending_clear should be called after the new frame is shown.
 void _viv_clear(void)
 {
+	_viv_hw_release_image();
+	_viv_paint_kill();
 	// the mailbox is single-slot by the single-flight invariant: every
 	// _viv_clear call site pairs with its drain before the next set (the
 	// ten call pairs the reply paths run, plus the kill path). the belt
@@ -192,6 +194,7 @@ BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy)
 	HANDLE h;
 	wchar_t full_path_and_filename[STRING_SIZE];
 	wchar_t cwd[STRING_SIZE];
+	DWORD cwd_len;
 	_viv_open_skip_report_t report;
 
 	// the tally is this open's own local: one line for this call, not
@@ -199,7 +202,21 @@ BOOL _viv_open_from_filename(const wchar_t *filename,int recent_policy)
 	os_zero_memory(&report,sizeof(_viv_open_skip_report_t));
 	
 	ret = FALSE;
-	GetCurrentDirectory(STRING_SIZE,cwd);
+	
+	// a working directory longer than the buffer leaves the old cwd
+	// unterminated on the stack - the combine below would walk past
+	// it. a directory that cannot fit is the same refusal as a path
+	// that cannot.
+	cwd_len = GetCurrentDirectory(STRING_SIZE,cwd);
+	
+	if ((cwd_len == 0) || (cwd_len >= (DWORD)STRING_SIZE))
+	{
+		_viv_open_report_skip(&report,filename,VIV_OPEN_SKIPPED_TOO_LONG);
+		
+		_viv_playlist_report_skips(&report);
+		
+		return FALSE;
+	}
 
 	if (!string_path_combine(full_path_and_filename,cwd,filename))
 	{
@@ -1143,7 +1160,12 @@ void _viv_doing_cancel(void)
 			InvalidateRect(_viv_hwnd,0,FALSE);
 		}
 		
-		ReleaseCapture();
+		// capturechanged may already have handed the grab to another
+		// control on this thread. retire only the main window's grab.
+		if (GetCapture() == _viv_hwnd)
+		{
+			ReleaseCapture();
+		}
 	}
 }
 void _viv_blank(void)
@@ -1624,23 +1646,16 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 																	{
 																		HBITMAP new_hbitmap;
 																		
-																		// GetDIBits must not see a bitmap still selected in a dc -
-																		// the orientate helper reads the source through its own
-																		// GetDIBits (the chrome module documents the same contract
-																		// for its readbacks). the restore further down answers the
-																		// non-oriented path and runs as a no-op here.
+																		// Finish GDI drawing before the direct DIB transform.
 																		SelectObject(mem_hdc,last_hbitmap);
 																		
 																		new_hbitmap = _viv_orientate_hbitmap(hbitmap,orientation);
 																		
-																		if (new_hbitmap)
-																		{
-																			DeleteObject(hbitmap);
-																			
-																			hbitmap = new_hbitmap;
-																		}
+																		DeleteObject(hbitmap);
+																		hbitmap = new_hbitmap;
 																	}
 																	
+																	if (hbitmap)
 																	{
 																		_viv_reply_load_image_first_frame_t low_res_first_frame;
 																		
@@ -1849,28 +1864,19 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 													{
 														HBITMAP new_hbitmap;
 														
-														// GetDIBits must not see a bitmap still selected in a dc -
-														// the orientate helper reads the source through its own
-														// GetDIBits (the chrome module documents the same contract
-														// for its readbacks). the restore further down answers the
-														// non-oriented path and runs as a no-op here.
+														// Finish GDI drawing before the direct DIB transform.
 														SelectObject(mem_hdc,last_hbitmap);
 														
 														new_hbitmap = _viv_orientate_hbitmap(hbitmap,orientation);
-														if (new_hbitmap)
-														{
-															DeleteObject(hbitmap);
-															hbitmap = new_hbitmap;
-														}
+														DeleteObject(hbitmap);
+														hbitmap = new_hbitmap;
 													}
 													
 													SelectObject(mem_hdc,last_hbitmap);
-												
+													if (!hbitmap) { ret = 0; break; }
 													if (i)
 													{
 														_viv_frame_t frame;
-														int mip_wide;
-														int mip_high;
 														UINT frame_data_value;
 
 														frame.hbitmap = hbitmap;
@@ -1896,8 +1902,6 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 													}
 													else
 													{
-														int mip_wide;
-														int mip_high;
 														UINT frame_data_value;
 
 														first_frame.frame.hbitmap = hbitmap;
@@ -1918,8 +1922,7 @@ static DWORD WINAPI _viv_load_image_thread_proc(void *param)
 															}
 														}
 															
-														// preload first mipmap
-														_viv_get_mipmap(hbitmap,first_frame.wide,first_frame.high,_viv_load_render_wide/2,_viv_load_render_high/2,&mip_wide,&mip_high,&first_frame.frame.mipmap);
+														// Mipmaps are built lazily by GDI paint.
 							
 														// the bake the first frame ran (alpha pixels got the mat
 														// painted under them) rides the reply: the commit stamps
@@ -2161,25 +2164,18 @@ void _viv_reply_clear_all(void)
 // refuses on its own.
 static SIZE_T _viv_frame_set_bytes(int wide,int high,int frame_count)
 {
-	SIZE_T pixels;
-	SIZE_T bytes;
-
-	if ((wide <= 0) || (high <= 0) || (frame_count <= 0))
+	SIZE_T bytes = 0;
+	if ((wide <= 0) || (high <= 0) || (frame_count <= 0)) return 0;
+	// A full 32bpp pyramid also covers thin canvases; 4/3 did not.
+	for(;;)
 	{
-		return 0;
+		bytes = safe_size_add(bytes,safe_size_mul(safe_size_mul((SIZE_T)wide,(SIZE_T)high),4));
+		if (bytes == SIZE_MAX) return SIZE_MAX;
+		if ((wide == 1) && (high == 1)) break;
+		wide = wide / 2 + wide % 2;
+		high = high / 2 + high % 2;
 	}
-
-	pixels = safe_size_mul((SIZE_T)(unsigned int)wide,(SIZE_T)(unsigned int)high);
-	bytes = safe_size_mul(pixels,4);
-	bytes = safe_size_mul(bytes,(SIZE_T)(unsigned int)frame_count);
-	bytes = safe_size_mul(bytes,4);
-
-	if (bytes == SIZE_MAX)
-	{
-		return SIZE_MAX;
-	}
-
-	return bytes / 3;
+	return safe_size_mul(bytes,(SIZE_T)frame_count);
 }
 // one slot's held bytes: the estimator above is the arithmetic, this
 // is the slot-domain wrapper the ceiling prices through - the three

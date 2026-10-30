@@ -318,7 +318,7 @@ void _viv_menubar_layout(void)
 		count = _VIV_MENUBAR_ITEM_MAX;
 	}
 	
-	pad = (4 * os_logical_wide) / 96;
+	pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 	
 	high = 0;
 	
@@ -550,7 +550,29 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				text_color = viv_theme_color(inactive ? VIV_TK_TEXT2 : VIV_TK_TEXT);
 
 				
-				FillRect(hdc,&rect,face);
+				if (hot)
+				{
+					HGDIOBJ old_pen;
+					HGDIOBJ old_brush;
+					int corner;
+
+					corner = VIV_UI_SCALE(VIV_UI_RADIUS * 2,os_logical_high,96);
+					old_pen = SelectObject(hdc,GetStockObject(NULL_PEN));
+					old_brush = SelectObject(hdc,face);
+					RoundRect(hdc,rect.left,rect.top,rect.right,rect.bottom,corner,corner);
+					SelectObject(hdc,old_brush);
+					SelectObject(hdc,old_pen);
+				}
+				if (itemi == _viv_menubar_open)
+				{
+					RECT marker;
+
+					marker = rect;
+					marker.top = marker.bottom - 2;
+					marker.left += VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
+					marker.right -= VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
+					FillRect(hdc,&marker,viv_theme_brush(VIV_TK_ACCENT));
+				}
 				
 				SetTextColor(hdc,text_color);
 				

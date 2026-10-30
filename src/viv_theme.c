@@ -38,15 +38,15 @@
 static const COLORREF _viv_theme_dark_colors[VIV_TK_COUNT] =
 {
 	RGB(0x23,0x23,0x28),	// VIV_TK_FACE
-	RGB(0x1B,0x1B,0x1F),	// VIV_TK_NAV_FACE
-	RGB(0x20,0x20,0x24),	// VIV_TK_CHROME
+	RGB(0x16,0x16,0x1B),	// VIV_TK_NAV_FACE
+	RGB(0x30,0x30,0x38),	// VIV_TK_CHROME
 	RGB(0x3A,0x3A,0x40),	// VIV_TK_CHROME_LINE
 	RGB(0x70,0x70,0x70),	// VIV_TK_CHROME_MUTED
-	RGB(0x1B,0x1B,0x1E),	// VIV_TK_FRAME
+	RGB(0x24,0x24,0x2C),	// VIV_TK_FRAME
 	RGB(0x2A,0x2A,0x2F),	// VIV_TK_INPUT
 	RGB(0x3A,0x3A,0x40),	// VIV_TK_LINE
-	RGB(0x2E,0x2E,0x33),	// VIV_TK_HOVER
-	RGB(0x38,0x38,0x3E),	// VIV_TK_DOWN
+	RGB(0x45,0x45,0x4E),	// VIV_TK_HOVER
+	RGB(0x58,0x58,0x62),	// VIV_TK_DOWN
 	RGB(0xE8,0xE8,0xEA),	// VIV_TK_TEXT
 	RGB(0x9A,0x9A,0xA0),	// VIV_TK_TEXT2
 	RGB(0x6A,0x6A,0x70),	// VIV_TK_TEXTOFF
@@ -56,10 +56,11 @@ static const COLORREF _viv_theme_dark_colors[VIV_TK_COUNT] =
 	RGB(0xFF,0xFF,0xFF)		// VIV_TK_ON_ACCENT
 };
 
-// the light side keeps system colors so a classic light windows theme still
-// feels native. the custom entries carry the quiet fixed tones the field
-// rounds calibrated (rc.13: hover contrast, nav layering, the unified
-// menu-tone strip).
+// system face, text and input colors form the light palette's native base.
+// the correction layer gives hover/down, the tray outline and the canvas
+// frame explicit roles. fixed corrections are calibrated against the
+// standard windows light palette; custom accessibility palettes still own
+// the system text and face colors.
 static COLORREF _viv_theme_light_color(int token)
 {
 	switch (token)
@@ -75,14 +76,12 @@ static COLORREF _viv_theme_light_color(int token)
 		case VIV_TK_CHROME: return GetSysColor(COLOR_MENU);
 		case VIV_TK_CHROME_LINE: return GetSysColor(COLOR_3DSHADOW);
 		case VIV_TK_CHROME_MUTED: return GetSysColor(COLOR_GRAYTEXT);
-		case VIV_TK_FRAME: return GetSysColor(COLOR_MENU);
+		case VIV_TK_FRAME: return RGB(0xD8,0xD8,0xDC);
 		case VIV_TK_INPUT: return GetSysColor(COLOR_WINDOW);
-		case VIV_TK_LINE: return GetSysColor(COLOR_3DSHADOW);
-		// rc.13: a fixed hover with real contrast - 3dlight sat ~3
-		// points off the chrome strip and the menu/toolbar hover was
-		// invisible in the light ui (the field report's dead look).
-		case VIV_TK_HOVER: return RGB(0xDC,0xDC,0xDC);
-		case VIV_TK_DOWN: return GetSysColor(COLOR_3DSHADOW);
+		case VIV_TK_LINE: return RGB(0x90,0x90,0x98);
+		// a visible step on both the native face and the inset nav face.
+		case VIV_TK_HOVER: return RGB(0xC8,0xC8,0xCC);
+		case VIV_TK_DOWN: return RGB(0xB4,0xB4,0xBC);
 		case VIV_TK_TEXT: return GetSysColor(COLOR_WINDOWTEXT);
 		case VIV_TK_TEXT2: return GetSysColor(COLOR_GRAYTEXT);
 		case VIV_TK_TEXTOFF: return GetSysColor(COLOR_GRAYTEXT);
@@ -93,12 +92,13 @@ static COLORREF _viv_theme_light_color(int token)
 
 // the accent table: base, hot, down per accent. hand tuned triples, no
 // runtime color math. index order matches the settings picker.
+// teal/amber hot keep white on-accent text above 3:1 in every state.
 static const COLORREF _viv_theme_accent_colors[VIV_THEME_ACCENT_COUNT][3] =
 {
 	{RGB(0x1E,0x66,0xE8),RGB(0x3B,0x7B,0xEE),RGB(0x1A,0x57,0xC8)},	// azure
-	{RGB(0x0E,0x98,0x88),RGB(0x2F,0xB3,0xA2),RGB(0x0A,0x7A,0x6E)},	// teal
+	{RGB(0x0E,0x98,0x88),RGB(0x24,0xA0,0x90),RGB(0x0A,0x7A,0x6E)},	// teal
 	{RGB(0x7A,0x5A,0xF0),RGB(0x93,0x78,0xF4),RGB(0x63,0x48,0xCE)},	// violet
-	{RGB(0xC7,0x74,0x20),RGB(0xDE,0x8C,0x36),RGB(0xA8,0x5E,0x14)},	// amber
+	{RGB(0xC7,0x74,0x20),RGB(0xD0,0x80,0x2B),RGB(0xA8,0x5E,0x14)},	// amber
 	{RGB(0xD6,0x44,0x5E),RGB(0xE4,0x63,0x7A),RGB(0xB9,0x33,0x50)}	// rose
 };
 

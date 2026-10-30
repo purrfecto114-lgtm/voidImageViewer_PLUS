@@ -54,7 +54,7 @@ void _viv_command_line_options(void);
 static void _viv_jumpto_on_size(HWND hwnd);
 static void _viv_jumpto_on_search(HWND hwnd);
 static void _viv_jumpto_open_sel(HWND hwnd);
-static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
+static INT_PTR CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
 void _viv_show_jumpto(void);
 static void _viv_center_listbox_item(HWND listbox_hwnd,int item_index);
 
@@ -651,18 +651,18 @@ void _viv_set_zoom_dialog(void)
 		_viv_zoom_edit_end(_viv_zoom_edit_hwnd,1);
 	}
 	
-	// pane 0's rect, in status bar client coordinates.
-	if (!SendMessage(_viv_status_hwnd,SB_GETRECT,0,(LPARAM)&pane_rect))
+	// the live zoom chip's rect, in status bar client coordinates.
+	if ((_viv_status_zoom_pane_index() < 0) || (!SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_zoom_pane_index(),(LPARAM)&pane_rect)))
 	{
 		return;
 	}
 	
 	// the field: the pane width minus breathing room, floor 32 (four digits).
-	wide = (pane_rect.right - pane_rect.left) - 8;
+	wide = (pane_rect.right - pane_rect.left) - VIV_UI_SCALE(VIV_UI_GAP * 2,os_logical_wide,96);
 	
-	if (wide < 32)
+	if (wide < VIV_UI_SCALE(VIV_UI_PAD * 4,os_logical_wide,96))
 	{
-		wide = 32;
+		return;
 	}
 	
 	hwnd = os_CreateWindowEx(
@@ -670,7 +670,7 @@ void _viv_set_zoom_dialog(void)
 		"EDIT",
 		"",
 		WS_CHILD|WS_VISIBLE|ES_NUMBER|ES_AUTOHSCROLL,
-		pane_rect.left + 4,pane_rect.top + 1,wide,(pane_rect.bottom - pane_rect.top) - 2,
+		pane_rect.left + VIV_UI_SCALE(VIV_UI_GAP,os_logical_wide,96),pane_rect.top + 1,wide,(pane_rect.bottom - pane_rect.top) - 2,
 		_viv_status_hwnd,0,os_hinstance,NULL);
 	
 	if (!hwnd)
@@ -701,7 +701,7 @@ void _viv_set_zoom_dialog(void)
 	}
 	
 	// the pane's own font, so the digits match the strip text.
-	hfont = (HFONT)SendMessage(_viv_status_hwnd,WM_GETFONT,0,0);
+	hfont = _viv_ui_font(VIV_UI_FONT_PERCENT);
 	
 	if (hfont)
 	{
@@ -716,6 +716,28 @@ void _viv_set_zoom_dialog(void)
 	
 	SetFocus(hwnd);
 }
+void _viv_zoom_edit_layout(void)
+{
+	RECT pane_rect;
+	int wide;
+	int pad;
+
+	if (!_viv_zoom_edit_hwnd) return;
+	if ((!_viv_status_hwnd) || (_viv_status_zoom_pane_index() < 0) ||
+		(!SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_zoom_pane_index(),(LPARAM)&pane_rect)))
+	{
+		_viv_zoom_edit_end(_viv_zoom_edit_hwnd,0);
+		return;
+	}
+	pad = VIV_UI_SCALE(VIV_UI_GAP,os_logical_wide,96);
+	wide = pane_rect.right - pane_rect.left - pad * 2;
+	if (wide < VIV_UI_SCALE(VIV_UI_PAD * 4,os_logical_wide,96))
+	{
+		_viv_zoom_edit_end(_viv_zoom_edit_hwnd,0);
+		return;
+	}
+	SetWindowPos(_viv_zoom_edit_hwnd,0,pane_rect.left + pad,pane_rect.top + 1,wide,pane_rect.bottom - pane_rect.top - 2,SWP_NOZORDER | SWP_NOACTIVATE);
+}
 void _viv_zoom_edit_refont(void)
 {
 	// the in-place zoom editor carries the strip's font handle from
@@ -726,11 +748,12 @@ void _viv_zoom_edit_refont(void)
 	{
 		HFONT hfont;
 		
-		hfont = _viv_menu_font();
+		hfont = _viv_ui_font(VIV_UI_FONT_PERCENT);
 		
 		if (hfont)
 		{
 			SendMessage(_viv_zoom_edit_hwnd,WM_SETFONT,(WPARAM)hfont,0);
+			_viv_zoom_edit_layout();
 		}
 	}
 }
@@ -1009,7 +1032,7 @@ static void _viv_jumpto_open_sel(HWND hwnd)
 		}
 	}
 }
-static LRESULT CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+static INT_PTR CALLBACK _viv_jumpto_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	{
 		INT_PTR dark_dialog_reply;

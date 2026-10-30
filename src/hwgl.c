@@ -24,6 +24,10 @@
 #include "viv.h"
 #include "hwgl.h"
 #include <GL/gl.h>
+#include <stdio.h>
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
 
 // the opengl32 export set, resolved at first use: the renderer stays a
 // pure option and the exe never grows a static import for it. the pixel
@@ -32,6 +36,7 @@ typedef HGLRC (__stdcall *_viv_gl_wglCreateContext_t)(HDC);
 typedef BOOL (__stdcall *_viv_gl_wglMakeCurrent_t)(HDC,HGLRC);
 typedef BOOL (__stdcall *_viv_gl_wglDeleteContext_t)(HGLRC);
 typedef const GLubyte * (__stdcall *_viv_gl_getstring_t)(GLenum);
+typedef GLenum (__stdcall *_viv_gl_geterror_t)(void);
 typedef void (__stdcall *_viv_gl_getintegerv_t)(GLenum,GLint *);
 typedef void (__stdcall *_viv_gl_viewport_t)(GLint,GLint,GLsizei,GLsizei);
 typedef void (__stdcall *_viv_gl_matrixmode_t)(GLenum);
@@ -61,6 +66,7 @@ static _viv_gl_wglMakeCurrent_t _viv_gl_wglMakeCurrent;
 static _viv_gl_wglDeleteContext_t _viv_gl_wglDeleteContext;
 static _viv_gl_getstring_t _viv_gl_getstring;
 static _viv_gl_getintegerv_t _viv_gl_getintegerv;
+static _viv_gl_geterror_t _viv_gl_geterror;
 static _viv_gl_viewport_t _viv_gl_viewport;
 static _viv_gl_matrixmode_t _viv_gl_matrixmode;
 static _viv_gl_loadidentity_t _viv_gl_loadidentity;
@@ -95,6 +101,7 @@ static uintptr_t _viv_gl_stage_size;
 static int _viv_gl_failed;
 static int _viv_gl_max_texture;
 static int _viv_gl_bgra;
+static int _viv_gl_npot;
 static GLfloat _viv_gl_u;
 static GLfloat _viv_gl_v;
 
@@ -143,6 +150,7 @@ static int _viv_gl_procs(void)
 		_viv_gl_wglCreateContext = (_viv_gl_wglCreateContext_t)GetProcAddress(_viv_gl_module,"wglCreateContext");
 		_viv_gl_wglMakeCurrent = (_viv_gl_wglMakeCurrent_t)GetProcAddress(_viv_gl_module,"wglMakeCurrent");
 		_viv_gl_wglDeleteContext = (_viv_gl_wglDeleteContext_t)GetProcAddress(_viv_gl_module,"wglDeleteContext");
+		_viv_gl_geterror = (_viv_gl_geterror_t)GetProcAddress(_viv_gl_module,"glGetError");
 		_viv_gl_getstring = (_viv_gl_getstring_t)GetProcAddress(_viv_gl_module,"glGetString");
 		_viv_gl_getintegerv = (_viv_gl_getintegerv_t)GetProcAddress(_viv_gl_module,"glGetIntegerv");
 		_viv_gl_viewport = (_viv_gl_viewport_t)GetProcAddress(_viv_gl_module,"glViewport");
@@ -168,7 +176,7 @@ static int _viv_gl_procs(void)
 		_viv_gl_readbuffer = (_viv_gl_readbuffer_t)GetProcAddress(_viv_gl_module,"glReadBuffer");
 	}
 	
-	return (_viv_gl_wglCreateContext) && (_viv_gl_wglMakeCurrent) && (_viv_gl_wglDeleteContext) && (_viv_gl_getstring) && (_viv_gl_getintegerv) && (_viv_gl_viewport) && (_viv_gl_matrixmode) && (_viv_gl_loadidentity) && (_viv_gl_ortho) && (_viv_gl_pixelstorei) && (_viv_gl_gentextures) && (_viv_gl_bindtexture) && (_viv_gl_teximage2d) && (_viv_gl_texsubimage2d) && (_viv_gl_texparameteri) && (_viv_gl_deletetextures) && (_viv_gl_enable) && (_viv_gl_disable) && (_viv_gl_begin) && (_viv_gl_end) && (_viv_gl_texcoord2f) && (_viv_gl_vertex2f) && (_viv_gl_clearcolor) && (_viv_gl_clear);
+	return (_viv_gl_geterror) && (_viv_gl_wglCreateContext) && (_viv_gl_wglMakeCurrent) && (_viv_gl_wglDeleteContext) && (_viv_gl_getstring) && (_viv_gl_getintegerv) && (_viv_gl_viewport) && (_viv_gl_matrixmode) && (_viv_gl_loadidentity) && (_viv_gl_ortho) && (_viv_gl_pixelstorei) && (_viv_gl_gentextures) && (_viv_gl_bindtexture) && (_viv_gl_teximage2d) && (_viv_gl_texsubimage2d) && (_viv_gl_texparameteri) && (_viv_gl_deletetextures) && (_viv_gl_enable) && (_viv_gl_disable) && (_viv_gl_begin) && (_viv_gl_end) && (_viv_gl_texcoord2f) && (_viv_gl_vertex2f) && (_viv_gl_clearcolor) && (_viv_gl_clear);
 }
 
 // probes the extension string for one name (the microsoft software
@@ -307,6 +315,18 @@ static int _viv_gl_context_create(HWND hwnd,HDC hdc)
 			_viv_gl_max_texture = 256;
 		}
 		
+		{
+			const char *version = (const char *)_viv_gl_getstring(GL_VERSION);
+			int major = 0,minor = 0;
+			if (version) sscanf(version,"%d.%d",&major,&minor);
+			_viv_gl_npot = (major >= 2) || _viv_gl_has_extension("GL_ARB_texture_non_power_of_two");
+			if (!((major > 1) || ((major == 1) && (minor >= 2)) ||
+				_viv_gl_has_extension("GL_SGIS_texture_edge_clamp") || _viv_gl_has_extension("GL_EXT_texture_edge_clamp")))
+			{
+				debug_printf("opengl: edge clamping unavailable; using GDI\r\n");
+				return 0;
+			}
+		}
 		_viv_gl_bgra = _viv_gl_has_extension("GL_EXT_bgra");
 		if (!_viv_gl_bgra)
 		{
@@ -348,25 +368,23 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	
 	wide = ds->dsBm.bmWidth;
 	high = ds->dsBm.bmHeight;
-	stride = ((wide * ds->dsBm.bmBitsPixel + 31) / 32) * 4;
+
 	
 	if ((wide <= 0) || (high <= 0))
 	{
 		return 0;
 	}
 	
-	pot_wide = 1;
-	while ((pot_wide < wide) && (pot_wide < _viv_gl_max_texture))
+	pot_wide = wide;
+	pot_high = high;
+	if (!_viv_gl_npot)
 	{
-		pot_wide <<= 1;
+		pot_wide = 1;
+		while ((pot_wide < wide) && (pot_wide < _viv_gl_max_texture)) pot_wide <<= 1;
+		pot_high = 1;
+		while ((pot_high < high) && (pot_high < _viv_gl_max_texture)) pot_high <<= 1;
 	}
-	
-	pot_high = 1;
-	while ((pot_high < high) && (pot_high < _viv_gl_max_texture))
-	{
-		pot_high <<= 1;
-	}
-	
+
 	// the max clause answers the overshoot: a non power of two max texture size
 	// can sit between two powers, and the loop above lands past it (the
 	// refusal check below only compares against the image, the texture the
@@ -378,13 +396,16 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		return 0;
 	}
 	
-	if ((uintptr_t)pot_wide * (uintptr_t)pot_high > VIV_MAX_IMAGE_PIXELS)
+	if (safe_size_mul(safe_size_mul((SIZE_T)pot_wide,(SIZE_T)pot_high),8) > VIV_MAX_HARDWARE_BYTES)
 	{
-		debug_printf("opengl: the padded canvas exceeds the pixel budget\r\n");
+		debug_printf("opengl: the stage + texture exceed the hardware byte budget\r\n");
 		
 		return 0;
 	}
 	
+	// The byte gate bounds the row; calculate before narrowing.
+	stride = (int)((((SIZE_T)wide * ds->dsBm.bmBitsPixel + 31) / 32) * 4);
+
 	if (_viv_gl_bgra && (ds->dsBm.bmBitsPixel == 24))
 	{
 		format = GL_BGR_EXT;
@@ -396,20 +417,14 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		size = (uintptr_t)pot_wide * pot_high * 4;
 	}
 	
-	// the staging buffer is cached across frames (the d3d twin's own
-	// reuse shape): an animation used to pay a pot-by-pot alloc and
-	// free on every frame. the cache only grows - a smaller image
-	// reuses the tail it fits in, and the copy below rewrites every
-	// byte the upload reads (rows, gutter, pad).
-	if (_viv_gl_stage_size < size)
+	// Reuse equal-sized frames; shrink high-water allocations on a size change.
+	if (_viv_gl_stage_size != size)
 	{
-		if (_viv_gl_stage_buf)
-		{
-			mem_free(_viv_gl_stage_buf);
-		}
-
-		_viv_gl_stage_buf = (BYTE *)mem_alloc(size);
-		_viv_gl_stage_size = size;
+		if (_viv_gl_stage_buf) mem_free(_viv_gl_stage_buf);
+		_viv_gl_stage_buf = NULL;
+		_viv_gl_stage_size = 0;
+		_viv_gl_stage_buf = (BYTE *)mem_try_alloc(size);
+		if (_viv_gl_stage_buf) _viv_gl_stage_size = size;
 	}
 
 	buf = _viv_gl_stage_buf;
@@ -529,17 +544,24 @@ static int _viv_gl_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	}
 	else
 	{
-		_viv_gl_teximage2d(GL_TEXTURE_2D,0,GL_RGB,pot_wide,pot_high,0,format,GL_UNSIGNED_BYTE,buf);
+		_viv_gl_teximage2d(GL_TEXTURE_2D,0,GL_RGBA8,pot_wide,pot_high,0,format,GL_UNSIGNED_BYTE,buf);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
 		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
-		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+		_viv_gl_texparameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
 
 		_viv_gl_last_pot_wide = pot_wide;
 		_viv_gl_last_pot_high = pot_high;
 		_viv_gl_last_format = format;
 	}
 	
+	if (_viv_gl_geterror() != GL_NO_ERROR)
+	{
+		_viv_gl_last_hbitmap = 0;
+		_viv_gl_last_pot_wide = 0;
+		_viv_gl_last_pot_high = 0;
+		return 0;
+	}
 	_viv_gl_u = (GLfloat)wide / (GLfloat)pot_wide;
 	_viv_gl_v = (GLfloat)high / (GLfloat)pot_high;
 	_viv_gl_last_hbitmap = hbitmap;
@@ -562,7 +584,7 @@ static void _viv_gl_export_readback(int wide,int high)
 		return;
 	}
 	
-	tmp = (BYTE *)mem_alloc((uintptr_t)wide * (uintptr_t)high * 4);
+	tmp = (BYTE *)mem_try_alloc(safe_size_mul(safe_size_mul((SIZE_T)wide,(SIZE_T)high),4));
 	if (!tmp)
 	{
 		return;
@@ -574,6 +596,7 @@ static void _viv_gl_export_readback(int wide,int high)
 	}
 	
 	_viv_gl_readpixels(0,0,wide,high,_viv_gl_bgra ? GL_BGRA_EXT : GL_RGBA,GL_UNSIGNED_BYTE,tmp);
+	if (_viv_gl_geterror() != GL_NO_ERROR) { mem_free(tmp); return; }
 	
 	{
 		int y;
@@ -741,59 +764,47 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 	_viv_gl_end();
 	
 	_viv_gl_disable(GL_TEXTURE_2D);
+	if (_viv_gl_geterror() != GL_NO_ERROR) return 0;
 	
 	if (_viv_gl_export_bits)
 	{
 		_viv_gl_export_readback(wide,high);
+		if (!_viv_gl_export_filled) return 0;
 	}
 	else
 	{
-		SwapBuffers(hdc);
+		if (!SwapBuffers(hdc)) return 0;
 	}
 	
 	return 1;
 }
 
-void _viv_hwgl_shutdown(void)
+void _viv_hwgl_release_image(void)
 {
+	// Deleting the unshared context also releases its texture objects.
+	// glDeleteTextures after unbinding the context would have no effect.
 	if (_viv_gl_context)
 	{
 		_viv_gl_wglMakeCurrent(NULL,NULL);
-		
-		if (_viv_gl_texture)
-		{
-			_viv_gl_deletetextures(1,&_viv_gl_texture);
-			_viv_gl_texture = 0;
-		}
-		
-		// the reuse gate rides the texture's own lifetime: a re-init
-		// must re-specify its first upload.
-		_viv_gl_last_pot_wide = 0;
-		_viv_gl_last_pot_high = 0;
-		_viv_gl_last_format = 0;
-
 		_viv_gl_wglDeleteContext(_viv_gl_context);
 		_viv_gl_context = 0;
 	}
-	
-	// the staging cache can outlive the context it fed (a context
-	// that died mid-session leaves the buffer behind): the shutdown
-	// owns it unconditionally, outside the context guard.
-	if (_viv_gl_stage_buf)
-	{
-		mem_free(_viv_gl_stage_buf);
-		_viv_gl_stage_buf = 0;
-		_viv_gl_stage_size = 0;
-	}
-
+	_viv_gl_texture = 0;
 	_viv_gl_last_hbitmap = 0;
+	_viv_gl_last_pot_wide = 0;
+	_viv_gl_last_pot_high = 0;
+	_viv_gl_last_format = 0;
+	if (_viv_gl_stage_buf) mem_free(_viv_gl_stage_buf);
+	_viv_gl_stage_buf = NULL;
+	_viv_gl_stage_size = 0;
+	// Loading a frame must preserve an already armed export buffer.
+}
+
+void _viv_hwgl_shutdown(void)
+{
+	_viv_hwgl_release_image();
 	_viv_gl_failed = 0;
-	// the pixel format hwnd stays: the window keeps its format (the
-	// the export pointer dies with the caller's buffer - the shutdown
-	// clears it so no later session state can point at freed memory.
-	_viv_gl_export_bits = 0;
-	// setPixelFormat contract answers once), a recreated window sets its
-	// own.
+	_viv_gl_export_bits = NULL;
 }
 
 // the export harness hooks: arm a top-down bgra buffer before the paint,
@@ -813,4 +824,9 @@ int _viv_hwgl_export_begin(BYTE *bits,int wide,int high)
 int _viv_hwgl_export_filled(void)
 {
 	return _viv_gl_export_filled;
+}
+
+void _viv_hwgl_export_end(void)
+{
+	_viv_gl_export_bits = NULL;
 }

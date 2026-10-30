@@ -39,6 +39,8 @@ int _viv_hwgl_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int d
 // releases the context and the texture (the window keeps its pixel
 // format - setPixelFormat answers once per window by contract).
 void _viv_hwgl_shutdown(void);
+void _viv_hwgl_release_image(void);
+void _viv_hwgl_export_end(void);
 
 // the export harness hooks (viv_export.c): arm a top-down bgra buffer
 // before the paint, the next render fills it instead of presenting. the

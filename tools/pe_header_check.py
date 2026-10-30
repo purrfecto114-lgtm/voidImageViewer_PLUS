@@ -12,7 +12,7 @@ import struct
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("file", type=Path)
-    parser.add_argument("--machine", required=True, choices=["x64", "arm64"])
+    parser.add_argument("--machine", required=True, choices=["x86", "x64", "arm64"])
     args = parser.parse_args()
     try:
         data = args.file.read_bytes()
@@ -22,6 +22,7 @@ def main():
         if pe + 24 > len(data) or data[pe:pe + 4] != b"PE\0\0":
             raise ValueError("missing PE signature/header")
         machine = struct.unpack_from("<H", data, pe + 4)[0]
+        coff_flags = struct.unpack_from("<H", data, pe + 4 + 18)[0]
         size = struct.unpack_from("<H", data, pe + 20)[0]
         opt = pe + 24
         if size < 72 or opt + size > len(data):
@@ -29,9 +30,13 @@ def main():
         magic = struct.unpack_from("<H", data, opt)[0]
         subsystem, flags = struct.unpack_from("<HH", data, opt + 68)
         print(f"{args.file}: machine=0x{machine:04x}, magic=0x{magic:04x}, "
-              f"subsystem={subsystem}, DllCharacteristics=0x{flags:04x}, bytes={len(data)}")
-        if machine != {"x64": 0x8664, "arm64": 0xaa64}[args.machine] or magic != 0x20b:
-            raise ValueError("expected the selected 64-bit machine and PE32+ header")
+              f"subsystem={subsystem}, DllCharacteristics=0x{flags:04x}, LAA={bool(coff_flags & 0x20)}, bytes={len(data)}")
+        if machine != {"x86": 0x14c, "x64": 0x8664, "arm64": 0xaa64}[args.machine] or magic != (0x10b if args.machine=="x86" else 0x20b):
+            raise ValueError("selected architecture and PE optional header disagree")
+        if not coff_flags & 0x20:
+            raise ValueError("missing LARGE_ADDRESS_AWARE (COFF Characteristics, PE offset +22)")
+        if flags & 0x140 != 0x140:
+            raise ValueError("missing DYNAMIC_BASE or NX_COMPAT")
         if subsystem != 2:
             raise ValueError("expected IMAGE_SUBSYSTEM_WINDOWS_GUI (2)")
     except (OSError, ValueError, struct.error) as error:

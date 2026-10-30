@@ -67,6 +67,24 @@ static int _viv_d3d_export_filled;
 
 static void _viv_d3d_export_readback(void);
 
+// lost-device first aid: when the hardware takes the device back (a
+// tdr, a mode change, the sleep the session slept through), the
+// refusal arrives at whichever call runs first - a clear, a scene
+// call, the present. the discipline is always the same: only the
+// device can say when a reset is allowed, and the reset is the only
+// road back to hardware. this is the recovery the present path
+// always owned, pulled out to where every refusal can reach it.
+static void _viv_d3d_attempt_reset(void)
+{
+	if (!_viv_d3d_device) return;
+	
+	if (_viv_d3d_device->lpVtbl->TestCooperativeLevel(_viv_d3d_device) != D3DERR_DEVICENOTRESET) return;
+	
+	_viv_d3d_params.BackBufferWidth = _viv_d3d_client_wide;
+	_viv_d3d_params.BackBufferHeight = _viv_d3d_client_high;
+	_viv_d3d_device->lpVtbl->Reset(_viv_d3d_device,&_viv_d3d_params);
+}
+
 // the capability probe: the settings switch, the menu radio and the
 // installer's checkbox all ask the same question - can this machine
 // bring direct3d up at all? the probe walks the same first gates the
@@ -156,7 +174,10 @@ static int _viv_d3d_init(HWND hwnd)
 	
 	if (_viv_d3d_device)
 	{
-		return 1;
+		if (_viv_d3d_params.hDeviceWindow == hwnd) return 1;
+		_viv_hwd3d_release_image();
+		_viv_d3d_device->lpVtbl->Release(_viv_d3d_device);
+		_viv_d3d_device = NULL;
 	}
 	
 	if (!_viv_d3d_module)
@@ -286,7 +307,7 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	
 	wide = ds->dsBm.bmWidth;
 	high = ds->dsBm.bmHeight;
-	stride = ((wide * ds->dsBm.bmBitsPixel + 31) / 32) * 4;
+
 	
 	if ((wide <= 0) || (high <= 0))
 	{
@@ -334,13 +355,16 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		return 0;
 	}
 	
-	if ((uintptr_t)pot_wide * (uintptr_t)pot_high > VIV_MAX_IMAGE_PIXELS)
+	if (safe_size_mul(safe_size_mul((SIZE_T)pot_wide,(SIZE_T)pot_high),8) > VIV_MAX_HARDWARE_BYTES)
 	{
-		debug_printf("direct3d: the padded canvas exceeds the pixel budget\r\n");
+		debug_printf("direct3d: the managed texture exceeds the hardware byte budget\r\n");
 		
 		return 0;
 	}
 	
+	// The byte gate bounds the row; calculate before narrowing.
+	stride = (int)((((SIZE_T)wide * ds->dsBm.bmBitsPixel + 31) / 32) * 4);
+
 	// the reuse gate: an animation frame with the same padded
 	// dimensions refills the managed texture in place - the
 	// release/create cycle only answers a dimension change (the
@@ -349,9 +373,7 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	// managed pool survives the resets by contract).
 	if ((_viv_d3d_texture) && ((pot_wide != _viv_d3d_last_pot_wide) || (pot_high != _viv_d3d_last_pot_high)))
 	{
-		_viv_d3d_texture->lpVtbl->Release(_viv_d3d_texture);
-		
-		_viv_d3d_texture = 0;
+		_viv_hwd3d_release_image();
 	}
 	
 	if (!_viv_d3d_texture)
@@ -373,8 +395,7 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	
 	if (FAILED(hresult))
 	{
-		_viv_d3d_texture->lpVtbl->Release(_viv_d3d_texture);
-		_viv_d3d_texture = 0;
+		_viv_hwd3d_release_image();
 		
 		return 0;
 	}
@@ -457,7 +478,11 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		}
 	}
 	
-	_viv_d3d_texture->lpVtbl->UnlockRect(_viv_d3d_texture,0);
+	if (FAILED(_viv_d3d_texture->lpVtbl->UnlockRect(_viv_d3d_texture,0)))
+	{
+		_viv_hwd3d_release_image();
+		return 0;
+	}
 	
 	_viv_d3d_u = (float)wide / (float)pot_wide;
 	_viv_d3d_v = (float)high / (float)pot_high;
@@ -472,6 +497,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	_viv_d3d_vertex_t verts[4];
 	HRESULT hresult;
 	int scene_ok;
+	HRESULT end_result;
 	float x;
 	float y;
 	float w;
@@ -558,18 +584,27 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 		}
 	}
 	
-	_viv_d3d_device->lpVtbl->Clear(_viv_d3d_device,0,0,D3DCLEAR_TARGET,D3DCOLOR_XRGB(GetRValue(clear_color),GetGValue(clear_color),GetBValue(clear_color)),1.0f,0);
+	hresult = _viv_d3d_device->lpVtbl->Clear(_viv_d3d_device,0,0,D3DCLEAR_TARGET,D3DCOLOR_XRGB(GetRValue(clear_color),GetGValue(clear_color),GetBValue(clear_color)),1.0f,0);
 	
+	if (FAILED(hresult))
+	{
+		// the first refusal is usually the lost device announcing
+		// itself - recover now or the session wedges into the gdi
+		// fallback with a full-size texture churn on every paint.
+		_viv_d3d_attempt_reset();
+		
+		return 0;
+	}
 	hresult = _viv_d3d_device->lpVtbl->BeginScene(_viv_d3d_device);
 	
 	scene_ok = 0;
 	
 	if (SUCCEEDED(hresult))
 	{
-		scene_ok = 1;
+		scene_ok = 0;
 		
-		x = (float)dst_x;
-		y = (float)dst_y;
+		x = (float)dst_x - 0.5f;
+		y = (float)dst_y - 0.5f;
 		w = (float)dst_wide;
 		h = (float)dst_high;
 		
@@ -610,47 +645,38 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 		verts[3].u = _viv_d3d_u;
 		verts[3].v = _viv_d3d_v;
 		
-		_viv_d3d_device->lpVtbl->SetRenderState(_viv_d3d_device,D3DRS_CULLMODE,D3DCULL_NONE);
-		_viv_d3d_device->lpVtbl->SetRenderState(_viv_d3d_device,D3DRS_LIGHTING,FALSE);
-		_viv_d3d_device->lpVtbl->SetTexture(_viv_d3d_device,0,(IDirect3DBaseTexture9 *)_viv_d3d_texture);
-		_viv_d3d_device->lpVtbl->SetSamplerState(_viv_d3d_device,0,D3DSAMP_MAGFILTER,D3DTEXF_LINEAR);
-		_viv_d3d_device->lpVtbl->SetSamplerState(_viv_d3d_device,0,D3DSAMP_MINFILTER,D3DTEXF_LINEAR);
-		_viv_d3d_device->lpVtbl->SetSamplerState(_viv_d3d_device,0,D3DSAMP_ADDRESSU,D3DTADDRESS_CLAMP);
-		_viv_d3d_device->lpVtbl->SetSamplerState(_viv_d3d_device,0,D3DSAMP_ADDRESSV,D3DTADDRESS_CLAMP);
-		_viv_d3d_device->lpVtbl->SetFVF(_viv_d3d_device,D3DFVF_XYZRHW | D3DFVF_TEX1);
-		_viv_d3d_device->lpVtbl->DrawPrimitiveUP(_viv_d3d_device,D3DPT_TRIANGLESTRIP,2,verts,sizeof(_viv_d3d_vertex_t));
-		
-		_viv_d3d_device->lpVtbl->EndScene(_viv_d3d_device);
+		hresult = 0;
+		if (SUCCEEDED(hresult)) hresult = _viv_d3d_device->lpVtbl->SetRenderState(_viv_d3d_device,D3DRS_CULLMODE,D3DCULL_NONE);
+		if (SUCCEEDED(hresult)) hresult = _viv_d3d_device->lpVtbl->SetRenderState(_viv_d3d_device,D3DRS_LIGHTING,FALSE);
+		if (SUCCEEDED(hresult)) hresult = _viv_d3d_device->lpVtbl->SetTexture(_viv_d3d_device,0,(IDirect3DBaseTexture9 *)_viv_d3d_texture);
+		if (SUCCEEDED(hresult)) hresult = _viv_d3d_device->lpVtbl->SetSamplerState(_viv_d3d_device,0,D3DSAMP_MAGFILTER,D3DTEXF_LINEAR);
+		if (SUCCEEDED(hresult)) hresult = _viv_d3d_device->lpVtbl->SetSamplerState(_viv_d3d_device,0,D3DSAMP_MINFILTER,D3DTEXF_LINEAR);
+		if (SUCCEEDED(hresult)) hresult = _viv_d3d_device->lpVtbl->SetSamplerState(_viv_d3d_device,0,D3DSAMP_ADDRESSU,D3DTADDRESS_CLAMP);
+		if (SUCCEEDED(hresult)) hresult = _viv_d3d_device->lpVtbl->SetSamplerState(_viv_d3d_device,0,D3DSAMP_ADDRESSV,D3DTADDRESS_CLAMP);
+		if (SUCCEEDED(hresult)) hresult = _viv_d3d_device->lpVtbl->SetFVF(_viv_d3d_device,D3DFVF_XYZRHW | D3DFVF_TEX1);
+		if (SUCCEEDED(hresult)) hresult = _viv_d3d_device->lpVtbl->DrawPrimitiveUP(_viv_d3d_device,D3DPT_TRIANGLESTRIP,2,verts,sizeof(_viv_d3d_vertex_t));
+		end_result = _viv_d3d_device->lpVtbl->EndScene(_viv_d3d_device);
+		scene_ok = SUCCEEDED(hresult) && SUCCEEDED(end_result);
 	}
 	
-	// the scene gate: a refused beginscene leaves the back buffer with the
-	// clear only - the harness must see the refusal, not a blank hash.
-	if ((_viv_d3d_export_bits) && (scene_ok))
+	if (!scene_ok)
+	{
+		// a scene that could not run is the same lost-device news.
+		_viv_d3d_attempt_reset();
+		
+		return 0;
+	}
+	if (_viv_d3d_export_bits)
 	{
 		_viv_d3d_export_readback();
+		return _viv_d3d_export_filled;
 	}
-	else
+	hresult = _viv_d3d_device->lpVtbl->Present(_viv_d3d_device,0,0,0,0);
+	if (hresult == D3DERR_DEVICELOST)
 	{
-		hresult = _viv_d3d_device->lpVtbl->Present(_viv_d3d_device,0,0,0,0);
-		
-		if (hresult == D3DERR_DEVICELOST)
-		{
-			// the lost-device discipline: not-reset resets now, a plain lost
-			// waits for the next paint (the managed texture survives either
-			// way; this frame is dropped, the next paint answers it).
-			hresult = _viv_d3d_device->lpVtbl->TestCooperativeLevel(_viv_d3d_device);
-		
-			if (hresult == D3DERR_DEVICENOTRESET)
-			{
-				_viv_d3d_params.BackBufferWidth = _viv_d3d_client_wide;
-				_viv_d3d_params.BackBufferHeight = _viv_d3d_client_high;
-				
-				_viv_d3d_device->lpVtbl->Reset(_viv_d3d_device,&_viv_d3d_params);
-			}
-		}
+		_viv_d3d_attempt_reset();
 	}
-	
-	return 1;
+	return SUCCEEDED(hresult);
 }
 
 // the export readback: the back buffer holds the frame (the clear, the
@@ -730,13 +756,21 @@ static void _viv_d3d_export_readback(void)
 	}
 }
 
+void _viv_hwd3d_release_image(void)
+{
+	if (_viv_d3d_device) _viv_d3d_device->lpVtbl->SetTexture(_viv_d3d_device,0,NULL);
+	if (_viv_d3d_texture) _viv_d3d_texture->lpVtbl->Release(_viv_d3d_texture);
+	_viv_d3d_texture = NULL;
+	_viv_d3d_last_hbitmap = 0;
+	_viv_d3d_last_pot_wide = 0;
+	_viv_d3d_last_pot_high = 0;
+}
+
 void _viv_hwd3d_shutdown(void)
 {
 	if (_viv_d3d_texture)
 	{
-		_viv_d3d_texture->lpVtbl->Release(_viv_d3d_texture);
-		
-		_viv_d3d_texture = 0;
+		_viv_hwd3d_release_image();
 	}
 	
 	if (_viv_d3d_device)
@@ -781,4 +815,9 @@ int _viv_hwd3d_export_begin(BYTE *bits,int wide,int high)
 int _viv_hwd3d_export_filled(void)
 {
 	return _viv_d3d_export_filled;
+}
+
+void _viv_hwd3d_export_end(void)
+{
+	_viv_d3d_export_bits = NULL;
 }

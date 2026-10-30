@@ -31,6 +31,7 @@
 #include "viv_menubar.h"
 #include "viv_render.h"
 #include "viv_view.h"
+#include "viv_dialogs.h"
 
 // forward declarations (order preserved from viv.c)
 static LRESULT (CALLBACK *_viv_old_status_proc)(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam) = NULL; // old status bar proc
@@ -89,7 +90,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 				
 
-				FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_CHROME));
+				FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_NAV_FACE));
 
 				
 
@@ -119,7 +120,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 			
 
-			if (_viv_is_dark())
+			if (_viv_status_hwnd)
 
 			{
 
@@ -147,9 +148,9 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 					
 
-					// the top edge: the same pair the rebar strip draws
+					// one physical-pixel hairline; erase the native highlight
 
-					// (shadow over highlight), so the two bands read as one.
+					// below it with the inset face in both themes.
 
 					rect.left = 0;
 
@@ -167,7 +168,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 					rect.bottom = 2;
 
-					FillRect(hdc,&rect,_viv_dark_chrome_brush(2));
+					FillRect(hdc,&rect,viv_theme_brush(VIV_TK_NAV_FACE));
 
 					
 
@@ -221,7 +222,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 							
 
-							FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_CHROME));
+							FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_NAV_FACE));
 
 							
 
@@ -303,10 +304,10 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 			// pane paint rides. (the selection highlight stays the system
 			// color - the edit control offers no custom one; it lives only
 			// while the editor is open.)
-			SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));
+			SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_NAV_FACE));
 			SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));
 			
-			return (LRESULT)viv_theme_brush(VIV_TK_CHROME);
+			return (LRESULT)viv_theme_brush(VIV_TK_NAV_FACE);
 			
 		case WM_NCHITTEST:
 		{
@@ -478,6 +479,10 @@ void _viv_update_title(void)
 {
 	wchar_t window_title[STRING_SIZE+STRING_SIZE];
 	const wchar_t *filename;
+	// the failure line's storage lives at function scope: the
+	// borrow below must survive the block that fills it (the old
+	// in-block buffer was read one deref past its closing brace).
+	wchar_t failure_buf[STRING_SIZE];
 
 	window_title[0] = 0;
 	filename = L"";
@@ -507,8 +512,6 @@ void _viv_update_title(void)
 	// title without it (the borrow clears itself).
 	if (!_viv_status_hwnd)
 	{
-		wchar_t failure_buf[STRING_SIZE];
-		
 		if (_viv_status_failure_line(failure_buf))
 		{
 			// a failed load has no file on screen; the strip says why.
@@ -600,6 +603,15 @@ void _viv_on_size(void)
 		{
 			_viv_status_update();
 			
+			{
+				int borders[3] = {0,0,0};
+				int high;
+
+				SendMessage(_viv_status_hwnd,SB_GETBORDERS,0,(LPARAM)borders);
+				high = VIV_UI_SCALE(VIV_UI_STATUS_HIGH,os_logical_high,96) - borders[1] * 2;
+				if (high < 1) high = 1;
+				SendMessage(_viv_status_hwnd,SB_SETMINHEIGHT,(WPARAM)high,0);
+			}
 			SendMessage(_viv_status_hwnd,WM_SIZE,0,0);
 			
 			high -= _viv_get_status_high();
@@ -1133,6 +1145,9 @@ HFONT _viv_menu_font(void)
 		
 		if (os_menu_font(&lf))
 		{
+			lf.lfHeight = -VIV_UI_SCALE(VIV_UI_MENU_FONT_DIP2,os_logical_high,192);
+			lf.lfWidth = 0;
+			lf.lfWeight = FW_SEMIBOLD;
 			_viv_menu_font_handle = CreateFontIndirectW(&lf);
 			
 			_viv_menu_font_dpi = os_logical_wide;
@@ -1141,6 +1156,86 @@ HFONT _viv_menu_font(void)
 	
 	return _viv_menu_font_handle;
 }
+// row and number fonts share the menu cache's explicit drop lifecycle.
+// fixed-pitch digits avoid a changing frame count or percentage shifting
+// its column. the font mapper supplies a system fallback if needed.
+static HFONT _viv_ui_fonts[VIV_UI_FONT_COUNT];
+static int _viv_ui_font_dpi = 0;
+static int _viv_ui_font_dpi_y = 0;
+
+static void _viv_ui_fonts_drop(void)
+{
+	int role;
+
+	for (role=0; role<VIV_UI_FONT_COUNT; role++)
+	{
+		if (_viv_ui_fonts[role])
+		{
+			DeleteObject(_viv_ui_fonts[role]);
+			_viv_ui_fonts[role] = 0;
+		}
+	}
+	_viv_ui_font_dpi = 0;
+	_viv_ui_font_dpi_y = 0;
+}
+
+HFONT _viv_ui_font(int role)
+{
+	static const wchar_t face_name[] = L"Consolas";
+	LOGFONTW lf;
+	int dip2;
+
+	if ((role < 0) || (role >= VIV_UI_FONT_COUNT))
+	{
+		return 0;
+	}
+
+	if ((_viv_ui_font_dpi != os_logical_wide) || (_viv_ui_font_dpi_y != os_logical_high))
+	{
+		_viv_ui_fonts_drop();
+		_viv_ui_font_dpi = os_logical_wide;
+		_viv_ui_font_dpi_y = os_logical_high;
+	}
+
+	if ((!_viv_ui_fonts[role]) && (os_menu_font(&lf)))
+	{
+		dip2 = (role == VIV_UI_FONT_TOOLBAR) ? VIV_UI_TOOLBAR_FONT_DIP2 : VIV_UI_STATUS_FONT_DIP2;
+		if (role == VIV_UI_FONT_PERCENT) dip2 = VIV_UI_PERCENT_FONT_DIP2;
+		lf.lfHeight = -VIV_UI_SCALE(dip2,os_logical_high,192);
+		lf.lfWidth = 0;
+		lf.lfWeight = FW_NORMAL;
+		if ((role == VIV_UI_FONT_NUMBER) || (role == VIV_UI_FONT_PERCENT))
+		{
+			lf.lfCharSet = DEFAULT_CHARSET;
+			lf.lfPitchAndFamily = FIXED_PITCH | FF_MODERN;
+			os_copy_memory(lf.lfFaceName,face_name,sizeof(face_name));
+		}
+		_viv_ui_fonts[role] = CreateFontIndirectW(&lf);
+	}
+
+	return _viv_ui_fonts[role] ? _viv_ui_fonts[role] : (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+}
+
+// align small status numbers to the percentage's baseline. the pill uses
+// this same reference and font, rather than its own vertical fudge.
+void _viv_ui_text_rect(HDC hdc,RECT *rect)
+{
+	TEXTMETRICW current;
+	TEXTMETRICW reference;
+	HGDIOBJ old_font;
+	int baseline;
+	int valid;
+
+	if (!GetTextMetricsW(hdc,&current)) return;
+	old_font = SelectObject(hdc,_viv_ui_font(VIV_UI_FONT_PERCENT));
+	valid = GetTextMetricsW(hdc,&reference);
+	if (old_font) SelectObject(hdc,old_font);
+	if (!valid) return;
+
+	baseline = rect->top + ((rect->bottom - rect->top - reference.tmHeight) / 2) + reference.tmAscent;
+	rect->top = baseline - current.tmAscent;
+}
+
 // drop the cached menu font (the dpi or the theme changed: the system
 // metrics may have followed).
 void _viv_menu_font_drop(void)
@@ -1153,6 +1248,7 @@ void _viv_menu_font_drop(void)
 	}
 	
 	_viv_menu_font_dpi = 0;
+	_viv_ui_fonts_drop();
 }
 // apply the dark chrome to the main window: frame (title bar), status bar
 // and zoom controls. the menu theme was set app wide before the first
@@ -1361,7 +1457,7 @@ void _viv_status_show(int show)
 			// strip basis. the pane paint, the pane width measurement and
 			// the in-place zoom editor all read the font back through
 			// wm_getfont, so one pin fixes them together.
-			SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_menu_font(),MAKELPARAM(TRUE,0));
+			SendMessage(_viv_status_hwnd,WM_SETFONT,(WPARAM)_viv_ui_font(VIV_UI_FONT_STATUS),MAKELPARAM(TRUE,0));
 			
 			// a fresh bar starts with empty panes: flush the text store
 			// (handles can be recycled, so the identity check alone is not
@@ -1414,18 +1510,14 @@ void _viv_controls_show(int show)
 
 	_viv_on_size();
 }
-// the playlist position of the loaded file, for the index pane. the walk
-// is cached on the file name, so a steady image costs one compare.
-// the round-109 slot refactor is where the old cache key was caught:
-// it compared the frame fd's address, but the fd has lived at one
-// stable address since the split era (and the slot embeds it), so the
-// pointer key could never tell one file from the next - the index pane
-// froze on the first file the walk ever saw. the name is the identity.
+// the playlist position of the loaded file, for the index pane. the
+// walk is deliberately uncached: reorder, add and delete all move the
+// names around and a name-keyed cache has no cheap invalidation
+// channel, so it served stale indices after a shuffle. one string
+// compare per entry on an event driven status update is not a per
+// frame cost - the list can simply be walked every time.
 static int _viv_status_nav_index(void)
 {
-	static wchar_t last_filename[STRING_SIZE];
-	static BYTE last_filename_valid;
-	static int last_index;
 	_viv_playlist_t *item;
 	int index;
 
@@ -1434,27 +1526,15 @@ static int _viv_status_nav_index(void)
 		return 0;
 	}
 
-	if ((last_filename_valid) && (last_index) && (string_compare(last_filename,_viv_slot_current.fd.cFileName) == 0))
-	{
-		return last_index;
-	}
-
 	index = 1;
 
 	for(item=_viv_playlist_start;item;item=item->next,index++)
 	{
 		if (string_compare(item->fd.cFileName,_viv_slot_current.fd.cFileName) == 0)
 		{
-			string_copy(last_filename,_viv_slot_current.fd.cFileName);
-			last_filename_valid = 1;
-			last_index = index;
-
 			return index;
 		}
 	}
-
-	last_filename_valid = 0;
-	last_index = 0;
 
 	return 0;
 }
@@ -1537,7 +1617,7 @@ void _viv_status_update_frame(void)
 	{
 		HFONT hfont;
 		
-		hfont = (HFONT)SendMessage(_viv_status_hwnd,WM_GETFONT,0,0);
+		hfont = _viv_ui_font(VIV_UI_FONT_NUMBER);
 		if (hfont)
 		{
 			SIZE size;
@@ -1549,7 +1629,7 @@ void _viv_status_update_frame(void)
 			{
 				int frame_wide;
 				
-				frame_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+				frame_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
 				
 				// the safety net (and any growth): the layout sizes the
 				// pane to the counter's ceiling now, so this fallback never
@@ -1582,11 +1662,180 @@ int _viv_status_frame_pane_index(void)
 {
 	return _viv_status_frame_pane;
 }
+// semantic order, independent of the live comctl pane indexes.
+enum
+{
+	_VIV_STATUS_INDEX,
+	_VIV_STATUS_PRELOAD,
+	_VIV_STATUS_MESSAGE,
+	_VIV_STATUS_POS,
+	_VIV_STATUS_RGB,
+	_VIV_STATUS_FRAME,
+	_VIV_STATUS_DATE,
+	_VIV_STATUS_ZOOM,
+	_VIV_STATUS_DIMENSION,
+	_VIV_STATUS_ROLE_COUNT
+};
+
+static int _viv_status_roles[_VIV_STATUS_PART_MAX];
+static int _viv_status_zoom_pane = -1;
+
+int _viv_status_zoom_pane_index(void)
+{
+	return _viv_status_zoom_pane;
+}
+
+// the layout and the text store share one role map. a ninth candidate
+// gives way by the same priority as a width overflow: pos, rgb, frame,
+// date. the stamp is half of the bottom-right pair and survives longest.
+static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *roles)
+{
+	int role;
+	int count;
+	int total;
+	int edge;
+
+	if (avail_wide < 0)
+	{
+		avail_wide = 0;
+	}
+
+	// a long preload label never consumes more than a quarter of the bar.
+	if (widths[_VIV_STATUS_PRELOAD] > avail_wide / 4)
+	{
+		widths[_VIV_STATUS_PRELOAD] = avail_wide / 4;
+	}
+
+	for (;;)
+	{
+		count = 3; // message, zoom and resolution always have a pane.
+		total = 0;
+
+		for (role=0; role<_VIV_STATUS_ROLE_COUNT; role++)
+		{
+			total += widths[role];
+			if ((widths[role]) && (role != _VIV_STATUS_MESSAGE) && (role != _VIV_STATUS_ZOOM) && (role != _VIV_STATUS_DIMENSION))
+			{
+				count++;
+			}
+		}
+
+		if ((total <= avail_wide) && (count <= _VIV_STATUS_PART_MAX))
+		{
+			break;
+		}
+
+		if (widths[_VIV_STATUS_POS])
+		{
+			widths[_VIV_STATUS_POS] = 0;
+		}
+		else if (widths[_VIV_STATUS_RGB])
+		{
+			widths[_VIV_STATUS_RGB] = 0;
+		}
+		else if (widths[_VIV_STATUS_FRAME])
+		{
+			widths[_VIV_STATUS_FRAME] = 0;
+		}
+		else if (widths[_VIV_STATUS_DATE])
+		{
+			widths[_VIV_STATUS_DATE] = 0;
+		}
+		else
+		{
+			break;
+		}
+	}
+
+	// the new index is optional on a narrow window; failure/message text
+	// keeps the flexible pane, even when its visible width becomes zero.
+	if (total > avail_wide)
+	{
+		total -= widths[_VIV_STATUS_INDEX];
+		widths[_VIV_STATUS_INDEX] = 0;
+	}
+
+	if (total > avail_wide)
+	{
+		int trim;
+
+		trim = total - avail_wide;
+		if (trim > widths[_VIV_STATUS_PRELOAD])
+		{
+			trim = widths[_VIV_STATUS_PRELOAD];
+		}
+		widths[_VIV_STATUS_PRELOAD] -= trim;
+		total -= trim;
+	}
+
+	if (widths[_VIV_STATUS_ZOOM] > avail_wide)
+	{
+		widths[_VIV_STATUS_ZOOM] = avail_wide;
+	}
+
+	if (total > avail_wide)
+	{
+		// the last pane: the resolution, clipped only after the optional
+		// readouts have gone. the -1 edge still pins it to the right.
+		widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_ZOOM] - widths[_VIV_STATUS_PRELOAD];
+		if (widths[_VIV_STATUS_DIMENSION] < 0)
+		{
+			widths[_VIV_STATUS_DIMENSION] = 0;
+		}
+	}
+
+	total = 0;
+	for (role=0; role<_VIV_STATUS_ROLE_COUNT; role++)
+	{
+		total += widths[role];
+	}
+	widths[_VIV_STATUS_MESSAGE] = avail_wide - total;
+	if (widths[_VIV_STATUS_MESSAGE] < 0)
+	{
+		widths[_VIV_STATUS_MESSAGE] = 0;
+	}
+
+	count = 0;
+	edge = 0;
+	for (role=0; role<_VIV_STATUS_ROLE_COUNT; role++)
+	{
+		if ((!widths[role]) && (role != _VIV_STATUS_MESSAGE) && (role != _VIV_STATUS_ZOOM) && (role != _VIV_STATUS_DIMENSION))
+		{
+			continue;
+		}
+
+		// leave room for zoom and dimension even if a future candidate
+		// accidentally escapes the width/budget sweep above.
+		if ((role < _VIV_STATUS_ZOOM) && (count >= _VIV_STATUS_PART_MAX - 2))
+		{
+			continue;
+		}
+		if (count >= _VIV_STATUS_PART_MAX)
+		{
+			break;
+		}
+
+		edge += widths[role];
+		edges[count] = (role == _VIV_STATUS_DIMENSION) ? -1 : edge;
+		roles[count] = role;
+		count++;
+	}
+
+	return count;
+}
+
 void _viv_status_update(void)
 {
 	if (_viv_status_hwnd)
 	{
 		int part_array[_VIV_STATUS_PART_MAX];
+		int widths[_VIV_STATUS_ROLE_COUNT];
+		const wchar_t *texts[_VIV_STATUS_ROLE_COUNT];
+		int part_count;
+		int parti;
+		int index_wide;
+		int nav_index;
+		wchar_t index_buf[STRING_SIZE];
 		RECT rect;
 		wchar_t widebuf[STRING_SIZE];
 		wchar_t highbuf[STRING_SIZE];
@@ -1609,6 +1858,13 @@ void _viv_status_update(void)
 		
 		GetClientRect(_viv_hwnd,&rect);
 		
+		*index_buf = 0;
+		nav_index = _viv_status_nav_index();
+		if (nav_index > 0)
+		{
+			string_printf(index_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT),nav_index,_viv_playlist_count);
+		}
+
 		*zoom_buf = 0;
 		*preload_buf = 0;
 		*pixel_pos_buf = 0;
@@ -1619,9 +1875,7 @@ void _viv_status_update(void)
 			string_format_number(widebuf,_viv_slot_current.image_wide);
 			string_format_number(highbuf,_viv_slot_current.image_high);
 		
-			string_copy(dimension_buf,widebuf);
-			string_cat_utf8(dimension_buf,(const utf8_t *)" x ");
-			string_cat(dimension_buf,highbuf);
+			string_printf(dimension_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_DIMENSION_FORMAT),widebuf,highbuf);
 		}
 		else
 		{
@@ -1631,7 +1885,7 @@ void _viv_status_update(void)
 		// the zoom pane text. shown whenever an image is loaded.
 		if ((_viv_slot_current.image_wide) && (_viv_slot_current.image_high))
 		{
-			string_printf(zoom_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POS_ZOOM_FORMAT),_viv_zoom_percent());
+			string_printf(zoom_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT),_viv_zoom_percent());
 		}
 
 		if (*_viv_slot_current.fd.cFileName)
@@ -1693,8 +1947,12 @@ void _viv_status_update(void)
 					// leaning on the whole part's practical smallness.
 					if (string_get_length(widebuf) < (STRING_SIZE - 2))
 					{
-						widebuf[string_get_length(widebuf)] = (wchar_t)('0' + frac);
-						widebuf[string_get_length(widebuf) + 1] = 0;
+						uintptr_t tail_len;
+
+						// keep the length before overwriting the terminator.
+						tail_len = string_get_length(widebuf);
+						widebuf[tail_len] = (wchar_t)('0' + frac);
+						widebuf[tail_len + 1] = 0;
 					}
 				}
 				
@@ -1766,11 +2024,12 @@ void _viv_status_update(void)
 		{
 			if ((_viv_src_pixel_x >= 0) && (_viv_src_pixel_y >= 0))
 			{		
-				string_printf(pixel_pos_buf,"POS: %d,%d",_viv_src_pixel_x,_viv_src_pixel_y);
+				string_printf(pixel_pos_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT),_viv_src_pixel_x,_viv_src_pixel_y);
 				string_printf(pixel_rgb_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT),_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
 			}
 		}
 		
+		index_wide = 0;
 		date_wide = 0;
 		dimension_wide = 0;
 		frame_wide = 0;
@@ -1785,7 +2044,7 @@ void _viv_status_update(void)
 		{
 			HFONT hfont;
 			
-			hfont = (HFONT)SendMessage(_viv_status_hwnd,WM_GETFONT,0,0);
+			hfont = _viv_ui_font(VIV_UI_FONT_NUMBER);
 			if (hfont)
 			{
 				SIZE size;
@@ -1793,9 +2052,14 @@ void _viv_status_update(void)
 				
 				last_font = SelectObject(hdc,hfont);
 				
+				if ((*index_buf) && (GetTextExtentPoint32(hdc,index_buf,string_get_length(index_buf),&size)))
+				{
+					index_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
+				}
+
 				if (GetTextExtentPoint32(hdc,dimension_buf,string_get_length(dimension_buf),&size))
 				{
-					dimension_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+					dimension_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
 					
 					if (dimension_wide < minwide)
 					{
@@ -1819,7 +2083,7 @@ void _viv_status_update(void)
 					
 					if (GetTextExtentPoint32(hdc,reserve_buf,string_get_length(reserve_buf),&size))
 					{
-						frame_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+						frame_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
 						
 						if (frame_wide < minwide)
 						{
@@ -1828,19 +2092,21 @@ void _viv_status_update(void)
 					}
 				}
 
+				SelectObject(hdc,_viv_ui_font(VIV_UI_FONT_STATUS));
 				if (*preload_buf)
 				{
 					if (GetTextExtentPoint32(hdc,preload_buf,string_get_length(preload_buf),&size))
 					{
-						preload_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+						preload_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
 					}
 				}
 
+				SelectObject(hdc,hfont);
 				if (*pixel_pos_buf)
 				{
 					if (GetTextExtentPoint32(hdc,pixel_pos_buf,string_get_length(pixel_pos_buf),&size))
 					{
-						pixel_pos_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+						pixel_pos_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
 					}
 				}
 
@@ -1848,14 +2114,15 @@ void _viv_status_update(void)
 				{
 					if (GetTextExtentPoint32(hdc,pixel_rgb_buf,string_get_length(pixel_rgb_buf),&size))
 					{
-						pixel_rgb_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+						pixel_rgb_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
 					}
 				}
+				SelectObject(hdc,_viv_ui_font(VIV_UI_FONT_PERCENT));
 				if (*zoom_buf)
 				{
 					if (GetTextExtentPoint32(hdc,zoom_buf,string_get_length(zoom_buf),&size))
 					{
-						zoom_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5;
+						zoom_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
 						
 						if (zoom_wide < minwide)
 						{
@@ -1863,6 +2130,8 @@ void _viv_status_update(void)
 						}
 					}
 				}
+
+				SelectObject(hdc,hfont);
 
 				// the stamp measures on its own: a failed load with a
 				// filename still owns the date pane (it used to hide
@@ -1876,7 +2145,7 @@ void _viv_status_update(void)
 						// edges, shared by every pane) reads as glued-together text
 						// at each dpi - the stamp carries twelve extra logical
 						// pixels on its right so the time and the size never touch.
-						date_wide = size.cx + GetSystemMetrics(SM_CXEDGE) * 5 + ((12 * os_logical_wide) / 96);
+						date_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96) + VIV_UI_SCALE(VIV_UI_GAP * 3,os_logical_wide,96);
 					}
 				}
 
@@ -1889,131 +2158,34 @@ void _viv_status_update(void)
 		// add size box
 		dimension_wide += GetSystemMetrics(SM_CXVSCROLL) + GetSystemMetrics(SM_CXBORDER);
 		
-		{
-			int parti;
-			int avail_wide;
-			int flex_wide;
-			
-			parti = 0;
-			
-			avail_wide = rect.right - rect.left;
-			
-			if (avail_wide < 0)
-			{
-				avail_wide = 0;
-			}
-			
-			// the preload pane joins the zoom pane in the left cluster only
-			// while a preload is actually running, and is capped at a quarter
-			// of the bar: a long localization must never eat the message pane.
-			if (preload_wide > (avail_wide / 4))
-			{
-				preload_wide = avail_wide / 4;
-			}
-			
-			// the resolution pane is pinned to the bottom right and is never
-			// dropped. when a huge image (or a tiny window) makes the panes
-			// wider than the bar, the optional right panes give way by
-			// priority: the cursor-chasing readouts first, the frame counter
-			// next, the file stamp last - the stamp is half of the bottom-
-			// right pair (the time and the size), so it holds out until the
-			// resolution pane's own last-resort clip.
-			while ((zoom_wide + preload_wide + dimension_wide + frame_wide + pixel_pos_wide + pixel_rgb_wide + date_wide > avail_wide)
-			&& (frame_wide || pixel_rgb_wide || pixel_pos_wide || date_wide))
-			{
-				if (pixel_pos_wide)
-				{
-					pixel_pos_wide = 0;
-				}
-				else
-				if (pixel_rgb_wide)
-				{
-					pixel_rgb_wide = 0;
-				}
-				else
-				if (frame_wide)
-				{
-					frame_wide = 0;
-				}
-				else
-				{
-					date_wide = 0;
-				}
-			}
-			
-			if (zoom_wide + preload_wide + dimension_wide > avail_wide)
-			{
-				// last resort: clip the resolution pane itself. it stays
-				// visible at the bottom right with an ellipsized text.
-				dimension_wide = avail_wide - zoom_wide - preload_wide;
-				
-				if (dimension_wide < 0)
-				{
-					dimension_wide = 0;
-				}
-			}
-			
-			// pane 0: the zoom pane (the in place zoom editor's home).
-			part_array[parti] = zoom_wide;
-			parti++;
-			
-			// pane 1 (when preloading): the preload indicator, on the left.
-			if (preload_wide)
-			{
-				part_array[parti] = part_array[parti - 1] + preload_wide;
-				parti++;
-			}
-			
-			// the message pane flexes between the left and right clusters.
-			flex_wide = avail_wide - zoom_wide - preload_wide - dimension_wide - frame_wide - pixel_pos_wide - pixel_rgb_wide - date_wide;
-			
-			if (flex_wide < 0)
-			{
-				flex_wide = 0;
-			}
-			
-			part_array[parti] = part_array[parti - 1] + flex_wide;
-			parti++;
-			
-			// the pane budget: eight slots, three unconditional (zoom,
-			// message, edge) - every optional pane consults the budget before
-			// it writes, so a future pane can never walk part_array past its
-			// end. the text section below gates on the same budget: the
-			// layout and the pane texts stay in lockstep.
-			if ((pixel_pos_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
-			{
-				part_array[parti] = part_array[parti - 1] + pixel_pos_wide;
-				parti++;
-			}
-			
-			if ((pixel_rgb_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
-			{
-				part_array[parti] = part_array[parti - 1] + pixel_rgb_wide;
-				parti++;
-			}
-			
-			if ((frame_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
-			{
-				part_array[parti] = part_array[parti - 1] + frame_wide;
-				parti++;
-			}
-			
-			if ((date_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
-			{
-				part_array[parti] = part_array[parti - 1] + date_wide;
-				parti++;
-			}
+		widths[_VIV_STATUS_INDEX] = index_wide;
+		widths[_VIV_STATUS_PRELOAD] = preload_wide;
+		widths[_VIV_STATUS_MESSAGE] = 0;
+		widths[_VIV_STATUS_POS] = pixel_pos_wide;
+		widths[_VIV_STATUS_RGB] = pixel_rgb_wide;
+		widths[_VIV_STATUS_FRAME] = frame_wide;
+		widths[_VIV_STATUS_DATE] = date_wide;
+		widths[_VIV_STATUS_ZOOM] = zoom_wide;
+		widths[_VIV_STATUS_DIMENSION] = dimension_wide;
 
-			// the last pane: the resolution, pinned to the bottom right (a
-			// -1 right edge extends to the window edge).
-			if (parti < _VIV_STATUS_PART_MAX)
+		part_count = _viv_status_layout_parts(widths,rect.right - rect.left,part_array,_viv_status_roles);
+		_viv_status_zoom_pane = -1;
+		_viv_status_frame_pane = -1;
+		_viv_status_frame_wide = widths[_VIV_STATUS_FRAME];
+
+		for (parti=0; parti<part_count; parti++)
+		{
+			if ((_viv_status_roles[parti] == _VIV_STATUS_ZOOM) && (widths[_VIV_STATUS_ZOOM]))
 			{
-				part_array[parti] = -1;
-				parti++;
+				_viv_status_zoom_pane = parti;
 			}
-			
-			SendMessage(_viv_status_hwnd,SB_SETPARTS,parti,(LPARAM)part_array);
+			if (_viv_status_roles[parti] == _VIV_STATUS_FRAME)
+			{
+				_viv_status_frame_pane = parti;
+			}
 		}
+
+		SendMessage(_viv_status_hwnd,SB_SETPARTS,part_count,(LPARAM)part_array);
 
 		{
 			wchar_t *text;
@@ -2047,20 +2219,7 @@ void _viv_status_update(void)
 			else
 			if (*_viv_slot_current.fd.cFileName)
 			{
-				int nav_index;
-
-				nav_index = _viv_status_nav_index();
-
-				if (nav_index > 0)
-				{
-					string_printf(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT),nav_index,_viv_playlist_count);
-					string_cat_utf8(text_buf,(const utf8_t *)"  ");
-					string_cat(text_buf,_viv_slot_current.fd.cFileName);
-				}
-				else
-				{
-					string_copy(text_buf,_viv_slot_current.fd.cFileName);
-				}
+				string_copy(text_buf,string_get_filename_part(_viv_slot_current.fd.cFileName));
 
 				// the renderer's honesty line rides the position text: a
 				// hardware back end the user picked that cannot take this
@@ -2078,72 +2237,24 @@ void _viv_status_update(void)
 				text = text_buf;
 			}
 		
-			// pane 0 is the zoom pane; the preload pane (when active)
-			// follows it and the message pane takes the rest of the left
-			// cluster.
-			_viv_status_set(0,zoom_buf);
-			
-			if (preload_wide)
-			{
-				_viv_status_set(1,preload_buf);
-				
-				_viv_status_set(2,text);
-			}
-			else
-			{
-				_viv_status_set(1,text);
-			}
-		}
-		
-		{
-			int parti;
-			
-			// the right cluster starts after the message pane; the widths
-			// (not the buffers) decide which panes exist so the layout and
-			// the texts can never drift apart.
-			parti = preload_wide ? 3 : 2;
-			
-			// the same pane budget the layout consults: the texts gate on it
-			// so a pane the layout dropped never hears its text either.
-			if ((pixel_pos_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
-			{
-				_viv_status_set(parti,pixel_pos_buf);
-				parti++;
-			}
-			
-			if ((pixel_rgb_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
-			{
-				_viv_status_set(parti,pixel_rgb_buf);
-				parti++;
-			}
-			
-			if ((frame_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
-			{
-				// the fast path's anchor: the pane index and the width
-				// the layout gave the counter.
-				_viv_status_frame_pane = parti;
-				_viv_status_frame_wide = frame_wide;
-				
-				_viv_status_set(parti,frame_buf);
-				parti++;
-			}
-			else
-			{
-				_viv_status_frame_pane = -1;
-			}
+			texts[_VIV_STATUS_INDEX] = index_buf;
+			texts[_VIV_STATUS_PRELOAD] = preload_buf;
+			texts[_VIV_STATUS_MESSAGE] = text;
+			texts[_VIV_STATUS_POS] = pixel_pos_buf;
+			texts[_VIV_STATUS_RGB] = pixel_rgb_buf;
+			texts[_VIV_STATUS_FRAME] = frame_buf;
+			texts[_VIV_STATUS_DATE] = date_buf;
+			texts[_VIV_STATUS_ZOOM] = zoom_buf;
+			texts[_VIV_STATUS_DIMENSION] = dimension_buf;
 
-			if ((date_wide) && (parti < (_VIV_STATUS_PART_MAX - 1)))
+			for (parti=0; (parti<part_count) && (parti<_VIV_STATUS_PART_MAX); parti++)
 			{
-				_viv_status_set(parti,date_buf);
-				parti++;
-			}
-			
-			if (parti < _VIV_STATUS_PART_MAX)
-			{
-				_viv_status_set(parti,dimension_buf);
-				parti++;
+				_viv_status_set(parti,texts[_viv_status_roles[parti]]);
 			}
 		}
+
+		_viv_zoom_edit_layout();
+		InvalidateRect(_viv_status_hwnd,0,FALSE);
 	}
 	else
 	{
@@ -2186,7 +2297,7 @@ static void _viv_status_set(int part,const wchar_t *text)
 		// with this lparam as the itemData fallback.
 		string_copy(_viv_status_part_text[part],text);
 		
-		SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW),(LPARAM)part);
+		SendMessage(_viv_status_hwnd,SB_SETTEXTW,(WPARAM)(part | SBT_OWNERDRAW | SBT_NOBORDERS),(LPARAM)part);
 		
 		part_live[part] = 1;
 	}
@@ -2234,22 +2345,44 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 		// face so a mystery draw reads as a quiet pane instead of the
 		// light comctl slab (the rc.11 bottom white bar was exactly a
 		// draw nobody answered).
-		FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_CHROME));
+		FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_NAV_FACE));
 		
 		return 1;
 	}
 	
-	// the strip face and text ride the chrome tokens - the same pair
-	// the erase, the grip and the toolbar ride, in both themes.
-	FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_CHROME));
+	// the inset strip face matches its erase and grip in both themes.
+	FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_NAV_FACE));
 	
 	text_color = viv_theme_color(VIV_TK_TEXT);
+	if (_viv_status_roles[part] == _VIV_STATUS_INDEX)
+	{
+		text_color = viv_theme_color(VIV_TK_TEXT2);
+	}
 	
+	// the zoom readout is a quiet chip on the right; the editor keeps
+	// using the live pane rectangle rather than a hardcoded slot.
+	if (_viv_status_roles[part] == _VIV_STATUS_ZOOM)
+	{
+		HGDIOBJ old_pen;
+		HGDIOBJ old_brush;
+		RECT chip;
+
+		chip = draw_item->rcItem;
+		InflateRect(&chip,-2,-2);
+		old_pen = SelectObject(hdc,GetStockObject(NULL_PEN));
+		old_brush = SelectObject(hdc,viv_theme_brush(VIV_TK_INPUT));
+		RoundRect(hdc,chip.left,chip.top,chip.right,chip.bottom,VIV_UI_SCALE(VIV_UI_RADIUS * 2,os_logical_high,96),VIV_UI_SCALE(VIV_UI_RADIUS * 2,os_logical_high,96));
+		SelectObject(hdc,old_brush);
+		SelectObject(hdc,old_pen);
+	}
+
 	// draw the text inset like the native panes.
 	text_rect = draw_item->rcItem;
-	text_rect.left += GetSystemMetrics(SM_CXEDGE) * 2;
+	text_rect.left += VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
+	text_rect.right -= VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 	
-	hfont = (HFONT)SendMessage(_viv_status_hwnd,WM_GETFONT,0,0);
+	hfont = _viv_ui_font((_viv_status_roles[part] == _VIV_STATUS_MESSAGE) || (_viv_status_roles[part] == _VIV_STATUS_PRELOAD) ? VIV_UI_FONT_STATUS : VIV_UI_FONT_NUMBER);
+	if (_viv_status_roles[part] == _VIV_STATUS_ZOOM) hfont = _viv_ui_font(VIV_UI_FONT_PERCENT);
 	last_font = 0;
 	
 	if (hfont)
@@ -2260,7 +2393,8 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 	SetBkMode(hdc,TRANSPARENT);
 	SetTextColor(hdc,text_color);
 	
-	DrawTextW(hdc,_viv_status_part_text[part],-1,&text_rect,DT_LEFT|DT_VCENTER|DT_SINGLELINE|DT_END_ELLIPSIS);
+	_viv_ui_text_rect(hdc,&text_rect);
+	DrawTextW(hdc,_viv_status_part_text[part],-1,&text_rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOPREFIX);
 	
 	if (last_font)
 	{

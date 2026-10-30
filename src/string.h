@@ -40,8 +40,10 @@ int string_compare_ascii(const wchar_t *s1,const char *ascii_s2);
 int string_to_int(wchar_t *s);
 wchar_t *string_format_number(wchar_t *buf,__int64 number);
 int string_get_appdata_path(wchar_t *buf);
+void string_vprintf_n(wchar_t *wbuf,int wbuf_size,const char *format,va_list argptr);
 void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr);
 void string_printf(wchar_t *wbuf,const char *format,...);
+void string_printf_n(wchar_t *wbuf,int wbuf_size,const char *format,...);
 const wchar_t *string_get_filename_part(const wchar_t *s);
 void string_get_path_part(wchar_t *wbuf,const wchar_t *s);
 // string_path_combine answers FALSE when path + filename does not fit

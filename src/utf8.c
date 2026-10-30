@@ -58,26 +58,42 @@ int utf8_to_int(const utf8_t *str)
 			
 			while (*s)
 			{
+				int digit;
+				int hex_digit;
+				
+				hex_digit = -1;
+				
 				if ((*s >= '0') && (*s <= '9'))
 				{
-					i <<= 4;
-					i += *s - '0';
+					hex_digit = *s - '0';
 				}
 				else
 				if ((*s >= 'A') && (*s <= 'F'))
 				{
-					i <<= 4;
-					i += *s - 'A' + 10;
+					hex_digit = *s - 'A' + 10;
 				}
 				else
 				if ((*s >= 'a') && (*s <= 'f'))
 				{
-					i <<= 4;
-					i += *s - 'a' + 10;
+					hex_digit = *s - 'a' + 10;
+				}
+				
+				if (hex_digit < 0)
+				{
+					break;
+				}
+				
+				// same saturation as the decimal walk: a shifted product
+				// past INT_MAX is undefined behaviour, not a wrap.
+				digit = hex_digit;
+				
+				if (i <= (2147483647 - digit) / 16)
+				{
+					i = (i * 16) + digit;
 				}
 				else
 				{
-					break;
+					i = 2147483647;
 				}
 				
 				s++;
@@ -98,13 +114,26 @@ int utf8_to_int(const utf8_t *str)
 		sign = 1;
 	}
 	
-	// dec
+	// dec. the accumulate saturates instead of overflowing: ini and
+	// command line numbers are untrusted input, a wrapped product is
+	// undefined behaviour, and INT_MIN times -1 below is a hardware
+	// fault. clamped to INT_MAX the worst outcome is a huge value.
 	while (*s)
 	{
 		if ((*s >= '0') && (*s <= '9'))
 		{
-			i *= 10;
-			i += *s - '0';
+			int digit;
+			
+			digit = *s - '0';
+			
+			if (i <= (2147483647 - digit) / 10)
+			{
+				i = (i * 10) + digit;
+			}
+			else
+			{
+				i = 2147483647;
+			}
 		}
 		else
 		{

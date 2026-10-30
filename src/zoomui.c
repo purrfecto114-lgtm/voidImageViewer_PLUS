@@ -42,7 +42,7 @@
 // outside the button and percent cells so the tray gaps never eat
 // clicks. where layered child windows exist (windows 8+) the whole pill
 // is rasterized into a 32bpp premultiplied dib - gdi+ anti-aliased
-// stadium paths for the tray and the capsules, gdi text and icons over
+// rounded paths for the tray and the capsules, gdi text and icons over
 // the filled surface - and pushed through UpdateLayeredWindow: the
 // corner crescents carry alpha 0 (no black corners, their clicks fall
 // through to the image) and the rounded edges blend smoothly over the
@@ -166,7 +166,7 @@ static HWND _zoomui_tooltip_hwnd = 0;
 static int _zoomui_cell_wide = 0; // button capsule width (48 dip before the 90 percent diet).
 static int _zoomui_cell_high = 0; // button capsule height (44 dip before the 90 percent diet).
 static int _zoomui_cell_gap = 0; // spacing between the row cells (4 dip before the diet).
-static int _zoomui_margin = 0; // breathing room inside the tray (6 dip before the diet).
+static int _zoomui_margin = 0; // shared padding inside the tray, scaled with the row.
 static int _zoomui_sep_wide = 0; // separator rule width (1 dip, the hairline keeps its pixel).
 static int _zoomui_sep_high = 0; // separator rule height (24 dip before the diet).
 static int _zoomui_pct_pad = 0; // total padding around the percent text (16 dip before the diet).
@@ -496,16 +496,16 @@ static void _zoomui_calc_metrics(void)
 	// field report read the row as oversized on the desktop.
 	_zoomui_cell_wide = (48 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96);
 	_zoomui_cell_high = (44 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
-	_zoomui_margin = (6 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
+	_zoomui_margin = (VIV_UI_PAD * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
 	// breathing room between the row cells: the gaps keep the capsule
 	// borders from reading as one double line in the middle of the row.
-	_zoomui_cell_gap = (4 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
+	_zoomui_cell_gap = (VIV_UI_GAP * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
 	// the separator rule: one logical unit wide (a scaled hairline
 	// vanishes), 24 tall before the diet.
 	_zoomui_sep_wide = (1 * os_logical_wide) / 96;
 	_zoomui_sep_high = (24 * _ZOOMUI_PILL_SCALE_NUM * os_logical_high) / (_ZOOMUI_PILL_SCALE_DEN * 96);
 	// total padding around the percent text: 8 dip a side before the diet.
-	_zoomui_pct_pad = (16 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96);
+	_zoomui_pct_pad = (VIV_UI_PAD * 2 * _ZOOMUI_PILL_SCALE_NUM * os_logical_wide) / (_ZOOMUI_PILL_SCALE_DEN * 96);
 
 	if (_zoomui_cell_wide < 29)
 	{
@@ -599,7 +599,7 @@ static void _zoomui_update_cell_rects(void)
 // build the percent cell text: a plain whole percent.
 static void _zoomui_build_pct_text(wchar_t *buf,int percent)
 {
-	string_printf(buf,"%d%%",percent);
+	string_printf(buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT),percent);
 }
 
 // the percent the text cell shows: the zoom ladder value at the current
@@ -613,7 +613,7 @@ static int _zoomui_percent(void)
 	return _viv_zoom_percent();
 }
 
-// measure the percent text in the menu font and size the percent cell:
+// measure the percent text in its shared readout font and size the cell:
 // text width + 16 dip, never narrower than one capsule so the row keeps
 // its rhythm with short strings like "6%".
 static void _zoomui_measure_pct_wide(void)
@@ -634,7 +634,7 @@ static void _zoomui_measure_pct_wide(void)
 
 	if (hdc)
 	{
-		font = _viv_menu_font();
+		font = _viv_ui_font(VIV_UI_FONT_PERCENT);
 		old_font = 0;
 
 		if (font)
@@ -1589,6 +1589,15 @@ static void _zoomui_on_timer(void)
 	}
 
 	now = GetTickCount();
+
+	// a stationary hold is activity too: capture keeps both layered and
+	// fallback trays awake, and restarts the idle clock on every tick.
+	if (GetCapture() == _zoomui_hwnd)
+	{
+		_zoomui_last_activity = now;
+		_zoomui_alpha_target = _ZOOMUI_ALPHA_OPAQUE;
+	}
+
 	idle = (now - _zoomui_last_activity) >= _ZOOMUI_IDLE_MS;
 
 	if (idle)
@@ -1775,9 +1784,9 @@ static void _zoomui_draw_focus_ring(HDC hdc,const RECT *rect)
 		return;
 	}
 
-	// the capsule geometry: the ellipse shrinks with the inset, so the
-	// ring parallels the body exactly (no corner ever clears the arc).
-	corner = ring.bottom - ring.top;
+	// the shared corner shrinks by the inset, so the focus ring follows
+	// the same rounded face as the other controls.
+	corner = VIV_UI_SCALE(VIV_UI_RADIUS * 2,os_logical_high,96) - 4;
 
 	if (corner < 2)
 	{
@@ -1845,14 +1854,9 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int celli,int is_presse
 
 	CopyRect(&fill_rect,rect);
 
-	// the button body is a capsule: the corner ellipse is the full
-	// button height, so each end is a true semicircle and the row reads
-	// as one rail of stadium cells instead of the square cornered
-	// blocks (which sat next to the flat toolbar like a patch from
-	// another toolkit). roundrect fills and outlines the same silhouette
-	// in one call. this plain gdi body only draws on the fallback leg -
-	// the layered leg rasterizes the same stadium through gdi+ with
-	// anti-aliased arcs (_zoomui_gdip_stadium).
+	// the fallback draws the shared rounded silhouette through gdi.
+	// the layered leg uses the same radius with anti-aliased quarter arcs.
+
 	{
 		COLORREF fill_color;
 
@@ -1867,11 +1871,8 @@ static void _zoomui_draw_button(HDC hdc,const RECT *rect,int celli,int is_presse
 		{
 			int corner;
 
-			// full stadium: the ellipse diameters equal the button
-			// height so the end radius is exactly half the height at
-			// every dpi. clamp to at least 2px so a degenerate rect
-			// never collapses into sharp corners.
-			corner = fill_rect.bottom - fill_rect.top;
+			// one shared corner diameter, with a defensive pixel floor.
+			corner = VIV_UI_SCALE(VIV_UI_RADIUS * 2,os_logical_high,96);
 
 			if (corner < 2)
 			{
@@ -1969,7 +1970,7 @@ static void _zoomui_draw_separator(HDC hdc)
 	DeleteObject(brush);
 }
 
-// draw the percent text cell: plain text in the menu font, centered in
+// draw the percent text cell: the shared 16 dip readout, centered in
 // the cell. no fill, no border, no hover: the cell is a readout.
 static void _zoomui_draw_percent(HDC hdc,const RECT *rect)
 {
@@ -1993,7 +1994,7 @@ static void _zoomui_draw_percent(HDC hdc,const RECT *rect)
 		SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
 	}
 
-	font = _viv_menu_font();
+	font = _viv_ui_font(VIV_UI_FONT_PERCENT);
 	old_font = 0;
 
 	if (font)
@@ -2001,7 +2002,8 @@ static void _zoomui_draw_percent(HDC hdc,const RECT *rect)
 		old_font = SelectObject(hdc,font);
 	}
 
-	DrawTextW(hdc,wbuf,-1,&text_rect,DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
+	_viv_ui_text_rect(hdc,&text_rect);
+	DrawTextW(hdc,wbuf,-1,&text_rect,DT_CENTER|DT_TOP|DT_SINGLELINE|DT_NOPREFIX);
 
 	if (old_font)
 	{
@@ -2015,10 +2017,9 @@ static unsigned int _zoomui_argb(COLORREF color)
 	return 0xFF000000u | (((unsigned int)color & 0xFFu) << 16) | ((unsigned int)color & 0xFF00u) | (((unsigned int)color >> 16) & 0xFFu);
 }
 
-// draw one stadium (a rect whose ends are true semicircles) with gdi+
-// anti-aliasing: two arc caps and two edge lines in one closed figure,
-// then the solid fill and the 1px hairline stroke. this is the same
-// silhouette the gdi leg gets from roundrect, minus the jaggies.
+// draw the shared rounded surface with four anti-aliased quarter arcs,
+// then the solid fill and the 1px hairline stroke. the legacy helper name
+// stays private; its radius now follows the same token as the gdi leg.
 static void _zoomui_gdip_stadium(void *graphics,const RECT *rect,COLORREF fill_color,COLORREF line_color)
 {
 	void *path;
@@ -2035,10 +2036,10 @@ static void _zoomui_gdip_stadium(void *graphics,const RECT *rect,COLORREF fill_c
 	right = (float)rect->right;
 	bottom = (float)rect->bottom;
 
-	// the end circles span the full height (the full-stadium read); a rect
-	// narrower than it is tall collapses to its inscribed ellipse instead
-	// of a self crossing figure
-	radius = (bottom - top) / 2.0f;
+	// keep the shared corner inside narrow or short rectangles, rather
+	// than letting the quarter arcs cross each other.
+	radius = (float)VIV_UI_SCALE(VIV_UI_RADIUS,os_logical_high,96);
+	if (radius > ((bottom - top) / 2.0f)) radius = (bottom - top) / 2.0f;
 
 	if (radius > ((right - left) / 2.0f))
 	{
@@ -2055,13 +2056,16 @@ static void _zoomui_gdip_stadium(void *graphics,const RECT *rect,COLORREF fill_c
 		void *brush;
 		void *pen;
 
-		// top edge, right cap, bottom edge, left cap: the lines meet the
-		// arc ends exactly and closefigure ties the figure shut. the angles
+		// four straight edges alternate with four quarter arcs; the angles
 		// are degrees clockwise from the x axis on the y-down grid.
 		os_GdipAddPathLine(path,left + radius,top,right - radius,top);
-		os_GdipAddPathArc(path,right - (radius * 2.0f),top,radius * 2.0f,radius * 2.0f,270.0f,180.0f);
+		os_GdipAddPathArc(path,right - (radius * 2.0f),top,radius * 2.0f,radius * 2.0f,270.0f,90.0f);
+		os_GdipAddPathLine(path,right,top + radius,right,bottom - radius);
+		os_GdipAddPathArc(path,right - radius * 2.0f,bottom - radius * 2.0f,radius * 2.0f,radius * 2.0f,0.0f,90.0f);
 		os_GdipAddPathLine(path,right - radius,bottom,left + radius,bottom);
-		os_GdipAddPathArc(path,left,top,radius * 2.0f,radius * 2.0f,90.0f,180.0f);
+		os_GdipAddPathArc(path,left,bottom - radius * 2.0f,radius * 2.0f,radius * 2.0f,90.0f,90.0f);
+		os_GdipAddPathLine(path,left,bottom - radius,left,top + radius);
+		os_GdipAddPathArc(path,left,top,radius * 2.0f,radius * 2.0f,180.0f,90.0f);
 		os_GdipClosePathFigure(path);
 
 		brush = 0;
@@ -2473,6 +2477,16 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
 					_zoomui_invalidate();
 				}
+
+				// rc.13: the capture leaving ends the press, so the deferred
+				// re-center is repaid here too - waiting for the button up
+				// that never comes would pin the stale row layout.
+				if (_zoomui_pct_recenter)
+				{
+					_zoomui_pct_recenter = 0;
+
+					_zoomui_place(_zoomui_area_wide,_zoomui_area_high);
+				}
 			}
 
 			break;
@@ -2743,9 +2757,8 @@ static LRESULT CALLBACK _zoomui_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 					old_pen = SelectObject(hdc,pen);
 					old_brush = SelectObject(hdc,brush);
 
-					// full stadium: the ellipse diameters equal the tray
-					// height so the ends are true semicircles at every dpi.
-					corner = client_rect.bottom - client_rect.top;
+					// the tray and buttons use the same shared corner.
+					corner = VIV_UI_SCALE(VIV_UI_RADIUS * 2,os_logical_high,96);
 
 					if (corner < 2)
 					{

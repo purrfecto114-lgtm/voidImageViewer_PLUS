@@ -139,7 +139,7 @@ void string_cat(wchar_t *buf,const wchar_t *s)
 	size--;
 	
 	d = buf;
-	while(*d)
+	while((size) && (*d))
 	{
 		d++;
 		size--;
@@ -289,12 +289,24 @@ int string_to_int(wchar_t *s)
 		s++;
 	}
 	
+	// saturated like utf8_to_int: an overflowing product is undefined
+	// behaviour, and INT_MIN times -1 below would fault on x86.
 	while(*s)
 	{
 		if ((*s >= '0') && (*s <= '9'))
 		{
-			i *= 10;
-			i += *s - '0';
+			int digit;
+			
+			digit = *s - '0';
+			
+			if (i <= (2147483647 - digit) / 10)
+			{
+				i = (i * 10) + digit;
+			}
+			else
+			{
+				i = 2147483647;
+			}
 		}
 		
 		s++;
@@ -304,7 +316,13 @@ int string_to_int(wchar_t *s)
 }
 
 // %s = utf8, %S = wchar, %f == 0.3f
-void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
+// the _n variants carry the destination capacity as an argument: the
+// plain family budgets STRING_SIZE, so a shorter buffer handed to it
+// would be written past its end (the skip tally's 64 wchar note was
+// the one live case). a wbuf_size of 0 or less parks e behind d and
+// only the terminator write survives - short of a null pointer, no
+// argument can push the writer out of bounds.
+void string_vprintf_n(wchar_t *wbuf,int wbuf_size,const char *format,va_list argptr)
 {
 	const char *fp;
 	wchar_t *d;
@@ -312,7 +330,7 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 	
 	fp = format;
 	d = wbuf;
-	e = wbuf + STRING_SIZE - 1;
+	e = wbuf + wbuf_size - 1;
 	
 	while(*fp)
 	{
@@ -550,6 +568,11 @@ void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
 	*d = 0;
 }
 
+void string_vprintf(wchar_t *wbuf,const char *format,va_list argptr)
+{
+	string_vprintf_n(wbuf,STRING_SIZE,format,argptr);
+}
+
 // read a single character from a utf8 stream.
 // returns the next character in the utf8 stream.
 // sets pch to the read character.
@@ -603,7 +626,16 @@ void string_printf(wchar_t *wbuf,const char *format,...)
 	va_list args;
 	
 	va_start(args,format);
-	string_vprintf(wbuf,format,args);
+	string_vprintf_n(wbuf,STRING_SIZE,format,args);
+	va_end(args);
+}
+
+void string_printf_n(wchar_t *wbuf,int wbuf_size,const char *format,...)
+{
+	va_list args;
+	
+	va_start(args,format);
+	string_vprintf_n(wbuf,wbuf_size,format,args);
 	va_end(args);
 }
 

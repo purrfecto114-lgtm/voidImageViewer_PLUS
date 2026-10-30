@@ -1,0 +1,3 @@
+# raw test/compiler transcripts retain their original spaces and line endings.
+# source, tests and documentation keep the normal whitespace checks.
+evidence/refine/** -whitespace

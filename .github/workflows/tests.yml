@@ -76,6 +76,9 @@ jobs:
       - name: Native C regressions (MRU, input and zoom, the ini reader walk, debug allocation failure)
         run: python3 tests/native_regression_test.py --sanitize
 
+      - name: Memory, renderer and installer repair regressions
+        run: python3 tests/repair_regression_test.py
+
       # the whitespace gate: git's own diff --check over the pushed
       # range (the merge base for pull requests). catches trailing
       # whitespace and space-before-tab in added lines before they

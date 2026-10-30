@@ -100,6 +100,7 @@ function Get-PeSecurityInfo {
 
     # coff header (20 bytes): machine at +0, size of optional header at +16
     $machine = [int][BitConverter]::ToUInt16($bytes, $peOff + 4)
+    $coffChars = [int][BitConverter]::ToUInt16($bytes, $peOff + 4 + 18)
     $sizeOfOptional = [BitConverter]::ToUInt16($bytes, $peOff + 4 + 16)
     $optOff = $peOff + 4 + 20
 
@@ -139,6 +140,7 @@ function Get-PeSecurityInfo {
         Machine    = $machine
         Subsystem  = $subsystem
         DllChars   = $dllChars
+        LargeAddressAware = ($coffChars -band 0x0020) -ne 0
         LoadConfig = $loadConfig
     }
 }
@@ -174,6 +176,7 @@ foreach ($p in $ExePath) {
     $cfg  = ($dll -band $MaskGuardCf) -ne 0
 
     $missing = @()
+    if (-not $pe.LargeAddressAware) { $missing += "LARGE_ADDRESS_AWARE" }
     if (-not $aslr) { $missing += "DYNAMIC_BASE" }
     if ($pe.Pe32Plus -and -not $heva) { $missing += "HIGH_ENTROPY_VA" }
     if (-not $dep) { $missing += "NX_COMPAT" }

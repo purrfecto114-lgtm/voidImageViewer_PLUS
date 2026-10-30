@@ -75,9 +75,9 @@
 // machinery), the view and controls pages still fit whole.
 #define _VIV_SETTINGS_NAV_WIDE		150
 #define _VIV_SETTINGS_NAV_ITEM_HIGH	36
-#define _VIV_SETTINGS_NAV_TOP		12
-#define _VIV_SETTINGS_NAV_X			8
-#define _VIV_SETTINGS_CONTENT_PAD	24
+#define _VIV_SETTINGS_NAV_TOP		(VIV_UI_GAP * 3)
+#define _VIV_SETTINGS_NAV_X			VIV_UI_PAD
+#define _VIV_SETTINGS_CONTENT_PAD	(VIV_UI_PAD * 3)
 #define _VIV_SETTINGS_CONTENT_TOP	18
 #define _VIV_SETTINGS_SECTION_HIGH	30
 #define _VIV_SETTINGS_DESC_HIGH		18
@@ -100,7 +100,7 @@
 #define _VIV_SETTINGS_TITLE_HIGH        44
 #define _VIV_SETTINGS_TITLE_X_WIDE      36
 #define _VIV_SETTINGS_ACCENT_D          20
-#define _VIV_SETTINGS_ACCENT_GAP        10
+#define _VIV_SETTINGS_ACCENT_GAP        (VIV_UI_GAP * 2)
 #define _VIV_SETTINGS_ACCENT_STRIP      140
 
 // run key (the retired startup switch): see the retire helper below.
@@ -909,12 +909,12 @@ static void _viv_settings_layout(void)
 			// rows it undoes. it is a content row rather than a fourth
 			// footer face because the footer is the dialog's own verdict
 			// row, and the guard suite pins that at apply/cancel/ok.
-			y += _viv_settings_dip(10);
+			y += _viv_settings_dip(VIV_UI_PAD);
 
 			_viv_settings_add_content_button(_VIV_SETTINGS_ID_RESET,content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),y,_viv_settings_dip(_VIV_SETTINGS_BUTTON_WIDE),_viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH));
 			y += _viv_settings_dip(_VIV_SETTINGS_BUTTON_HIGH);
 
-			y += _viv_settings_dip(10);
+			y += _viv_settings_dip(VIV_UI_PAD);
 
 			// the system integration section: three switch rows - the
 			// multiple instances toggle with its description, then the two
@@ -954,7 +954,7 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
 
-			y += _viv_settings_dip(10);
+			y += _viv_settings_dip(VIV_UI_PAD);
 
 			// file associations: section, description, a four column
 			// checkbox grid and the select all cell at the row end.
@@ -1146,7 +1146,7 @@ static void _viv_settings_layout(void)
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_VALUE_HIGH);
 			y += row_high;
 
-			y += _viv_settings_dip(10);
+			y += _viv_settings_dip(VIV_UI_PAD);
 
 			// keyboard shortcuts: the command picker, the shortcut key
 			// picker and the add / edit / remove buttons.
@@ -1796,6 +1796,10 @@ static int _viv_settings_command_picker(HWND hwnd,const RECT *anchor)
 	HMENU menu;
 	HMENU menus[_VIV_MENU_COUNT];
 	MENUITEMINFOW mii;
+	// the native-row fallback's text lives at picker scope:
+	// insertmenuitemw reads dwtypedata after the block that fills
+	// it, and the old in-block buffer was use-after-scope.
+	wchar_t text_wbuf[STRING_SIZE];
 	POINT pt;
 	int ret;
 	int i;
@@ -1872,8 +1876,6 @@ static int _viv_settings_command_picker(HWND hwnd,const RECT *anchor)
 				}
 				else
 				{
-					wchar_t text_wbuf[STRING_SIZE];
-
 					string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[i].localization_id));
 
 					AppendMenuW(menus[_viv_commands[i].menu_id],MF_POPUP,(UINT_PTR)submenu,text_wbuf);
@@ -1904,8 +1906,6 @@ static int _viv_settings_command_picker(HWND hwnd,const RECT *anchor)
 			else
 			{
 				// the row pool full: a native row keeps the command pickable.
-				wchar_t text_wbuf[STRING_SIZE];
-
 				string_copy_utf8_string(text_wbuf,localization_get_string(_viv_commands[i].localization_id));
 
 				mii.fMask = MIIM_ID | MIIM_FTYPE | MIIM_STATE | MIIM_STRING;
@@ -3633,7 +3633,7 @@ static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int se
 
 	if (selected)
 	{
-		_viv_settings_fill_round(hdc,&rect,_viv_settings_dip(6),_viv_settings_color(_VIV_SETTINGS_C_ACCENT),_viv_settings_color(_VIV_SETTINGS_C_ACCENT));
+		_viv_settings_fill_round(hdc,&rect,_viv_settings_dip(VIV_UI_RADIUS),_viv_settings_color(_VIV_SETTINGS_C_ACCENT),_viv_settings_color(_VIV_SETTINGS_C_ACCENT));
 
 		text_color = _viv_settings_color(_VIV_SETTINGS_C_ON_ACCENT);
 	}
@@ -3641,7 +3641,7 @@ static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int se
 	{
 		if (hot)
 		{
-			_viv_settings_fill_round(hdc,&rect,_viv_settings_dip(6),_viv_settings_color(_VIV_SETTINGS_C_NAV_HOVER),_viv_settings_color(_VIV_SETTINGS_C_NAV_HOVER));
+			_viv_settings_fill_round(hdc,&rect,_viv_settings_dip(VIV_UI_RADIUS),_viv_settings_color(_VIV_SETTINGS_C_NAV_HOVER),_viv_settings_color(_VIV_SETTINGS_C_NAV_HOVER));
 		}
 
 		text_color = _viv_settings_color(inactive ? _VIV_SETTINGS_C_TEXT2 : _VIV_SETTINGS_C_TEXT);
@@ -3654,10 +3654,10 @@ static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int se
 
 	if (icon)
 	{
-		DrawIconEx(hdc,rect.left + _viv_settings_dip(10),rect.top + ((rect.bottom - rect.top) - size) / 2,icon,size,size,0,NULL,DI_NORMAL);
+		DrawIconEx(hdc,rect.left + _viv_settings_dip(VIV_UI_PAD),rect.top + ((rect.bottom - rect.top) - size) / 2,icon,size,size,0,NULL,DI_NORMAL);
 	}
 
-	text_rect.left = rect.left + _viv_settings_dip(10) + size + _viv_settings_dip(10);
+	text_rect.left = rect.left + _viv_settings_dip(VIV_UI_PAD) + size + _viv_settings_dip(VIV_UI_PAD);
 	text_rect.top = rect.top;
 	text_rect.right = rect.right - _viv_settings_dip(6);
 	text_rect.bottom = rect.bottom;
@@ -3668,7 +3668,7 @@ static void _viv_settings_draw_nav(HDC hdc,const _viv_settings_ctl_t *ctl,int se
 	// finding: the tab wrap from ok landed invisible).
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&rect,_viv_settings_dip(6));
+		_viv_settings_draw_focus_ring(hdc,&rect,_viv_settings_dip(VIV_UI_RADIUS));
 	}
 }
 
@@ -3681,11 +3681,11 @@ static void _viv_settings_draw_dropdown(HDC hdc,const _viv_settings_ctl_t *ctl,i
 
 	line = _viv_settings_color(hot ? _VIV_SETTINGS_C_ACCENT_HOT : _VIV_SETTINGS_C_LINE);
 
-	_viv_settings_fill_round(hdc,&ctl->value,_viv_settings_dip(4),_viv_settings_color(_VIV_SETTINGS_C_INPUT),line);
+	_viv_settings_fill_round(hdc,&ctl->value,_viv_settings_dip(VIV_UI_RADIUS),_viv_settings_color(_VIV_SETTINGS_C_INPUT),line);
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(4));
+		_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(VIV_UI_RADIUS));
 	}
 
 	// the value text.
@@ -3853,7 +3853,7 @@ static void _viv_settings_draw_dropdown(HDC hdc,const _viv_settings_ctl_t *ctl,i
 		text_color = _viv_settings_color(_VIV_SETTINGS_C_TEXTOFF);
 	}
 
-	text_rect.left = ctl->value.left + _viv_settings_dip(10);
+	text_rect.left = ctl->value.left + _viv_settings_dip(VIV_UI_PAD);
 	text_rect.top = ctl->value.top;
 	text_rect.right = ctl->value.right - _viv_settings_dip(18);
 	text_rect.bottom = ctl->value.bottom;
@@ -3939,11 +3939,11 @@ static void _viv_settings_draw_switch(HDC hdc,const _viv_settings_ctl_t *ctl,int
 		knob_color = _viv_settings_color(_VIV_SETTINGS_C_TEXTOFF);
 	}
 
-	_viv_settings_fill_round(hdc,&ctl->value,(ctl->value.bottom - ctl->value.top) / 2,fill,line);
+	_viv_settings_fill_round(hdc,&ctl->value,_viv_settings_dip(VIV_UI_RADIUS),fill,line);
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&ctl->value,(ctl->value.bottom - ctl->value.top) / 2);
+		_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(VIV_UI_RADIUS));
 	}
 
 	// the knob: a 3 dip inset circle.
@@ -4013,11 +4013,11 @@ static void _viv_settings_draw_check(HDC hdc,const _viv_settings_ctl_t *ctl,int 
 		text_color = _viv_settings_color(_VIV_SETTINGS_C_TEXTOFF);
 	}
 
-	_viv_settings_fill_round(hdc,&box,_viv_settings_dip(3),fill,line);
+	_viv_settings_fill_round(hdc,&box,_viv_settings_dip(VIV_UI_RADIUS),fill,line);
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&box,_viv_settings_dip(3));
+		_viv_settings_draw_focus_ring(hdc,&box,_viv_settings_dip(VIV_UI_RADIUS));
 	}
 
 	if (checked)
@@ -4241,11 +4241,11 @@ static void _viv_settings_draw_button(HDC hdc,const _viv_settings_ctl_t *ctl,int
 		text_color = _viv_settings_color(_VIV_SETTINGS_C_TEXTOFF);
 	}
 
-	_viv_settings_fill_round(hdc,&ctl->rect,_viv_settings_dip(6),fill,line);
+	_viv_settings_fill_round(hdc,&ctl->rect,_viv_settings_dip(VIV_UI_RADIUS),fill,line);
 
 	if (focus)
 	{
-		_viv_settings_draw_focus_ring(hdc,&ctl->rect,_viv_settings_dip(6));
+		_viv_settings_draw_focus_ring(hdc,&ctl->rect,_viv_settings_dip(VIV_UI_RADIUS));
 	}
 
 	if (ctl->id == _VIV_SETTINGS_ID_OK)
@@ -4399,7 +4399,7 @@ static void _viv_settings_draw_scrollbar(HDC mem,const RECT *client)
 
 	if (_viv_settings_scrollbar_thumb(&track,&thumb))
 	{
-		_viv_settings_fill_round(mem,&thumb,_viv_settings_dip(3),_viv_settings_color(_VIV_SETTINGS_C_SCROLL_THUMB),_viv_settings_color(_VIV_SETTINGS_C_LINE));
+		_viv_settings_fill_round(mem,&thumb,_viv_settings_dip(VIV_UI_RADIUS),_viv_settings_color(_VIV_SETTINGS_C_SCROLL_THUMB),_viv_settings_color(_VIV_SETTINGS_C_LINE));
 	}
 }
 
@@ -4482,7 +4482,7 @@ static void _viv_settings_draw_title(HDC hdc,const RECT *client)
 		DrawIconEx(hdc,_viv_settings_dip(14),(_viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH) - size) / 2,icon,size,size,0,NULL,DI_NORMAL);
 	}
 
-	rect.left = _viv_settings_dip(14) + size + _viv_settings_dip(10);
+	rect.left = _viv_settings_dip(14) + size + _viv_settings_dip(VIV_UI_PAD);
 	rect.top = 0;
 	rect.right = client->right - _viv_settings_dip(_VIV_SETTINGS_TITLE_X_WIDE) - _viv_settings_dip(8);
 	rect.bottom = _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH);
@@ -4493,12 +4493,12 @@ static void _viv_settings_draw_title(HDC hdc,const RECT *client)
 
 	if (_viv_settings_title_pressed)
 	{
-		_viv_settings_fill_round(hdc,&close_rect,_viv_settings_dip(6),_viv_settings_color(_VIV_SETTINGS_C_PRESS),_viv_settings_color(_VIV_SETTINGS_C_PRESS));
+		_viv_settings_fill_round(hdc,&close_rect,_viv_settings_dip(VIV_UI_RADIUS),_viv_settings_color(_VIV_SETTINGS_C_PRESS),_viv_settings_color(_VIV_SETTINGS_C_PRESS));
 	}
 	else
 	if (_viv_settings_title_hot)
 	{
-		_viv_settings_fill_round(hdc,&close_rect,_viv_settings_dip(6),_viv_settings_color(_VIV_SETTINGS_C_HOVER),_viv_settings_color(_VIV_SETTINGS_C_HOVER));
+		_viv_settings_fill_round(hdc,&close_rect,_viv_settings_dip(VIV_UI_RADIUS),_viv_settings_color(_VIV_SETTINGS_C_HOVER),_viv_settings_color(_VIV_SETTINGS_C_HOVER));
 	}
 
 	// the x: two strokes.

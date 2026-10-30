@@ -794,12 +794,33 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 						
 						if (config_auto_fit_wide_div)
 						{
-							rect.right = ((monitor_rect.right - monitor_rect.left) * config_auto_fit_wide_mul) / config_auto_fit_wide_div;
+							__int64 auto_fit;
+
+							// 64 bit intermediate: the 32 bit product can
+							// overflow on a hostile ini pair, and INT_MIN
+							// over -1 is a hardware fault (viv.c ditto).
+							auto_fit = ((__int64)(monitor_rect.right - monitor_rect.left) * config_auto_fit_wide_mul) / config_auto_fit_wide_div;
+
+							if (auto_fit < 0)
+							{
+								auto_fit = 0;
+							}
+
+							rect.right = (int)auto_fit;
 						}
 
 						if (config_auto_fit_high_div)
 						{
-							rect.bottom = ((monitor_rect.bottom - monitor_rect.top) * config_auto_fit_high_mul) / config_auto_fit_high_div;
+							__int64 auto_fit;
+
+							auto_fit = ((__int64)(monitor_rect.bottom - monitor_rect.top) * config_auto_fit_high_mul) / config_auto_fit_high_div;
+
+							if (auto_fit < 0)
+							{
+								auto_fit = 0;
+							}
+
+							rect.bottom = (int)auto_fit;
 						}
 						
 						break;
@@ -2452,77 +2473,42 @@ static void _viv_file_set_desktop_wallpaper(void)
 }
 static void _viv_edit_rotate(int counterclockwise)
 {
-	// destructive: the rotation must land on the displayed file (the
-	// in-flight load's target is not on screen yet).
-	if (*_viv_slot_current.fd.cFileName)
+	HBITMAP *prepared;
+	wchar_t caption[STRING_SIZE],message[STRING_SIZE];
+	int i,temp;
+	if (!*_viv_slot_current.fd.cFileName || !_viv_slot_current.frame_count ||
+		(_viv_slot_current.frame_loaded_count != _viv_slot_current.frame_count)) return;
+	string_copy_utf8_string(caption,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_CAPTION));
+	string_copy_utf8_string(message,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE));
+	if (viv_msgbox(_viv_hwnd,caption,message,MB_OKCANCEL | MB_ICONQUESTION) != IDOK) return;
+	prepared = _viv_prepare_oriented_frames(_viv_slot_current.frames,_viv_slot_current.frame_count,counterclockwise ? 8 : 6);
+	if (prepared)
 	{
-		if (_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count)
+		if (os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,counterclockwise ? "rotate270" : "rotate90",0))
 		{
-			wchar_t caption_wbuf[STRING_SIZE];
-			wchar_t message_wbuf[STRING_SIZE];
-			
-			// rc.16: the verb rewrites the source file on disk - the
-			// wallpaper asks before it touches the desktop, the rotation
-			// asks before it touches the source (the evaluation round's
-			// asymmetry find).
-			string_copy_utf8_string(caption_wbuf,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_CAPTION));
-			string_copy_utf8_string(message_wbuf,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE));
-			
-			if (viv_msgbox(_viv_hwnd,caption_wbuf,message_wbuf,MB_OKCANCEL | MB_ICONQUESTION) != IDOK)
+			_viv_hw_release_image();
+			for(i=0;i<_viv_slot_current.frame_count;i++)
 			{
-				return;
+				DeleteObject(_viv_slot_current.frames[i].hbitmap);
+				_viv_slot_current.frames[i].hbitmap = prepared[i];
+				if (_viv_slot_current.frames[i].mipmap) _viv_mipmap_free(_viv_slot_current.frames[i].mipmap);
+				_viv_slot_current.frames[i].mipmap = NULL;
 			}
-			
-			// the verb launches without the blocking wait: the shell's
-			// re-encode runs its own course while the memory rotation
-			// answers the screen now (the wait used to freeze the ui
-			// thread for the whole re-encode - the field report's
-			// "rotate lags"). the gate keeps its synchronous half: a
-			// verb that will not resolve at all still refuses the
-			// memory rotation with it.
-			if (os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,counterclockwise ? "rotate270" : "rotate90",0))
-			{
-				int i;
-				int temp;
-
-				// rotate images in memory too
-				
-				for(i=0;i<_viv_slot_current.frame_count;i++)
-				{
-					HBITMAP new_hbitmap;
-					
-					// i do the reverse to reverse the orientation.
-					new_hbitmap = _viv_orientate_hbitmap(_viv_slot_current.frames[i].hbitmap,counterclockwise ? 8 : 6);
-					
-					if (new_hbitmap)
-					{
-						DeleteObject(_viv_slot_current.frames[i].hbitmap);
-						
-						_viv_slot_current.frames[i].hbitmap = new_hbitmap;
-					}
-					
-					// delete mipmaps
-					if (_viv_slot_current.frames[i].mipmap)
-					{
-						_viv_mipmap_free(_viv_slot_current.frames[i].mipmap);
-						
-						_viv_slot_current.frames[i].mipmap = NULL;
-					}
-				}
-				
-				temp = _viv_slot_current.image_wide;
-				_viv_slot_current.image_wide = _viv_slot_current.image_high;
-				_viv_slot_current.image_high = temp;
-				
-				_viv_view_set(_viv_view_x,_viv_view_y,1);
-				
-				_viv_update_src_pixel(1,0);
-				_viv_status_update();
-
-				InvalidateRect(_viv_hwnd,0,FALSE);
-			}
+			mem_free(prepared);
+			temp = _viv_slot_current.image_wide;
+			_viv_slot_current.image_wide = _viv_slot_current.image_high;
+			_viv_slot_current.image_high = temp;
+			_viv_view_set(_viv_view_x,_viv_view_y,1);
+			_viv_update_src_pixel(1,0);
+			_viv_status_update();
+			InvalidateRect(_viv_hwnd,0,FALSE);
+			return;
 		}
+		for(i=0;i<_viv_slot_current.frame_count;i++) DeleteObject(prepared[i]);
+		mem_free(prepared);
 	}
+	string_copy_utf8_string(message,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_FAILED));
+	viv_msgbox(_viv_hwnd,caption,message,MB_OK | MB_ICONERROR);
 }
 static void _viv_file_edit(void)
 {
@@ -3251,11 +3237,44 @@ static double _viv_gesture_zoom_ratio = 1.0; // accumulated pinch ratio since th
 static int _viv_gesture_last_x = 0; // last two finger pan location. (screen coords)
 static int _viv_gesture_last_y = 0;
 static BYTE _viv_gesture_have_last = 0;
+// only promoted touch messages in the transition tail are filtered.
+static DWORD _viv_gesture_mouse_tick = 0;
+static BYTE _viv_gesture_mouse_guard = 0;
+static BYTE _viv_gesture_mouse_down_blocked = 0;
 int _viv_is_touch_click(void)
 {
 	// The shared pen/touch signature needs bit 7 as well: 0 is pen,
 	// 1 is touch. The remaining low bits identify the cursor.
 	return ((GetMessageExtraInfo() & 0xFFFFFF80) == 0xFF515780) ? 1 : 0;
+}
+// windows can promote the remaining contact to a mouse down as a gesture
+// ends. limit the guard to touch-signature messages in a short tail; real
+// mouse/pen input and later single-finger taps keep their configured action.
+int _viv_suppress_gesture_mouse(int is_down)
+{
+	if (!_viv_is_touch_click())
+	{
+		return 0;
+	}
+
+	if ((!is_down) && (_viv_gesture_mouse_down_blocked))
+	{
+		_viv_gesture_mouse_down_blocked = 0;
+
+		return 1;
+	}
+
+	if ((_viv_gesture_mouse_guard) && ((DWORD)(GetTickCount() - _viv_gesture_mouse_tick) <= 150))
+	{
+		_viv_gesture_mouse_down_blocked = is_down ? 1 : 0;
+
+		return 1;
+	}
+
+	_viv_gesture_mouse_down_blocked = 0;
+	_viv_gesture_mouse_guard = 0;
+
+	return 0;
 }
 void _viv_touch_double_click(void)
 {
@@ -3310,8 +3329,20 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 			{
 				// a second contact starts the gesture while the promoted
 				// mouse drag can still own capture. retire that drag first.
+				// the temporary 1:1 scroll normally restores its entry view.
+				// a gesture adopts the visible native-size view instead, so
+				// neither its geometry nor its accumulated pan jumps back.
+				if (_viv_doing == _VIV_DOING_1TO1SCROLL)
+				{
+					_viv_1to1 = 1;
+					_viv_doing_x = _viv_view_x;
+					_viv_doing_y = _viv_view_y;
+				}
+
 				_viv_doing_cancel();
 			}
+			_viv_gesture_mouse_tick = GetTickCount();
+			_viv_gesture_mouse_guard = 1;
 			_viv_gesture_reset();
 			return 0;
 
@@ -3485,6 +3516,9 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 			// not handled. pass to DefWindowProc.
 			return 0;
 	}
+
+	_viv_gesture_mouse_tick = GetTickCount();
+	_viv_gesture_mouse_guard = 1;
 
 	// we handled the gesture. the info handle is now our responsibility.
 	if (os_CloseGestureInfoHandle)

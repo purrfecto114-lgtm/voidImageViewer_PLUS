@@ -17,7 +17,7 @@ export const ACCENTS: Accent[] = [
   {
     "name": "teal",
     "base": "#0e9888",
-    "hot": "#2fb3a2",
+    "hot": "#24a090",
     "down": "#0a7a6e"
   },
   {
@@ -29,7 +29,7 @@ export const ACCENTS: Accent[] = [
   {
     "name": "amber",
     "base": "#c77420",
-    "hot": "#de8c36",
+    "hot": "#d0802b",
     "down": "#a85e14"
   },
   {
@@ -42,15 +42,15 @@ export const ACCENTS: Accent[] = [
 
 export const DARK_TOKENS: Record<string, string> = {
   "VIV_TK_FACE": "#232328",
-  "VIV_TK_NAV_FACE": "#1b1b1f",
-  "VIV_TK_CHROME": "#202024",
+  "VIV_TK_NAV_FACE": "#16161b",
+  "VIV_TK_CHROME": "#303038",
   "VIV_TK_CHROME_LINE": "#3a3a40",
   "VIV_TK_CHROME_MUTED": "#707070",
-  "VIV_TK_FRAME": "#1b1b1e",
+  "VIV_TK_FRAME": "#24242c",
   "VIV_TK_INPUT": "#2a2a2f",
   "VIV_TK_LINE": "#3a3a40",
-  "VIV_TK_HOVER": "#2e2e33",
-  "VIV_TK_DOWN": "#38383e",
+  "VIV_TK_HOVER": "#45454e",
+  "VIV_TK_DOWN": "#585862",
   "VIV_TK_TEXT": "#e8e8ea",
   "VIV_TK_TEXT2": "#9a9aa0",
   "VIV_TK_TEXTOFF": "#6a6a70",
@@ -65,11 +65,11 @@ export const LIGHT_TOKENS: Record<string, string> = {
   "VIV_TK_CHROME": "sys:COLOR_MENU",
   "VIV_TK_CHROME_LINE": "sys:COLOR_3DSHADOW",
   "VIV_TK_CHROME_MUTED": "sys:COLOR_GRAYTEXT",
-  "VIV_TK_FRAME": "sys:COLOR_MENU",
+  "VIV_TK_FRAME": "#d8d8dc",
   "VIV_TK_INPUT": "sys:COLOR_WINDOW",
-  "VIV_TK_LINE": "sys:COLOR_3DSHADOW",
-  "VIV_TK_HOVER": "#dcdcdc",
-  "VIV_TK_DOWN": "sys:COLOR_3DSHADOW",
+  "VIV_TK_LINE": "#909098",
+  "VIV_TK_HOVER": "#c8c8cc",
+  "VIV_TK_DOWN": "#b4b4bc",
   "VIV_TK_TEXT": "sys:COLOR_WINDOWTEXT",
   "VIV_TK_TEXT2": "sys:COLOR_GRAYTEXT",
   "VIV_TK_TEXTOFF": "sys:COLOR_GRAYTEXT",
