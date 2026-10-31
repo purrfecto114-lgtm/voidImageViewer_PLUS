@@ -1725,7 +1725,7 @@ void _viv_toolbar_update_buttons(void)
 				break;
 			
 			case VIV_ID_VIEW_BESTFIT:
-				
+
 				// already at best fit (the old toolbar rule, the no image gate
 				// added). the fill stretch holds the view at position zero, but
 				// it is not the fit: the face stays live there, the command now
