@@ -1,3 +1,39 @@
+﻿Pre-release: Version 1.1.18-rc.1 (the touch hand-off round)
+
+        the touch hand-off round takes its tag. the
+        field build answered the report's two pains
+        and the rc carries them. the pinch gate froze
+        every sample under its 36 dip floor - the
+        first frame included - so the natural entry,
+        one finger panning while the second lands
+        close and the fingers spread, left the
+        baseline empty: the whole first spread window
+        answered nothing and one more sample died
+        re-baselining. the begin now baselines at the
+        real distance, floored at the close-contact
+        floor, so the first spread zooms and the
+        damping survives; the mid-gesture freeze
+        keeps guarding crossed fingers. the fit
+        family answered its name only half way: with
+        the fill-window stretch held, best fit,
+        reset zoom, the two finger tap and the touch
+        double tap all set position zero while the
+        upscale stayed - the commands read dead and
+        the toolbar's best fit face greyed with the
+        stretch on. every go-to-fit path now leaves
+        the stretch, the face stays live there, and
+        the readme says so. beside them: the view
+        restore in the resize walk divided by the
+        image dimensions with an empty slot - the
+        startup wm_size and every bare resize walked
+        a 0/0 nan through an undefined int cast - the
+        block now runs only with an image to keep.
+        the gesture suite carries the close-start
+        regression at three dpi steps, the structure
+        pins ride the new shape, and the release
+        pipeline validates the tag against the
+        version string the suites pin.
+
 ﻿Field: Version 1.1.17-field.1 (the touch hand-off round)
 
         the touch field report named two pains and the
