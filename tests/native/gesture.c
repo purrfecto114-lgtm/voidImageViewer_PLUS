@@ -80,15 +80,18 @@ static void policy(void)
         _viv_gesture_reset();
         _viv_gesture_zoom_ratio = 1.009;
         assert(send(3, 1, floor - 1) == 1);
-        assert(_viv_gesture_zoom_dist == 0 && _viv_gesture_zoom_ratio == 1.0);
+        /* a close-fingered BEGIN baselines at the floor itself: the first
+           spread answers (the old reset left the pinch dead at the start) */
+        assert(_viv_gesture_zoom_dist == floor && _viv_gesture_zoom_ratio == 1.0);
         _viv_zoom_pos = 0;
-        send(3, 0, floor); /* first valid sample establishes a baseline */
+        send(3, 0, floor); /* a sample at the floor itself moves nothing */
         assert(!_viv_zoom_pos && _viv_gesture_zoom_dist == floor);
         send(3, 0, floor * 11 / 10);
         assert(_viv_zoom_pos > 0);
         _viv_gesture_zoom_ratio = 1.008;
         send(3, 0, floor - 1);
-        assert(_viv_gesture_zoom_ratio == 1.0);
+        /* mid-gesture close contacts still freeze and drop the baseline */
+        assert(!_viv_gesture_zoom_dist && _viv_gesture_zoom_ratio == 1.0);
     }
     _viv_doing = captured = 1;
     closed = 0;
@@ -100,7 +103,8 @@ static void policy(void)
 
     geometry(4000, 3000, 1600, 1000, 0);
     send(3, 1, 20); send(3, 0, 30);
-    assert(!_viv_zoom_pos); /* current policy: sub-floor input is frozen */
+    assert(!_viv_zoom_pos); /* BEGIN baselines at the floor, the sub-floor
+                               follow-up freezes: neither zooms */
     send(3, 0, 100); assert(!_viv_zoom_pos);
     send(3, 0, 150);
     assert(_viv_zoom_pos >= 40 && _viv_zoom_pos <= 41); /* a real 1.5x distance change */
@@ -190,6 +194,36 @@ static void begin(void)
         assert(!invalidated && _viv_gesture_zoom_dist == 100);
     }
     puts("gesture: invalid per-type BEGIN cannot keep a stale baseline");
+}
+/* The natural pinch entry: the fingers land closer than the floor (the
+   one-finger pan that gains a second finger starts near it), the first
+   spread must zoom, the mid-gesture freeze must survive, and the
+   re-baseline after the freeze must not move the zoom. */
+static void close_start(void)
+{
+    int dpi;
+    for (dpi = 96; dpi <= 288; dpi += 96)
+    {
+        unsigned floor = 36 * dpi / 96;
+        geometry(4000, 3000, 1600, 1000, 0);
+        os_logical_wide = dpi; /* geometry() resets the dpi */
+        assert(send(3, 1, floor / 3) == 1);
+        assert(_viv_gesture_zoom_dist == floor && !_viv_zoom_pos);
+        send(3, 0, floor * 3);
+        assert(_viv_zoom_pos > 0); /* the first spread answers */
+        {
+            int pos = _viv_zoom_pos;
+            send(3, 0, floor / 2);          /* fingers cross: frozen */
+            assert(!_viv_gesture_zoom_dist);
+            send(3, 0, floor / 2 + 1);      /* still sub-floor: frozen */
+            assert(!_viv_gesture_zoom_dist);
+            send(3, 0, floor * 2);          /* the next sample re-baselines */
+            assert(_viv_zoom_pos == pos);
+            send(3, 0, floor * 4);
+            assert(_viv_zoom_pos > pos);    /* and the spread zooms again */
+        }
+    }
+    puts("gesture: close-fingered start zooms from the first spread; mid-gesture freeze intact");
 }
 static void transition(void)
 {
@@ -301,6 +335,7 @@ int main(int argc, char **argv)
     if (!*selected || !strcmp(selected, "zoom")) zoom();
     if (!*selected || !strcmp(selected, "zero")) zero();
     if (!*selected || !strcmp(selected, "begin")) begin();
+    if (!*selected || !strcmp(selected, "closestart")) close_start();
     if (!*selected || !strcmp(selected, "touch")) touch();
     if (!*selected || !strcmp(selected, "wheel")) wheel();
     if (!*selected || !strcmp(selected, "bounds")) bounds();

@@ -627,6 +627,12 @@ void _viv_on_size(void)
 		}
 			zoomui_layout(wide,high);
 		
+		// the view restore divides by the image dimensions: an empty slot
+		// (the startup WM_SIZE, every resize with no image open) must not
+		// walk the block - the 0/0 read NaN, the (int) cast of it is
+		// undefined, and the garbage view only clamped back by luck.
+		// the anchors are zeroed with the slot; there is nothing to keep.
+		if ((_viv_slot_current.image_wide) && (_viv_slot_current.image_high))
 		{
 		
 			int rw;

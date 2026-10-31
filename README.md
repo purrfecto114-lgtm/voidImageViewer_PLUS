@@ -73,14 +73,14 @@ Touch & zoom controls
 
 | Gesture / control | Action |
 | --- | --- |
-| Two finger pinch | Zoom in / out (anchored at finger center) |
+| Two finger pinch | Zoom in / out (anchored at finger center); responds from the first spread, even when the fingers land close together |
 | Two finger drag | Pan / scroll image (with inertia) |
-| Two finger tap | Reset zoom |
+| Two finger tap | Reset zoom (also leaves the fill-window stretch, like the Best fit command) |
 | Double tap (touch) | Toggle 1:1 / best fit |
 | Toolbar zoom buttons | Zoom in / out |
 | Floating zoom bar | One seven-cell row in both modes — prev / play-pause / next / zoom out / percent / zoom in (bottom center; fullscreen fades it out when idle) |
 
-Gestures need Windows 7+ with touch hardware. Single-finger input stays mouse-compatible, so configured click actions are unaffected. Toggle the floating controls via **View → Floating Control Bar**. A pinch keeps shrinking below the windowed fit, down to about fit/16 (mirroring the 16× zoom cap) — `Allow shrinking` in Settings keeps its meaning.
+Gestures need Windows 7+ with touch hardware. Single-finger input stays mouse-compatible, so configured click actions are unaffected. **Best fit** always shows the image at its fit size — switching it on leaves the fill-window stretch, and the two-finger tap and the reset-zoom shortcut do the same. Toggle the floating controls via **View → Floating Control Bar**. A pinch keeps shrinking below the windowed fit, down to about fit/16 (mirroring the 16× zoom cap) — `Allow shrinking` in Settings keeps its meaning.
 
 Canvas, backdrop & dark mode
 --------

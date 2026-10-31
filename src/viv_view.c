@@ -116,8 +116,12 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 
 		case VIV_ID_VIEW_ZOOM_RESET:
+			// the reset lands on the fit, and the fit is not the fill: with
+			// the stretch held the reset answered nothing visible.
 			_viv_1to1 = 0;
 			_viv_zoom_pos = 0;
+			config_fill_window = 0;
+			config_fullscreen_fill_window = 0;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			_viv_status_update_temp_pos_zoom();
@@ -721,8 +725,12 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;		
 			
 		case VIV_ID_VIEW_BESTFIT:
+			// best fit answers its name: with the fill stretch held the
+			// command changed nothing on screen.
 			_viv_zoom_pos = 0;
 			_viv_1to1 = 0;
+			config_fill_window = 0;
+			config_fullscreen_fill_window = 0;
 			_viv_view_set(0,0,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			_viv_status_update_temp_pos_zoom();
@@ -3280,9 +3288,12 @@ void _viv_touch_double_click(void)
 {
 	if (_viv_1to1)
 	{
-		// go to best fit.
+		// go to best fit (the fill stretch leaves with it: the double
+		// tap toggles 1:1 against the fit, not against the fill).
 		_viv_zoom_pos = 0;
 		_viv_1to1 = 0;
+		config_fill_window = 0;
+		config_fullscreen_fill_window = 0;
 		_viv_view_set(0,0,1);
 		InvalidateRect(_viv_hwnd,0,FALSE);
 		_viv_status_update_temp_pos_zoom();
@@ -3374,15 +3385,24 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 				}
 			}
 
-			// Retain the existing 36 DIP floor policy: freeze below it and
-			// discard both distance and fractional steps. The next valid
-			// sample re-baselines without zooming. This trades close-contact
-			// response for noise suppression; the threshold needs hardware
-			// validation, not an assumption that all small values are noise.
+			// Retain the 36 DIP close-contact policy, one change to where it
+			// bites: the old gate froze GF_BEGIN too, so a pinch landing with
+			// the fingers close (the second finger joining a pan) left the
+			// baseline empty and the gesture dead until the spread passed the
+			// floor twice. Mid-gesture samples still freeze; the BEGIN
+			// baselines at the real distance, floored, keeping the damping.
 			{
 				DWORD min_dist;
 
 				min_dist = (DWORD)((36 * os_logical_wide) / 96);
+
+				if (gesture_info.dwFlags & 0x01) // GF_BEGIN
+				{
+					_viv_gesture_zoom_dist = ((dist) && (dist < min_dist)) ? min_dist : dist;
+					_viv_gesture_zoom_ratio = 1.0;
+
+					break;
+				}
 
 				if ((dist) && (dist < min_dist))
 				{
@@ -3499,9 +3519,12 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 		case 6: // GID_TWOFINGERTAP
 		{
-			// reset the zoom.
+			// reset the zoom (and the fill stretch with it: the tap asks
+			// for the fit, the same contract the best fit command runs).
 			_viv_1to1 = 0;
 			_viv_zoom_pos = 0;
+			config_fill_window = 0;
+			config_fullscreen_fill_window = 0;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			_viv_status_update_temp_pos_zoom();

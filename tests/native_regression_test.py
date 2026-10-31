@@ -162,7 +162,7 @@ def main():
     parser.add_argument("suites", nargs="*", choices=["mru", "gesture", "memory", "ini"])
     parser.add_argument("--sanitize", action="store_true", help="enable undefined-behavior sanitizer")
     parser.add_argument("--mru-case", choices=["rename", "load"], help="run one MRU scenario group")
-    parser.add_argument("--gesture-case", choices=["policy", "zoom", "zero", "begin", "touch", "wheel", "bounds"], help="run one input scenario group")
+    parser.add_argument("--gesture-case", choices=["policy", "zoom", "zero", "begin", "closestart", "touch", "wheel", "bounds"], help="run one input scenario group")
     args = parser.parse_args()
     failed = 0
     with tempfile.TemporaryDirectory(prefix="viv-native-") as directory:

@@ -1725,9 +1725,12 @@ void _viv_toolbar_update_buttons(void)
 				break;
 			
 			case VIV_ID_VIEW_BESTFIT:
-			
-				// already at best fit (the old toolbar rule, the no image gate added).
-				enable = ((has_image) && !((_viv_zoom_pos == 0) && (!_viv_1to1))) ? 1 : 0;
+				
+				// already at best fit (the old toolbar rule, the no image gate
+				// added). the fill stretch holds the view at position zero, but
+				// it is not the fit: the face stays live there, the command now
+				// leaves the fill and answers (the field report's dead face).
+				enable = ((has_image) && (!((_viv_zoom_pos == 0) && (!_viv_1to1)) || (_viv_is_fullscreen ? config_fullscreen_fill_window : config_fill_window))) ? 1 : 0;
 				break;
 			
 			case VIV_ID_EDIT_ROTATE_90:
