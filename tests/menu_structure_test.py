@@ -3980,7 +3980,7 @@ def t_field_report_round80():
     check("the design note carries the new contract",
           "12 dip rows, 11 dip descriptions" in settings)
     check("the row bands did not shrink with the font",
-          "#define _VIV_SETTINGS_ROW_HIGH		34" in settings and
+          "#define _VIV_SETTINGS_ROW_HIGH		36" in settings and
           "#define _VIV_SETTINGS_DESC_HIGH		18" in settings)
 
     # 4. the capture-hint mojibake: utf-8 strings ride the utf-8 copier.

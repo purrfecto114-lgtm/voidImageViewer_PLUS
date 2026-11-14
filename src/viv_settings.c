@@ -77,12 +77,25 @@
 #define _VIV_SETTINGS_NAV_ITEM_HIGH	36
 #define _VIV_SETTINGS_NAV_TOP		(VIV_UI_GAP * 3)
 #define _VIV_SETTINGS_NAV_X			VIV_UI_PAD
+// the row system: a two-line row's first 20 dip are the label line - the
+// control centres on it, so a switch rides the label it belongs to (the
+// 13 dip the old top-half arithmetic opened read as 39 px at the 300%
+// dpi the field report came in at). the description hangs centred on its
+// own line below, and every label and description shares one fixed
+// measure so they all start and end on the same column. sections sit on
+// the same label line with a hairline under them and air before their
+// first row, instead of floating in a bare gap.
 #define _VIV_SETTINGS_CONTENT_PAD	(VIV_UI_PAD * 3)
 #define _VIV_SETTINGS_CONTENT_TOP	18
 #define _VIV_SETTINGS_SECTION_HIGH	30
+#define _VIV_SETTINGS_SECTION_AIR	6
+#define _VIV_SETTINGS_SECTION_RULE	22
 #define _VIV_SETTINGS_DESC_HIGH		18
-#define _VIV_SETTINGS_ROW_HIGH		34
-#define _VIV_SETTINGS_ROW_HIGH_DESC	52
+#define _VIV_SETTINGS_ROW_HIGH		36
+#define _VIV_SETTINGS_ROW_HIGH_DESC	56
+#define _VIV_SETTINGS_LABEL_HIGH	20
+#define _VIV_SETTINGS_DESC_MID		32
+#define _VIV_SETTINGS_LABEL_COL		320
 #define _VIV_SETTINGS_COLOR_HIGH	36
 #define _VIV_SETTINGS_CHECK_HIGH	26
 #define _VIV_SETTINGS_CHECK_COLS	4
@@ -848,7 +861,7 @@ static void _viv_settings_layout(void)
 			// interface section: language, theme, accent and the chrome rows
 			// (the toolbar strip, the floating bar, the status bar pixel info).
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_INTERFACE,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
-			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH) + _viv_settings_dip(_VIV_SETTINGS_SECTION_AIR);
 
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_LANGUAGE,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
@@ -920,11 +933,15 @@ static void _viv_settings_layout(void)
 			// multiple instances toggle with its description, then the two
 			// integration rows.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_STARTUP,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
-			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH) + _viv_settings_dip(_VIV_SETTINGS_SECTION_AIR);
 
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_MULTIPLE,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC));
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
+			// the control rides the label line: the switch centres on the
+			// row's first 20 dip (the label's own centre), not the whole
+			// row. row_high still walks the full row for the y advance.
+			row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC);
+			_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + (_viv_settings_dip(_VIV_SETTINGS_LABEL_HIGH) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
@@ -959,7 +976,7 @@ static void _viv_settings_layout(void)
 			// file associations: section, description, a four column
 			// checkbox grid and the select all cell at the row end.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_ASSOCIATIONS,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
-			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH) + _viv_settings_dip(_VIV_SETTINGS_SECTION_AIR);
 
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DESC,_VIV_SETTINGS_ID_NONE,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_DESC_HIGH));
 			y += _viv_settings_dip(_VIV_SETTINGS_DESC_HIGH) + _viv_settings_dip(4);
@@ -1008,7 +1025,7 @@ static void _viv_settings_layout(void)
 
 			// [rendering] the two interpolation rows.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_RENDERING,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
-			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH) + _viv_settings_dip(_VIV_SETTINGS_SECTION_AIR);
 
 			// shrink blit mode.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_SHRINK,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
@@ -1030,14 +1047,17 @@ static void _viv_settings_layout(void)
 			// menu's radio trio stays the fine-grained seat).
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_HWACCEL,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC));
 				_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
-				_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + ((row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC)) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
+				// the control rides the label line (see the multiple instances
+				// row: the same centre, the same reason).
+				row_high = _viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC);
+				_viv_settings_ctls[_viv_settings_ctl_count-1].value.top = y + (_viv_settings_dip(_VIV_SETTINGS_LABEL_HIGH) - _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH)) / 2;
 				_viv_settings_ctls[_viv_settings_ctl_count-1].value.right = _viv_settings_ctls[_viv_settings_ctl_count-1].value.left + _viv_settings_dip(_VIV_SETTINGS_SWITCH_WIDE);
 				_viv_settings_ctls[_viv_settings_ctl_count-1].value.bottom = _viv_settings_ctls[_viv_settings_ctl_count-1].value.top + _viv_settings_dip(_VIV_SETTINGS_SWITCH_HIGH);
 			y += row_high;
 
 			// [window and full screen] the title format, the auto size pair and the two background colors.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_WINDOW,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
-			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH) + _viv_settings_dip(_VIV_SETTINGS_SECTION_AIR);
 
 			// title bar format.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_TITLE,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
@@ -1081,7 +1101,7 @@ static void _viv_settings_layout(void)
 
 			// [animation and slideshow] the playback promise.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_ANIMATION,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
-			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH) + _viv_settings_dip(_VIV_SETTINGS_SECTION_AIR);
 
 			// animation playback.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SWITCH,_VIV_SETTINGS_ID_LOOP,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
@@ -1093,7 +1113,7 @@ static void _viv_settings_layout(void)
 
 			// [performance] the memory promise pair.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_SECTION_PERFORMANCE,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
-			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH) + _viv_settings_dip(_VIV_SETTINGS_SECTION_AIR);
 
 			// preload count: a dropdown now (off / 1..5 images ahead).
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_PRELOAD,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
@@ -1151,7 +1171,7 @@ static void _viv_settings_layout(void)
 			// keyboard shortcuts: the command picker, the shortcut key
 			// picker and the add / edit / remove buttons.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_COMMANDS_STATIC,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
-			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH) + _viv_settings_dip(_VIV_SETTINGS_SECTION_AIR);
 
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_COMMAND,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
@@ -1163,7 +1183,7 @@ static void _viv_settings_layout(void)
 			// the group caption of the old controls page: the shortcut key
 			// picker belongs to the selected command.
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_SECTION,_VIV_SETTINGS_ID_NONE,LOCALIZATION_ID_SETTINGS_FOR_SELECTED_COMMAND,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH));
-			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH);
+			y += _viv_settings_dip(_VIV_SETTINGS_SECTION_HIGH) + _viv_settings_dip(_VIV_SETTINGS_SECTION_AIR);
 
 			_viv_settings_ctl_add(_VIV_SETTINGS_CT_DROPDOWN,_VIV_SETTINGS_ID_KEYS,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH));
 			_viv_settings_ctls[_viv_settings_ctl_count-1].value.left = content_x + content_wide - _viv_settings_dip(_VIV_SETTINGS_VALUE_WIDE);
@@ -4761,8 +4781,23 @@ static void _viv_settings_paint(HWND hwnd)
 			case _VIV_SETTINGS_CT_SECTION:
 
 				// the section caption rides in param (the layout stores the
-				// localization id there).
-				_viv_settings_draw_label(mem,&ctl->rect,(localization_id_t)ctl->param,_viv_settings_font_bold ? _viv_settings_font_bold : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+				// localization id there). the caption sits on the label line
+				// and the hairline hangs under it - a section used to float
+				// in a bare gap, and the rows under it read as orphaned.
+				{
+					RECT section_rect;
+					HBRUSH rule_brush;
+
+					section_rect = ctl->rect;
+					section_rect.bottom = ctl->rect.top + _viv_settings_dip(_VIV_SETTINGS_LABEL_HIGH);
+					_viv_settings_draw_label(mem,&section_rect,(localization_id_t)ctl->param,_viv_settings_font_bold ? _viv_settings_font_bold : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+
+					section_rect.top = ctl->rect.top + _viv_settings_dip(_VIV_SETTINGS_SECTION_RULE);
+					section_rect.bottom = section_rect.top + 1;
+					rule_brush = CreateSolidBrush(_viv_settings_color(_VIV_SETTINGS_C_LINE));
+					FillRect(mem,&section_rect,rule_brush);
+					DeleteObject(rule_brush);
+				}
 
 				break;
 
@@ -4992,8 +5027,15 @@ static void _viv_settings_paint(HWND hwnd)
 
 				label_rect.left = ctl->rect.left;
 				label_rect.top = ctl->rect.top;
-				label_rect.right = ctl->value.left - _viv_settings_dip(12);
-				label_rect.bottom = desc_id ? ctl->rect.top + (ctl->rect.bottom - ctl->rect.top) / 2 : ctl->rect.bottom;
+				// the fixed label column on a two-line row: the label and the
+				// description share one 320-dip measure, so every description
+				// on the page ends on the same column instead of running to
+				// whatever the control's x happened to be - floored at the
+				// control's own edge so a narrow window never crosses it.
+				label_rect.right = (desc_id && ((ctl->rect.left + _viv_settings_dip(_VIV_SETTINGS_LABEL_COL)) < (ctl->value.left - _viv_settings_dip(12)))) ? (ctl->rect.left + _viv_settings_dip(_VIV_SETTINGS_LABEL_COL)) : (ctl->value.left - _viv_settings_dip(12));
+				// the label line: the row's first 20 dip, so the label's own
+				// centre is the line the control below centres on.
+				label_rect.bottom = desc_id ? ctl->rect.top + _viv_settings_dip(_VIV_SETTINGS_LABEL_HIGH) : ctl->rect.bottom;
 
 				// rc.6: a gated sub row greys its label with its knob - a full
 				// strength label beside a greyed knob reads as a broken switch.
@@ -5006,9 +5048,11 @@ static void _viv_settings_paint(HWND hwnd)
 					string_copy_utf8_string(wbuf,localization_get_string((localization_id_t)desc_id));
 
 					desc_rect.left = ctl->rect.left;
-					desc_rect.top = label_rect.bottom;
-					desc_rect.right = ctl->value.left - _viv_settings_dip(12);
-					desc_rect.bottom = ctl->rect.bottom;
+					// the description hangs centred on its own line (32 dip from
+					// the row top), inside the label's fixed measure.
+					desc_rect.top = ctl->rect.top + _viv_settings_dip(_VIV_SETTINGS_DESC_MID) - _viv_settings_dip(_VIV_SETTINGS_DESC_HIGH) / 2;
+					desc_rect.right = label_rect.right;
+					desc_rect.bottom = desc_rect.top + _viv_settings_dip(_VIV_SETTINGS_DESC_HIGH);
 
 					_viv_settings_draw_text_raw(mem,&desc_rect,wbuf,_viv_settings_font_small ? _viv_settings_font_small : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT2),DT_VCENTER | DT_END_ELLIPSIS);
 				}

@@ -2417,14 +2417,27 @@ def t_sim_settings_round126():
     # round-148: the lock caption row adds its 2-dip gap and the 18-dip
     # description height - 716 + 20 = 736; round-149: the caption takes
     # two word-broken lines (the field report's cropped sentence) -
-    # 736 + 18 = 754, plus its own 2-dip pair = 756).
+    # 736 + 18 = 754, plus its own 2-dip pair = 756.
+    # quiet chrome: the row system rides 36/56 rows (ten single rows +2,
+    # the description row +4) and every section adds 6 dip of air under
+    # its hairline (three sections) - 756 + 20 + 4 + 18 = 798; the
+    # model's base rides the same 42 (664 -> 706).
     st = read("src/viv_state.h").decode("utf-8", errors="replace")
     ASSOC = int(re.search(r"#define _VIV_ASSOCIATION_COUNT\s+(\d+)", st).group(1))
     CHECK = int(re.search(r"#define _VIV_SETTINGS_CHECK_HIGH\s+(\d+)", ss).group(1))
     DESC = int(re.search(r"#define _VIV_SETTINGS_DESC_HIGH\s+(\d+)", ss).group(1))
-    GEN = 664 - 3 * CHECK + ((ASSOC + 3) // 4) * CHECK + (DESC * 2 + 2) + 2
-    check("the derived general page bottom is the nineteen-box page plus the two-line lock caption (756 dip)",
-          GEN == 756, str(GEN))
+    # the quiet-chrome deltas ride the c's own constants, so a row edit
+    # that forgets this model goes red here instead of drifting: ten
+    # single rows, one description row, three sections' air (the walk's
+    # own counts; the air constant is absent in the pre-round tree).
+    ROW = int(re.search(r"#define _VIV_SETTINGS_ROW_HIGH\s+(\d+)", ss).group(1))
+    ROW_DESC = int(re.search(r"#define _VIV_SETTINGS_ROW_HIGH_DESC\s+(\d+)", ss).group(1))
+    air_m = re.search(r"#define _VIV_SETTINGS_SECTION_AIR\s+(\d+)", ss)
+    AIR = int(air_m.group(1)) if air_m else 0
+    GEN = (664 + 10 * (ROW - 34) + (ROW_DESC - 52) + 3 * AIR
+           - 3 * CHECK + ((ASSOC + 3) // 4) * CHECK + (DESC * 2 + 2) + 2)
+    check("the derived general page bottom is the nineteen-box page plus the two-line lock caption (798 dip)",
+          GEN == 798, str(GEN))
     check("the clamped 680-dip work area scrolls the general page (the 300 percent report)",
           scroll_max(GEN, 680) >= 60, str(scroll_max(GEN, 680)))
     # rc.4 (the field ask): the client rides the 90 percent design -
@@ -2434,17 +2447,19 @@ def t_sim_settings_round126():
     # this model's number; the c grows the trailing pad that rests the
     # max itself on the row lattice (166 -> 184 at the design client -
     # the lattice rule rides the menu suite's round-149 pins, the model
-    # owns the geometry), the view page (526 + the hwaccel row's 52) and
-    # the controls page (404, the corrected measure) still fit whole.
+    # owns the geometry). quiet chrome: the taller rows and the section
+    # air walk the shortfall to 208, and the view page (578 + 44: four
+    # sections' air, the hwaccel row's 56, eight rows' 36) now scrolls
+    # 32 dip too - the controls page (404 + 24) still fits whole.
     CLIENT_HIGH = int(re.search(r"#define _VIV_SETTINGS_CLIENT_HIGH\s+(\d+)", ss).group(1))
     check("the settings client is the 90 percent design (670 dip)",
           CLIENT_HIGH == 670, str(CLIENT_HIGH))
-    check("the general page scrolls 166 raw dip under the pinned footer",
-          scroll_max(GEN, CLIENT_HIGH) == 166, str(scroll_max(GEN, CLIENT_HIGH)))
-    check("the view page carries the hwaccel row and still fits whole",
-          scroll_max(578, CLIENT_HIGH) == 0 and scroll_max(404, CLIENT_HIGH) == 0)
+    check("the general page scrolls 208 raw dip under the pinned footer",
+          scroll_max(GEN, CLIENT_HIGH) == 208, str(scroll_max(GEN, CLIENT_HIGH)))
+    check("the view page carries the hwaccel row and scrolls 32 raw dip; the controls page still fits whole",
+          scroll_max(622, CLIENT_HIGH) == 32 and scroll_max(428, CLIENT_HIGH) == 0)
     check("a half-height work area scrolls every page but stays clamped",
-          0 < scroll_max(GEN, 500) < GEN and scroll_max(526, 500) > 0)
+          0 < scroll_max(GEN, 500) < GEN and scroll_max(622, 500) > 0)
 
     # the wheel: one notch is WHEEL_ROWS rows, clamped at both ends
     # (the row count itself rides the extract above).
@@ -2458,8 +2473,10 @@ def t_sim_settings_round126():
     # value passed them. the absolute anchor lands first: the shipped
     # step is 102 (34-row high, three rows a notch), and a c-side edit
     # moves the extraction or breaks this pin.
-    check("the extracted wheel step is the shipped one (34 x 3 = 102)",
-          (ROW_HIGH, WHEEL_ROWS, STEP) == (34, 3, 102), str((ROW_HIGH, WHEEL_ROWS, STEP)))
+    # quiet chrome: the row system walks the shipped step 34 x 3 = 102
+    # to 36 x 3 = 108 (the wheel rides the row lattice it scrolls).
+    check("the extracted wheel step is the shipped one (36 x 3 = 108)",
+          (ROW_HIGH, WHEEL_ROWS, STEP) == (36, 3, 108), str((ROW_HIGH, WHEEL_ROWS, STEP)))
 
     mx = scroll_max(GEN, 680)
     check("a forward notch climbs to the top and clamps",
