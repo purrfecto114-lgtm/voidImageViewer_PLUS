@@ -1,4 +1,58 @@
-﻿Pre-release: Version 1.1.18-rc.1 (the touch hand-off round)
+﻿Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)
+
+        the quiet chrome round takes its tag. the
+        redesign bundle's section 2 lands whole, and
+        the chrome the report asked quiet answers in
+        one pass. the settings row system puts the
+        control on the label line and hangs the
+        description on its own line inside one fixed
+        measure - the 13 dip the top-half arithmetic
+        opened (39 px at the 300% report) closes,
+        the sections carry a hairline and their air,
+        and the general page's bottom walks 756 to
+        798. the command band gives the menus and
+        the command cluster one 48-dip strip on the
+        shared chrome token, the icon-only buttons
+        riding 44-dip touch targets, and the zoom
+        cluster owns the zoom as one grouped control
+        in the item table - the input capsule is the
+        strip's one faced control, the percent is
+        painted text read live, and the in place
+        editor parks on the cell it edits. the
+        status bar becomes the fact strip: the file
+        position, the dimensions and the frame
+        counter are the facts, the message rides the
+        flexible pane, and the zoom, the date and
+        the pixel pair leave for the cluster, the
+        properties dialog and the chip that follows
+        the cursor - a hover fact never owned a
+        pane. the pixel chip is a click-through,
+        never-activating topmost readout over the
+        canvas, its rounded shape on the shared
+        radius token, its formats the pos/rgb pair
+        the status bar used to carry, and its
+        settings row tells the truth: near the
+        cursor, not in the status bar - the
+        statusbar_pixel_info key never moved. the
+        verification turned up three findings and
+        the tree answers all three: the installer's
+        arch gate, the qoi decoder suite and the gl
+        runtime suite ride the workflow the bundle's
+        changes list claimed already rode it; the
+        gl stub's context create mirrors the
+        production wrap probe, so the runtime suite
+        runs green on a real EGL context - red
+        before, green after; and the design's
+        live-editor claim moves with the value, the
+        editor being the command bar's child now.
+        the mockup's models read the live constants
+        for both sides of every compare, so the
+        previews draw the shipped tree, and the
+        whitespace gate's own lesson rides along:
+        an added blank line is empty, not
+        tab-filled.
+
+Pre-release: Version 1.1.18-rc.1 (the touch hand-off round)
 
         the touch hand-off round takes its tag. the
         field build answered the report's two pains
