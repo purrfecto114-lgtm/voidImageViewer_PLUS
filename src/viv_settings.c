@@ -2325,7 +2325,7 @@ static void _viv_settings_restore(void)
 	if (config_pixel_info != (BYTE)_viv_settings_snap_pixel_info)
 	{
 		config_pixel_info = (BYTE)_viv_settings_snap_pixel_info;
-		
+
 		// the row decides whether the chip appears: off means gone, not
 		// stale (the next hover with the row on brings it back).
 		_viv_pixel_chip_hide();
@@ -3310,7 +3310,7 @@ static void _viv_settings_activate(int index,int x,int y)
 				case _VIV_SETTINGS_ID_PIXELINFO:
 					// the readouts repaint at once.
 					config_pixel_info = config_pixel_info ? 0 : 1;
-					
+
 					// the toggle never leaves a stale chip hovering.
 					_viv_pixel_chip_hide();
 

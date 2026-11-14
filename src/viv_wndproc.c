@@ -1730,7 +1730,7 @@ static LRESULT _viv_on_wm_mouseleave(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 		{
 			_viv_status_update();
 		}
-		
+
 		// the cursor left the canvas: the hover facts have no home to
 		// hold, the chip has no reason to hold either.
 		_viv_pixel_chip_hide();

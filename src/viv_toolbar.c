@@ -730,7 +730,7 @@ static void _viv_toolbar_measure(void)
 	
 	// the tools follow the fresh layout (rects, visibility, the play face).
 	_viv_toolbar_tooltip_sync();
-	
+
 	// the editor is the strip's child: the strip moved, the editor parks
 	// on its cell again (the status update used to own this call).
 	_viv_zoom_edit_layout();
@@ -899,7 +899,7 @@ static void _viv_toolbar_invalidate_item(int itemi)
 static int _viv_toolbar_zoom_cell_rect(RECT *rect)
 {
 	int itemi;
-	
+
 	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
 	{
 		if ((_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_ZOOM) && (_viv_toolbar_item_visible[itemi]))
@@ -908,11 +908,11 @@ static int _viv_toolbar_zoom_cell_rect(RECT *rect)
 			rect->top = (_viv_toolbar_bar_high - _VIV_TOOLBAR_DIP_Y(_VIV_TOOLBAR_TARGET)) / 2;
 			rect->right = rect->left + _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_ZOOM_CELL_WIDE);
 			rect->bottom = rect->top + _VIV_TOOLBAR_DIP_Y(_VIV_TOOLBAR_TARGET);
-			
+
 			return 1;
 		}
 	}
-	
+
 	return 0;
 }
 
@@ -929,7 +929,7 @@ int _viv_toolbar_zoom_cell(RECT *rect)
 	{
 		return 0;
 	}
-	
+
 	return 1;
 }
 
@@ -939,29 +939,29 @@ static int _viv_toolbar_zoom_zone(int x,int y)
 {
 	RECT cell;
 	int zone_x;
-	
+
 	if ((y < 0) || (y >= _viv_toolbar_bar_high) || (!_viv_toolbar_zoom_cell_rect(&cell)))
 	{
 		return -2;
 	}
-	
+
 	zone_x = cell.left - _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
-	
+
 	if ((x >= zone_x) && (x < cell.left))
 	{
 		return -1;
 	}
-	
+
 	if ((x >= cell.left) && (x < cell.right))
 	{
 		return 0;
 	}
-	
+
 	if ((x >= cell.right) && (x < cell.right + _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET)))
 	{
 		return 1;
 	}
-	
+
 	return -2;
 }
 
@@ -970,12 +970,12 @@ static int _viv_toolbar_zoom_zone(int x,int y)
 static void _viv_toolbar_invalidate_zoom(int zone)
 {
 	RECT cell;
-	
+
 	if ((zone == -2) || (!_viv_toolbar_hwnd) || (!_viv_toolbar_zoom_cell_rect(&cell)))
 	{
 		return;
 	}
-	
+
 	if (zone == -1)
 	{
 		cell.left -= _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
@@ -984,7 +984,7 @@ static void _viv_toolbar_invalidate_zoom(int zone)
 	{
 		cell.right += _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
 	}
-	
+
 	InvalidateRect(_viv_toolbar_hwnd,&cell,FALSE);
 }
 
@@ -994,9 +994,9 @@ static void _viv_toolbar_invalidate_zoom(int zone)
 static void _viv_toolbar_zoom_fire(int zone)
 {
 	int command_id;
-	
+
 	command_id = 0;
-	
+
 	if (zone < 0)
 	{
 		command_id = VIV_ID_VIEW_ZOOM_OUT;
@@ -1005,7 +1005,7 @@ static void _viv_toolbar_zoom_fire(int zone)
 	{
 		command_id = VIV_ID_VIEW_ZOOM_IN;
 	}
-	
+
 	if (command_id)
 	{
 		SendMessage(_viv_hwnd,WM_COMMAND,MAKEWPARAM(command_id,BN_CLICKED),0);
@@ -1014,7 +1014,7 @@ static void _viv_toolbar_zoom_fire(int zone)
 	{
 		_viv_set_zoom_dialog();
 	}
-	
+
 	// the strip never keeps a focus a click can land on it (the fire
 	// path's own rule): the keyboard shortcuts answer the next key press.
 	SetFocus(_viv_hwnd);
@@ -1248,10 +1248,10 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							int zface_top;
 							int zone;
 							int zx;
-							
+
 							_viv_toolbar_zoom_cell_rect(&zcell);
 							zface_top = zcell.top;
-							
+
 							zpen = CreatePen(PS_SOLID,1,viv_theme_color(VIV_TK_CHROME_LINE));
 							zold_pen = (HPEN)SelectObject(hdc,zpen);
 							zold_brush = SelectObject(hdc,viv_theme_brush(VIV_TK_INPUT));
@@ -1259,7 +1259,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							SelectObject(hdc,zold_brush);
 							SelectObject(hdc,zold_pen);
 							DeleteObject(zpen);
-							
+
 							// the press owns the zone faces while the capture holds (the
 							// arrows' rule): one cluster, so the state needs no item index.
 							zone = (_viv_toolbar_zoom_pressed != -2) ? _viv_toolbar_zoom_pressed : _viv_toolbar_zoom_hover;
@@ -1270,7 +1270,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 								SelectObject(hdc,GetStockObject(NULL_PEN));
 								RoundRect(hdc,zx + _VIV_TOOLBAR_DIP_X(2),zface_top + _VIV_TOOLBAR_DIP_Y(2),zx + _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET) - _VIV_TOOLBAR_DIP_X(2),zcell.bottom - _VIV_TOOLBAR_DIP_Y(2),_viv_toolbar_radius * 2,_viv_toolbar_radius * 2);
 							}
-							
+
 							zicon = glyphs_icon(GLYPH_MAGNIFIER_MINUS,_viv_toolbar_dark,_viv_toolbar_icon_size);
 							if (zicon)
 							{
@@ -1281,7 +1281,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							{
 								DrawIconEx(hdc,zcell.right + ((_VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET) - _viv_toolbar_icon_size) / 2),(zface_top + ((zcell.bottom - zface_top) - _viv_toolbar_icon_size) / 2),zicon,_viv_toolbar_icon_size,_viv_toolbar_icon_size,0,NULL,DI_NORMAL);
 							}
-							
+
 							// the percent is painted text (no edit control owns it): the
 							// value's one persistent home, read live at paint time.
 							string_printf(zoom_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT),_viv_zoom_percent());
@@ -1298,10 +1298,10 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 								SelectObject(hdc,zold_font);
 							}
 						}
-						
+
 						continue;
 					}
-					
+
 				hot = ((_viv_toolbar_item_enabled[itemi]) && ((itemi == _viv_toolbar_hover) || (itemi == _viv_toolbar_pressed))) ? 1 : 0;
 				
 				// the pressed content nudges one pixel down right, but only
@@ -1444,15 +1444,15 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			arrow = _viv_toolbar_arrow_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
 			
 			zone = _viv_toolbar_zoom_zone(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
-			
+
 			if (zone != _viv_toolbar_zoom_hover)
 			{
 				_viv_toolbar_invalidate_zoom(_viv_toolbar_zoom_hover);
 				_viv_toolbar_invalidate_zoom(zone);
-				
+
 				_viv_toolbar_zoom_hover = zone;
 			}
-			
+
 			if (arrow != _viv_toolbar_arrow_hover)
 			{
 				_viv_toolbar_invalidate_arrow(_viv_toolbar_arrow_hover);
@@ -1498,10 +1498,10 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			if (_viv_toolbar_zoom_hover != -2)
 			{
 				_viv_toolbar_invalidate_zoom(_viv_toolbar_zoom_hover);
-				
+
 				_viv_toolbar_zoom_hover = -2;
 			}
-			
+
 			if (_viv_toolbar_hover != -1)
 			{
 				_viv_toolbar_invalidate_item(_viv_toolbar_hover);
@@ -1543,23 +1543,23 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			// a disabled button never takes the press: no capture, no face,
 			// so the release can never fire it (the classic rule).
 			zone = _viv_toolbar_zoom_zone(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
-			
+
 			if (zone != -2)
 			{
 				// the zones press like the arrows: capture, the face, the
 				// fire on the release inside the same zone.
 				_viv_toolbar_invalidate_zoom(_viv_toolbar_zoom_pressed);
-				
+
 				_viv_toolbar_zoom_pressed = zone;
 				_viv_toolbar_zoom_hover = zone;
-				
+
 				SetCapture(hwnd);
-				
+
 				_viv_toolbar_invalidate_zoom(zone);
-				
+
 				return 0;
 			}
-			
+
 			if ((hit >= 0) && (_viv_toolbar_item_enabled[hit]))
 			{
 				// press and hold: the command fires on the release inside the
@@ -1624,27 +1624,27 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			if (_viv_toolbar_zoom_pressed != -2)
 			{
 				zone = _viv_toolbar_zoom_pressed;
-				
+
 				_viv_toolbar_zoom_pressed = -2;
-				
+
 				ReleaseCapture();
-				
+
 				hit_zone = _viv_toolbar_zoom_zone(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
-				
+
 				_viv_toolbar_invalidate_zoom(zone);
-				
+
 				_viv_toolbar_zoom_hover = hit_zone;
-				
+
 				_viv_toolbar_invalidate_zoom(hit_zone);
-				
+
 				if (hit_zone == zone)
 				{
 					_viv_toolbar_zoom_fire(zone);
 				}
-				
+
 				return 0;
 			}
-			
+
 			if (_viv_toolbar_pressed >= 0)
 			{
 				pressed = _viv_toolbar_pressed;
@@ -1671,7 +1671,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 		}
 		
 		case WM_CTLCOLOREDIT:
-			
+
 			// the in place zoom editor: the strip palette owns the colors so
 			// the field reads as part of the chrome, not a foreign control -
 			// the nav face and text token, the same pair the status pane's
@@ -1680,32 +1680,32 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			// offers no custom one; it lives only while the editor is open.)
 			SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_NAV_FACE));
 			SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));
-			
+
 			return (LRESULT)viv_theme_brush(VIV_TK_NAV_FACE);
-		
+
 		case WM_SETCURSOR:
 		{
 			// the hand over the percent cell: the cell opens the in place
 			// editor, the same promise the status pane made.
 			POINT pt;
 			RECT cell;
-			
+
 			if ((LOWORD(lParam) == HTCLIENT) && (_viv_toolbar_zoom_cell_rect(&cell)))
 			{
 				GetCursorPos(&pt);
 				ScreenToClient(hwnd,&pt);
-				
+
 				if (PtInRect(&cell,pt))
 				{
 					SetCursor(LoadCursor(NULL,IDC_HAND));
-					
+
 					return TRUE;
 				}
 			}
-			
+
 			break;
 		}
-		
+
 		case WM_CONTEXTMENU:
 		{
 			// the customize popup: right-clicking the strip toggles the
@@ -2046,14 +2046,14 @@ void _viv_toolbar_update_buttons(void)
 	// enable-state movement still owes the strip a repaint (the value
 	// moved, the face is the value's home).
 	zoom_now = _viv_zoom_percent();
-	
+
 	if (zoom_now != _viv_toolbar_zoom_last)
 	{
 		_viv_toolbar_zoom_last = zoom_now;
-		
+
 		changed = 1;
 	}
-	
+
 	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
 	{
 		int enable;

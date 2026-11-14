@@ -96,6 +96,15 @@ status probe, rewritten against the fact strip's role set (2344 layout
 cases replay the real extracted C); the changelog and stamp guards
 that retired with the panes they pinned.
 
+## one more repo note: the superseded patch stays in the bundle
+
+`audit/hwgl-npot-and-export-disarm.patch` does not ride in the repo:
+its quoted code predates the whitespace gate (space-before-tab in the
+recorded hunks), and `git diff --check` reads every added byte. the
+reasoning it carried lives in `audit/2026-10-27-hwgl-findings.md`, and
+the patch itself stays verbatim in the bundle zip it shipped in - it
+was always "for diffing only, never to be applied".
+
 ## what this round did not do
 
 - the golden manifest is untouched: it pins image renders, and the

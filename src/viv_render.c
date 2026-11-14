@@ -761,7 +761,7 @@ void _viv_update_src_pixel(int force,int update_statusbar)
 			{
 				_viv_pixel_chip_hide();
 			}
-			
+
 		}
 	}
 	else

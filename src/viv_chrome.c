@@ -621,7 +621,7 @@ void _viv_on_size(void)
 			// the x), so the height math only asks the strip how tall it is.
 			_viv_toolbar_layout(wide);
 		}
-		
+
 		// the band's own subtraction: once, whichever surface rides it.
 		if (_viv_menubar_high() || _viv_toolbar_high())
 		{
@@ -2480,57 +2480,57 @@ static LRESULT CALLBACK _viv_pixel_chip_proc(HWND hwnd,UINT msg,WPARAM wParam,LP
 			wchar_t rgb_buf[STRING_SIZE];
 			int pad;
 			int line_high;
-			
+
 			hdc = BeginPaint(hwnd,&ps);
-			
+
 			GetClientRect(hwnd,&rect);
 			FillRect(hdc,&rect,viv_theme_brush(VIV_TK_NAV_FACE));
-			
+
 			pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 			line_high = (rect.bottom - rect.top - pad * 2) / 2;
-			
+
 			string_printf(pos_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT),_viv_src_pixel_x,_viv_src_pixel_y);
 			string_printf(rgb_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT),_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
-			
+
 			font = _viv_ui_font(VIV_UI_FONT_NUMBER);
 			old_font = 0;
-			
+
 			if (font)
 			{
 				old_font = SelectObject(hdc,font);
 			}
-			
+
 			SetBkMode(hdc,TRANSPARENT);
 			SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
-			
+
 			line_rect.left = rect.left + pad;
 			line_rect.top = rect.top + pad;
 			line_rect.right = rect.right - pad;
 			line_rect.bottom = line_rect.top + line_high;
 			DrawTextW(hdc,pos_buf,-1,&line_rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
-			
+
 			line_rect.top = line_rect.bottom;
 			line_rect.bottom = rect.bottom - pad;
 			DrawTextW(hdc,rgb_buf,-1,&line_rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
-			
+
 			if (old_font)
 			{
 				SelectObject(hdc,old_font);
 			}
-			
+
 			EndPaint(hwnd,&ps);
-			
+
 			return 0;
 		}
-		
+
 		case WM_MOUSEACTIVATE:
-			
+
 			// the chip is a readout, never a target: the click beneath it
 			// belongs to the canvas (the transparent style already passes the
 			// mouse through - this keeps the focus story honest too).
 			return MA_NOACTIVATE;
 	}
-	
+
 	return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
@@ -2540,7 +2540,7 @@ static void _viv_pixel_chip_create(void)
 	{
 		return;
 	}
-	
+
 	// no class brush: the paint owns the face, and an erase that bypassed
 	// it must not flash white (the 1.1.03 lesson, again).
 	os_RegisterClassEx(
@@ -2551,7 +2551,7 @@ static void _viv_pixel_chip_create(void)
 		NULL,
 		"_VIV_PIXEL_CHIP",
 		0);
-	
+
 	_viv_pixel_chip_hwnd = os_CreateWindowEx(
 		WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
 		"_VIV_PIXEL_CHIP",
@@ -2576,83 +2576,83 @@ void _viv_pixel_chip_follow(void)
 	int line_high;
 	int radius;
 	HRGN rgn;
-	
+
 	if (!config_pixel_info)
 	{
 		return;
 	}
-	
+
 	_viv_pixel_chip_create();
-	
+
 	if (!_viv_pixel_chip_hwnd)
 	{
 		return;
 	}
-	
+
 	string_printf(pos_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT),_viv_src_pixel_x,_viv_src_pixel_y);
 	string_printf(rgb_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT),_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
-	
+
 	pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 	line_high = VIV_UI_SCALE(_VIV_PIXEL_CHIP_LINE,os_logical_high,96);
 	high = pad * 2 + line_high * 2;
-	
+
 	wide = 0;
-	
+
 	hdc = GetDC(_viv_pixel_chip_hwnd);
-	
+
 	if (hdc)
 	{
 		font = _viv_ui_font(VIV_UI_FONT_NUMBER);
 		old_font = 0;
-		
+
 		if (font)
 		{
 			old_font = SelectObject(hdc,font);
 		}
-		
+
 		if (GetTextExtentPoint32(hdc,pos_buf,string_get_length(pos_buf),&size) && (size.cx > wide))
 		{
 			wide = size.cx;
 		}
-		
+
 		if (GetTextExtentPoint32(hdc,rgb_buf,string_get_length(rgb_buf),&size) && (size.cx > wide))
 		{
 			wide = size.cx;
 		}
-		
+
 		if (old_font)
 		{
 			SelectObject(hdc,old_font);
 		}
-		
+
 		ReleaseDC(_viv_pixel_chip_hwnd,hdc);
 	}
-	
+
 	wide += pad * 2;
-	
+
 	// the rounded shape rides the shared radius token, cut fresh at every
 	// size (the region is the system's once set - never freed here).
 	radius = VIV_UI_SCALE(VIV_UI_RADIUS,os_logical_wide,96);
-	
+
 	if ((radius < 2) || (wide < radius * 4) || (high < radius * 4))
 	{
 		radius = 2;
 	}
-	
+
 	rgn = CreateRoundRectRgn(0,0,wide + 1,high + 1,radius * 2,radius * 2);
-	
+
 	if (rgn)
 	{
 		SetWindowRgn(_viv_pixel_chip_hwnd,rgn,FALSE);
 	}
-	
+
 	GetCursorPos(&pt);
-	
+
 	// the chip rides past the cursor's lower right, one pad clear of it -
 	// close enough to read as the pixel's own label, clear enough to keep
 	// the read beneath it visible.
 	SetWindowPos(_viv_pixel_chip_hwnd,HWND_TOPMOST,pt.x + pad,pt.y + pad,wide,high,SWP_NOACTIVATE | SWP_SHOWWINDOW);
-	
+
 	_viv_pixel_chip_tracking = 1;
 }
 
@@ -2661,8 +2661,7 @@ void _viv_pixel_chip_hide(void)
 	if ((_viv_pixel_chip_hwnd) && (_viv_pixel_chip_tracking))
 	{
 		_viv_pixel_chip_tracking = 0;
-		
+
 		ShowWindow(_viv_pixel_chip_hwnd,SW_HIDE);
 	}
 }
-
