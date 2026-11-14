@@ -66,6 +66,7 @@ extern void glFinish(void);
 #define _viv_gl_teximage2d glTexImage2D
 #define _viv_gl_texsubimage2d glTexSubImage2D
 static int _viv_gl_failed,_viv_gl_max_texture,_viv_gl_bgra=1,_viv_gl_npot=1;
+static GLint _viv_gl_wrap = GL_CLAMP;
 static int _viv_gl_last_pot_wide,_viv_gl_last_pot_high;
 static GLenum _viv_gl_last_format;
 static GLuint _viv_gl_texture;
