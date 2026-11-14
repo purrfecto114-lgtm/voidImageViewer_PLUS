@@ -1670,28 +1670,23 @@ int _viv_status_frame_pane_index(void)
 {
 	return _viv_status_frame_pane;
 }
-// semantic order, independent of the live comctl pane indexes.
+// semantic order, independent of the live comctl pane indexes. the
+// fact strip: the file position, the dimensions and the frame counter
+// are the facts; the message rides the flexible pane. the zoom left
+// for the command bar's cluster (one home for the value), the date
+// left for the properties dialog, and the pixel pair left for the
+// chip that follows the cursor - a hover fact never owned a pane.
 enum
 {
 	_VIV_STATUS_INDEX,
 	_VIV_STATUS_PRELOAD,
 	_VIV_STATUS_MESSAGE,
-	_VIV_STATUS_POS,
-	_VIV_STATUS_RGB,
 	_VIV_STATUS_FRAME,
-	_VIV_STATUS_DATE,
-	_VIV_STATUS_ZOOM,
 	_VIV_STATUS_DIMENSION,
 	_VIV_STATUS_ROLE_COUNT
 };
 
 static int _viv_status_roles[_VIV_STATUS_PART_MAX];
-static int _viv_status_zoom_pane = -1;
-
-int _viv_status_zoom_pane_index(void)
-{
-	return _viv_status_zoom_pane;
-}
 
 // the layout and the text store share one role map. a ninth candidate
 // gives way by the same priority as a width overflow: pos, rgb, frame,
@@ -1716,13 +1711,13 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *r
 
 	for (;;)
 	{
-		count = 3; // message, zoom and resolution always have a pane.
+		count = 2; // message and resolution always have a pane.
 		total = 0;
 
 		for (role=0; role<_VIV_STATUS_ROLE_COUNT; role++)
 		{
 			total += widths[role];
-			if ((widths[role]) && (role != _VIV_STATUS_MESSAGE) && (role != _VIV_STATUS_ZOOM) && (role != _VIV_STATUS_DIMENSION))
+			if ((widths[role]) && (role != _VIV_STATUS_MESSAGE) && (role != _VIV_STATUS_DIMENSION))
 			{
 				count++;
 			}
@@ -1733,21 +1728,9 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *r
 			break;
 		}
 
-		if (widths[_VIV_STATUS_POS])
-		{
-			widths[_VIV_STATUS_POS] = 0;
-		}
-		else if (widths[_VIV_STATUS_RGB])
-		{
-			widths[_VIV_STATUS_RGB] = 0;
-		}
-		else if (widths[_VIV_STATUS_FRAME])
+		if (widths[_VIV_STATUS_FRAME])
 		{
 			widths[_VIV_STATUS_FRAME] = 0;
-		}
-		else if (widths[_VIV_STATUS_DATE])
-		{
-			widths[_VIV_STATUS_DATE] = 0;
 		}
 		else
 		{
@@ -1776,16 +1759,12 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *r
 		total -= trim;
 	}
 
-	if (widths[_VIV_STATUS_ZOOM] > avail_wide)
-	{
-		widths[_VIV_STATUS_ZOOM] = avail_wide;
-	}
 
 	if (total > avail_wide)
 	{
 		// the last pane: the resolution, clipped only after the optional
 		// readouts have gone. the -1 edge still pins it to the right.
-		widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_ZOOM] - widths[_VIV_STATUS_PRELOAD];
+		widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_PRELOAD];
 		if (widths[_VIV_STATUS_DIMENSION] < 0)
 		{
 			widths[_VIV_STATUS_DIMENSION] = 0;
@@ -1807,14 +1786,14 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *r
 	edge = 0;
 	for (role=0; role<_VIV_STATUS_ROLE_COUNT; role++)
 	{
-		if ((!widths[role]) && (role != _VIV_STATUS_MESSAGE) && (role != _VIV_STATUS_ZOOM) && (role != _VIV_STATUS_DIMENSION))
+		if ((!widths[role]) && (role != _VIV_STATUS_MESSAGE) && (role != _VIV_STATUS_DIMENSION))
 		{
 			continue;
 		}
 
-		// leave room for zoom and dimension even if a future candidate
+		// leave room for the dimension pane even if a future candidate
 		// accidentally escapes the width/budget sweep above.
-		if ((role < _VIV_STATUS_ZOOM) && (count >= _VIV_STATUS_PART_MAX - 2))
+		if ((role < _VIV_STATUS_DIMENSION) && (count >= _VIV_STATUS_PART_MAX - 1))
 		{
 			continue;
 		}
@@ -1849,19 +1828,11 @@ void _viv_status_update(void)
 		wchar_t highbuf[STRING_SIZE];
 		wchar_t dimension_buf[STRING_SIZE];
 		wchar_t frame_buf[STRING_SIZE];
-		wchar_t pixel_pos_buf[STRING_SIZE];
-		wchar_t pixel_rgb_buf[STRING_SIZE];
 		wchar_t preload_buf[STRING_SIZE];
-		wchar_t zoom_buf[STRING_SIZE];
-		wchar_t date_buf[STRING_SIZE];
 		HDC hdc;
 		int dimension_wide;
 		int frame_wide;
 		int preload_wide;
-		int pixel_pos_wide;
-		int pixel_rgb_wide;
-		int zoom_wide;
-		int date_wide;
 		int minwide;
 		
 		GetClientRect(_viv_hwnd,&rect);
@@ -1873,10 +1844,7 @@ void _viv_status_update(void)
 			string_printf(index_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT),nav_index,_viv_playlist_count);
 		}
 
-		*zoom_buf = 0;
 		*preload_buf = 0;
-		*pixel_pos_buf = 0;
-		*pixel_rgb_buf = 0;
 		
 		if ((_viv_slot_current.image_wide) && (_viv_slot_current.image_high))
 		{
@@ -1888,12 +1856,6 @@ void _viv_status_update(void)
 		else
 		{
 			string_copy_utf8_string(dimension_buf,(const utf8_t *)"");
-		}
-
-		// the zoom pane text. shown whenever an image is loaded.
-		if ((_viv_slot_current.image_wide) && (_viv_slot_current.image_high))
-		{
-			string_printf(zoom_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT),_viv_zoom_percent());
 		}
 
 		if (*_viv_slot_current.fd.cFileName)
@@ -1988,63 +1950,11 @@ void _viv_status_update(void)
 			string_copy_utf8_string(preload_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PRELOAD));
 		}
 
-		// the file time pane: the local last-modified stamp of the loaded
-		// file (the remake status row: rgb and the date at the right edge).
-		*date_buf = 0;
 
-		if (*_viv_slot_current.fd.cFileName)
-		{
-			FILETIME local_filetime;
-			SYSTEMTIME systemtime;
-
-			if (FileTimeToLocalFileTime(&_viv_slot_current.fd.ftLastWriteTime,&local_filetime) &&
-			    FileTimeToSystemTime(&local_filetime,&systemtime))
-			{
-				wchar_t time_buf[64];
-				int date_len;
-
-				// the localized stamp: the system formatters take wide
-				// formats (the old wide-literal printf went through the
-				// narrow parser and rendered a lone "0").
-				date_buf[0] = 0;
-
-				GetDateFormatW(LOCALE_USER_DEFAULT,DATE_SHORTDATE,&systemtime,0,date_buf,STRING_SIZE - 1);
-
-				date_len = string_get_length(date_buf);
-
-				// the stamp's own budget: the date text, the space and the full
-				// 64-cell time tail must all fit - the guard reserves the tail
-				// instead of leaning on the cat's silent truncation, so no
-				// locale's maximal stamp can lose its clock half.
-				if ((date_len) && (date_len < (STRING_SIZE - 64)))
-				{
-					date_buf[date_len] = L' ';
-					date_buf[date_len + 1] = 0;
-				}
-
-				GetTimeFormatW(LOCALE_USER_DEFAULT,TIME_NOSECONDS,&systemtime,0,time_buf,64);
-
-				string_cat(date_buf,time_buf);
-			}
-		}
-
-		if (config_pixel_info)
-		{
-			if ((_viv_src_pixel_x >= 0) && (_viv_src_pixel_y >= 0))
-			{		
-				string_printf(pixel_pos_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT),_viv_src_pixel_x,_viv_src_pixel_y);
-				string_printf(pixel_rgb_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT),_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
-			}
-		}
-		
 		index_wide = 0;
-		date_wide = 0;
 		dimension_wide = 0;
 		frame_wide = 0;
 		preload_wide = 0;
-		pixel_pos_wide = 0;
-		pixel_rgb_wide = 0;
-		zoom_wide = 0;
 		minwide = (72 * os_logical_wide) / 96;
 
 		hdc = GetDC(_viv_status_hwnd);
@@ -2109,54 +2019,6 @@ void _viv_status_update(void)
 					}
 				}
 
-				SelectObject(hdc,hfont);
-				if (*pixel_pos_buf)
-				{
-					if (GetTextExtentPoint32(hdc,pixel_pos_buf,string_get_length(pixel_pos_buf),&size))
-					{
-						pixel_pos_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
-					}
-				}
-
-				if (*pixel_rgb_buf)
-				{
-					if (GetTextExtentPoint32(hdc,pixel_rgb_buf,string_get_length(pixel_rgb_buf),&size))
-					{
-						pixel_rgb_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
-					}
-				}
-				SelectObject(hdc,_viv_ui_font(VIV_UI_FONT_PERCENT));
-				if (*zoom_buf)
-				{
-					if (GetTextExtentPoint32(hdc,zoom_buf,string_get_length(zoom_buf),&size))
-					{
-						zoom_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
-						
-						if (zoom_wide < minwide)
-						{
-							zoom_wide = minwide;
-						}
-					}
-				}
-
-				SelectObject(hdc,hfont);
-
-				// the stamp measures on its own: a failed load with a
-				// filename still owns the date pane (it used to hide
-				// behind the zoom pane's block).
-				if (*date_buf)
-				{
-					if (GetTextExtentPoint32(hdc,date_buf,string_get_length(date_buf),&size))
-					{
-						// the breathing gap: the stamp pane rides immediately left
-						// of the resolution pane and the stock pane padding (five
-						// edges, shared by every pane) reads as glued-together text
-						// at each dpi - the stamp carries twelve extra logical
-						// pixels on its right so the time and the size never touch.
-						date_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96) + VIV_UI_SCALE(VIV_UI_GAP * 3,os_logical_wide,96);
-					}
-				}
-
 				SelectObject(hdc,last_font);
 			}
 			
@@ -2169,24 +2031,15 @@ void _viv_status_update(void)
 		widths[_VIV_STATUS_INDEX] = index_wide;
 		widths[_VIV_STATUS_PRELOAD] = preload_wide;
 		widths[_VIV_STATUS_MESSAGE] = 0;
-		widths[_VIV_STATUS_POS] = pixel_pos_wide;
-		widths[_VIV_STATUS_RGB] = pixel_rgb_wide;
 		widths[_VIV_STATUS_FRAME] = frame_wide;
-		widths[_VIV_STATUS_DATE] = date_wide;
-		widths[_VIV_STATUS_ZOOM] = zoom_wide;
 		widths[_VIV_STATUS_DIMENSION] = dimension_wide;
 
 		part_count = _viv_status_layout_parts(widths,rect.right - rect.left,part_array,_viv_status_roles);
-		_viv_status_zoom_pane = -1;
 		_viv_status_frame_pane = -1;
 		_viv_status_frame_wide = widths[_VIV_STATUS_FRAME];
 
 		for (parti=0; parti<part_count; parti++)
 		{
-			if ((_viv_status_roles[parti] == _VIV_STATUS_ZOOM) && (widths[_VIV_STATUS_ZOOM]))
-			{
-				_viv_status_zoom_pane = parti;
-			}
 			if (_viv_status_roles[parti] == _VIV_STATUS_FRAME)
 			{
 				_viv_status_frame_pane = parti;
@@ -2248,11 +2101,7 @@ void _viv_status_update(void)
 			texts[_VIV_STATUS_INDEX] = index_buf;
 			texts[_VIV_STATUS_PRELOAD] = preload_buf;
 			texts[_VIV_STATUS_MESSAGE] = text;
-			texts[_VIV_STATUS_POS] = pixel_pos_buf;
-			texts[_VIV_STATUS_RGB] = pixel_rgb_buf;
 			texts[_VIV_STATUS_FRAME] = frame_buf;
-			texts[_VIV_STATUS_DATE] = date_buf;
-			texts[_VIV_STATUS_ZOOM] = zoom_buf;
 			texts[_VIV_STATUS_DIMENSION] = dimension_buf;
 
 			for (parti=0; (parti<part_count) && (parti<_VIV_STATUS_PART_MAX); parti++)
@@ -2367,30 +2216,12 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 		text_color = viv_theme_color(VIV_TK_TEXT2);
 	}
 	
-	// the zoom readout is a quiet chip on the right; the editor keeps
-	// using the live pane rectangle rather than a hardcoded slot.
-	if (_viv_status_roles[part] == _VIV_STATUS_ZOOM)
-	{
-		HGDIOBJ old_pen;
-		HGDIOBJ old_brush;
-		RECT chip;
-
-		chip = draw_item->rcItem;
-		InflateRect(&chip,-2,-2);
-		old_pen = SelectObject(hdc,GetStockObject(NULL_PEN));
-		old_brush = SelectObject(hdc,viv_theme_brush(VIV_TK_INPUT));
-		RoundRect(hdc,chip.left,chip.top,chip.right,chip.bottom,VIV_UI_SCALE(VIV_UI_RADIUS * 2,os_logical_high,96),VIV_UI_SCALE(VIV_UI_RADIUS * 2,os_logical_high,96));
-		SelectObject(hdc,old_brush);
-		SelectObject(hdc,old_pen);
-	}
-
 	// draw the text inset like the native panes.
 	text_rect = draw_item->rcItem;
 	text_rect.left += VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 	text_rect.right -= VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 	
 	hfont = _viv_ui_font((_viv_status_roles[part] == _VIV_STATUS_MESSAGE) || (_viv_status_roles[part] == _VIV_STATUS_PRELOAD) ? VIV_UI_FONT_STATUS : VIV_UI_FONT_NUMBER);
-	if (_viv_status_roles[part] == _VIV_STATUS_ZOOM) hfont = _viv_ui_font(VIV_UI_FONT_PERCENT);
 	last_font = 0;
 	
 	if (hfont)

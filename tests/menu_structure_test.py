@@ -526,8 +526,9 @@ def t_pixel_budget():
 
 def t_status_vararg_safety():
     viv = read("src/viv.c").decode()
-    # the zoom pane call: exactly one string_printf uses the zoom format,
-    # inside _viv_status_update, passing exactly one int-returning call.
+    # the zoom format call: exactly one string_printf uses it - the
+    # command bar's painted percent now, inside the cluster's paint,
+    # passing exactly one int-returning call.
     calls = re.findall(
         r"string_printf\(\s*zoom_buf,\s*localization_get_string\(LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT\)\s*,([^;]*)\);",
         viv, re.S)
@@ -1062,25 +1063,28 @@ def t_zoom_percent_wiring():
     # always-true assert that carried it retired in round 113).
     check("the parts array rides the state cap",
           "int part_array[_VIV_STATUS_PART_MAX];" in viv)
-    check("zoom text is built for the pane",
-          "wchar_t zoom_buf[STRING_SIZE];" in viv and "*zoom_buf = 0;" in viv)
-    check("the zoom chip has a semantic right-side role",
-          "widths[_VIV_STATUS_ZOOM] = zoom_wide;" in viv and "_viv_status_zoom_pane = parti;" in viv)
-    check("the pane is measured like the other parts",
-          "GetTextExtentPoint32(hdc,zoom_buf,string_get_length(zoom_buf),&size)" in viv)
+    # quiet chrome: the value left the strip - the cluster paints it, the
+    # role set carries no zoom seat, and the cell is the one measure.
+    check("the zoom text is painted in the cluster",
+          "wchar_t zoom_buf[STRING_SIZE];" in viv and
+          "LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT" in viv)
+    check("the zoom value carries no status role (the cluster owns it)",
+          "_VIV_STATUS_ZOOM" not in viv and "_VIV_STATUS_DIMENSION," in viv)
+    check("the percent cell is measured once in the cluster",
+          "_viv_toolbar_zoom_cell_rect(&zoom_buf_cell)" in viv or "_viv_toolbar_zoom_cell_rect(&zcell);" in viv)
     check("the index and message panes have separate texts",
           "texts[_VIV_STATUS_INDEX] = index_buf;" in viv and "texts[_VIV_STATUS_MESSAGE] = text;" in viv)
     check("texts use the same role map as layout",
           "_viv_status_set(parti,texts[_viv_status_roles[parti]]);" in viv)
     check("the pane width is never below the minimum",
-          "if (zoom_wide < minwide)" in viv)
+          "if (frame_wide < minwide)" in viv)
 
     # rc.79: the click opens the in place editor on the pane (the 1998
     # centered dialog box is retired with its template, ids and strings)
     check("status click case 0 opens the editor",
           "_viv_set_zoom_dialog();" in viv)
     check("the frame toggle pane is located by its live index (the date pane's birth moved parts-minus-two onto the wrong pane)",
-          "else if ((item >= 0) && (item == _viv_status_frame_pane_index()))" in viv and
+          "if ((item >= 0) && (item == _viv_status_frame_pane_index()))" in viv and
           "int _viv_status_frame_pane_index(void)" in open("src/viv_chrome.c","rb").read().decode("latin-1") and
           "SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2" not in viv)
     check("hand cursor over the zoom pane",
@@ -1226,13 +1230,11 @@ def t_review_fixes():
     # M7: the status panes test the buffer content, not the pointer
     # (rc.7: the pane EXISTENCE is width driven - the layout can drop a
     #  pane to make room - but the buffer content still decides the text.)
-    check("pos/rgb panes dereference their buffers",
-          viv.count("if (*pixel_pos_buf)") >= 1 and
-          viv.count("if (*pixel_rgb_buf)") >= 1 and
-          "if (pixel_pos_buf)" not in viv and
-          "if (pixel_rgb_buf)" not in viv and
-          "widths[_VIV_STATUS_POS] = pixel_pos_wide;" in viv and
-          "widths[_VIV_STATUS_RGB] = pixel_rgb_wide;" in viv)
+    # quiet chrome: the hover facts left the strip for the cursor chip -
+    # the role set, the builders and the widths carry no pixel seat.
+    check("the pixel readouts carry no status seat",
+          "pixel_pos_buf" not in viv and "pixel_rgb_buf" not in viv and
+          "_VIV_STATUS_POS" not in viv and "_VIV_STATUS_RGB" not in viv)
 
     # preload OOB: the additional frame write is bounds checked
     check("preload additional frame write is bounds checked",
@@ -1769,13 +1771,14 @@ def t_round7():
     check("the right cluster gives way (frame, rgb, date, pos)",
           "if ((total <= avail_wide) && (count <= _VIV_STATUS_PART_MAX))" in viv)
     check("the resolution pane clips instead of vanishing",
-          "widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_ZOOM] - widths[_VIV_STATUS_PRELOAD];" in viv)
+          "widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_PRELOAD];" in viv)
     check("the panes use cumulative coordinates",
           "edge += widths[role];" in viv and "edges[count] = (role == _VIV_STATUS_DIMENSION) ? -1 : edge;" in viv)
     check("the message pane index follows the preload pane",
           "texts[_VIV_STATUS_PRELOAD] = preload_buf;" in viv and "texts[_VIV_STATUS_MESSAGE] = text;" in viv)
-    check("right cluster panes are width driven, not buffer driven",
-          "if (widths[_VIV_STATUS_POS])" in viv and "if (widths[_VIV_STATUS_RGB])" in viv)
+    check("the fact panes are width driven, not buffer driven",
+          "if (widths[_VIV_STATUS_FRAME])" in viv and
+          "total -= widths[_VIV_STATUS_INDEX];" in viv)
 
     # the owner drawn dark panes.
     # R70: the pane text store left the static prefix (chrome reads it
@@ -3632,9 +3635,10 @@ def t_carpet_repair_round76():
     check("the menu domain exports the row label resolver",
           "void _viv_menu_row_item_text(void *row,wchar_t *wbuf);" in read("src/viv_menu.h").decode("utf-8", errors="replace"))
 
-    check("the status date pane uses the localized system formatters",
-          "GetDateFormatW(LOCALE_USER_DEFAULT,DATE_SHORTDATE" in chrome
-          and "GetTimeFormatW(LOCALE_USER_DEFAULT,TIME_NOSECONDS" in chrome)
+    # quiet chrome: the date pane left the strip (the properties dialog
+    # owns a file's dates), and the localized formatters left with it.
+    check("the date pane's formatters left with the pane",
+          "GetDateFormatW" not in chrome and "GetTimeFormatW" not in chrome)
     check("the date pane never feeds a wide literal to the narrow parser",
           'string_printf(date_buf,L' not in chrome)
 
@@ -7739,35 +7743,22 @@ def t_gui_limits_round121():
     version = read("src/version.h").decode()
     changes = read("Changes.txt").decode("utf-8", errors="replace")
 
-    # 1. the breathing gap between the stamp and the size pane.
-    check("the stamp pane carries the breathing gap",
-          "date_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96) + VIV_UI_SCALE(VIV_UI_GAP * 3,os_logical_wide,96);" in chrome)
-    check("the gap comment names the pair",
-          "the stamp carries twelve extra logical" in chrome and
-          "so the time and the size never touch" in chrome)
-
-    # 2. the give-way order: pos, rgb, frame, date (the stamp survives
-    #    longest as half of the bottom-right pair).
+    # 1-3. quiet chrome: the stamp pane, its breathing gap and its buffer
+    # budgets left with the date pane, and the give-way is one fact deep
+    # (the frame counter, then the index's own optional block).
     i = chrome.find("static int _viv_status_layout_parts(")
-    body = chrome[i:chrome.find("// the new index is optional", i)]
-    check("the give-way body orders pos before rgb",
-          0 <= body.find("widths[_VIV_STATUS_POS] = 0;") < body.find("widths[_VIV_STATUS_RGB] = 0;"))
-    check("the give-way body orders rgb before frame",
-          0 <= body.find("widths[_VIV_STATUS_RGB] = 0;") < body.find("widths[_VIV_STATUS_FRAME] = 0;"))
-    check("the give-way body orders frame before date (the stamp holds out longest)",
-          0 <= body.find("widths[_VIV_STATUS_FRAME] = 0;") < body.find("widths[_VIV_STATUS_DATE] = 0;"))
-    check("the give-way comment names the priority",
-          "gives way by the same priority" in chrome and "the stamp is half of the bottom-right pair" in chrome)
-
-    # 3. the explicit buffer budgets.
-    check("the date concat reserves the full time tail",
-          "if ((date_len) && (date_len < (STRING_SIZE - 64)))" in chrome)
-    check("the decimal tail bounds its two hand-written cells",
-          "if (string_get_length(widebuf) < (STRING_SIZE - 2))" in chrome)
+    body = chrome[i:chrome.find("void _viv_status_update(void)", i)]
+    check("the give-way body drops the frame counter and the index follows",
+          0 <= body.find("widths[_VIV_STATUS_FRAME] = 0;") and
+          0 <= body.find("total -= widths[_VIV_STATUS_INDEX];") and
+          "widths[_VIV_STATUS_DATE] = 0;" not in body and
+          "widths[_VIV_STATUS_POS] = 0;" not in body)
+    check("the give-way comment names the frame's give-way",
+          "gives way by the same priority" in chrome)
 
     # 4. the pane budget: both sections gate the same way.
     check("the layout gates every optional right-cluster pane",
-          "(count >= _VIV_STATUS_PART_MAX - 2)" in chrome and "(count <= _VIV_STATUS_PART_MAX)" in chrome)
+          "(count >= _VIV_STATUS_PART_MAX - 1)" in chrome and "(count <= _VIV_STATUS_PART_MAX)" in chrome)
     check("the final pane writes are budget gated",
           "if (count >= _VIV_STATUS_PART_MAX)" in chrome and "(parti<_VIV_STATUS_PART_MAX)" in chrome)
     check("the budget comment names the lockstep rule",
@@ -9988,7 +9979,7 @@ def t_round136():
     #    was a mode nothing advertised, set by a click on a pane that
     #    shows no counter).
     check("the toggle asks the chrome for the pane's live index",
-          "else if ((item >= 0) && (item == _viv_status_frame_pane_index()))" in wnd)
+          "if ((item >= 0) && (item == _viv_status_frame_pane_index()))" in wnd)
     check("the pane index export answers -1 when the layout dropped the pane",
           "int _viv_status_frame_pane_index(void)" in chrome and
           "int _viv_status_frame_pane_index(void);" in read("src/viv_chrome.h").decode("latin-1"))

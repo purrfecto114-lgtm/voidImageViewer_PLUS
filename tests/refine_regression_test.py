@@ -185,19 +185,18 @@ static void fill(int *w,int index,int preload,int mask) {
     int i;
     for(i=0;i<_VIV_STATUS_ROLE_COUNT;i++) w[i]=0;
     w[_VIV_STATUS_INDEX]=index?90:0; w[_VIV_STATUS_PRELOAD]=preload?128:0;
-    w[_VIV_STATUS_ZOOM]=100; w[_VIV_STATUS_DIMENSION]=200;
-    w[_VIV_STATUS_POS]=(mask&1)?80:0; w[_VIV_STATUS_RGB]=(mask&2)?90:0;
-    w[_VIV_STATUS_FRAME]=(mask&4)?70:0; w[_VIV_STATUS_DATE]=(mask&8)?150:0;
+    w[_VIV_STATUS_DIMENSION]=200;
+    w[_VIV_STATUS_FRAME]=(mask&1)?70:0;
 }
 int main(void) {
     int w[_VIV_STATUS_ROLE_COUNT], edges[_VIV_STATUS_PART_MAX+1], roles[_VIV_STATUS_PART_MAX+1];
     int index,preload,mask,avail,n,i,cases=0;
     for(index=0;index<2;index++) for(preload=0;preload<2;preload++)
-    for(mask=0;mask<16;mask++) for(avail=0;avail<=2048;avail+=7) {
+    for(mask=0;mask<2;mask++) for(avail=0;avail<=2048;avail+=7) {
         int previous=0, seen=0;
         fill(w,index,preload,mask); edges[_VIV_STATUS_PART_MAX]=roles[_VIV_STATUS_PART_MAX]=0x12345678;
         n=_viv_status_layout_parts(w,avail,edges,roles);
-        assert(n>=3 && n<=_VIV_STATUS_PART_MAX && edges[n-1]==-1);
+        assert(n>=2 && n<=_VIV_STATUS_PART_MAX && edges[n-1]==-1);
         assert(edges[_VIV_STATUS_PART_MAX]==0x12345678 && roles[_VIV_STATUS_PART_MAX]==0x12345678);
         for(i=0;i<n;i++) {
             assert(roles[i]>=0 && roles[i]<_VIV_STATUS_ROLE_COUNT);
@@ -205,22 +204,21 @@ int main(void) {
             if(i) assert(roles[i]>roles[i-1]);
             if(i<n-1) { assert(edges[i]>=previous && edges[i]<=avail); previous=edges[i]; }
         }
-        assert(seen&(1<<_VIV_STATUS_MESSAGE)); assert(seen&(1<<_VIV_STATUS_ZOOM));
+        assert(seen&(1<<_VIV_STATUS_MESSAGE));
         assert(seen&(1<<_VIV_STATUS_DIMENSION)); cases++;
     }
-    { const int widths[]={690,610,520,450,380};
-      const int remaining[]={15,14,12,8,0};
-      for(i=0;i<5;i++) {
+    { const int widths[]={690,610,520,450,380,270,269};
+      const int remaining[]={1,1,1,1,1,1,0};
+      for(i=0;i<7;i++) {
         int actual;
-        fill(w,0,0,15); _viv_status_layout_parts(w,widths[i],edges,roles);
-        actual=(w[_VIV_STATUS_POS]?1:0)|(w[_VIV_STATUS_RGB]?2:0)|
-               (w[_VIV_STATUS_FRAME]?4:0)|(w[_VIV_STATUS_DATE]?8:0);
+        fill(w,0,0,1); _viv_status_layout_parts(w,widths[i],edges,roles);
+        actual=w[_VIV_STATUS_FRAME]?1:0;
         assert(actual==remaining[i]);
       }
     }
-    fill(w,1,1,15); n=_viv_status_layout_parts(w,10000,edges,roles);
-    assert(n==8 && !w[_VIV_STATUS_POS] && w[_VIV_STATUS_RGB] && w[_VIV_STATUS_FRAME] && w[_VIV_STATUS_DATE]);
-    printf("status: %d width/mask cases + priority thresholds + ninth-candidate budget passed\n",cases);
+    fill(w,1,1,1); n=_viv_status_layout_parts(w,10000,edges,roles);
+    assert(n==5 && w[_VIV_STATUS_FRAME] && w[_VIV_STATUS_INDEX] && w[_VIV_STATUS_PRELOAD]);
+    printf("status: %d width/mask cases + the frame give-way threshold + the fact strip budget passed\n",cases);
     return 0;
 }
 '''
@@ -234,8 +232,10 @@ int main(void) {
                    'LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING', 'LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK',
                    'LOCALIZATION_ID_STATUS_BAR_PRELOAD'):
         require(anchor in update, "status message chain: " + anchor)
-    for name in ("viv_dialogs.c", "viv_wndproc.c"):
-        require('_viv_status_zoom_pane_index()' in (root / 'src' / name).read_text(), "live zoom hit target")
+    # quiet chrome: the value's hit target is the command bar's cluster -
+    # the editor anchors there and the colour case rides the strip.
+    require('_viv_toolbar_zoom_cell(' in (root / 'src' / 'viv_dialogs.c').read_text(), "the editor anchors to the cluster's cell")
+    require('case WM_CTLCOLOREDIT:' in (root / 'src' / 'viv_toolbar.c').read_text(), "the editor's colour case rides the toolbar")
     return {"passed": True, "coverage": "production layout C + source wiring, not native status-control paint", "result": result}
 
 

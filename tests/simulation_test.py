@@ -1848,62 +1848,57 @@ def t_sim_gui_limits_round121():
     # --- the give-way priority, extracted and replayed ---
     i = chrome.find("static int _viv_status_layout_parts(")
     body = chrome[i:chrome.find("// the new index is optional", i)]
+    # quiet chrome: the fact strip's give-way is one fact pane deep - the
+    # frame counter drops, then the index's own optional block answers.
     order = []
-    for name in ("POS", "RGB", "FRAME", "DATE"):
+    for name in ("FRAME",):
         pos = body.find("widths[_VIV_STATUS_" + name + "] = 0;")
         check(f"the give-way body drops {name}",
               pos >= 0)
         if pos >= 0:
             order.append((pos, name))
-    order.sort()
     names = [n for _, n in order]
-    check("the give-way priority is pos, rgb, frame, date",
-          names == ["POS", "RGB", "FRAME", "DATE"], str(names))
+    check("the give-way priority is the frame counter (the hover facts left with the chip)",
+          names == ["FRAME"], str(names))
 
-    # replay: the drop loop against a shrinking bar.
+    # replay: the drop loop against a shrinking bar. the fact strip's
+    # facts: message (flexible), dimension (pinned right), index, preload
+    # and the frame counter (the one width-priced give-way).
     def drop_sequence(panes, avail):
         dropped = []
-        zoom, preload, dim = panes["zoom"], panes["preload"], panes["dimension"]
-        pos, rgb, frame, date = panes["pos"], panes["rgb"], panes["frame"], panes["date"]
-        while (zoom + preload + dim + frame + pos + rgb + date > avail) and (frame or rgb or pos or date):
-            if pos:
-                pos = 0; dropped.append("pos")
-            elif rgb:
-                rgb = 0; dropped.append("rgb")
-            elif frame:
+        message, preload, dim = panes["message"], panes["preload"], panes["dimension"]
+        index, frame = panes["index"], panes["frame"]
+        while (message + preload + dim + frame + index > avail) and (frame or index):
+            if frame:
                 frame = 0; dropped.append("frame")
             else:
-                date = 0; dropped.append("date")
-        return dropped, (zoom + preload + dim + frame + pos + rgb + date)
+                index = 0; dropped.append("index")
+        return dropped, (message + preload + dim + frame + index)
 
-    panes = {"zoom": 100, "preload": 0, "dimension": 200, "pos": 80, "rgb": 90, "frame": 70, "date": 150}
-    dropped, remaining = drop_sequence(panes, 690)  # everything fits
-    check("a wide bar drops nothing", dropped == [] and remaining == 690)
-    dropped, remaining = drop_sequence(panes, 610)  # one pane must go
-    check("the first to go is the position readout", dropped == ["pos"])
-    dropped, remaining = drop_sequence(panes, 520)
-    check("the rgb follows the position", dropped == ["pos", "rgb"])
-    dropped, remaining = drop_sequence(panes, 450)
-    check("the frame counter goes third", dropped == ["pos", "rgb", "frame"])
-    dropped, remaining = drop_sequence(panes, 380)
-    check("the stamp holds out longest of the optional four", dropped == ["pos", "rgb", "frame", "date"])
+    panes = {"message": 100, "preload": 0, "dimension": 200, "index": 80, "frame": 70}
+    dropped, remaining = drop_sequence(panes, 450)  # everything fits
+    check("a wide bar drops nothing", dropped == [] and remaining == 450)
+    dropped, remaining = drop_sequence(panes, 440)  # one pane must go
+    check("the first to go is the frame counter", dropped == ["frame"])
+    dropped, remaining = drop_sequence(panes, 370)
+    check("the index follows the counter", dropped == ["frame", "index"])
     dropped, remaining = drop_sequence(panes, 299)
     check("past the last drop the sum no longer shrinks (the clip owns the rest)",
-          dropped == ["pos", "rgb", "frame", "date"] and remaining == 300)
+          dropped == ["frame", "index"] and remaining == 300)
 
     # --- the pane budget, extracted and replayed ---
     m = re.search(r"#define\s+_VIV_STATUS_PART_MAX\s+(\d+)", state)
     check("the parts array holds eight slots", m is not None and m.group(1) == "8")
     MAX = int(m.group(1)) if m else 0
-    # six optional candidates now include the split index. a wide bar
-    # with every candidate must still drop POS to stay inside eight slots.
-    unconditional, optional = 3, 6
-    check("the ninth candidate needs the explicit budget",
-          unconditional + optional == MAX + 1)
+    # the fact strip's five roles ride inside the eight slots; the count
+    # guard stays for whatever the future grows into the walk.
+    unconditional, optional = 2, 3
+    check("the fact strip rides inside the slot budget",
+          unconditional + optional <= MAX)
     check("the production budget prices slots as well as width",
           "(count <= _VIV_STATUS_PART_MAX)" in body)
-    check("the writer reserves the two pinned right panes",
-          "(count >= _VIV_STATUS_PART_MAX - 2)" in chrome)
+    check("the writer reserves the pinned right pane",
+          "(count >= _VIV_STATUS_PART_MAX - 1)" in chrome)
     check("the final write remains bounded",
           "if (count >= _VIV_STATUS_PART_MAX)" in chrome)
     check("the layout and text use the same roles",
@@ -1931,16 +1926,12 @@ def t_sim_gui_limits_round121():
     check("the ladder answers off at zero, one at one, many above",
           [ladder(0), ladder(1), ladder(5), ladder(8)] == ["off", "one", "many:5", "many:8"])
 
-    # --- the stamp's date+time budget ---
-    m = re.search(r"#define\s+STRING_SIZE\s+(\d+)", string_h)
-    SS = int(m.group(1)) if m else 0
-    m = re.search(r"if \(\(date_len\) && \(date_len < \(STRING_SIZE - (\d+)\)\)\)", chrome)
-    tail = int(m.group(1)) if m else -1
-    check("the stamp guard reserves the full 64-cell time tail", tail == 64)
-    worst_date = SS - tail - 1  # the guard is strict: date_len < SS - 64
-    worst_total = worst_date + 1 + (tail - 1) + 1  # date + space + 63 time chars + terminator
-    check("the worst-case stamp fits the buffer exactly",
-          worst_total == SS and worst_date + 1 + 63 <= SS - 1, str(worst_total))
+    # --- the stamp's date+time budget retired ---
+    # quiet chrome: the stamp pane left the strip (a file's own dates live
+    # in the properties dialog), and the guard walked out with it - the
+    # buffer arithmetic it pinned has no subject in the tree anymore.
+    check("the stamp guard left with the date pane",
+          "date_len < (STRING_SIZE" not in chrome and "GetDateFormatW" not in chrome)
 
     # --- the zoom editor's four-digit ceiling ---
     m = re.search(r"SendMessage\(hwnd,EM_SETLIMITTEXT,(\d+),0\);", dialogs)

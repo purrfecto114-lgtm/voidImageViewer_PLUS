@@ -1244,7 +1244,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							HGDIOBJ zold_font;
 							HICON zicon;
 							HFONT zfont;
-							wchar_t zpct[STRING_SIZE];
+							wchar_t zoom_buf[STRING_SIZE];
 							int zface_top;
 							int zone;
 							int zx;
@@ -1284,7 +1284,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 							
 							// the percent is painted text (no edit control owns it): the
 							// value's one persistent home, read live at paint time.
-							string_printf(zpct,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT),_viv_zoom_percent());
+							string_printf(zoom_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT),_viv_zoom_percent());
 							zfont = _viv_ui_font(VIV_UI_FONT_PERCENT);
 							zold_font = 0;
 							if (zfont)
@@ -1292,7 +1292,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 								zold_font = SelectObject(hdc,zfont);
 							}
 							SetTextColor(hdc,text_color);
-							DrawTextW(hdc,zpct,-1,&zcell,DT_SINGLELINE | DT_CENTER | DT_VCENTER);
+							DrawTextW(hdc,zoom_buf,-1,&zcell,DT_SINGLELINE | DT_CENTER | DT_VCENTER);
 							if (zold_font)
 							{
 								SelectObject(hdc,zold_font);

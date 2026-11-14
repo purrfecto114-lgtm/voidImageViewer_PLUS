@@ -2526,7 +2526,7 @@ static LRESULT _viv_on_wm_themechanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM l
 static LRESULT _viv_on_wm_setcursor(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 
-	// hand cursor over the zoom chip at its live pane index.
+	// hand cursor over the frame counter pane (the click toggles the numbering direction, so the pane promises it).
 	if (_viv_status_hwnd && ((HWND)wParam == _viv_status_hwnd))
 	{
 		POINT pt;
@@ -2535,13 +2535,6 @@ static LRESULT _viv_on_wm_setcursor(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 		GetCursorPos(&pt);
 		ScreenToClient(_viv_status_hwnd,&pt);
 		
-		if ((_viv_status_zoom_pane_index() >= 0) && (SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_zoom_pane_index(),(LPARAM)&pane_rect)) && (PtInRect(&pane_rect,pt)))
-		{
-			SetCursor(LoadCursor(NULL,IDC_HAND));
-			
-			return TRUE;
-		}
-
 		// the frame counter pane toggles the same way - it earns the same hand.
 		if ((_viv_status_frame_pane_index() >= 0) && (SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_frame_pane_index(),(LPARAM)&pane_rect)) && (PtInRect(&pane_rect,pt)))
 		{
@@ -2606,11 +2599,8 @@ static LRESULT _viv_on_wm_notify(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 							item = (int)SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 1;
 						}
 						
-						if ((item >= 0) && (item == _viv_status_zoom_pane_index()))
-						{
-							_viv_set_zoom_dialog();
-						}
-						else if ((item >= 0) && (item == _viv_status_frame_pane_index()))
+						// the zoom pane's click moved with the value: the command bar's cluster owns the editor now.
+						if ((item >= 0) && (item == _viv_status_frame_pane_index()))
 						{
 							config_frame_minus = !config_frame_minus;
 							_viv_status_update();
