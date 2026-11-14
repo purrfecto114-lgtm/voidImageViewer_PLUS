@@ -33,8 +33,28 @@ OUT = os.path.join(ROOT, "audit", "previews")
 # reports came in at.
 SCALE = 2
 
-FONT_CJK = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
-FONT_CJK_BOLD = "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"
+# the candidates run debian's cjk package name first and the flat
+# Noto Sans SC build second, so the renderer works on both hosts.
+_FONT_CANDIDATES = (
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/chinese/NotoSansSC-Regular.ttf",
+)
+_FONT_CANDIDATES_BOLD = (
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/truetype/chinese/NotoSansSC-Bold.ttf",
+)
+
+
+def _font_path(candidates):
+    import os as _os
+    for cand in candidates:
+        if _os.path.exists(cand):
+            return cand
+    return candidates[0]
+
+
+FONT_CJK = _font_path(_FONT_CANDIDATES)
+FONT_CJK_BOLD = _font_path(_FONT_CANDIDATES_BOLD)
 
 _fonts = {}
 
@@ -274,7 +294,9 @@ def live_metrics():
         "toolbar_gap": pick(tb, "_VIV_TOOLBAR_ICON_TEXT_GAP", 6),
         "toolbar_pad": pick(tb, "_VIV_TOOLBAR_BUTTON_PAD", 12),
         "toolbar_button_gap": pick(tb, "_VIV_TOOLBAR_BUTTON_GAP", 8),
-        "toolbar_sep_high": pick(tb, "_VIV_TOOLBAR_SEP_HIGH", 16),
+        "toolbar_sep_high": pick(tb, "_VIV_TOOLBAR_SEP_HIGH", 20),
+        "toolbar_target": pick(tb, "_VIV_TOOLBAR_TARGET", 44),
+        "toolbar_zoom_cell": pick(tb, "_VIV_TOOLBAR_ZOOM_CELL_WIDE", 72),
         "toolbar_radius": pick(tb, "_VIV_TOOLBAR_RADIUS", 4),
         # viv_theme.h
         "ui_radius": pick(th, "VIV_UI_RADIUS", 6),
@@ -287,6 +309,11 @@ def live_metrics():
         "set_content_pad": pick(st, "_VIV_SETTINGS_CONTENT_PAD", 24),
         "set_content_top": pick(st, "_VIV_SETTINGS_CONTENT_TOP", 18),
         "set_section_high": pick(st, "_VIV_SETTINGS_SECTION_HIGH", 30),
+        "set_section_air": pick(st, "_VIV_SETTINGS_SECTION_AIR", 6),
+        "set_section_rule": pick(st, "_VIV_SETTINGS_SECTION_RULE", 22),
+        "set_label_high": pick(st, "_VIV_SETTINGS_LABEL_HIGH", 20),
+        "set_desc_mid": pick(st, "_VIV_SETTINGS_DESC_MID", 32),
+        "set_label_col": pick(st, "_VIV_SETTINGS_LABEL_COL", 320),
         "set_desc_high": pick(st, "_VIV_SETTINGS_DESC_HIGH", 18),
         "set_row_high": pick(st, "_VIV_SETTINGS_ROW_HIGH", 34),
         "set_row_high_desc": pick(st, "_VIV_SETTINGS_ROW_HIGH_DESC", 52),
@@ -298,7 +325,9 @@ def live_metrics():
         "pill_scale_num": pick(zu, "_ZOOMUI_PILL_SCALE_NUM", 9),
         "pill_scale_den": pick(zu, "_ZOOMUI_PILL_SCALE_DEN", 10),
         "pill_margin": 6,
-        "menubar_high": 22,
+        # the one command band: the menus and the commands are siblings at
+        # the same y, so the band rides the command strip's own height.
+        "menubar_high": pick(tb, "_VIV_TOOLBAR_BAR_HIGH", 48),
     }
     num = m["pill_scale_num"]
     den = m["pill_scale_den"]
@@ -349,53 +378,59 @@ def current_main(theme, wide=1180, high=720, lang="en"):
                 "LOCALIZATION_ID_SLIDESHOW", "LOCALIZATION_ID_NAVIGATE", "LOCALIZATION_ID_HELP"):
         label = S.get(key, "?").replace("&", "")
         c.text(x, M["menubar_high"] / 2, label, f, theme["VIV_TK_TEXT"], anchor="lm")
-        x += c.text_size(label, f)[0] + 22
+        x += c.text_size(label, f)[0] + 16
+    menubar_w = x
 
-    # --- toolbar
-    ty = M["menubar_high"]
-    c.rect((0, ty, wide, ty + M["toolbar_high"]), fill=theme["VIV_TK_CHROME"])
+    # --- the command cluster: the band's right side, one strip with the menus
+    ty = 0
+    bh = M["menubar_high"]
+    c.line([(0, 0), (wide, 0)], theme["VIV_TK_CHROME_LINE"])
     items = [
-        ("sep", 0, None, None),
-        ("btn", 8, "LOCALIZATION_ID_TOOLBAR_OPEN", "LOCALIZATION_ID_TOOLBAR_OPEN"),
-        ("sep", 0, None, None),
-        ("btn", 0, "LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON", None),
-        ("btn", 3, "LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON", None),
-        ("btn", 1, "LOCALIZATION_ID_TOOLBAR_PLAY_SLIDESHOW_BUTTON", "LOCALIZATION_ID_TOOLBAR_PAUSE_SLIDESHOW_BUTTON"),
-        ("sep", 0, None, None),
-        ("btn", 5, "LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON", None),
-        ("btn", 4, "LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON", None),
-        ("sep", 0, None, None),
-        ("btn", 9, "LOCALIZATION_ID_TOOLBAR_ZOOM_OUT_BUTTON", None),
-        ("btn", 10, "LOCALIZATION_ID_TOOLBAR_ZOOM_IN_BUTTON", None),
-        ("sep", 0, None, None),
-        ("btn", 11, "LOCALIZATION_ID_TOOLBAR_ROTATE", None),
-        ("sep", 0, None, None),
-        ("btn", 12, "LOCALIZATION_ID_TOOLBAR_IMAGE_INFO", None),
+        ("sep", 0),
+        ("btn", 8),
+        ("sep", 0),
+        ("btn", 0), ("btn", 3), ("btn", 1),
+        ("sep", 0),
+        ("btn", 5), ("btn", 4),
+        ("sep", 0),
+        ("zoom", 0),
+        ("sep", 0),
+        ("btn", 11),
+        ("sep", 0),
+        ("btn", 12),
     ]
-    x = 4
+    x = menubar_w + 8
     ic = M["toolbar_icon"]
-    for kind, gid, lbl_key, alt_key in items:
+    tgt = M["toolbar_target"]
+    for kind, gid in items:
         if kind == "sep":
-            # the separator: a one pixel line in a slot of two button gaps
-            # plus the line, and the line itself is sixteen dip tall in a
-            # forty dip bar.
             slot = M["toolbar_button_gap"] * 2 + 1
-            c.line([(x + slot / 2.0, ty + (M["toolbar_high"] - M["toolbar_sep_high"]) / 2.0),
-                    (x + slot / 2.0, ty + (M["toolbar_high"] + M["toolbar_sep_high"]) / 2.0)],
+            c.line([(x + slot / 2.0, (bh - M["toolbar_sep_high"]) / 2.0),
+                    (x + slot / 2.0, (bh + M["toolbar_sep_high"]) / 2.0)],
                    theme["VIV_TK_CHROME_LINE"])
             x += slot
             continue
-        label = S.get(lbl_key, "?")
-        wlab = c.text_size(label, f)[0]
-        bw = M["toolbar_pad"] * 2 + ic + M["toolbar_gap"] + wlab
+        if kind == "zoom":
+            # the cluster: the one control with a face - the input capsule,
+            # the painted percent between the two handles.
+            cw_ = tgt * 2 + M["toolbar_zoom_cell"]
+            cy_ = (bh - tgt) / 2.0
+            c.roundrect((x, cy_, x + cw_, cy_ + tgt), tgt / 2.0,
+                        fill=theme["VIV_TK_INPUT"], outline=theme["VIV_TK_LINE"])
+            c.paste(icon(9, ic, dark=theme.mode == "dark"),
+                    x + (tgt - ic) / 2.0, cy_ + (tgt - ic) / 2.0)
+            c.text(x + tgt + M["toolbar_zoom_cell"] / 2.0, bh / 2.0, "100%",
+                   font(12, True), theme["VIV_TK_TEXT"], anchor="mm")
+            c.paste(icon(10, ic, dark=theme.mode == "dark"),
+                    x + tgt + M["toolbar_zoom_cell"] + (tgt - ic) / 2.0, cy_ + (tgt - ic) / 2.0)
+            x += cw_
+            continue
         c.paste(icon(gid, ic, dark=theme.mode == "dark"),
-                x + M["toolbar_pad"], ty + (M["toolbar_high"] - ic) / 2.0)
-        c.text(x + M["toolbar_pad"] + ic + M["toolbar_gap"], M["toolbar_high"] / 2.0 + ty,
-               label, f, theme["VIV_TK_TEXT"], anchor="lm")
-        x += bw + M["toolbar_button_gap"]
+                x + (tgt - ic) / 2.0, (bh - ic) / 2.0)
+        x += tgt
 
     # --- canvas
-    cy = ty + M["toolbar_high"]
+    cy = bh
     ch = high - cy - M["status_high"]
     c.paste(photo(wide, ch, theme), 0, cy)
 
@@ -404,13 +439,26 @@ def current_main(theme, wide=1180, high=720, lang="en"):
     c.rect((0, sy, wide, high), fill=theme["VIV_TK_CHROME"])
     c.line([(0, sy), (wide, sy)], theme["VIV_TK_CHROME_LINE"])
     sf = font(11)
-    panes = ["100%", "3 / 27", "5712 x 4284", "24.5 MP", "Frame 1 / 1", "2026-10-27"]
+    # the fact strip: the position, the dimensions and the frame counter -
+    # the zoom left for the cluster, the date for the properties dialog,
+    # the pixel pair for the chip that follows the cursor.
+    panes = ["3 / 27", "5712 x 4284  (24.5 MP)", "Frame 1 / 1"]
     px = 12
     for i, p in enumerate(panes):
         c.text(px, sy + M["status_high"] / 2.0, p, sf, theme["VIV_TK_TEXT2"], anchor="lm")
         px += c.text_size(p, sf)[0] + 26
-        if i == 2:
+        if i == 0:
             c.line([(px - 13, sy + 6), (px - 13, sy + M["status_high"] - 6)], theme["VIV_TK_CHROME_LINE"])
+
+    # --- the pixel chip: the hover facts' readout, riding past the cursor
+    chip_w, chip_h = 128, 56
+    chx, chy = wide * 0.55, high * 0.52
+    c.roundrect((chx, chy, chx + chip_w, chy + chip_h), 12,
+                fill=theme["VIV_TK_NAV_FACE"], outline=theme["VIV_TK_LINE"])
+    c.text(chx + 10, chy + chip_h * 0.28, "POS 5712, 284", font(11),
+           theme["VIV_TK_TEXT"], anchor="lm")
+    c.text(chx + 10, chy + chip_h * 0.72, "RGB 222, 116, 84", font(11),
+           theme["VIV_TK_TEXT"], anchor="lm")
 
     # --- the floating pill: the transport and the zoom, over the canvas
     cells = [("g", 0), ("g", 3), ("g", 1), ("sep",), ("g", 9), ("pct", "100%"), ("g", 10)]
@@ -460,162 +508,12 @@ R = {
 
 
 def redesign_main(theme, wide=1180, high=720, lang="en"):
-    """the redesigned chrome."""
-    S = EN if lang == "en" else ZH
-    c = Canvas(wide, high, theme["VIV_TK_FRAME"])
-    dark = theme.mode == "dark"
-    f = font(12)
-    fsmall = font(11)
+    """the redesign, drawn - which is the shipped tree since the round
+    landed. the model used to carry its own aspirational chrome (the
+    right-aligned cluster, the count pane); the compare previews pin the
+    landing now, so both sides draw the same code-honest picture."""
+    return current_main(theme, wide=wide, high=high, lang=lang)
 
-    # --- the command bar: menus on the left, commands on the right
-    bh = R["cmd_high"]
-    c.rect((0, 0, wide, bh), fill=theme["VIV_TK_CHROME"])
-    c.line([(0, bh - 1), (wide, bh - 1)], theme["VIV_TK_CHROME_LINE"])
-
-    x = R["menu_pad"]
-    for key in ("LOCALIZATION_ID_FILE", "LOCALIZATION_ID_EDIT", "LOCALIZATION_ID_VIEW",
-                "LOCALIZATION_ID_SLIDESHOW", "LOCALIZATION_ID_NAVIGATE", "LOCALIZATION_ID_HELP"):
-        label = S.get(key, "?").replace("&", "")
-        c.text(x, bh / 2.0, label, f, theme["VIV_TK_TEXT"], anchor="lm")
-        x += c.text_size(label, f)[0] + 24
-
-    # the divider between the two groups: the same height the separators
-    # inside the command cluster use.
-    div_x = x + 4
-    c.line([(div_x, (bh - R["sep_high"]) / 2.0), (div_x, (bh + R["sep_high"]) / 2.0)],
-           theme["VIV_TK_CHROME_LINE"])
-
-    # --- the command cluster, laid out from the right.
-    #
-    # icon first, and the reason is the toolbar's own width problem: the
-    # labels are localized, so the strip's width is a property of the
-    # language. measured with this tree's own labels at the menu font,
-    # the ten labelled buttons want 1232 dip in english and 1005 in
-    # chinese - the layout cannot be reasoned about in one locale, and
-    # in english the strip already outgrows a normal window (the code
-    # says so itself in the comment on the icon-only mode). an icon
-    # only cluster is the same width in every language, so the bar stops
-    # being a function of the locale.
-    #
-    # the hierarchy is carried by the grouping and the weight, not by
-    # the labels: the transport and the view verbs ride at full text
-    # weight, the tools ride muted, and the zoom cluster is the one
-    # control that owns a value, so it is the one control with a face.
-    groups = [
-        [("btn", 8, 2)],                       # open
-        [("btn", 11, 2), ("btn", 12, 2)],      # rotate, image info
-        [("zoom", 0, None, 0)],
-        [("btn", 4, 1), ("btn", 5, 1)],        # best fit, actual size
-        [("btn", 0, 1), ("btn", 3, 1), ("btn", 1, 1)],   # transport
-    ]
-    right = wide - R["menu_pad"]
-
-    def measure(groups):
-        total = 0
-        for gi, g in enumerate(groups):
-            for item in g:
-                kind = item[0]
-                total += 96 if kind == "zoom" else (R["cmd_pad"] * 2 + R["cmd_icon"])
-            if gi:
-                total += R["group_gap"] + R["sep_slot"]
-        return total
-
-    x = right - measure(groups)
-    for gi, g in enumerate(groups):
-        if gi:
-            x += R["group_gap"]
-            sx = x + R["sep_slot"] / 2.0
-            c.line([(sx, (bh - R["sep_high"]) / 2.0), (sx, (bh + R["sep_high"]) / 2.0)],
-                   theme["VIV_TK_CHROME_LINE"])
-            x += R["sep_slot"]
-        for item in g:
-            kind, gid, tier = item[0], item[1], item[2]
-            if kind == "zoom":
-                cw = 96
-                chh = R["zoom_cluster_h"]
-                cy = (bh - chh) / 2.0
-                c.roundrect((x, cy, x + cw, cy + chh), chh / 2.0,
-                            fill=theme["VIV_TK_INPUT"], outline=theme["VIV_TK_LINE"])
-                c.paste(icon(9, 18, dark=dark), x + 11, cy + (chh - 18) / 2.0)
-                c.text(x + cw / 2.0, cy + chh / 2.0, "100%", font(13, True),
-                       theme["VIV_TK_TEXT"], anchor="mm")
-                c.paste(icon(10, 18, dark=dark), x + cw - 29, cy + (chh - 18) / 2.0)
-                x += cw
-                continue
-            col = theme["VIV_TK_TEXT"] if tier == 1 else theme["VIV_TK_TEXT2"]
-            bw = R["cmd_pad"] * 2 + R["cmd_icon"]
-            c.paste(icon(gid, R["cmd_icon"], dark=dark), x + R["cmd_pad"],
-                    (bh - R["cmd_icon"]) / 2.0)
-            x += bw
-
-    # --- the canvas: the band is shorter, the image gets the room
-    cy = bh
-    ch = high - cy - R["fact_high"]
-    c.paste(photo(wide, ch, theme), 0, cy)
-
-    # --- the fact strip: three facts, nothing else
-    sy = high - R["fact_high"]
-    c.rect((0, sy, wide, high), fill=theme["VIV_TK_CHROME"])
-    c.line([(0, sy), (wide, sy)], theme["VIV_TK_CHROME_LINE"])
-    facts = ["3 / 27", "5712 x 4284  ·  24.5 MP", "Frame 1 / 1"]
-    fx = 14
-    for i, p in enumerate(facts):
-        c.text(fx, sy + R["fact_high"] / 2.0, p, fsmall, theme["VIV_TK_TEXT2"], anchor="lm")
-        fx += c.text_size(p, fsmall)[0] + 28
-        if i == 0:
-            c.line([(fx - 14, sy + 6), (fx - 14, sy + R["fact_high"] - 6)],
-                   theme["VIV_TK_CHROME_LINE"])
-    # the right end carries the transient slot the code keeps for its
-    # temp text, and the preload state.
-    c.text(wide - 14, sy + R["fact_high"] / 2.0, "27 images", fsmall,
-           theme["VIV_TK_CHROME_MUTED"], anchor="rm")
-
-    # --- the pixel chip: a hover fact belongs to the pointer, not to a
-    # permanent pane. this is where the status bar's two pixel panes go.
-    chip_w, chip_h = 132, 24
-    cxp, cyp = wide * 0.44, cy + ch * 0.62
-    c.roundrect((cxp, cyp, cxp + chip_w, cyp + chip_h), 4,
-                fill=theme["VIV_TK_FACE"], outline=theme["VIV_TK_LINE"])
-    c.text(cxp + 10, cyp + chip_h / 2.0, "4284,  5712", font(11),
-           theme["VIV_TK_TEXT2"], anchor="lm")
-    c.roundrect((cxp, cyp + chip_h + 4, cxp + 96, cyp + chip_h + 4 + 22), 4,
-                fill=theme["VIV_TK_FACE"], outline=theme["VIV_TK_LINE"])
-    c.rect((cxp + 8, cyp + chip_h + 12, cxp + 20, cyp + chip_h + 24),
-           fill=(222, 116, 84))
-    c.text(cxp + 26, cyp + chip_h + 15, "#DE7454", font(11),
-           theme["VIV_TK_TEXT2"], anchor="lm")
-
-    # --- the floating pill: the transport and the zoom, unchanged in
-    # shape, but the percentage it carries is now an echo of the command
-    # bar's cluster rather than the only copy of the fact.
-    cells = [("g", 0), ("g", 3), ("g", 1), ("sep",), ("g", 9), ("pct", "100%"), ("g", 10)]
-    cw, chh = M["pill_cell_w"], M["pill_cell_h"]
-    gap = M["pill_gap"]
-    row_w = sum(cw if c[0] != "sep" else 1 for c in cells) + gap * (len(cells) - 1)
-    pw = row_w + M["pill_margin"] * 2
-    ph = chh + M["pill_margin"] * 2
-    px = wide - pw - 24
-    py = cy + ch - ph - 24
-    c.roundrect((px, py, px + pw, py + ph), ph / 2.0, fill=theme["VIV_TK_FACE"],
-                outline=theme["VIV_TK_LINE"])
-    cx = px + M["pill_margin"]
-    for cell in cells:
-        if cell[0] == "g":
-            c.paste(icon(cell[1], 20, dark=dark), cx + (cw - 20) / 2.0,
-                    py + M["pill_margin"] + (chh - 20) / 2.0)
-            cx += cw + gap
-        elif cell[0] == "pct":
-            c.text(cx + cw / 2.0, py + M["pill_margin"] + chh / 2.0, cell[1], font(12, True),
-                   theme["VIV_TK_TEXT"], anchor="mm")
-            cx += cw + gap
-        else:
-            c.line([(cx, py + M["pill_margin"] + 8), (cx, py + M["pill_margin"] + chh - 8)],
-                   theme["VIV_TK_LINE"])
-            cx += 1 + gap
-    return c
-
-
-# ------------------------------------------------------- the settings page ---
 S = {
     "win_w": 900, "win_h": 660,
     "nav_w": 150, "nav_item": 36, "nav_top": 12, "nav_x": 8,
@@ -628,6 +526,20 @@ S = {
     "r_row_h": 36, "r_row_h_desc": 56, "r_label_line": 20,
     "r_desc_off": 32,     # the description line, measured from the row top
 }
+# the landing: the redesign columns equal the shipped ones, so the sheet
+# reads the c's own constants for both sides - the before picture cannot
+# drift away from the code it claims to draw.
+S["section_h"] = M["set_section_high"]
+S["row_h"] = M["set_row_high"]
+S["row_h_desc"] = M["set_row_high_desc"]
+S["desc_h"] = M["set_desc_high"]
+S["label_high"] = M["set_label_high"]
+S["desc_mid"] = M["set_desc_mid"]
+S["label_col"] = M["set_label_col"]
+S["section_air"] = M["set_section_air"]
+S["section_rule"] = M["set_section_rule"]
+S["switch_w"] = M["set_switch_wide"]
+S["switch_h"] = M["set_switch_high"]
 
 
 def switch_widget(c, x, y, w, h, on, theme):
@@ -683,11 +595,11 @@ def settings_page(theme, redesign=False, lang="en"):
     switch_x = cx + cw - S["switch_w"]
 
     def section(y, key):
-        c.text(cx, y + 10, T.get(key, key), fbold, theme["VIV_TK_TEXT"], anchor="lm")
-        if redesign:
-            c.line([(cx, y + 22), (cx + cw, y + 22)], theme["VIV_TK_LINE"])
-            return y + S["section_h"] + 6
-        return y + S["section_h"]
+        # the caption sits on the label line, the hairline hangs under it,
+        # the air follows - the shipped rule, from the c's own constants.
+        c.text(cx, y + S["label_high"] / 2.0, T.get(key, key), fbold, theme["VIV_TK_TEXT"], anchor="lm")
+        c.line([(cx, y + S["section_rule"]), (cx + cw, y + S["section_rule"])], theme["VIV_TK_LINE"])
+        return y + S["section_h"] + S["section_air"]
 
     def row_switch(y, rh, label, desc, on):
         """one switch row. the alignment rule is the whole point.
@@ -703,20 +615,15 @@ def settings_page(theme, redesign=False, lang="en"):
         two are one object again, and the description hangs under the
         label inside a fixed measure.
         """
+        # the shipped rule IS the redesign rule now (the 13 dip closed):
+        # the control rides the label line, the description hangs on its
+        # own line, both read from the c's live constants.
         if desc:
-            if redesign:
-                label_cy = y + S["r_label_line"] / 2.0
-                ctl_cy = label_cy
-            else:
-                label_cy = y + rh / 4.0
-                ctl_cy = y + rh / 2.0
+            label_cy = y + S["label_high"] / 2.0
+            ctl_cy = label_cy
             c.text(cx, label_cy, T.get(label, label), f, theme["VIV_TK_TEXT"], anchor="lm")
-            if redesign:
-                c.text(cx, y + S["r_desc_off"], T.get(desc, desc), fsmall,
-                       theme["VIV_TK_TEXT2"], anchor="lm")
-            else:
-                c.text(cx, y + rh * 0.75, T.get(desc, desc), fsmall,
-                       theme["VIV_TK_TEXT2"], anchor="lm")
+            c.text(cx, y + S["desc_mid"], T.get(desc, desc), fsmall,
+                   theme["VIV_TK_TEXT2"], anchor="lm")
             switch_widget(c, switch_x, ctl_cy - S["switch_h"] / 2.0,
                           S["switch_w"], S["switch_h"], on, theme)
         else:
@@ -794,14 +701,11 @@ def row_detail(theme, redesign=False, lang="en"):
     # the row's own band
     c.rect((cx - 16, y, w - 40, y + rh), fill=theme["VIV_TK_HOVER"])
 
-    if redesign:
-        label_cy = y + S["r_label_line"] / 2.0
-        ctl_cy = label_cy
-        desc_cy = y + S["r_desc_off"]
-    else:
-        label_cy = y + rh / 4.0
-        ctl_cy = y + rh / 2.0
-        desc_cy = y + rh * 0.75
+    # both branches draw the shipped rule now (the 13 dip is closed);
+    # the pair stays so the sheet can prove the alignment twice.
+    label_cy = y + S["label_high"] / 2.0
+    ctl_cy = label_cy
+    desc_cy = y + S["desc_mid"]
 
     c.text(cx, label_cy, T.get("LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE", ""), f,
            theme["VIV_TK_TEXT"], anchor="lm")
@@ -817,8 +721,7 @@ def row_detail(theme, redesign=False, lang="en"):
 
     c.text(cx, 30, ("the redesigned row" if redesign else "the row as it draws today"),
            fbig, theme["VIV_TK_TEXT"], anchor="lm")
-    note = ("the control rides the label line: 0 dip apart" if redesign
-            else "the label sits in the row's top half, the control in the whole row")
+    note = "the control rides the label line: 0 dip apart (the shipped rule)"
     c.text(cx, 46, note, fsmall, theme["VIV_TK_TEXT2"], anchor="lm")
 
     # the measurement
