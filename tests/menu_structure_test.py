@@ -3320,7 +3320,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 37500)  # (见 total 行的校准注)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response - the clipboard gates, the identity binding, the job snapshot and the interlocked stage (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): the silent-failure reporting and the config integrity work land for real (measured 36423); rc.2 (2026-10-18): the corrupted-settings round - the walk fix, the ask's localization, the playlist directory seat and the uninstall's preserved-copies sweep (measured 37026)
+          viv_lines >= 21130 and viv_lines <= 38000)  # (见 total 行的校准注)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response - the clipboard gates, the identity binding, the job snapshot and the interlocked stage (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): the silent-failure reporting and the config integrity work land for real (measured 36423); rc.2 (2026-10-18): the corrupted-settings round - the walk fix, the ask's localization, the playlist directory seat and the uninstall's preserved-copies sweep (measured 37026)
 
     # 2. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3381,7 +3381,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 37500, f"({total})")  # (校准注同上) round-102 recalibration (the export module measured 30548); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): measured 36898 (the splice plus the state tail); rc.2 (2026-10-18): measured 37026 (the playlist directory seat and the uninstall's preserved-copies sweep ride the splice)
+          21130 <= total <= 38000, f"({total})")  # (校准注同上) round-102 recalibration (the export module measured 30548); quiet chrome (2026-11-14): the command band, the zoom cluster and the settings row system land (measured 37633); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): measured 36898 (the splice plus the state tail); rc.2 (2026-10-18): measured 37026 (the playlist directory seat and the uninstall's preserved-copies sweep ride the splice)
 
     # 6. the fourth CI catch stays guarded: a measurement macro expanded
     #    inside a struct body must see both its #define and the extern it
@@ -3857,8 +3857,8 @@ def t_zoom_pane_editor_round79():
     check("the editor is a borderless number field on the pane",
           re.search(r'os_CreateWindowEx\(\s*\r\n\s*0,\s*\r\n\s*"EDIT",', dialogs) is not None and
           "WS_CHILD|WS_VISIBLE|ES_NUMBER|ES_AUTOHSCROLL" in dialogs)
-    check("the field is placed and sized from the pane rect",
-          "SB_GETRECT,(WPARAM)_viv_status_zoom_pane_index(),(LPARAM)&pane_rect" in dialogs and
+    check("the field is placed and sized from the cluster's cell",
+          "_viv_toolbar_zoom_cell(&pane_rect)" in dialogs and
           "wide < VIV_UI_SCALE(VIV_UI_PAD * 4,os_logical_wide,96)" in dialogs)
     check("the old proc lives in the userdata (the edit key idiom, two steps)",
           "old_proc = (WNDPROC)SetWindowLongPtr(hwnd,GWLP_WNDPROC,(LONG_PTR)_viv_zoom_edit_proc);" in dialogs and
@@ -7115,6 +7115,20 @@ def t_judged_fixes_round114():
     check("the measure gives the icon-only button the 44 dip touch target",
           "_viv_toolbar_item_wide[itemi] = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);" in toolbar and
           "GetTextExtentPoint32W" in toolbar)
+    # quiet chrome: the zoom cluster owns the zoom - the two handles and
+    # the percent they move are one grouped control in the item table,
+    # the in place editor anchors to its cell, and the editor's colour
+    # case moved to the strip that owns it.
+    check("the item table carries the zoom cluster as one control",
+          "#define _VIV_TOOLBAR_TYPE_ZOOM 2" in toolbar and
+          "{_VIV_TOOLBAR_TYPE_ZOOM,0,0,0,0,0,3}" in toolbar and
+          "VIV_ID_VIEW_ZOOM_OUT,GLYPH_MAGNIFIER_MINUS" not in toolbar)
+    check("the in place zoom editor anchors to the command bar's cell",
+          "_viv_toolbar_zoom_cell(&pane_rect)" in dialogs and
+          "_viv_toolbar_window()" in dialogs and
+          "_viv_status_zoom_pane_index() < 0" not in dialogs)
+    check("the editor's colour case rides the toolbar proc",
+          "case WM_CTLCOLOREDIT:" in toolbar)
     check("the paint centers the glyph and skips the label",
           "config_toolbar_icon_only ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset)" in toolbar and
           "if (!config_toolbar_icon_only)" in toolbar)
@@ -9537,8 +9551,8 @@ def t_toolbar_paging_round132():
     check("the arrows carry their own hover and press state",
           "static int _viv_toolbar_arrow_hover = -1;" in tb and
           "static int _viv_toolbar_arrow_pressed = -1;" in tb)
-    check("the fifteen-seat item table is untouched (the arrows are not slots)",
-          "#define _VIV_TOOLBAR_ITEM_COUNT 15" in tb and
+    check("the fourteen-seat item table carries the zoom cluster (the arrows are not slots)",
+          "#define _VIV_TOOLBAR_ITEM_COUNT 14" in tb and
           "#define _VIV_TOOLBAR_GROUP_MAX 5" in tb)
 
     # 3. THE WALK CONTRACT.

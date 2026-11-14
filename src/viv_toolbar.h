@@ -52,6 +52,18 @@ void _viv_toolbar_set_dark(int dark);
 // hidden).
 int _viv_toolbar_high(void);
 
+// the strip's window and the zoom cluster's percent cell: the in place
+// editor's parent and anchor while it is open (viv_dialogs.c). a zero
+// cell answers a strip without the cluster.
+HWND _viv_toolbar_window(void);
+int _viv_toolbar_zoom_cell(RECT *rect);
+
+// the strip's window and the zoom cluster's percent cell: the in place
+// editor's parent and anchor while it is open (viv_dialogs.c). a zero
+// cell answers a strip without the cluster.
+HWND _viv_toolbar_window(void);
+int _viv_toolbar_zoom_cell(RECT *rect);
+
 // the customize popup's command ids ride a private range the wndproc
 // interceptor routes back here (the todo closure round).
 #define _VIV_TOOLBAR_CONTEXT_ID_FIRST 0x6f00

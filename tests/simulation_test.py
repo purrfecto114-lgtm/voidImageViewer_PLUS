@@ -2839,10 +2839,13 @@ def t_sim_paging_round132():
     tb = read("src/viv_toolbar.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
 
     # the table, parsed seat by seat.
-    rows = re.findall(r"\{_VIV_TOOLBAR_TYPE_(BUTTON|SEP),[^{}]*?,(\d)\}", tb)
-    check("the item table parses to fifteen seats",
-          len(rows) == 15 and [t for t, g in rows].count("BUTTON") == 10 and
-          [t for t, g in rows].count("SEP") == 5, str(rows))
+    rows = re.findall(r"\{_VIV_TOOLBAR_TYPE_(BUTTON|SEP|ZOOM),[^{}]*?,(\d)\}", tb)
+    # quiet chrome: the zoom pair is one cluster seat - fourteen seats,
+    # eight buttons, the cluster, five separators.
+    check("the item table parses to fourteen seats (the zoom cluster is one)",
+          len(rows) == 14 and [t for t, g in rows].count("BUTTON") == 8 and
+          [t for t, g in rows].count("SEP") == 5 and
+          [t for t, g in rows].count("ZOOM") == 1, str(rows))
     items = [(t, int(g)) for t, g in rows]
 
     # the walk order and rules, pinned to the source.
@@ -2860,13 +2863,19 @@ def t_sim_paging_round132():
     # while the c-side define answered to no pin, and the walk floor
     # mutation reddened only the menu's own string pin.
     GAP = int(re.findall(r"#define VIV_UI_GAP (\d+)", read("src/viv_theme.h").decode())[0])
-    AW = 40
+    # quiet chrome: the model rides the c's own targets now - the buttons
+    # and the arrows share the 44 dip target, the cluster prices its two
+    # handles and the percent cell (the synthetic 60+g widths retired with
+    # the labelled strip they modeled).
+    TARGET = int(re.findall(r"#define _VIV_TOOLBAR_TARGET (\d+)", tb)[0])
+    CELL = int(re.findall(r"#define _VIV_TOOLBAR_ZOOM_CELL_WIDE (\d+)", tb)[0])
+    AW = TARGET
     GROUP_MAX = int(re.findall(r"#define _VIV_TOOLBAR_GROUP_MAX (\d+)", tb)[0])
-    check("the extracted constants are the shipped ones (shared gap 4, six groups)",
-          (GAP, GROUP_MAX) == (4, 5), str((GAP, GROUP_MAX)))
+    check("the extracted constants are the shipped ones (shared gap 4, target 44, cell 72, six groups)",
+          (GAP, TARGET, CELL, GROUP_MAX) == (4, 44, 72, 5), str((GAP, TARGET, CELL, GROUP_MAX)))
 
     def widths_for(scale):
-        return [scale + g if t == "BUTTON" else 17 for t, g in items]
+        return [TARGET if t == "BUTTON" else (TARGET * 2 + CELL if t == "ZOOM" else 17) for t, g in items]
 
     def walk(wide, page, mask=0x3f, widths=None):
         if widths is None:
@@ -2884,7 +2893,10 @@ def t_sim_paging_round132():
             return tot
 
         if total() <= wide:
-            return page, 0, 0, list(visible)
+            # the c's fast path clamps the page home (the strip that fits
+            # never pages) - the model returned the input page, and only
+            # the faithful widths ever exposed the drift.
+            return 0, 0, 0, list(visible)
 
         left_hidden = 0
         if page > 0:
@@ -2933,10 +2945,13 @@ def t_sim_paging_round132():
           state[1] == 1 and state[2] == 0 and groups_shown(state) == [0])
 
     # 5. the stale page goes home (its groups all hid behind the mask).
+    # quiet chrome: at the faithful widths the step's own page answers the
+    # same set (the rotate group fits either way), so no forward arrow
+    # lights - the starved-window dead-arrow rule, not a regression.
     state = walk(200, 2, mask=0x31)
     check("a page whose groups all hid clamps home",
-          state[0] == 0 and state[1] == 0 and state[2] == 1 and
-          groups_shown(state) == [0, 4])
+          state[0] == 0 and state[1] == 0 and state[2] == 0 and
+          groups_shown(state) == [0, 4, 5])
 
     # 6. group zero never hides, however narrow.
     state = walk(10, 5)

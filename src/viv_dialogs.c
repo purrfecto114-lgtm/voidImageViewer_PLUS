@@ -651,8 +651,9 @@ void _viv_set_zoom_dialog(void)
 		_viv_zoom_edit_end(_viv_zoom_edit_hwnd,1);
 	}
 	
-	// the live zoom chip's rect, in status bar client coordinates.
-	if ((_viv_status_zoom_pane_index() < 0) || (!SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_zoom_pane_index(),(LPARAM)&pane_rect)))
+	// the zoom cluster's percent cell, in the command bar's client
+	// coordinates: the cell is the value's home now, the editor rides it.
+	if ((!_viv_toolbar_window()) || (!_viv_toolbar_zoom_cell(&pane_rect)))
 	{
 		return;
 	}
@@ -671,7 +672,7 @@ void _viv_set_zoom_dialog(void)
 		"",
 		WS_CHILD|WS_VISIBLE|ES_NUMBER|ES_AUTOHSCROLL,
 		pane_rect.left + VIV_UI_SCALE(VIV_UI_GAP,os_logical_wide,96),pane_rect.top + 1,wide,(pane_rect.bottom - pane_rect.top) - 2,
-		_viv_status_hwnd,0,os_hinstance,NULL);
+		_viv_toolbar_window(),0,os_hinstance,NULL);
 	
 	if (!hwnd)
 	{
@@ -723,8 +724,7 @@ void _viv_zoom_edit_layout(void)
 	int pad;
 
 	if (!_viv_zoom_edit_hwnd) return;
-	if ((!_viv_status_hwnd) || (_viv_status_zoom_pane_index() < 0) ||
-		(!SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_zoom_pane_index(),(LPARAM)&pane_rect)))
+	if ((!_viv_toolbar_window()) || (!_viv_toolbar_zoom_cell(&pane_rect)))
 	{
 		_viv_zoom_edit_end(_viv_zoom_edit_hwnd,0);
 		return;
