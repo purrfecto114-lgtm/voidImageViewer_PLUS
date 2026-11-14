@@ -1799,7 +1799,7 @@ def t_round7():
     check("the dark chrome brush palette routes through the theme cache",
           "static const int tokens[4] = {VIV_TK_CHROME,VIV_TK_CHROME_LINE,VIV_TK_CHROME_MUTED,VIV_TK_FRAME};" in viv)
     check("the menubar paint and erase follow the theme",
-          menubar.count("viv_theme_brush(VIV_TK_FRAME)") == 3)  # remake-2: the strip face rides the shared theme brush cache (fill + ternary + erase)
+          menubar.count("viv_theme_brush(VIV_TK_CHROME)") == 3)  # quiet chrome: the band is one surface - fill + ternary + erase ride the command cluster's own chrome token (the frame token retired with the second face)
     check("apply_dark flips the status bar and latches the strip",
           "os_dark_titlebar(_viv_status_hwnd,dark);" in viv and
           "_viv_toolbar_set_dark(dark);" in viv and
@@ -1957,8 +1957,8 @@ def t_dark_menu_bar():
           "pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);" in menubar)
     check("the slots are label extent plus the air",
           "_viv_menubar_item_wide[_viv_menubar_item_count] = size.cx + (pad * 2);" in menubar)
-    check("the strip height floors at the remake bar height (28 dip)",
-          "min_high = (28 * os_logical_high) / 96;" in menubar)
+    check("the strip height floors at the command band (48 dip)",
+          "min_high = VIV_UI_SCALE(48,os_logical_high,96);" in menubar)
     check("the layout re-reads the labels from the menu tree (owner drawn rows re-derive)",
           "mii.fMask = MIIM_SUBMENU | MIIM_STRING | MIIM_FTYPE | MIIM_DATA;" in menubar
           and "_viv_menu_row_item_text((void *)mii.dwItemData" in menubar)
@@ -1966,7 +1966,7 @@ def t_dark_menu_bar():
     # the painting.
     check("the draw separates the hover and press faces on the tokens",
           "viv_theme_brush(VIV_TK_DOWN)" in menubar and "viv_theme_brush(VIV_TK_HOVER)" in menubar
-          and "viv_theme_brush(VIV_TK_FRAME)" in menubar)
+          and "viv_theme_brush(VIV_TK_CHROME)" in menubar)
     check("the label color rides the theme tokens",
           "viv_theme_color(inactive ? VIV_TK_TEXT2 : VIV_TK_TEXT)" in menubar)
     check("inactive windows dim the label",
@@ -1976,7 +1976,7 @@ def t_dark_menu_bar():
     check("the light face falls back to the system colors",
           "case VIV_TK_FACE: return GetSysColor(COLOR_BTNFACE);" in read("src/viv_theme.c").decode("utf-8", errors="replace"))
     check("the erase paints the strip face",
-          "FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_FRAME));" in menubar)
+          "FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_CHROME));" in menubar)
 
     # the popups and the keyboard entry points.
     check("the popups open from the app menu tree",
@@ -2028,7 +2028,7 @@ def t_dark_menu_bar():
     tb_src2 = open("src/viv_toolbar.c", "rb").read().decode("utf-8", errors="replace")
     mb_src = open("src/viv_menubar.c", "rb").read().decode("utf-8", errors="replace")
     check("the strip erase paints the strip face (both strips on the theme cache)",
-          "viv_theme_brush(VIV_TK_FRAME)" in mb_src and
+          "viv_theme_brush(VIV_TK_CHROME)" in mb_src and
           "WM_ERASEBKGND" in tb_src2 and
           "return viv_theme_brush(VIV_TK_CHROME);" in tb_src2)
     check("the light canvas frame has a calibrated inset tone",
@@ -7108,12 +7108,12 @@ def t_judged_fixes_round114():
           "GetSystemMetrics(SM_CXSIZEFRAME))" not in wnd[wnd.index("static LRESULT _viv_on_wm_nchittest"):wnd.index("static LRESULT _viv_on_wm_nclbuttondown")])
 
     # 6. the icon-only toolbar: config, measure, paint, menu, settings.
-    check("the config declares the icon-only default off",
-          "BYTE config_toolbar_icon_only = 0;" in configc and
+    check("the config declares the icon-only default on",
+          "BYTE config_toolbar_icon_only = 1;" in configc and
           'config_toolbar_icon_only = ini_get_int(ini,(const utf8_t *)"toolbar_icon_only",config_toolbar_icon_only);' in configc and
           '_config_write_int(h,"toolbar_icon_only",config_toolbar_icon_only);' in configc)
-    check("the measure shrinks the button to the glyph",
-          "_viv_toolbar_item_wide[itemi] = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size;" in toolbar and
+    check("the measure gives the icon-only button the 44 dip touch target",
+          "_viv_toolbar_item_wide[itemi] = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);" in toolbar and
           "GetTextExtentPoint32W" in toolbar)
     check("the paint centers the glyph and skips the label",
           "config_toolbar_icon_only ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset)" in toolbar and
@@ -9554,8 +9554,8 @@ def t_toolbar_paging_round132():
           "while ((_viv_toolbar_visible_total(out_visible) > avail) && (group > 0))" in tb)
     check("the stale page goes home when its groups all hide",
           "a page whose groups all hid" in tb)
-    check("the arrow slot is the icon-only button width",
-          "_viv_toolbar_arrow_wide = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size;" in tb)
+    check("the arrow slot is the 44 dip touch target",
+          "_viv_toolbar_arrow_wide = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);" in tb)
     check("the arrows light only when the neighboring page's visible set differs (the starved-window dead arrow)",
           "_viv_toolbar_arrow_left = (itemi < _VIV_TOOLBAR_ITEM_COUNT) ? 1 : 0;" in tb and
           "probe_visible[itemi] != _viv_toolbar_item_visible[itemi]" in tb and

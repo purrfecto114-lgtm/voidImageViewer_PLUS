@@ -30,6 +30,9 @@
 // for the client-side layout math (the on-size sweep subtracts it).
 void _viv_menubar_show(int show);
 int _viv_menubar_high(void);
+// the strip's natural width: the x the command cluster starts at in
+// the one band (zero answers a hidden bar).
+int _viv_menubar_strip_wide(void);
 void _viv_menubar_resize(int wide);
 
 // re-read the root items (the font, the labels, the widths): the dpi

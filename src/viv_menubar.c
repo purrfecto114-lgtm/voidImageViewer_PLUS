@@ -387,10 +387,11 @@ void _viv_menubar_layout(void)
 		return;
 	}
 	
-	// the strip height: the label plus vertical air, floored at the
-	// remake bar height (28 dip) so a failed metric query can never
-	// collapse the strip.
-	min_high = (28 * os_logical_high) / 96;
+	// the strip height: the one command band rides 48 dip (the command
+	// cluster's own height, so the two surfaces read as one strip),
+	// floored in hard pixels so a failed metric query can never collapse
+	// it.
+	min_high = VIV_UI_SCALE(48,os_logical_high,96);
 
 	_viv_menubar_bar_high = high + ((6 * os_logical_high) / 96);
 	
@@ -407,6 +408,30 @@ void _viv_menubar_layout(void)
 	{
 		InvalidateRect(_viv_menubar_hwnd,0,FALSE);
 	}
+}
+
+// the strip's natural width: the menu titles' own run. the band is one
+// strip - the menus own the left, the command cluster takes what is
+// left of the window - so the layout asks here where that handover
+// lands. a hidden bar answers zero and the cluster owns the band.
+int _viv_menubar_strip_wide(void)
+{
+	int itemi;
+	int wide;
+
+	if ((!_viv_menubar_hwnd) || (!IsWindowVisible(_viv_menubar_hwnd)))
+	{
+		return 0;
+	}
+
+	wide = 0;
+
+	for(itemi=0;itemi<_viv_menubar_item_count;itemi++)
+	{
+		wide += _viv_menubar_item_wide[itemi];
+	}
+
+	return wide;
 }
 
 int _viv_menubar_high(void)
@@ -511,7 +536,7 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			// the face is one flat fill: dark chrome in the dark ui, the
 			// system menu face in the light ui. no system painter ever
 			// touches this strip again - that was the white bar.
-			FillRect(hdc,&rect,viv_theme_brush(VIV_TK_FRAME));
+			FillRect(hdc,&rect,viv_theme_brush(VIV_TK_CHROME));
 			
 			font = _viv_menu_font();
 			old_font = 0;
@@ -521,8 +546,21 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				old_font = SelectObject(hdc,font);
 			}
 			
+			// the band's top edge: the same one chrome line the command
+			// cluster draws, so the seam reads as the band's own edge.
+			{
+				RECT edge;
+
+				edge.left = rect.left;
+				edge.top = rect.top;
+				edge.right = rect.right;
+				edge.bottom = rect.top + 1;
+
+				FillRect(hdc,&edge,viv_theme_brush(VIV_TK_CHROME_LINE));
+			}
+
 			SetBkMode(hdc,TRANSPARENT);
-			
+
 			inactive = GetActiveWindow() != _viv_hwnd;
 			
 			// the underline policy mirrors the system bar: hidden until
@@ -545,7 +583,9 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 
 				// the inactive strip drops the labels a tone.
 
-				face = press ? viv_theme_brush(VIV_TK_DOWN) : (hot ? viv_theme_brush(VIV_TK_HOVER) : viv_theme_brush(VIV_TK_FRAME));
+				// the idle face is the command cluster's own chrome token: two
+				// surfaces at one y read as one band only when they share it.
+				face = press ? viv_theme_brush(VIV_TK_DOWN) : (hot ? viv_theme_brush(VIV_TK_HOVER) : viv_theme_brush(VIV_TK_CHROME));
 
 				text_color = viv_theme_color(inactive ? VIV_TK_TEXT2 : VIV_TK_TEXT);
 
@@ -595,7 +635,9 @@ static LRESULT CALLBACK _viv_menubar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			
 			GetClientRect(hwnd,&rect);
 			
-			FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_FRAME));
+			// the erase rides the same chrome token the paint does: the band
+			// is one surface, and a resize must never flash the old face.
+			FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_CHROME));
 			
 			return 1;
 		}

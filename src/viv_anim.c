@@ -429,7 +429,7 @@ void _viv_update_frame(void)
 		CopyRect(&oldrect,&clientrect);
 		AdjustWindowRect(&oldrect,oldstyle,FALSE);
 		
-		oldrect.bottom += _viv_menubar_high() + _viv_get_status_high() + _viv_get_controls_high();
+		oldrect.bottom += _viv_get_view_top() + _viv_get_status_high();
 		
 		debug_printf("oldrect %d %d %d %d %d\n",oldrect.left,oldrect.top,oldrect.right,oldrect.bottom,GetMenu(_viv_hwnd) ? TRUE : FALSE);
 	

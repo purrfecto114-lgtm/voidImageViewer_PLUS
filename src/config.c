@@ -63,7 +63,7 @@ BYTE config_allow_shrinking = 1; // prevent resizing an image below 100%
 BYTE config_shrink_blit_mode = CONFIG_SHRINK_BLIT_MODE_HALFTONE; // shrink filter
 int config_renderer = CONFIG_RENDERER_GDI; // render back end: gdi default, the hardware paths are opt-in
 int config_toolbar_groups = 0x3f; // toolbar group visibility mask: every group on
-BYTE config_toolbar_icon_only = 0; // icons without labels: the full strip outgrows a default window at 96 dpi; icon-only fits every group
+BYTE config_toolbar_icon_only = 1; // the merged band's default: the icon-first cluster is the same width in every language and carries the 44 x 44 target; the labelled strip stays a setting
 BYTE config_mag_filter = CONFIG_MAG_FILTER_COLORONCOLOR; // magnify filter
 // default to sorting by filename in natural order, ascending.
 // this matches the windows explorer default, so next/previous navigation

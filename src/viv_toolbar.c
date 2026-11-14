@@ -50,12 +50,13 @@
 #endif
 
 // design metrics in 96 dpi units, scaled through the dip macros below.
-#define _VIV_TOOLBAR_BAR_HIGH 40 // the strip height.
+#define _VIV_TOOLBAR_BAR_HIGH 48 // the strip height: the one band - menus left, commands right - against the 84 dip the menu bar plus the toolbar stacked before.
 #define _VIV_TOOLBAR_ICON_SIZE 20 // the glyph box.
+#define _VIV_TOOLBAR_TARGET 44 // the icon-only touch target: the 20 dip icon with 12 dip of padding each side, riding 2 dip of air top and bottom in the 48-dip band.
 #define _VIV_TOOLBAR_ICON_TEXT_GAP VIV_UI_GAP // between the glyph and the label.
 #define _VIV_TOOLBAR_BUTTON_PAD VIV_UI_PAD // inside the button, left and right.
 #define _VIV_TOOLBAR_BUTTON_GAP VIV_UI_GAP // between the buttons.
-#define _VIV_TOOLBAR_SEP_HIGH 16 // the separator line height.
+#define _VIV_TOOLBAR_SEP_HIGH 20 // the separator line height: the icon's own height, not a stub beside it.
 #define _VIV_TOOLBAR_RADIUS VIV_UI_RADIUS // the hover face corner radius.
 
 // the strip content: fifteen slots, ten buttons and five separators. the
@@ -361,7 +362,7 @@ static void _viv_toolbar_walk(void)
 	}
 	
 	// the arrow slot: the icon-only button width (a compact, fixed target).
-	_viv_toolbar_arrow_wide = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size;
+	_viv_toolbar_arrow_wide = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
 	
 	// the full-fit fast path: the strip that fits never pages.
 	if (_viv_toolbar_walk_total() <= _viv_toolbar_wide)
@@ -672,7 +673,7 @@ static void _viv_toolbar_measure(void)
 				// narrow window fits every group (the full strip outgrows a
 				// default 3/5 window at 96 dpi and the overflow contract hid
 				// whole groups - the zoom pair first).
-				_viv_toolbar_item_wide[itemi] = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size;
+				_viv_toolbar_item_wide[itemi] = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
 			}
 			else
 			{
@@ -1018,7 +1019,19 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			fill_rect.bottom = rect.top + 1;
 			
 			FillRect(hdc,&fill_rect,_viv_toolbar_line_brush());
-			
+
+			// the seam: one hairline where the menus hand the band over
+			// to the commands (a hidden menu bar leaves the strip alone).
+			if (_viv_menubar_strip_wide())
+			{
+				fill_rect.left = rect.left;
+				fill_rect.top = (_viv_toolbar_bar_high - _viv_toolbar_sep_high) / 2;
+				fill_rect.right = rect.left + 1;
+				fill_rect.bottom = fill_rect.top + _viv_toolbar_sep_high;
+
+				FillRect(hdc,&fill_rect,_viv_toolbar_line_brush());
+			}
+
 			font = _viv_ui_font(VIV_UI_FONT_TOOLBAR);
 			old_font = 0;
 			
@@ -1067,7 +1080,9 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				{
 					SelectObject(hdc,(itemi == _viv_toolbar_pressed) ? _viv_toolbar_press_brush() : _viv_toolbar_hot_brush());
 					
-					RoundRect(hdc,_viv_toolbar_item_x[itemi],0,_viv_toolbar_item_x[itemi] + _viv_toolbar_item_wide[itemi],_viv_toolbar_bar_high,_viv_toolbar_radius * 2,_viv_toolbar_radius * 2);
+					// the face is the touch target itself: 44 x 44 centred in the
+					// band, so the air above and below stays quiet.
+					RoundRect(hdc,_viv_toolbar_item_x[itemi],(_viv_toolbar_bar_high - _VIV_TOOLBAR_DIP_Y(_VIV_TOOLBAR_TARGET)) / 2,_viv_toolbar_item_x[itemi] + _viv_toolbar_item_wide[itemi],(_viv_toolbar_bar_high + _VIV_TOOLBAR_DIP_Y(_VIV_TOOLBAR_TARGET)) / 2,_viv_toolbar_radius * 2,_viv_toolbar_radius * 2);
 				}
 				
 				icon = glyphs_icon(_viv_toolbar_item_glyph[itemi],_viv_toolbar_dark,_viv_toolbar_icon_size);
@@ -1649,13 +1664,17 @@ void _viv_toolbar_layout(int wide)
 		return;
 	}
 	
-	_viv_toolbar_wide = wide;
+	// the one band: the menus own the left at their natural width, the
+	// cluster takes the rest (a hidden menu bar answers zero and the
+	// strip owns the whole band).
+	_viv_toolbar_wide = wide - _viv_menubar_strip_wide();
 	
 	_viv_toolbar_measure();
 	
-	// the strip spans the client width, anchored directly under the menu
-	// bar (a hidden menu bar reports zero and the strip takes the top).
-	SetWindowPos(_viv_toolbar_hwnd,0,0,_viv_menubar_high(),wide,_viv_toolbar_bar_high,SWP_NOZORDER | SWP_NOACTIVATE);
+	// the strip spans the rest of the band, anchored beside the menus at
+	// the band's own y (the layout owns the x; the on-size sweep owns the
+	// width the strip may walk).
+	SetWindowPos(_viv_toolbar_hwnd,0,_viv_menubar_strip_wide(),0,_viv_toolbar_wide,_viv_toolbar_bar_high,SWP_NOZORDER | SWP_NOACTIVATE);
 	
 	InvalidateRect(_viv_toolbar_hwnd,0,FALSE);
 }

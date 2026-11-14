@@ -589,14 +589,12 @@ void _viv_on_size(void)
 			}
 		}
 		
-		// the top bar strip: a client side child now (the frame menu is
-		// gone). it owns the top of the client area; everything below lays
-		// out against the reduced height.
+		// the one band: the menus own the left at their natural width and
+		// the command cluster takes the rest - siblings at the same y, so
+		// the view subtracts the strip once, after both surfaces lay out.
 		if (_viv_menubar_high())
 		{
-			_viv_menubar_resize(wide);
-			
-			high -= _viv_menubar_high();
+			_viv_menubar_resize(_viv_menubar_strip_wide());
 		}
 		
 		if (_viv_status_hwnd)
@@ -619,11 +617,15 @@ void _viv_on_size(void)
 
 		if (_viv_toolbar_high())
 		{
-			// the strip anchors under the menu bar (the layout owns the y), so
-			// the height math only asks the strip how tall it is.
+			// the strip anchors beside the menus in the band (the layout owns
+			// the x), so the height math only asks the strip how tall it is.
 			_viv_toolbar_layout(wide);
-
-			high -= _viv_toolbar_high();
+		}
+		
+		// the band's own subtraction: once, whichever surface rides it.
+		if (_viv_menubar_high() || _viv_toolbar_high())
+		{
+			high -= _viv_get_view_top();
 		}
 			zoomui_layout(wide,high);
 		
@@ -2428,7 +2430,16 @@ int _viv_get_status_high(void)
 // hidden strips, so fullscreen collapses this to the plain client top.
 int _viv_get_view_top(void)
 {
-	return _viv_menubar_high() + _viv_get_controls_high();
+	int menubar;
+	int commands;
+
+	// the one band: the menus and the command cluster are siblings at
+	// the same y, so the top chrome counts the strip once - the band is
+	// the taller of the two (both ride 48 dip).
+	menubar = _viv_menubar_high();
+	commands = _viv_get_controls_high();
+
+	return (commands > menubar) ? commands : menubar;
 }
 
 int _viv_get_controls_high(void)
