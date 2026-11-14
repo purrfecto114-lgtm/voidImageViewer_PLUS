@@ -751,6 +751,17 @@ void _viv_update_src_pixel(int force,int update_statusbar)
 				_viv_status_update();
 			}
 			
+			// the chip rides the same change the panes used to render: a
+			// valid pixel follows the cursor, an invalid one hides the chip.
+			if ((_viv_src_pixel_x >= 0) && (_viv_src_pixel_y >= 0))
+			{
+				_viv_pixel_chip_follow();
+			}
+			else
+			{
+				_viv_pixel_chip_hide();
+			}
+			
 		}
 	}
 	else

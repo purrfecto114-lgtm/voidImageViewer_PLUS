@@ -376,7 +376,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Performance", // LOCALIZATION_ID_SETTINGS_SECTION_PERFORMANCE
 	"Floating control bar", // LOCALIZATION_ID_SETTINGS_FLOATING_BAR
 	"Auto-hide the floating control bar in full screen", // LOCALIZATION_ID_SETTINGS_AUTO_HIDE_BAR
-	"Show pixel info in the status bar", // LOCALIZATION_ID_SETTINGS_PIXEL_INFO
+	"Show pixel info near the cursor", // LOCALIZATION_ID_SETTINGS_PIXEL_INFO
 	"Ctrl+mouse wheel action:", // LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC
 	"Apply", // LOCALIZATION_ID_SETTINGS_APPLY
 	"Default App", // LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION

@@ -2452,3 +2452,217 @@ void _viv_start_hide_cursor_timer(void)
 		_viv_is_hide_cursor_timer = 1;
 	}
 }
+// ---- the pixel chip ----
+
+// the hover facts' one home: a click-through chip that follows the cursor
+// over the canvas. a permanent pane was the wrong shape for a fact that
+// only exists while the pointer does - the strip kept the wide tail the
+// pair forced onto every window for one hover at a time. the settings
+// row still owns whether the chip appears (the ini key never moved).
+static HWND _viv_pixel_chip_hwnd;
+static BYTE _viv_pixel_chip_tracking = 0;
+
+#define _VIV_PIXEL_CHIP_LINE 20 // one readout line's dip height.
+
+static LRESULT CALLBACK _viv_pixel_chip_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
+{
+	switch(msg)
+	{
+		case WM_PAINT:
+		{
+			PAINTSTRUCT ps;
+			RECT rect;
+			RECT line_rect;
+			HDC hdc;
+			HFONT font;
+			HGDIOBJ old_font;
+			wchar_t pos_buf[STRING_SIZE];
+			wchar_t rgb_buf[STRING_SIZE];
+			int pad;
+			int line_high;
+			
+			hdc = BeginPaint(hwnd,&ps);
+			
+			GetClientRect(hwnd,&rect);
+			FillRect(hdc,&rect,viv_theme_brush(VIV_TK_NAV_FACE));
+			
+			pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
+			line_high = (rect.bottom - rect.top - pad * 2) / 2;
+			
+			string_printf(pos_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT),_viv_src_pixel_x,_viv_src_pixel_y);
+			string_printf(rgb_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT),_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
+			
+			font = _viv_ui_font(VIV_UI_FONT_NUMBER);
+			old_font = 0;
+			
+			if (font)
+			{
+				old_font = SelectObject(hdc,font);
+			}
+			
+			SetBkMode(hdc,TRANSPARENT);
+			SetTextColor(hdc,viv_theme_color(VIV_TK_TEXT));
+			
+			line_rect.left = rect.left + pad;
+			line_rect.top = rect.top + pad;
+			line_rect.right = rect.right - pad;
+			line_rect.bottom = line_rect.top + line_high;
+			DrawTextW(hdc,pos_buf,-1,&line_rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
+			
+			line_rect.top = line_rect.bottom;
+			line_rect.bottom = rect.bottom - pad;
+			DrawTextW(hdc,rgb_buf,-1,&line_rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
+			
+			if (old_font)
+			{
+				SelectObject(hdc,old_font);
+			}
+			
+			EndPaint(hwnd,&ps);
+			
+			return 0;
+		}
+		
+		case WM_MOUSEACTIVATE:
+			
+			// the chip is a readout, never a target: the click beneath it
+			// belongs to the canvas (the transparent style already passes the
+			// mouse through - this keeps the focus story honest too).
+			return MA_NOACTIVATE;
+	}
+	
+	return DefWindowProc(hwnd,msg,wParam,lParam);
+}
+
+static void _viv_pixel_chip_create(void)
+{
+	if (_viv_pixel_chip_hwnd)
+	{
+		return;
+	}
+	
+	// no class brush: the paint owns the face, and an erase that bypassed
+	// it must not flash white (the 1.1.03 lesson, again).
+	os_RegisterClassEx(
+		0,
+		_viv_pixel_chip_proc,
+		0,
+		LoadCursor(NULL,IDC_ARROW),
+		NULL,
+		"_VIV_PIXEL_CHIP",
+		0);
+	
+	_viv_pixel_chip_hwnd = os_CreateWindowEx(
+		WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
+		"_VIV_PIXEL_CHIP",
+		"",
+		WS_POPUP,
+		0,0,0,0,
+		_viv_hwnd,0,os_hinstance,NULL);
+}
+
+void _viv_pixel_chip_follow(void)
+{
+	POINT pt;
+	HDC hdc;
+	HFONT font;
+	HGDIOBJ old_font;
+	SIZE size;
+	wchar_t pos_buf[STRING_SIZE];
+	wchar_t rgb_buf[STRING_SIZE];
+	int wide;
+	int high;
+	int pad;
+	int line_high;
+	int radius;
+	HRGN rgn;
+	
+	if (!config_pixel_info)
+	{
+		return;
+	}
+	
+	_viv_pixel_chip_create();
+	
+	if (!_viv_pixel_chip_hwnd)
+	{
+		return;
+	}
+	
+	string_printf(pos_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT),_viv_src_pixel_x,_viv_src_pixel_y);
+	string_printf(rgb_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT),_viv_src_pixel_r,_viv_src_pixel_g,_viv_src_pixel_b);
+	
+	pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
+	line_high = VIV_UI_SCALE(_VIV_PIXEL_CHIP_LINE,os_logical_high,96);
+	high = pad * 2 + line_high * 2;
+	
+	wide = 0;
+	
+	hdc = GetDC(_viv_pixel_chip_hwnd);
+	
+	if (hdc)
+	{
+		font = _viv_ui_font(VIV_UI_FONT_NUMBER);
+		old_font = 0;
+		
+		if (font)
+		{
+			old_font = SelectObject(hdc,font);
+		}
+		
+		if (GetTextExtentPoint32(hdc,pos_buf,string_get_length(pos_buf),&size) && (size.cx > wide))
+		{
+			wide = size.cx;
+		}
+		
+		if (GetTextExtentPoint32(hdc,rgb_buf,string_get_length(rgb_buf),&size) && (size.cx > wide))
+		{
+			wide = size.cx;
+		}
+		
+		if (old_font)
+		{
+			SelectObject(hdc,old_font);
+		}
+		
+		ReleaseDC(_viv_pixel_chip_hwnd,hdc);
+	}
+	
+	wide += pad * 2;
+	
+	// the rounded shape rides the shared radius token, cut fresh at every
+	// size (the region is the system's once set - never freed here).
+	radius = VIV_UI_SCALE(VIV_UI_RADIUS,os_logical_wide,96);
+	
+	if ((radius < 2) || (wide < radius * 4) || (high < radius * 4))
+	{
+		radius = 2;
+	}
+	
+	rgn = CreateRoundRectRgn(0,0,wide + 1,high + 1,radius * 2,radius * 2);
+	
+	if (rgn)
+	{
+		SetWindowRgn(_viv_pixel_chip_hwnd,rgn,FALSE);
+	}
+	
+	GetCursorPos(&pt);
+	
+	// the chip rides past the cursor's lower right, one pad clear of it -
+	// close enough to read as the pixel's own label, clear enough to keep
+	// the read beneath it visible.
+	SetWindowPos(_viv_pixel_chip_hwnd,HWND_TOPMOST,pt.x + pad,pt.y + pad,wide,high,SWP_NOACTIVATE | SWP_SHOWWINDOW);
+	
+	_viv_pixel_chip_tracking = 1;
+}
+
+void _viv_pixel_chip_hide(void)
+{
+	if ((_viv_pixel_chip_hwnd) && (_viv_pixel_chip_tracking))
+	{
+		_viv_pixel_chip_tracking = 0;
+		
+		ShowWindow(_viv_pixel_chip_hwnd,SW_HIDE);
+	}
+}
+
