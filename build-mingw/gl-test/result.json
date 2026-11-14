@@ -1,4 +1,5 @@
 {
-  "compile_exit": 1,
-  "production_body_sha256_lf": "9cb96187b4ea096d811a9d9fd249d464286709d4096122f3112c59ad2796256a"
+  "compile_exit": 0,
+  "production_body_sha256_lf": "0d36043581694bf66812de3c9d9c65eb429aaa9a6420939046458c968a6b0ba7",
+  "run_exit": 0
 }

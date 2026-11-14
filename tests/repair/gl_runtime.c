@@ -85,7 +85,17 @@ static void*mem_alloc(uintptr_t n){return malloc(n);}
 static void mem_free(void*p){free(p);}
 static size_t safe_size_mul(size_t a,size_t b){return b && a>SIZE_MAX/b?SIZE_MAX:a*b;}
 static int _viv_gl_procs(void){return 1;}
-static int _viv_gl_context_create(HWND h,HDC d){return 1;}
+static int _viv_gl_context_create(HWND h,HDC d)
+{
+	// the harness's surfaceless egl context answers gl 1.5 or better,
+	// so the stub mirrors what the production probe sets on such a
+	// machine (edge clamping). left on the 1.1 GL_CLAMP default the
+	// filter blends the texture border into the edge pixels and the
+	// white-upscale pin below reads the 1.1 bleed no modern machine
+	// ever shows.
+	_viv_gl_wrap = GL_CLAMP_TO_EDGE;
+	return 1;
+}
 static int _viv_gl_wglMakeCurrent(HDC d,intptr_t c){return 1;}
 static int SwapBuffers(HDC d){return 1;}
 static void _viv_gl_export_readback(int w,int h){}

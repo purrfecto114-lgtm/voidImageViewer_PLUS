@@ -73,8 +73,38 @@ jobs:
       - name: Byte invariant tests (line endings, BOMs, final newlines)
         run: python3 tests/byte_invariant_test.py
 
+      # the installer's native-machine gate, proven as behaviour: the
+      # ifdef blocks are lifted out of installer.nsi, modelled, and every
+      # machine value the getter can answer runs through them. it exists
+      # because the gate's old guard quoted a line - a pin on a spelling,
+      # which is how a wrong-enumeration literal survived a release. the
+      # bundle's changes list carried this step as already wired; the
+      # tree it shipped with never had it. a gate nobody runs is not a
+      # gate - the step rides here for exactly that reason.
+      - name: Installer architecture gate (behaviour-level)
+        run: python3 tools/nsis_arch_gate_test.py
+
       - name: Native C regressions (MRU, input and zoom, the ini reader walk, debug allocation failure)
         run: python3 tests/native_regression_test.py --sanitize
+
+      # the qoi decoder's behaviour gate: the production qoi_load body
+      # compiled against the win32 stubs and run over the hostile corpus.
+      # green in the tree since the rc added it, and wired into nothing -
+      # the same lost-gate class the arch gate step above closes.
+      - name: Qoi decoder behaviour gate (hostile input corpus)
+        run: python3 tests/qoi_decode_test.py --sanitize
+
+      # the gl runtime's behaviour gate: the production upload/render
+      # bodies spliced onto a stub harness and run against a real mesa
+      # egl context (surfaceless, so no display is needed). the leg
+      # needs the mesa runtime - an os package, not a pip one. the stub
+      # was one undeclared symbol away from compiling and the suite was
+      # in no workflow, so neither failure could ever reach a ci run.
+      - name: GL runtime regression (real Mesa EGL, surfaceless)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1
+          python3 tests/gl_runtime_regression_test.py
 
       - name: Memory, renderer and installer repair regressions
         run: python3 tests/repair_regression_test.py

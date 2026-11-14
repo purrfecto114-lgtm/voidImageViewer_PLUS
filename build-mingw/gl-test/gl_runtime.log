@@ -1,3 +1,5 @@
-$ cc -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function -fsanitize=undefined -fno-sanitize-recover=all /home/z/my-project/repos/repair1_extract/voidImageViewer_PLUS/build-mingw/gl-test/gl_runtime.c -o /home/z/my-project/repos/repair1_extract/voidImageViewer_PLUS/build-mingw/gl-test/gl_runtime -l:libEGL.so.1 -l:libGL.so.1
-/usr/bin/ld: cannot find -l:libEGL.so.1: No such file or directory
-collect2: error: ld returned 1 exit status
+$ cc -std=c99 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function -fsanitize=undefined -fno-sanitize-recover=all /home/z/my-project/work/repo/build-mingw/gl-test/gl_runtime.c -o /home/z/my-project/work/repo/build-mingw/gl-test/gl_runtime -l:libEGL.so.1 -l:libGL.so.1
+EGL 1.5; GL 4.5 (Compatibility Profile) Mesa 25.0.7-2+deb13u1; renderer llvmpipe (LLVM 19.1.7, 256 bits)
+GL_MAX_TEXTURE_SIZE 16384
+white upscale red values: 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255
+real Mesa GL: edge pixels, 24/32bpp NPOT/POT uploads, shrink, byte refusal and allocation refusal PASS; not Windows/WGL
