@@ -1,4 +1,5 @@
-﻿Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)
+﻿Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)
+Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)
 
         the quiet chrome round takes its tag. the
         redesign bundle's section 2 lands whole, and

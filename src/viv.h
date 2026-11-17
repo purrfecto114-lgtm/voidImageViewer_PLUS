@@ -327,6 +327,8 @@ enum
 	// appended so existing ids are not shifted)
 	VIV_ID_VIEW_RENDERER_GDI,
 	VIV_ID_VIEW_RENDERER_DIRECT3D,
+	VIV_ID_VIEW_RENDERER_DIRECT3D11,
+	VIV_ID_VIEW_RENDERER_DIRECT3D12,
 };
 
 #include "version.h"
@@ -349,6 +351,8 @@ enum
 #include "qoi.h"
 #include "wic.h"
 #include "hwd3d.h"
+#include "hwd3d11.h"
+#include "hwd3d12.h"
 #include "shellmenu.h"
 #include "small_pool.h"
 #include "safe_size.h"

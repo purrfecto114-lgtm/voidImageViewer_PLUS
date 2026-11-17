@@ -53,9 +53,28 @@ static void _viv_file_preview(void);
 static void _viv_file_print(void);
 static void _viv_file_set_desktop_wallpaper(void);
 static void _viv_edit_rotate(int counterclockwise);
+
+// the rotate's on-disk artifact (rc.3): the shell's rotate verb used to
+// rewrite the viewed file in place - every rotate cost a confirmation box
+// and the original pixels on disk. the verb lands on a copy in the temp
+// folder now: the original file never changes, the box is gone, and the
+// copy is the session's retrievable rotated artifact (the display shows
+// the in-memory rotated frames exactly as before; the exit sweep deletes
+// the copy). one artifact per source: the rotations accumulate on it the
+// way they accumulate on the display.
+static wchar_t _viv_rotate_source_path[STRING_SIZE];
+static wchar_t _viv_rotate_temp_path[STRING_SIZE];
+
+void _viv_rotate_temp_cleanup(void)
+{
+	if (*_viv_rotate_temp_path)
+	{
+		DeleteFileW(_viv_rotate_temp_path);
+
+		_viv_rotate_temp_path[0] = 0;
+	}
+}
 static void _viv_file_edit(void);
-static void _viv_open_file_location(void);
-static void _viv_properties(void);
 void _viv_mousemove(void);
 void _viv_view_1to1(void);
 void _viv_zoom_set_percent(int percent,int screen_x,int screen_y,int force);
@@ -137,10 +156,14 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			
 		case VIV_ID_VIEW_RENDERER_GDI:
 		case VIV_ID_VIEW_RENDERER_DIRECT3D:
+		case VIV_ID_VIEW_RENDERER_DIRECT3D11:
+		case VIV_ID_VIEW_RENDERER_DIRECT3D12:
 			// the unavailable back end never answers its own command (the
 			// menu greys it; the belt for the keyboard and any other caller
 			// the grey cannot reach).
-			if ((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D) && (!_viv_hwd3d_available()))
+			if (((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D) && (!_viv_hwd3d_available())) ||
+				((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D11) && (!_viv_hwd3d11_available())) ||
+				((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D12) && (!_viv_hwd3d12_available())))
 			{
 				break;
 			}
@@ -149,8 +172,12 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			// their contexts and the next paint answers the new back
 			// end (or falls back to gdi when the new one refuses).
 			_viv_hwd3d_shutdown();
+			_viv_hwd3d11_shutdown();
+			_viv_hwd3d12_shutdown();
 			
-			config_renderer = (command_id == VIV_ID_VIEW_RENDERER_GDI) ? CONFIG_RENDERER_GDI : CONFIG_RENDERER_DIRECT3D;
+			config_renderer = (command_id == VIV_ID_VIEW_RENDERER_GDI) ? CONFIG_RENDERER_GDI :
+				((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D) ? CONFIG_RENDERER_DIRECT3D :
+				((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D11) ? CONFIG_RENDERER_DIRECT3D11 : CONFIG_RENDERER_DIRECT3D12));
 			
 			// rc.6: the new back end deserves a clean slate - the sticky
 			// fallback note answered the OLD back end's refusal, and a
@@ -2481,16 +2508,51 @@ static void _viv_edit_rotate(int counterclockwise)
 {
 	HBITMAP *prepared;
 	wchar_t caption[STRING_SIZE],message[STRING_SIZE];
+	wchar_t temp_dir[STRING_SIZE];
 	int i,temp;
 	if (!*_viv_slot_current.fd.cFileName || !_viv_slot_current.frame_count ||
 		(_viv_slot_current.frame_loaded_count != _viv_slot_current.frame_count)) return;
 	string_copy_utf8_string(caption,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_CAPTION));
-	string_copy_utf8_string(message,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE));
-	if (viv_msgbox(_viv_hwnd,caption,message,MB_OKCANCEL | MB_ICONQUESTION) != IDOK) return;
 	prepared = _viv_prepare_oriented_frames(_viv_slot_current.frames,_viv_slot_current.frame_count,counterclockwise ? 8 : 6);
 	if (prepared)
 	{
-		if (os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,counterclockwise ? "rotate270" : "rotate90",0))
+		// the temp copy: a different source retires the artifact path (the
+		// old copy stays on disk until the exit sweep; the path just stops
+		// pointing at it). the first rotate of a source copies the original
+		// - the verb then works on the copy, never on the file itself.
+		if (string_compare(_viv_rotate_source_path,_viv_slot_current.fd.cFileName) != 0)
+		{
+			if (!GetTempPathW((DWORD)(STRING_SIZE - 60),temp_dir))
+			{
+				temp = 0;
+			}
+			else
+			{
+				string_copy(_viv_rotate_source_path,_viv_slot_current.fd.cFileName);
+				string_cat_utf8(temp_dir,"voidImageViewer");
+				CreateDirectoryW(temp_dir,NULL);
+				string_cat_utf8(temp_dir,"\\");
+				string_copy(_viv_rotate_temp_path,temp_dir);
+				string_cat(_viv_rotate_temp_path,string_get_filename_part(_viv_rotate_source_path));
+				temp = CopyFileW(_viv_rotate_source_path,_viv_rotate_temp_path,FALSE);
+			}
+
+			if (!temp)
+			{
+				// no artifact, no rotate: an all-or-nothing round keeps the
+				// display and the disk telling the same story (the old
+				// refusal box, the same face the verb failure uses).
+				for(i=0;i<_viv_slot_current.frame_count;i++) DeleteObject(prepared[i]);
+				mem_free(prepared);
+
+				string_copy_utf8_string(message,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_FAILED));
+				viv_msgbox(_viv_hwnd,caption,message,MB_OK | MB_ICONERROR);
+
+				return;
+			}
+		}
+
+		if (os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise ? "rotate270" : "rotate90",0))
 		{
 			_viv_hw_release_image();
 			for(i=0;i<_viv_slot_current.frame_count;i++)
@@ -2523,7 +2585,7 @@ static void _viv_file_edit(void)
 		os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"edit",0);
 	}
 }
-static void _viv_open_file_location(void)
+void _viv_open_file_location(void)
 {
 	if (*_viv_slot_current.fd.cFileName)
 	{
@@ -2586,7 +2648,7 @@ static void _viv_open_file_location(void)
 		}
 	}
 }
-static void _viv_properties(void)
+void _viv_properties(void)
 {
 	if (*_viv_slot_current.fd.cFileName)
 	{

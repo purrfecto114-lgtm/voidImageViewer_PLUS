@@ -982,7 +982,7 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 			config_renderer = CONFIG_RENDERER_DIRECT3D;
 		}
 
-		if ((config_renderer < CONFIG_RENDERER_GDI) || (config_renderer > CONFIG_RENDERER_DIRECT3D))
+		if ((config_renderer < CONFIG_RENDERER_GDI) || (config_renderer > CONFIG_RENDERER_DIRECT3D12))
 		{
 			config_renderer = CONFIG_RENDERER_GDI;
 		}

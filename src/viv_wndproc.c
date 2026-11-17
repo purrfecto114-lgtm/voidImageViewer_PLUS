@@ -2809,6 +2809,16 @@ static int _viv_hw_render_frame(HWND hwnd,HDC hdc,int dst_x,int dst_y,int dst_wi
 		return _viv_hwd3d_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
 	}
 
+	if (config_renderer == CONFIG_RENDERER_DIRECT3D11)
+	{
+		return _viv_hwd3d11_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
+	}
+
+	if (config_renderer == CONFIG_RENDERER_DIRECT3D12)
+	{
+		return _viv_hwd3d12_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
+	}
+
 	return 0;
 }
 

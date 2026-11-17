@@ -339,8 +339,23 @@ static const _glyphs_stroke_t _glyphs_chevron_right_strokes[] =
 	{3,5,_glyphs_chevron_right_pts}
 };
 
+// fullscreen: the four corner brackets of a viewfinder - the same face
+// answers enter and exit like the rotate glyph answers its arc.
+static const _glyphs_point_t _glyphs_fullscreen_tl[] = { {9,17},{9,9},{17,9} };
+static const _glyphs_point_t _glyphs_fullscreen_tr[] = { {31,9},{39,9},{39,17} };
+static const _glyphs_point_t _glyphs_fullscreen_br[] = { {39,31},{39,39},{31,39} };
+static const _glyphs_point_t _glyphs_fullscreen_bl[] = { {17,39},{9,39},{9,31} };
+static const _glyphs_stroke_t _glyphs_fullscreen_strokes[] =
+{
+	{3,4,_glyphs_fullscreen_tl},
+	{3,4,_glyphs_fullscreen_tr},
+	{3,4,_glyphs_fullscreen_br},
+	{3,4,_glyphs_fullscreen_bl}
+};
+
 static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
 {
+
 	{2,_glyphs_prev_strokes},
 	{1,_glyphs_play_strokes},
 	{2,_glyphs_pause_strokes},
@@ -358,7 +373,8 @@ static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
 	{3,_glyphs_picture_strokes},
 	{8,_glyphs_gamepad_strokes},
 	{1,_glyphs_chevron_left_strokes},
-	{1,_glyphs_chevron_right_strokes}
+	{1,_glyphs_chevron_right_strokes},
+	{4,_glyphs_fullscreen_strokes}
 };
 
 // resolve the gdi+ flat api table. gdi+ must have been started before

@@ -345,6 +345,8 @@ _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_RENDERER,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_RENDERER},
 	{LOCALIZATION_ID_RENDERER_GDI,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_GDI},
 	{LOCALIZATION_ID_RENDERER_DIRECT3D,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_DIRECT3D},
+	{LOCALIZATION_ID_RENDERER_DIRECT3D11,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_DIRECT3D11},
+	{LOCALIZATION_ID_RENDERER_DIRECT3D12,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_DIRECT3D12},
 
 	{LOCALIZATION_ID_SLIDESHOW_MENU,MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_SLIDESHOW},
 	{LOCALIZATION_ID_PLAY_PAUSE,MF_STRING,_VIV_MENU_SLIDESHOW,VIV_ID_SLIDESHOW_PAUSE},
@@ -667,6 +669,11 @@ void _viv_exit(void)
 	// the deferred recent-files save folds into the exit write below (the
 	// debounce timer never gets to fire once the quit is posted).
 	_viv_recent_save_fold();
+
+	// the rotate artifact: the temp copy the rc.3 rotate verb worked on
+	// (the original file was never touched) - a best-effort sweep, the
+	// session's rotated pixels only ever lived in the copy.
+	_viv_rotate_temp_cleanup();
 	
 	// the resume capture: the file on screen when the session ends is
 	// where the next session resumes (the switch lives in the settings).

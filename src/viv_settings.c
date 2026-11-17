@@ -678,7 +678,9 @@ static int _viv_settings_ctl_enabled(const _viv_settings_ctl_t *ctl)
 			// backed, and the runtime fallback is not an enablement).
 			if (ctl->id == _VIV_SETTINGS_ID_HWACCEL)
 			{
-				return _viv_hwd3d_available() ? 1 : 0;
+				// the hardware face answers the best available back end
+				// (the rc.3 family: 12, 11, then the d3d9 floor).
+				return ((_viv_hwd3d12_available()) || (_viv_hwd3d11_available()) || (_viv_hwd3d_available())) ? 1 : 0;
 			}
 
 			return 1;
@@ -2245,6 +2247,8 @@ static void _viv_settings_restore(void)
 	if (config_renderer != _viv_settings_snap_renderer)
 	{
 		_viv_hwd3d_shutdown();
+		_viv_hwd3d11_shutdown();
+		_viv_hwd3d12_shutdown();
 
 		config_renderer = _viv_settings_snap_renderer;
 		_viv_hw_render_fallback = 0;
@@ -3322,6 +3326,8 @@ static void _viv_settings_activate(int index,int x,int y)
 					// answers the new back end (or falls back to gdi when it
 					// refuses - the refusal never rewrites the ini).
 					_viv_hwd3d_shutdown();
+					_viv_hwd3d11_shutdown();
+					_viv_hwd3d12_shutdown();
 
 					// rc.6: the switch face cannot tell the hardware back
 					// ends apart - turning it back on restores the one the
@@ -3330,6 +3336,21 @@ static void _viv_settings_activate(int index,int x,int y)
 					if (config_renderer == CONFIG_RENDERER_GDI)
 					{
 						config_renderer = _viv_settings_last_hw_renderer;
+					}
+
+					// the rc.3 family: a restored hardware choice still
+					// walks the ladder (12, 11, then the d3d9 floor).
+					if (config_renderer == CONFIG_RENDERER_DIRECT3D)
+					{
+						if (_viv_hwd3d12_available())
+						{
+							config_renderer = CONFIG_RENDERER_DIRECT3D12;
+						}
+						else
+						if (_viv_hwd3d11_available())
+						{
+							config_renderer = CONFIG_RENDERER_DIRECT3D11;
+						}
 					}
 					else
 					{
@@ -5026,7 +5047,7 @@ static void _viv_settings_paint(HWND hwnd)
 
 					case _VIV_SETTINGS_ID_HWACCEL:
 						label_id = LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION;
-						desc_id = _viv_hwd3d_available() ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE;
+						desc_id = (_viv_hwd3d12_available() || _viv_hwd3d11_available() || _viv_hwd3d_available()) ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE;
 						break;
 				}
 

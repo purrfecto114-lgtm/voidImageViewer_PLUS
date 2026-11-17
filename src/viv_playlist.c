@@ -676,7 +676,12 @@ void _viv_playlist_rename(const wchar_t *old_filename,const wchar_t *new_filenam
 	d = _viv_playlist_start;
 	while(d)
 	{
-		if (string_compare(d->fd.cFileName,old_filename) == 0)
+		// the identity is the file name under the case-folded compare the
+		// queue's every other lookup rides (the from-fd and shuffle-index
+		// lookups, the delete beside this function): the raw wchar diff a
+		// rename with a different letter case hits missed the row and left
+		// a ghost the navigation walked onto and the delete never removed.
+		if (_viv_icompare_filename(d->fd.cFileName,old_filename) == 0)
 		{
 			string_copy(d->fd.cFileName,new_filename);
 		
@@ -1191,7 +1196,17 @@ int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wchar_t *s
 {
 	if (randomize)
 	{	
-		// add is ignored in this case.
+		// add is ignored in this case. the previous random query's string
+		// frees first - every sibling path (the typed search, the random
+		// reply, the blank) freed the old one; this branch was the holdout
+		// that leaked a string per search.
+		if (_viv_random)
+		{
+			mem_free(_viv_random);
+			
+			_viv_random = 0;
+		}
+
 		_viv_random = string_alloc(search);
 
 		_viv_random_tot_results = 0xffffffff;
@@ -1337,9 +1352,21 @@ static void _viv_add_current_path_to_playlist(void)
 				{
 					// the entry's full path is in the playlist, not in
 					// the walk's find data: read the row back by name.
-					d = _viv_playlist_from_fd(&fd);
+					// the combine lives inside _viv_playlist_add_fd (a
+					// local entry), so the read-back rebuilds the same
+					// combined name here - the bare walk name never
+					// matched the rows on its own, and the whole
+					// copy-back was dead since the combine moved.
+					WIN32_FIND_DATA row_fd;
 					
-					if ((d) && (string_compare(fd.cFileName,_viv_current_fd->cFileName) == 0))
+					os_zero_memory(&row_fd,sizeof(WIN32_FIND_DATA));
+					string_copy(row_fd.cFileName,path_wbuf);
+					string_cat(row_fd.cFileName,L"\\");
+					string_cat(row_fd.cFileName,fd.cFileName);
+					
+					d = _viv_playlist_from_fd(&row_fd);
+					
+					if ((d) && (string_compare(row_fd.cFileName,_viv_current_fd->cFileName) == 0))
 					{
 						// copy back the FD ID.
 						// so when we get the next image we get the next image from the current image instead of the home image.

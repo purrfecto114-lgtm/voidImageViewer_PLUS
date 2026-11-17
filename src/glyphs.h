@@ -53,7 +53,8 @@ extern "C" {
 #define GLYPH_GAMEPAD         15
 #define GLYPH_CHEVRON_LEFT    16
 #define GLYPH_CHEVRON_RIGHT   17
-#define GLYPH_COUNT           18
+#define GLYPH_FULLSCREEN      18
+#define GLYPH_COUNT           19
 
 // return the glyph icon at the requested size and theme. the icon is
 // owned by the glyphs cache: do not destroy it. building needs gdi+;

@@ -165,6 +165,8 @@ extern BYTE config_ui_accent; // ui accent color index: 0..4 (azure, teal, viole
 #define CONFIG_RENDERER_GDI                    0
 #define CONFIG_RENDERER_OPENGL                 1 // retired: no code answers this value any more
 #define CONFIG_RENDERER_DIRECT3D               2
+#define CONFIG_RENDERER_DIRECT3D11             3
+#define CONFIG_RENDERER_DIRECT3D12             4
 
 #define CONFIG_BACKDROP_MODE_FOLLOW                     0
 #define CONFIG_BACKDROP_MODE_BLACK                      1

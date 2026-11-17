@@ -2223,8 +2223,9 @@ def t_sim_field_response_round124():
           backdrop_reload(True) is True)
 
     # --- the rotate's unblocked verb ---
-    check("the rotate verb launches without the ui-thread wait",
-          'os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,counterclockwise ? "rotate270" : "rotate90",0)' in view)
+    check("the rotate verb launches on the temp copy without the ui-thread wait (the rc.3 non-destructive round)",
+          'os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise ? "rotate270" : "rotate90",0)' in view and
+          "MB_OKCANCEL | MB_ICONQUESTION" not in view[view.find("_viv_edit_rotate"):view.find("_viv_edit_rotate") + 4000])
 
     # --- the renderer orientation contract ---
     d3d = read("src/hwd3d.c").decode().replace("\r\n", "\n")

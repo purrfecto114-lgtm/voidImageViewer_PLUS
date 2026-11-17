@@ -50,5 +50,8 @@ int _viv_is_touch_click(void);
 int _viv_suppress_gesture_mouse(int is_down);
 void _viv_touch_double_click(void);
 int _viv_on_gesture(HWND hwnd,void *gesture_info_handle);
+void _viv_open_file_location(void);
+void _viv_rotate_temp_cleanup(void);
+void _viv_properties(void);
 
 #endif

@@ -290,11 +290,15 @@ void _viv_check_menus(HMENU hmenu)
 	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_CHECKERBOARD,config_backdrop_mode == CONFIG_BACKDROP_MODE_CHECKERBOARD ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_GDI,config_renderer == CONFIG_RENDERER_GDI ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,config_renderer == CONFIG_RENDERER_DIRECT3D ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D11,config_renderer == CONFIG_RENDERER_DIRECT3D11 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
+	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D12,config_renderer == CONFIG_RENDERER_DIRECT3D12 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 
 	// the radio trio answers the machine's own answer: an unavailable
 	// back end greys in the menu (the settings switch and the installer
 	// box ask the same probes - the field round's detection question).
 	EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,_viv_hwd3d_available() ? MF_ENABLED : MF_GRAYED);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D11,_viv_hwd3d11_available() ? MF_ENABLED : MF_GRAYED);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D12,_viv_hwd3d12_available() ? MF_ENABLED : MF_GRAYED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_STATUS,config_show_status ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ALLOW_SHRINKING,config_allow_shrinking ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_KEEP_ASPECT_RATIO,config_keep_aspect_ratio ? MF_CHECKED : MF_UNCHECKED);

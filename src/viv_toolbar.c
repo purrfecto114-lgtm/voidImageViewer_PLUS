@@ -62,15 +62,17 @@
 #define _VIV_TOOLBAR_SEP_HIGH 20 // the separator line height: the icon's own height, not a stub beside it.
 #define _VIV_TOOLBAR_RADIUS VIV_UI_RADIUS // the hover face corner radius.
 
-// the strip content: fourteen slots, eight buttons, the zoom cluster and
-// five separators. the
-// groups are the overflow units - a separator carries the group of the
-// buttons to its right, so a group always hides with its separator and no
-// dangling line is left behind.
-// open | prev next playpause | 1to1 bestfit | zoom out zoom in | rotate | info.
-#define _VIV_TOOLBAR_ITEM_COUNT 14
-#define _VIV_TOOLBAR_GROUP_MAX 5
-#define _VIV_TOOLBAR_ITEM_PLAY 4 // the play / pause face slot.
+// the strip content: twelve slots, seven buttons, the zoom cluster and
+// four separators. the open button left the strip (rc.3: the menu and
+// the drop own the same answer with the folder's full depth) and the
+// info face moved to the status strip's name pane beside the file it
+// describes. the groups are the overflow units - a separator carries
+// the group of the buttons to its right, so a group always hides with
+// its separator and no dangling line is left behind.
+// prev next playpause | 1to1 bestfit | zoom out zoom in | rotate | fullscreen.
+#define _VIV_TOOLBAR_ITEM_COUNT 12
+#define _VIV_TOOLBAR_GROUP_MAX 4
+#define _VIV_TOOLBAR_ITEM_PLAY 2 // the play / pause face slot.
 
 // item types.
 #define _VIV_TOOLBAR_TYPE_BUTTON 0
@@ -92,20 +94,18 @@ typedef struct _viv_toolbar_item_s
 
 static const _viv_toolbar_item_t _viv_toolbar_items[_VIV_TOOLBAR_ITEM_COUNT] =
 {
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_FILE_OPEN_FILE,GLYPH_FOLDER_OPEN,GLYPH_FOLDER_OPEN,LOCALIZATION_ID_TOOLBAR_OPEN,LOCALIZATION_ID_TOOLBAR_OPEN,0},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_NAV_PREV,GLYPH_PREV,GLYPH_PREV,LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON,LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON,0},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_NAV_NEXT,GLYPH_NEXT,GLYPH_NEXT,LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON,LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON,0},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_SLIDESHOW,GLYPH_PLAY,GLYPH_PAUSE,LOCALIZATION_ID_TOOLBAR_PLAY_SLIDESHOW_BUTTON,LOCALIZATION_ID_TOOLBAR_PAUSE_SLIDESHOW_BUTTON,0},
 	{_VIV_TOOLBAR_TYPE_SEP,0,0,0,0,0,1},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_NAV_PREV,GLYPH_PREV,GLYPH_PREV,LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON,LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON,1},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_NAV_NEXT,GLYPH_NEXT,GLYPH_NEXT,LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON,LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON,1},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_SLIDESHOW,GLYPH_PLAY,GLYPH_PAUSE,LOCALIZATION_ID_TOOLBAR_PLAY_SLIDESHOW_BUTTON,LOCALIZATION_ID_TOOLBAR_PAUSE_SLIDESHOW_BUTTON,1},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_1TO1,GLYPH_1TO1,GLYPH_1TO1,LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON,LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON,1},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_BESTFIT,GLYPH_BESTFIT,GLYPH_BESTFIT,LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON,LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON,1},
 	{_VIV_TOOLBAR_TYPE_SEP,0,0,0,0,0,2},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_1TO1,GLYPH_1TO1,GLYPH_1TO1,LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON,LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON,2},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_BESTFIT,GLYPH_BESTFIT,GLYPH_BESTFIT,LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON,LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON,2},
+	{_VIV_TOOLBAR_TYPE_ZOOM,0,0,0,0,0,2},
 	{_VIV_TOOLBAR_TYPE_SEP,0,0,0,0,0,3},
-	{_VIV_TOOLBAR_TYPE_ZOOM,0,0,0,0,0,3},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_EDIT_ROTATE_90,GLYPH_ROTATE_CW,GLYPH_ROTATE_CW,LOCALIZATION_ID_TOOLBAR_ROTATE,LOCALIZATION_ID_TOOLBAR_ROTATE,3},
 	{_VIV_TOOLBAR_TYPE_SEP,0,0,0,0,0,4},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_EDIT_ROTATE_90,GLYPH_ROTATE_CW,GLYPH_ROTATE_CW,LOCALIZATION_ID_TOOLBAR_ROTATE,LOCALIZATION_ID_TOOLBAR_ROTATE,4},
-	{_VIV_TOOLBAR_TYPE_SEP,0,0,0,0,0,5},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_FILE_PROPERTIES,GLYPH_INFO,GLYPH_INFO,LOCALIZATION_ID_TOOLBAR_IMAGE_INFO,LOCALIZATION_ID_TOOLBAR_IMAGE_INFO,5}
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_FULLSCREEN,GLYPH_FULLSCREEN,GLYPH_FULLSCREEN,LOCALIZATION_ID_TOOLBAR_FULLSCREEN,LOCALIZATION_ID_TOOLBAR_FULLSCREEN,4}
 };
 
 static HWND _viv_toolbar_hwnd = 0;
@@ -142,6 +142,7 @@ static int _viv_toolbar_zoom_pressed = -2; // the cluster zone held with capture
 static int _viv_toolbar_zoom_last = -1; // the percent the strip last painted.
 static int _viv_toolbar_arrow_pressed = -1; // the arrow held with capture, or -1.
 static int _viv_toolbar_page = 0; // the page: groups hidden from the left.
+static BYTE _viv_toolbar_auto_icon_only = 0; // 1 = this layout dropped the labels on its own (the labeled strip did not fit).
 
 // the faces resolve through the theme tokens now: one palette for every
 // surface (the private dark values duplicated the token table), and a
@@ -608,6 +609,16 @@ static void _viv_toolbar_page_step(int dir)
 	}
 }
 
+// the compact face: the manual preference or the automatic stage - one
+// predicate, so the measure, the paint and the hit test answer the same
+// question (the auto stage engages when the labeled strip cannot fit the
+// band and the manual preference is off; the labels stay in the text
+// store either way, so the tooltips keep naming the commands).
+static int _viv_toolbar_compact(void)
+{
+	return ((config_toolbar_icon_only) || (_viv_toolbar_auto_icon_only)) ? 1 : 0;
+}
+
 // re-read the strip metrics, the labels and the widths at the current font,
 // then hand the strip to the walk (the visible set, the page, the arrows).
 static void _viv_toolbar_measure(void)
@@ -696,7 +707,7 @@ static void _viv_toolbar_measure(void)
 			size.cx = 0;
 			size.cy = 0;
 			
-			if (config_toolbar_icon_only)
+			if (_viv_toolbar_compact())
 			{
 				// icon-only: the strip draws the glyph alone, centered, so a
 				// narrow window fits every group (the full strip outgrows a
@@ -724,6 +735,48 @@ static void _viv_toolbar_measure(void)
 	
 	ReleaseDC(_viv_toolbar_hwnd,hdc);
 	
+	// the automatic compact stage (rc.3): the labeled strip a narrow window
+	// cannot hold - a restored 4k window at 300% is the field report's
+	// shape - drops its labels BEFORE the overflow walk starts hiding
+	// whole groups. the icons keep every command one click away and the
+	// page arrows stay the last resort of the ladder (labels, compact,
+	// group hiding, arrows). the manual icon-only preference rides above
+	// this stage; a wide window releases the stage on the next measure.
+	if (!config_toolbar_icon_only)
+	{
+		BYTE mask_visible[_VIV_TOOLBAR_ITEM_COUNT];
+		int maski;
+		int labeled_total;
+
+		for(maski=0;maski<_VIV_TOOLBAR_ITEM_COUNT;maski++)
+		{
+			mask_visible[maski] = (config_toolbar_groups & (1 << _viv_toolbar_items[maski].group)) ? 1 : 0;
+		}
+
+		labeled_total = _viv_toolbar_visible_total(mask_visible);
+
+		if (labeled_total > _viv_toolbar_wide)
+		{
+			_viv_toolbar_auto_icon_only = 1;
+
+			for(maski=0;maski<_VIV_TOOLBAR_ITEM_COUNT;maski++)
+			{
+				if (_viv_toolbar_items[maski].type == _VIV_TOOLBAR_TYPE_BUTTON)
+				{
+					_viv_toolbar_item_wide[maski] = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
+				}
+			}
+		}
+		else
+		{
+			_viv_toolbar_auto_icon_only = 0;
+		}
+	}
+	else
+	{
+		_viv_toolbar_auto_icon_only = 0;
+	}
+
 	// the walk owns the visible set, the page and the arrows (round 132:
 	// the strip pages its overflow instead of amputating it).
 	_viv_toolbar_walk();
@@ -1326,7 +1379,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					
 					// the icon rides at the pad in the full strip and centered
 					// in the icon-only strip (the label never enters the box).
-					icon_x = config_toolbar_icon_only ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset) : (_viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + offset);
+					icon_x = _viv_toolbar_compact() ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset) : (_viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + offset);
 					icon_y = ((_viv_toolbar_bar_high - _viv_toolbar_icon_size) / 2) + offset;
 					
 					if (!_viv_toolbar_item_enabled[itemi])
@@ -1342,7 +1395,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					}
 				}
 				
-				if (!config_toolbar_icon_only)
+				if (!_viv_toolbar_compact())
 				{
 					text_left = _viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + _viv_toolbar_icon_size + _viv_toolbar_icon_text_gap + offset;
 					
@@ -1760,12 +1813,11 @@ static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_
 	{
 		static const int group_ids[_VIV_TOOLBAR_GROUP_MAX + 1] =
 		{
-			LOCALIZATION_ID_TOOLBAR_GROUP_OPEN,
 			LOCALIZATION_ID_TOOLBAR_GROUP_NAV,
 			LOCALIZATION_ID_TOOLBAR_GROUP_FIT,
 			LOCALIZATION_ID_TOOLBAR_GROUP_ZOOM,
 			LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE,
-			LOCALIZATION_ID_TOOLBAR_GROUP_INFO,
+			LOCALIZATION_ID_TOOLBAR_GROUP_FULLSCREEN,
 		};
 		int i;
 
@@ -1836,11 +1888,11 @@ static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_
 
 			if (row)
 			{
-				AppendMenuW(hmenu,MF_STRING | MF_OWNERDRAW,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7,(LPCWSTR)row);
+				AppendMenuW(hmenu,MF_STRING | MF_OWNERDRAW,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 6,(LPCWSTR)row);
 			}
 			else
 			{
-				AppendMenuW(hmenu,MF_STRING,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7,text_wbuf);
+				AppendMenuW(hmenu,MF_STRING,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 6,text_wbuf);
 			}
 		}
 
@@ -1850,7 +1902,7 @@ static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_
 			void *row;
 			UINT command_id;
 
-			command_id = (UINT)(_VIV_TOOLBAR_CONTEXT_ID_FIRST + 8);
+			command_id = (UINT)(_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7);
 
 			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_TOOLBAR_ICON_ONLY));
 
@@ -1890,10 +1942,10 @@ void _viv_toolbar_context_command(int command_id)
 		return;
 	}
 
-	if (index == 7)
+	if (index == 6)
 	{
 		// show all: the mask returns to its default.
-		config_toolbar_groups = 0x3f;
+		config_toolbar_groups = 0x1f;
 	}
 	else
 	if ((index >= 1) && (index <= _VIV_TOOLBAR_GROUP_MAX + 1))
@@ -1901,7 +1953,7 @@ void _viv_toolbar_context_command(int command_id)
 		config_toolbar_groups ^= (1 << (index - 1));
 	}
 	else
-	if (index == 8)
+	if (index == 7)
 	{
 		// icon-only: the toggle re-measures with the labels gone (the
 		// overflow walk below sees the shorter strip).
@@ -1980,6 +2032,7 @@ void _viv_toolbar_destroy(void)
 		_viv_toolbar_arrow_pressed = -1;
 		_viv_toolbar_page = 0;
 		_viv_toolbar_tracking = 0;
+		_viv_toolbar_auto_icon_only = 0;
 		
 		// rc.13: the play latch rides the face state, not the window -
 		// a rebuild re-reads it anyway, but a stale latch must never
@@ -2097,7 +2150,6 @@ void _viv_toolbar_update_buttons(void)
 				break;
 			
 			case VIV_ID_EDIT_ROTATE_90:
-			case VIV_ID_FILE_PROPERTIES:
 			
 				enable = has_image;
 				break;

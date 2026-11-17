@@ -177,6 +177,7 @@ static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 						wchar_t new_full_path_and_filename[STRING_SIZE];
 						wchar_t *ext;
 						int dont_end_dialog;
+						int combine_ok;
 						
 						GetDlgItemText(hwnd,IDC_RENAME_OLD_EDIT,old_filename,STRING_SIZE);
 						GetDlgItemText(hwnd,IDC_RENAME_EDIT,new_filename,STRING_SIZE);
@@ -185,14 +186,27 @@ static INT_PTR CALLBACK _viv_rename_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 						ext = string_get_extension(old_filename);
 						dont_end_dialog = 0;
 						
-						string_path_combine(new_full_path_and_filename,path,new_filename);
-						if (*ext)
+						// the combine's contract: a full target that does not
+						// fit answers FALSE and leaves the buffer empty. the
+						// old shape ignored the answer, appended the
+						// extension onto the emptied buffer and shipped the
+						// shell a relative ".png" - the rename went nowhere
+						// (or somewhere wrong) while the dialog closed as if
+						// it had worked. the refusal keeps the dialog open.
+						combine_ok = string_path_combine(new_full_path_and_filename,path,new_filename);
+						
+						if (!combine_ok)
+						{
+							dont_end_dialog = 1;
+						}
+						
+						if ((combine_ok) && (*ext))
 						{
 							string_cat_utf8(new_full_path_and_filename,(const utf8_t *)".");
 							string_cat(new_full_path_and_filename,ext);
 						}
 						
-						if (string_compare(old_filename,new_full_path_and_filename) != 0)
+						if ((combine_ok) && (string_compare(old_filename,new_full_path_and_filename) != 0))
 						{
 							SHFILEOPSTRUCT fo;
 							

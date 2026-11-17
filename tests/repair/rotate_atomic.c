@@ -44,3 +44,16 @@ int main(void){
  }
  puts("rotation cancel, allocation/transform/shell failure and successful atomic commit PASS");
 }
+static wchar_t *string_get_filename_part(const wchar_t *s){return (wchar_t *)s;}
+static void string_cat(wchar_t *d,const wchar_t *s){int l=(int)lstrlenW(d);int i=0;while(s[i]&&(l+i<1023)){d[l+i]=s[i];i++;}d[l+i]=0;}
+#include <windows.h>
+static int common_GetTempPathW_calls,common_CopyFileW_calls,common_CreateDirectoryW_calls,common_DeleteFileW_calls;
+static int common_copy_answer = 1;
+static DWORD WINAPI common_GetTempPathW(DWORD n,wchar_t *b2){common_GetTempPathW_calls++;(void)n;(void)b2;return 7;}
+static BOOL WINAPI common_CopyFileW(const wchar_t *a,const wchar_t *c,int f){(void)a;(void)c;(void)f;common_CopyFileW_calls++;return (BOOL)common_copy_answer;}
+static BOOL WINAPI common_CreateDirectoryW(const wchar_t *a,void *s){(void)a;(void)s;common_CreateDirectoryW_calls++;return 1;}
+static BOOL WINAPI common_DeleteFileW(const wchar_t *a){(void)a;common_DeleteFileW_calls++;return 1;}
+#define GetTempPathW common_GetTempPathW
+#define CopyFileW common_CopyFileW
+#define CreateDirectoryW common_CreateDirectoryW
+#define DeleteFileW common_DeleteFileW

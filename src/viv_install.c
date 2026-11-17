@@ -396,6 +396,16 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		config_save_settings(config_appdata);
 	}
 	
+	if ((hardware_acceleration) && (_viv_hwd3d12_available()))
+	{
+		config_renderer = CONFIG_RENDERER_DIRECT3D12;
+	}
+	else
+	if ((hardware_acceleration) && (_viv_hwd3d11_available()))
+	{
+		config_renderer = CONFIG_RENDERER_DIRECT3D11;
+	}
+	else
 	if ((hardware_acceleration) && (_viv_hwd3d_available()))
 	{
 		// the installer's hardware acceleration box: the switch only

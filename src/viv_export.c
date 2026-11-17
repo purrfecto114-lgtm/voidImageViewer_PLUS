@@ -30,6 +30,8 @@
 #include "viv_state.h"
 #include "viv_export.h"
 #include "hwd3d.h"
+#include "hwd3d11.h"
+#include "hwd3d12.h"
 #include "viv_chrome.h"
 
 int _viv_export_mode = 0;
@@ -158,6 +160,16 @@ int _viv_export_probe_command_line(void)
 			if (string_icompare_lowercase_ascii(bufstart,"render-d3d") == 0)
 			{
 				_viv_export_renderer = CONFIG_RENDERER_DIRECT3D;
+			}
+			else
+			if (string_icompare_lowercase_ascii(bufstart,"render-d3d11") == 0)
+			{
+				_viv_export_renderer = CONFIG_RENDERER_DIRECT3D11;
+			}
+			else
+			if (string_icompare_lowercase_ascii(bufstart,"render-d3d12") == 0)
+			{
+				_viv_export_renderer = CONFIG_RENDERER_DIRECT3D12;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"render-size") == 0)
@@ -385,6 +397,8 @@ static int _viv_export_readback_gdi(BYTE *bits,int wide,int high)
 static void _viv_export_free(BYTE *bits)
 {
 	_viv_hwd3d_export_end();
+	_viv_hwd3d11_export_end();
+	_viv_hwd3d12_export_end();
 	mem_free(bits);
 }
 
@@ -434,6 +448,16 @@ int _viv_export_run(void)
 	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D)
 	{
 		_viv_hwd3d_export_begin(bits,_viv_export_wide,_viv_export_high);
+	}
+	else
+	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D11)
+	{
+		_viv_hwd3d11_export_begin(bits,_viv_export_wide,_viv_export_high);
+	}
+	else
+	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D12)
+	{
+		_viv_hwd3d12_export_begin(bits,_viv_export_wide,_viv_export_high);
 	}
 	
 	// pump until the first frame answers, the load refuses, or the
@@ -508,10 +532,34 @@ int _viv_export_run(void)
 		}
 	}
 	else
+	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D)
 	{
 		if (!_viv_hwd3d_export_filled())
 		{
 			debug_printf("render-export: the direct3d renderer refused\r\n");
+
+			_viv_export_free(bits);
+
+			return 3;
+		}
+	}
+	else
+	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D11)
+	{
+		if (!_viv_hwd3d11_export_filled())
+		{
+			debug_printf("render-export: the direct3d 11 renderer refused\r\n");
+			
+			_viv_export_free(bits);
+			
+			return 3;
+		}
+	}
+	else
+	{
+		if (!_viv_hwd3d12_export_filled())
+		{
+			debug_printf("render-export: the direct3d 12 renderer refused\r\n");
 			
 			_viv_export_free(bits);
 			
