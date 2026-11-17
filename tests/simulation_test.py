@@ -689,10 +689,10 @@ def t_sim_version_117():
     rev = extract_int(VER_H, r"#define\s+VERSION_REVISION\s+(\d+)", "VERSION_REVISION")
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
-    check("the version quad is 1.1.18.119",
-          (major, minor, rev, build) == (1, 1, 18, 119), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.18-rc.2",
-          vstr is not None and vstr.group(1) == "1.1.18-rc.2", vstr.group(1) if vstr else None)
+    check("the version quad is 1.1.18.120",
+          (major, minor, rev, build) == (1, 1, 18, 120), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.18-rc.3",
+          vstr is not None and vstr.group(1) == "1.1.18-rc.3", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
@@ -2833,9 +2833,9 @@ def t_sim_paging_round132():
     rows = re.findall(r"\{_VIV_TOOLBAR_TYPE_(BUTTON|SEP|ZOOM),[^{}]*?,(\d)\}", tb)
     # quiet chrome: the zoom pair is one cluster seat - fourteen seats,
     # eight buttons, the cluster, five separators.
-    check("the item table parses to fourteen seats (the zoom cluster is one)",
-          len(rows) == 14 and [t for t, g in rows].count("BUTTON") == 8 and
-          [t for t, g in rows].count("SEP") == 5 and
+    check("the item table parses to twelve seats (the zoom cluster is one; the open and info faces left in rc.3)",
+          len(rows) == 12 and [t for t, g in rows].count("BUTTON") == 7 and
+          [t for t, g in rows].count("SEP") == 4 and
           [t for t, g in rows].count("ZOOM") == 1, str(rows))
     items = [(t, int(g)) for t, g in rows]
 
@@ -2862,13 +2862,13 @@ def t_sim_paging_round132():
     CELL = int(re.findall(r"#define _VIV_TOOLBAR_ZOOM_CELL_WIDE (\d+)", tb)[0])
     AW = TARGET
     GROUP_MAX = int(re.findall(r"#define _VIV_TOOLBAR_GROUP_MAX (\d+)", tb)[0])
-    check("the extracted constants are the shipped ones (shared gap 4, target 44, cell 72, six groups)",
-          (GAP, TARGET, CELL, GROUP_MAX) == (4, 44, 72, 5), str((GAP, TARGET, CELL, GROUP_MAX)))
+    check("the extracted constants are the shipped ones (shared gap 4, target 44, cell 72, five groups)",
+          (GAP, TARGET, CELL, GROUP_MAX) == (4, 44, 72, 4), str((GAP, TARGET, CELL, GROUP_MAX)))
 
     def widths_for(scale):
         return [TARGET if t == "BUTTON" else (TARGET * 2 + CELL if t == "ZOOM" else 17) for t, g in items]
 
-    def walk(wide, page, mask=0x3f, widths=None):
+    def walk(wide, page, mask=0x1f, widths=None):
         if widths is None:
             widths = widths_for(60)
         visible = [bool(mask >> g & 1) for t, g in items]
@@ -2917,32 +2917,32 @@ def t_sim_paging_round132():
     # 1. the fit never pages.
     state = walk(10000, 0)
     check("a fitting strip shows every group and no arrows",
-          state[1] == 0 and state[2] == 0 and groups_shown(state) == [0, 1, 2, 3, 4, 5])
+          state[1] == 0 and state[2] == 0 and groups_shown(state) == [0, 1, 2, 3, 4])
 
     # 2. the overflow hides from the right behind the arrow.
     state = walk(240, 0)
     check("the overflow keeps the early groups, hides the late ones, shows the arrow",
           state[2] == 1 and state[1] == 0 and 0 in groups_shown(state) and
-          5 not in groups_shown(state))
+          4 not in groups_shown(state))
 
     # 3. the page turns around the open button.
     state = walk(240, 1)
-    check("page one hides the nav group from the left and keeps the open button",
+    check("page one hides the fit group from the left and keeps the nav group",
           state[1] == 1 and 0 in groups_shown(state) and 1 not in groups_shown(state))
 
     # 4. the last page drops the right arrow.
-    state = walk(240, 5)
-    check("the last page shows only the open group and the back arrow",
+    state = walk(240, 4)
+    check("the last page shows only the nav group and the back arrow",
           state[1] == 1 and state[2] == 0 and groups_shown(state) == [0])
 
     # 5. the stale page goes home (its groups all hid behind the mask).
     # quiet chrome: at the faithful widths the step's own page answers the
     # same set (the rotate group fits either way), so no forward arrow
     # lights - the starved-window dead-arrow rule, not a regression.
-    state = walk(200, 2, mask=0x31)
+    state = walk(320, 2, mask=0x19)
     check("a page whose groups all hid clamps home",
           state[0] == 0 and state[1] == 0 and state[2] == 0 and
-          groups_shown(state) == [0, 4, 5])
+          groups_shown(state) == [0, 3, 4])
 
     # 6. group zero never hides, however narrow.
     state = walk(10, 5)
@@ -2977,10 +2977,10 @@ def t_sim_paging_round132():
           "while ((page <= _VIV_TOOLBAR_GROUP_MAX) && (!_viv_toolbar_group_live(page)))" in tb and
           "while ((page > 0) && (!_viv_toolbar_group_live(page)))" in tb)
 
-    def group_live(g, mask=0x3f):
+    def group_live(g, mask=0x1f):
         return bool((mask >> g) & 1) and any(gg == g for _, gg in items)
 
-    def step(page, dirn, mask=0x3f):
+    def step(page, dirn, mask=0x1f):
         if dirn > 0:
             p = page + 1
             while p <= GROUP_MAX and not group_live(p, mask):
@@ -2991,17 +2991,17 @@ def t_sim_paging_round132():
             p -= 1
         return p
 
-    nav_dead = 0x3f & ~(1 << 1)
+    nav_dead = 0x1f & ~(1 << 1)
     check("the forward step skips the dead navigation group",
           step(0, +1, nav_dead) == 2)
-    after = walk(440, step(0, +1, nav_dead), mask=nav_dead)
-    before = walk(440, 0, mask=nav_dead)
+    after = walk(400, step(0, +1, nav_dead), mask=nav_dead)
+    before = walk(400, 0, mask=nav_dead)
     check("the skipped step moves the content (the arrow's promise is delivered)",
           after[0] == 2 and after[1] == 1 and after[3] != before[3],
           str((after[:3], before[:3])))
     check("the dead page still clamps home when something else lands it there",
-          walk(440, 1, mask=nav_dead)[0] == 0)
-    two_dead = 0x3f & ~((1 << 1) | (1 << 2))
+          walk(400, 1, mask=nav_dead)[0] == 0)
+    two_dead = 0x1f & ~((1 << 1) | (1 << 2))
     check("the back step skips dead groups too (or goes home)",
           step(3, -1, two_dead) == 0)
     check("a mask with nothing forward owes no turn",

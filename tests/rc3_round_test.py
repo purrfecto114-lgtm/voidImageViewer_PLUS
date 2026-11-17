@@ -64,6 +64,21 @@ def t_toolbar():
     check("the labels survive the compact pass for the tooltips",
           "string_copy_utf8_string(_viv_toolbar_item_text[itemi]" in tb)
 
+    # the previews draw the shipped tree (the rc.3 round's honesty): the
+    # composer parses the live strip table instead of a hand list.
+    mock = read("tools/mockup.py")
+    check("the preview composer parses the live strip table",
+          "viv_toolbar.c" in mock and
+          "_VIV_TOOLBAR_TYPE_" in mock and
+          '("btn", 8)' not in mock)
+    check("the preview strip carries the fullscreen face and no folder face",
+          "GLYPH_FULLSCREEN" in mock and
+          "GLYPH_FOLDER_OPEN" not in mock)
+    check("the preview status strip renders the name pane and the info square",
+          "name_pane" in mock and "GLYPH_INFO" in mock)
+    check("the preview chip carries the fullscreen door",
+          "chip_door" in mock)
+
     # the ladder's math, extracted and re-run: the 300% shape (the field
     # report's restored 4k window) cannot hold the labeled strip; the
     # compact strip can; a wide window releases the stage.

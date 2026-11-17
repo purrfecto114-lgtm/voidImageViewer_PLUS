@@ -2516,10 +2516,12 @@ static void _viv_edit_rotate(int counterclockwise)
 	prepared = _viv_prepare_oriented_frames(_viv_slot_current.frames,_viv_slot_current.frame_count,counterclockwise ? 8 : 6);
 	if (prepared)
 	{
-		// the temp copy: a different source retires the artifact path (the
-		// old copy stays on disk until the exit sweep; the path just stops
-		// pointing at it). the first rotate of a source copies the original
-		// - the verb then works on the copy, never on the file itself.
+		// the temp copy: a different source (or a source whose last copy
+		// never landed) builds the artifact fresh - the verb then works
+		// on the copy, never on the file itself. the source stamp lands
+		// only after the copy answers, and a refused copy retires both
+		// paths: a stale stamp must never route the verb at an empty
+		// temp name (the repair harness's scenario 2 caught exactly that).
 		if (string_compare(_viv_rotate_source_path,_viv_slot_current.fd.cFileName) != 0)
 		{
 			if (!GetTempPathW((DWORD)(STRING_SIZE - 60),temp_dir))
@@ -2528,20 +2530,23 @@ static void _viv_edit_rotate(int counterclockwise)
 			}
 			else
 			{
-				string_copy(_viv_rotate_source_path,_viv_slot_current.fd.cFileName);
 				string_cat_utf8(temp_dir,"voidImageViewer");
 				CreateDirectoryW(temp_dir,NULL);
 				string_cat_utf8(temp_dir,"\\");
 				string_copy(_viv_rotate_temp_path,temp_dir);
-				string_cat(_viv_rotate_temp_path,string_get_filename_part(_viv_rotate_source_path));
-				temp = CopyFileW(_viv_rotate_source_path,_viv_rotate_temp_path,FALSE);
+				string_cat(_viv_rotate_temp_path,string_get_filename_part(_viv_slot_current.fd.cFileName));
+				temp = CopyFileW(_viv_slot_current.fd.cFileName,_viv_rotate_temp_path,FALSE);
 			}
 
 			if (!temp)
 			{
 				// no artifact, no rotate: an all-or-nothing round keeps the
 				// display and the disk telling the same story (the old
-				// refusal box, the same face the verb failure uses).
+				// refusal box, the same face the verb failure uses). the
+				// half-built paths retire with the round.
+				_viv_rotate_source_path[0] = 0;
+				_viv_rotate_temp_path[0] = 0;
+
 				for(i=0;i<_viv_slot_current.frame_count;i++) DeleteObject(prepared[i]);
 				mem_free(prepared);
 
@@ -2550,6 +2555,9 @@ static void _viv_edit_rotate(int counterclockwise)
 
 				return;
 			}
+
+			// the stamp: the artifact exists and answers this source.
+			string_copy(_viv_rotate_source_path,_viv_slot_current.fd.cFileName);
 		}
 
 		if (os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise ? "rotate270" : "rotate90",0))

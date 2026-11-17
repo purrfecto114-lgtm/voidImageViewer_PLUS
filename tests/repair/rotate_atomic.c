@@ -29,31 +29,41 @@ static void*mem_try_alloc(size_t n){return scenario==4?NULL:malloc(n);}
 static void mem_free(void*p){free(p);}
 static size_t safe_size_mul(size_t a,size_t b){return b && a>SIZE_MAX/b?SIZE_MAX:a*b;}
 static size_t safe_size_add(size_t a,size_t b){return a>SIZE_MAX-b?SIZE_MAX:a+b;}
-/* PRODUCTION */
-int main(void){
- for(scenario=0;scenario<=4;scenario++){
-  _viv_frame_t frames[2]={{7,0,100},{8,0,100}};shell_calls=old_deleted=new_deleted=oriented_calls=release_calls=0;
-  _viv_slot_current.frames=frames;_viv_slot_current.frame_count=_viv_slot_current.frame_loaded_count=2;_viv_slot_current.image_wide=2;_viv_slot_current.image_high=3;wcscpy(_viv_slot_current.fd.cFileName,L"image.jpg");
-  _viv_edit_rotate(0);
-  if(scenario==3){assert(frames[0].hbitmap==100 && frames[1].hbitmap==101);assert(_viv_slot_current.image_wide==3 && _viv_slot_current.image_high==2);assert(shell_calls==1 && old_deleted==2 && new_deleted==0 && release_calls==1);}
-  else{assert(frames[0].hbitmap==7 && frames[1].hbitmap==8);assert(_viv_slot_current.image_wide==2 && _viv_slot_current.image_high==3);assert(!old_deleted && !release_calls);
-   if(scenario==0)assert(!shell_calls && new_deleted==1);
-   if(scenario==1 || scenario==4)assert(!shell_calls && !new_deleted && !oriented_calls);
-   if(scenario==2)assert(shell_calls==1 && new_deleted==2);
-  }
- }
- puts("rotation cancel, allocation/transform/shell failure and successful atomic commit PASS");
-}
+/* the rotate's artifact state (the production statics the extracted
+   body reads and writes - the same shape the slot struct carries). */
+static wchar_t _viv_rotate_source_path[260];
+static wchar_t _viv_rotate_temp_path[260];
+/* the rc.3 temp artifact: the host answers the temp machinery (the copy
+   refuses on scenario 1, the directory create is the exists-ok call it
+   is on windows, and the counters expose the flow to the assertions). */
 static wchar_t *string_get_filename_part(const wchar_t *s){return (wchar_t *)s;}
-static void string_cat(wchar_t *d,const wchar_t *s){int l=(int)lstrlenW(d);int i=0;while(s[i]&&(l+i<1023)){d[l+i]=s[i];i++;}d[l+i]=0;}
-#include <windows.h>
+static void string_cat(wchar_t *d,const wchar_t *s){int i=0,l=0;while(d[l])l++;while(s[i]&&l+i<259){d[l+i]=s[i];i++;}d[l+i]=0;}
+static void string_copy(wchar_t *d,const wchar_t *s){int i=0;while(s[i]&&i<259){d[i]=s[i];i++;}d[i]=0;}
+static int string_compare(const wchar_t *a,const wchar_t *b){int i=0;while(a[i]&&a[i]==b[i])i++;return a[i]-b[i];}
+static void string_cat_utf8(wchar_t *d,const char *s){int i=0,l=0;while(d[l])l++;while(s[i]&&l+i<259){d[l+i]=(wchar_t)(unsigned char)s[i];i++;}d[l+i]=0;}
 static int common_GetTempPathW_calls,common_CopyFileW_calls,common_CreateDirectoryW_calls,common_DeleteFileW_calls;
-static int common_copy_answer = 1;
-static DWORD WINAPI common_GetTempPathW(DWORD n,wchar_t *b2){common_GetTempPathW_calls++;(void)n;(void)b2;return 7;}
-static BOOL WINAPI common_CopyFileW(const wchar_t *a,const wchar_t *c,int f){(void)a;(void)c;(void)f;common_CopyFileW_calls++;return (BOOL)common_copy_answer;}
-static BOOL WINAPI common_CreateDirectoryW(const wchar_t *a,void *s){(void)a;(void)s;common_CreateDirectoryW_calls++;return 1;}
-static BOOL WINAPI common_DeleteFileW(const wchar_t *a){(void)a;common_DeleteFileW_calls++;return 1;}
+static unsigned long common_GetTempPathW(unsigned long n,wchar_t *b){(void)n;if(b)b[0]=0;common_GetTempPathW_calls++;return 7;}
+static int common_CopyFileW(const wchar_t *a,const wchar_t *c,int f){(void)a;(void)c;(void)f;common_CopyFileW_calls++;return scenario==1?0:1;}
+static int common_CreateDirectoryW(const wchar_t *a,const void *s){(void)a;(void)s;common_CreateDirectoryW_calls++;return 1;}
+static int common_DeleteFileW(const wchar_t *a){(void)a;common_DeleteFileW_calls++;return 1;}
 #define GetTempPathW common_GetTempPathW
 #define CopyFileW common_CopyFileW
 #define CreateDirectoryW common_CreateDirectoryW
 #define DeleteFileW common_DeleteFileW
+/* PRODUCTION */
+int main(void){
+ for(scenario=0;scenario<=4;scenario++){
+  _viv_frame_t frames[2]={{7,0,100},{8,0,100}};shell_calls=old_deleted=new_deleted=oriented_calls=release_calls=0;
+  common_GetTempPathW_calls=common_CopyFileW_calls=common_CreateDirectoryW_calls=common_DeleteFileW_calls=0;
+  _viv_slot_current.frames=frames;_viv_slot_current.frame_count=_viv_slot_current.frame_loaded_count=2;_viv_slot_current.image_wide=2;_viv_slot_current.image_high=3;wcscpy(_viv_slot_current.fd.cFileName,L"image.jpg");
+  _viv_edit_rotate(0);
+  if(scenario==3){assert(frames[0].hbitmap==100 && frames[1].hbitmap==101);assert(_viv_slot_current.image_wide==3 && _viv_slot_current.image_high==2);assert(shell_calls==1 && old_deleted==2 && new_deleted==0 && release_calls==1);assert(common_CopyFileW_calls==0 && common_GetTempPathW_calls==0);}
+  else{assert(frames[0].hbitmap==7 && frames[1].hbitmap==8);assert(_viv_slot_current.image_wide==2 && _viv_slot_current.image_high==3);assert(!old_deleted && !release_calls);
+   if(scenario==0)assert(!shell_calls && new_deleted==1 && !common_CopyFileW_calls);
+   if(scenario==1)assert(!shell_calls && new_deleted==2 && common_CopyFileW_calls==1 && oriented_calls==2);
+   if(scenario==2)assert(shell_calls==1 && new_deleted==2 && common_CopyFileW_calls==1);
+   if(scenario==4)assert(!shell_calls && !new_deleted && !oriented_calls && !common_CopyFileW_calls);
+  }
+ }
+ puts("rotation copy refusal/reuse, allocation/transform/shell failure and successful temp-copy commit PASS");
+}

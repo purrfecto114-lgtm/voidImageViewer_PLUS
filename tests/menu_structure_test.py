@@ -282,30 +282,37 @@ def t_localization_alignment():
     # window's first id was the save-as bmp row until rc.2 extended the
     # tail again - the corrupted-settings ask's four ids ride it now,
     # so the window's first id is the backdrop row.
-    tail = ("LOCALIZATION_ID_BACKDROP",
-            "LOCALIZATION_ID_BACKDROP_FOLLOW",
+        # the tail window: rebuilt against the shipped enum (rc.3 - the d3d
+    # family renderer ids joined mid-enum and the window slid; the
+    # entries answer the table, the comments name the sections).
+    tail = (
+            # backdrop
             "LOCALIZATION_ID_BACKDROP_BLACK",
             "LOCALIZATION_ID_BACKDROP_WHITE",
             "LOCALIZATION_ID_BACKDROP_CUSTOM",
             "LOCALIZATION_ID_BACKDROP_CHECKERBOARD",
+            # recent
             "LOCALIZATION_ID_RECENT_FILES",
             "LOCALIZATION_ID_RECENT_FILES_EMPTY",
             "LOCALIZATION_ID_RECENT_FILES_CLEAR",
+            # set
             "LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_CAPTION",
             "LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_MESSAGE",
-            # round-128: the rotate ask and the silent-ini boxes
+            # rotate
             "LOCALIZATION_ID_ROTATE_IMAGE_CAPTION",
             "LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE",
             "LOCALIZATION_ID_ROTATE_IMAGE_FAILED",
+            # config
             "LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION",
             "LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE",
+            # status
             "LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT",
+            # windowed
             "LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU",
-            # the gui remake round appends the settings window, toolbar label
-            # and status format ids after the modern ux group.
+            # settings
             "LOCALIZATION_ID_SETTINGS",
             "LOCALIZATION_ID_SETTINGS_PAGE_GENERAL",
             "LOCALIZATION_ID_SETTINGS_PAGE_VIEW",
@@ -322,18 +329,26 @@ def t_localization_alignment():
             "LOCALIZATION_ID_SETTINGS_SELECT_ALL",
             "LOCALIZATION_ID_SETTINGS_OK",
             "LOCALIZATION_ID_SETTINGS_CANCEL",
+            # toolbar
             "LOCALIZATION_ID_TOOLBAR_OPEN",
             "LOCALIZATION_ID_TOOLBAR_ROTATE",
             "LOCALIZATION_ID_TOOLBAR_IMAGE_INFO",
+            # status
             "LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT",
+            # msgbox
             "LOCALIZATION_ID_MSGBOX_YES",
             "LOCALIZATION_ID_MSGBOX_NO",
+            # accent
             "LOCALIZATION_ID_ACCENT_COLOR",
+            # renderer
             "LOCALIZATION_ID_RENDERER",
             "LOCALIZATION_ID_RENDERER_GDI",
             "LOCALIZATION_ID_RENDERER_OPENGL",
+            "LOCALIZATION_ID_RENDERER_DIRECT3D11",
+            "LOCALIZATION_ID_RENDERER_DIRECT3D12",
             "LOCALIZATION_ID_RENDERER_DIRECT3D",
+            # toolbar
             "LOCALIZATION_ID_TOOLBAR_CUSTOMIZE",
             "LOCALIZATION_ID_TOOLBAR_GROUP_OPEN",
             "LOCALIZATION_ID_TOOLBAR_GROUP_NAV",
@@ -342,8 +357,11 @@ def t_localization_alignment():
             "LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE",
             "LOCALIZATION_ID_TOOLBAR_GROUP_INFO",
             "LOCALIZATION_ID_TOOLBAR_SHOW_ALL",
+            # init
             "LOCALIZATION_ID_INIT_FAILED",
+            # toolbar
             "LOCALIZATION_ID_TOOLBAR_ICON_ONLY",
+            # settings
             "LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY",
             "LOCALIZATION_ID_SETTINGS_PRELOAD_COUNT",
             "LOCALIZATION_ID_SETTINGS_CACHE_COUNT",
@@ -351,9 +369,6 @@ def t_localization_alignment():
             "LOCALIZATION_ID_SETTINGS_COUNT_OFF",
             "LOCALIZATION_ID_SETTINGS_COUNT_ONE",
             "LOCALIZATION_ID_SETTINGS_COUNT_MANY",
-            # round-125: the settings remake tail - the four view page
-            # section captions, the three interface switch labels and the
-            # ctrl+wheel row label.
             "LOCALIZATION_ID_SETTINGS_SECTION_RENDERING",
             "LOCALIZATION_ID_SETTINGS_SECTION_WINDOW",
             "LOCALIZATION_ID_SETTINGS_SECTION_ANIMATION",
@@ -361,42 +376,43 @@ def t_localization_alignment():
             "LOCALIZATION_ID_SETTINGS_FLOATING_BAR",
             "LOCALIZATION_ID_SETTINGS_AUTO_HIDE_BAR",
             "LOCALIZATION_ID_SETTINGS_PIXEL_INFO",
+            # ctrl
             "LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC",
-            # round-126: the apply button rides the settings tail.
+            # settings
             "LOCALIZATION_ID_SETTINGS_APPLY",
-            # round-129: the default-app honesty pair rides the tail.
+            # association
             "LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION",
             "LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE",
-            # rc.4: the hardware acceleration pair rides the tail.
+            # settings
             "LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION",
             "LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC",
-            # rc.6: the installer's default-app honesty pair rides the tail.
+            # installer
             "LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_CAPTION",
             "LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE",
-            # round-148's lock caption and the uninstall settings ask
-            # (the consent pair left with its box - the explicit click
-            # takes the extension over directly now).
+            # settings
             "LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED",
+            # uninstall
             "LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_CAPTION",
             "LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_MESSAGE",
-            # round-149: the hardware switch's unavailable face and the
-            # shortcut page's three-state instruction row.
+            # settings
             "LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE",
             "LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_IDLE",
             "LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_PRESS",
             "LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_CONFIRM",
-            # rc.2: the corrupted-settings ask at the exit - its caption,
-            # its keep and restore faces, and its message body.
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_CAPTION",
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_KEEP",
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_RESTORE",
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE",
+            # status
             "LOCALIZATION_ID_STATUS_BAR_DIMENSION_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT",
+            # toolbar
             "LOCALIZATION_ID_TOOLBAR_FULLSCREEN",
-            "LOCALIZATION_ID_TOOLBAR_GROUP_FULLSCREEN")
-    check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(ids[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more (the consent pair, the lock caption, the uninstall ask); rc.2: four more (the exit ask's caption, faces and message)
+            "LOCALIZATION_ID_TOOLBAR_GROUP_FULLSCREEN"
+    )
+    check("the tail window answers the shipped enum (rebuilt at rc.3 after the d3d family slid the window)",
+          tuple(ids[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more (the consent pair, the lock caption, the uninstall ask); rc.2: four more (the exit ask's caption, faces and message)
     check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(en[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
     check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(zh[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
 
@@ -3325,7 +3341,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 38000)  # (见 total 行的校准注)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response - the clipboard gates, the identity binding, the job snapshot and the interlocked stage (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): the silent-failure reporting and the config integrity work land for real (measured 36423); rc.2 (2026-10-18): the corrupted-settings round - the walk fix, the ask's localization, the playlist directory seat and the uninstall's preserved-copies sweep (measured 37026)
+          viv_lines >= 21130 and viv_lines <= 38300)  # (见 total 行的校准注)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response - the clipboard gates, the identity binding, the job snapshot and the interlocked stage (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): the silent-failure reporting and the config integrity work land for real (measured 36423); rc.2 (2026-10-18): the corrupted-settings round - the walk fix, the ask's localization, the playlist directory seat and the uninstall's preserved-copies sweep (measured 37026)  # rc.3 (2026-11-17): measured 38228 (the responsive strip, the status doors, the rotate artifact machine, the queue fixes and the d3d family ride the splice)
 
     # 2. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3386,7 +3402,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 38000, f"({total})")  # (校准注同上) round-102 recalibration (the export module measured 30548); quiet chrome (2026-11-14): the command band, the zoom cluster and the settings row system land (measured 37633); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): measured 36898 (the splice plus the state tail); rc.2 (2026-10-18): measured 37026 (the playlist directory seat and the uninstall's preserved-copies sweep ride the splice)
+          21130 <= total <= 38300, f"({total})")  # (校准注同上) round-102 recalibration (the export module measured 30548); quiet chrome (2026-11-14): the command band, the zoom cluster and the settings row system land (measured 37633); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): measured 36898 (the splice plus the state tail); rc.2 (2026-10-18): measured 37026 (the playlist directory seat and the uninstall's preserved-copies sweep ride the splice)  # rc.3 (2026-11-17): measured 38228
 
     # 6. the fourth CI catch stays guarded: a measurement macro expanded
     #    inside a struct body must see both its #define and the extern it
@@ -4904,7 +4920,7 @@ def t_todo_closure_round96():
           "_VIV_MENU_VIEW_RENDERER" in stateh and
           "LOCALIZATION_ID_RENDERER,MF_POPUP" in vivc)
     check("the renderer items ride radio checks in the command table",
-          vivc.count("|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_") == 2)
+          vivc.count("|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_") == 4)
     check("the radios check against the config in _viv_check_menus",
           menu.count("VIV_ID_VIEW_RENDERER_") >= 3 and
           "config_renderer == CONFIG_RENDERER_GDI" in menu)
@@ -4940,8 +4956,8 @@ def t_todo_closure_round96():
     check("the toolbar context command exports to the wndproc interceptor",
           "void _viv_toolbar_context_command(int command_id);" in toolbarh and
           "_viv_toolbar_context_command(command_id)" in wnd)
-    check("the mask starts at every group visible",
-          "0x3f" in toolbar)
+    check("the mask starts at every group visible (five groups since rc.3)",
+          "0x1f" in toolbar and "0x3f" not in toolbar)
 
     # 8. the paint path takes the hardware branch before the backbuffer.
     check("wm_paint tries the hardware renderers before the gdi backbuffer",
@@ -4959,7 +4975,7 @@ def t_todo_closure_round96():
           "src/hwd3d.c" in files_txt and
           "src/shellmenu.c" in files_txt and
           "src/viv_export.c" in files_txt and
-          files_txt.count("\n") == 103)
+          files_txt.count("\n") == 105)
     check("the shared props list carries the module files (opengl retired in rc.3)",
           props.count('Include="..\\src\\hwgl.c"') == 0 and
           props.count('Include="..\\src\\hwd3d.c"') == 1 and
@@ -5613,7 +5629,7 @@ def t_pixel_oracle_round102():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the responsive and hardware round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)", top)
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the version is 1.1.18-rc.3 build 120",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -5932,7 +5948,7 @@ def t_input_ceiling_round104():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the responsive and hardware round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)", top)
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the version is 1.1.18-rc.3 build 120",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -6080,7 +6096,7 @@ def t_renderer_parity_round105():
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the responsive and hardware round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)", top)
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the version is 1.1.18-rc.3 build 120",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -6197,7 +6213,7 @@ def t_navigation_faces_round106():
     # 6. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the responsive and hardware round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)", top)
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the version is 1.1.18-rc.3 build 120",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -6513,8 +6529,8 @@ def t_stable_promotion_round108():
           "three switch rows" in settings)
 
     # 8. the changelog, the readme and the demotion ride the promotion
-    check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog rides the slot architecture round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
     check("the readme current-stable line says 1.1.14",
           "**1.1.16 \u2014 the previous stable**" in readme)
     check("the 1.1.13 full section demotes to the one-line list",
@@ -6665,8 +6681,8 @@ def t_slot_architecture_round109():
           "os_copy_memory(&_viv_slot_current.fd,_viv_load_fd,sizeof(WIN32_FIND_DATA));" in wnd)
 
     # 12. the changelog, the readme and the candidate block
-    check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog rides the slot architecture round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
     check("the readme carries one stable block and the diet retired the candidate ladder",
           readme.count("(the current stable):**") == 1 and
           "**1.1.15-rc.6 \u2014" not in readme)
@@ -6768,8 +6784,8 @@ def t_audit_response_round110():
           "$mismatched++" in golden_ps1)
 
     # 6. the changelog, the readme and the candidate rotation
-    check("the changelog tops with the fourth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog rides the fourth audit response round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
     check("the rc.1 one-liner retired with the 1.1.16 diet (the ledger keeps the arc)",
           "**1.1.15-rc.6 \u2014" not in readme and
           readme.count("(the current stable):**") == 1)
@@ -6918,8 +6934,8 @@ def t_audit_response_round111():
           "ARTIFACT:" not in release_yml)
 
     # 12. the changelog, the readme and the candidate rotation
-    check("the changelog tops with the fifth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog rides the fifth audit response round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
     check("the changelog carries the round's own ledger",
           "the navigation trio first, because two of the three are ordering defects" in changes and
           "the ladder step is extracted, not self-written" in changes and
@@ -7043,7 +7059,7 @@ def t_judged_fixes_round114():
     # case moved to the strip that owns it.
     check("the item table carries the zoom cluster as one control",
           "#define _VIV_TOOLBAR_TYPE_ZOOM 2" in toolbar and
-          "{_VIV_TOOLBAR_TYPE_ZOOM,0,0,0,0,0,3}" in toolbar and
+          "{_VIV_TOOLBAR_TYPE_ZOOM,0,0,0,0,0,2}" in toolbar and
           "VIV_ID_VIEW_ZOOM_OUT,GLYPH_MAGNIFIER_MINUS" not in toolbar)
     check("the in place zoom editor anchors to the command bar's cell",
           "_viv_toolbar_zoom_cell(&pane_rect)" in dialogs and
@@ -7051,12 +7067,12 @@ def t_judged_fixes_round114():
           "_viv_status_zoom_pane_index() < 0" not in dialogs)
     check("the editor's colour case rides the toolbar proc",
           "case WM_CTLCOLOREDIT:" in toolbar)
-    check("the paint centers the glyph and skips the label",
-          "config_toolbar_icon_only ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset)" in toolbar and
-          "if (!config_toolbar_icon_only)" in toolbar)
+    check("the paint centers the glyph and skips the label (the compact predicate answers manual or auto since rc.3)",
+          "_viv_toolbar_compact() ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset)" in toolbar and
+          "if (!_viv_toolbar_compact())" in toolbar)
     check("the context menu carries the row and the check",
           "LOCALIZATION_ID_TOOLBAR_ICON_ONLY" in toolbar and
-          "_VIV_TOOLBAR_CONTEXT_ID_FIRST + 8" in toolbar and
+          "_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7" in toolbar and
           "CheckMenuItem(hmenu,command_id,config_toolbar_icon_only ? MF_CHECKED : MF_UNCHECKED);" in toolbar)
     check("the command flips the flag and re-measures",
           "config_toolbar_icon_only = config_toolbar_icon_only ? 0 : 1;" in toolbar)
@@ -7344,8 +7360,8 @@ def t_command_picker_round112():
           "_viv_command_index_from_command_id(_viv_default_keys[i].command_id)" in viv)
 
     # 12. the changelog, the readme and the candidate rotation
-    check("the changelog tops with the command picker round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog rides the command picker round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
     check("the changelog carries the round's own ledger",
           "eighty-six commands\r\n\twere unreachable" in changes and
           "the cascade is the real menu tree" in changes and
@@ -7402,10 +7418,10 @@ def t_audit_response_round118():
     check("delete binds to the displayed slot's fd",
           "string_copy_double_null(filename_list,_viv_slot_current.fd.cFileName);" in view and
           "os_copy_memory(&fd,&_viv_slot_current.fd,sizeof(WIN32_FIND_DATA));" in view)
-    check("the shell verb family binds to the displayed slot's fd",
+    check("the shell verb family binds honestly (properties to the slot's fd, rotate to the temp artifact since rc.3)",
           'os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"properties",0);' in view and
           'counterclockwise ? "rotate270" : "rotate90"' in view and
-          '_viv_slot_current.fd.cFileName,0,counterclockwise' in view)  # round-125: the ui-thread wait is gone
+          'os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise' in view)  # round-125: the ui-thread wait is gone; rc.3: the rotate verb works the copy, never the file
     # round-125: the successor window adds two readers (the serves()
     # comparison and the begin() anchor) - both hold the fd, never
     # write it.
@@ -7742,7 +7758,7 @@ def t_gui_limits_round121():
     # 10. the version and the changelog.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the responsive and hardware round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)", top)
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -7882,7 +7898,7 @@ def t_resume_and_chain_round122():
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the responsive and hardware round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)", top)
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -7959,8 +7975,8 @@ def t_field_response_round124():
           "first_frame.alpha_baked = viv_webp->has_alpha ? 1 : 0;" in anim)
 
     # --- the unblocked rotate ---
-    check("the rotate verb launches without the ui-thread wait",
-          'os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,counterclockwise ? "rotate270" : "rotate90",0)' in view)
+    check("the rotate verb launches on the temp copy without the ui-thread wait (rc.3)",
+          'os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise ? "rotate270" : "rotate90",0)' in view)
 
     # --- the timer fallback pair ---
     check("the animation clock falls back on a queue-timer refusal",
@@ -8390,7 +8406,7 @@ def t_report_fusion_round123():
     # 22. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the responsive and hardware round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)", top)
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -8579,7 +8595,7 @@ def t_settings_capacity_round126():
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the settings footer round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)", top)
+          top.startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -8672,7 +8688,7 @@ def t_pill_field_round127():
     # 5. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the pill field round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)", top)
+          top.startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -8979,10 +8995,13 @@ def t_parallel_eval_round128():
     #    it touches the desktop, the rotation asks before it touches
     #    the source. the memory rotation rides inside the yes.
     rot = body128(v, "static void _viv_edit_rotate(int counterclockwise)")
-    check('rotation asks before the disk verb',
-          "LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE" in rot and "viv_msgbox(_viv_hwnd,caption,message,MB_OKCANCEL | MB_ICONQUESTION) != IDOK" in rot)
-    check('a refused ask returns before preparation or the verb',
-          -1 < rot.find("!= IDOK)") < rot.find("return;",rot.find("!= IDOK)")) < rot.find("_viv_prepare_oriented_frames(") < rot.find("os_shell_execute("))
+    check('rotation no longer asks - the disk verb works the temp copy (rc.3: the original file never changes)',
+          "MB_OKCANCEL" not in rot and
+          "LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE" not in rot and
+          "CopyFileW(_viv_slot_current.fd.cFileName,_viv_rotate_temp_path,FALSE)" in rot and
+          'os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise ? "rotate270" : "rotate90",0)' in rot)
+    check('a refused copy returns before the verb (the all-or-nothing round)',
+          -1 < rot.find("if (!temp)") < rot.find("return;",rot.find("if (!temp)")) < rot.find("os_shell_execute("))
 
     # 5. THE USAGE PAIR: two implemented command line switches shipped
     #    commented out of the usage text (the /everything and /random
@@ -9241,7 +9260,7 @@ def t_parallel_eval_round128():
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the parallel evaluation round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)", top)
+          top.startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
 
 
 def t_default_app_honesty_round129():
@@ -9442,14 +9461,15 @@ def t_toolbar_paging_round132():
     check("the chevron glyph pair exists for the page arrows",
           "#define GLYPH_CHEVRON_LEFT" in gh and "#define GLYPH_CHEVRON_RIGHT" in gh)
     m = re.search(r"#define GLYPH_COUNT\s+(\d+)", gh)
-    check("the glyph count carries the chevron pair (16 to 18)",
-          m is not None and m.group(1) == "18")
+    check("the glyph count carries the fullscreen face (18 to 19, rc.3)",
+          m is not None and m.group(1) == "19")
     i = gc.find("static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =")
     tbl = gc[i:gc.find("};", i)]
     seats = re.findall(r"^\t\{(\d+),(_\w+)\},?\r?$", tbl, re.M)
-    check("the glyph table census is the sixteen seats plus the chevron pair",
-          len(seats) == 18 and seats[-2] == ("1", "_glyphs_chevron_left_strokes") and
-          seats[-1] == ("1", "_glyphs_chevron_right_strokes"), str(seats[-3:]))
+    check("the glyph table census is the sixteen seats, the chevron pair and the fullscreen brackets",
+          len(seats) == 19 and seats[-3] == ("1", "_glyphs_chevron_left_strokes") and
+          seats[-2] == ("1", "_glyphs_chevron_right_strokes") and
+          seats[-1] == ("4", "_glyphs_fullscreen_strokes"), str(seats[-3:]))
 
     # 2. THE PAGING STATE (the arrows are citizens, not slots).
     check("the strip carries a page state",
@@ -9457,9 +9477,9 @@ def t_toolbar_paging_round132():
     check("the arrows carry their own hover and press state",
           "static int _viv_toolbar_arrow_hover = -1;" in tb and
           "static int _viv_toolbar_arrow_pressed = -1;" in tb)
-    check("the fourteen-seat item table carries the zoom cluster (the arrows are not slots)",
-          "#define _VIV_TOOLBAR_ITEM_COUNT 14" in tb and
-          "#define _VIV_TOOLBAR_GROUP_MAX 5" in tb)
+    check("the twelve-seat item table carries the zoom cluster (the arrows are not slots; the open and info faces left in rc.3)",
+          "#define _VIV_TOOLBAR_ITEM_COUNT 12" in tb and
+          "#define _VIV_TOOLBAR_GROUP_MAX 4" in tb)
 
     # 3. THE WALK CONTRACT.
     check("the walk runs the fit before the page fill before the arrow probes (the code anchors, not the comments)",
@@ -9594,7 +9614,7 @@ def t_stable_promotion_round133():
     check("the build rides the live tree (112 at the 1.1.16 promotion)",
           "#define VERSION_BUILD 120" in version)
     check("the changelog top entry is the stable round's own heading",
-          top == "Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)", top)
+          top.startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
     check("the readme twins promote the stable block",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -9914,8 +9934,8 @@ def t_round136():
           "EnableMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_MINUS,is_image_enabled);" in read("src/viv_menu.c").decode("latin-1"))
     check("the command case runs the pane's own stroke",
           "case VIV_ID_ANIMATION_FRAME_MINUS:" in view)
-    check("the command count carries the seat (the opengl renderer row retired in rc.3)",
-          "#define _VIV_COMMAND_COUNT\t159" in read("src/viv_state.h").decode("latin-1"))
+    check("the command count carries the seat (the opengl row retired, the d3d11 and d3d12 rows joined in rc.3)",
+          "#define _VIV_COMMAND_COUNT\t161" in read("src/viv_state.h").decode("latin-1"))
 
     # 3. THE COUNTER IS BORN AT ITS CEILING.
     check("the layout measures the ceiling through the shared builder",
@@ -10217,9 +10237,10 @@ def t_round143():
           '#define VERSION_STRING "1.1.18-rc.3"' in version and
           '#define VERSION_TYPE ""' in version)
 
-    # 2. the changelog tops with the round.
-    check("the changelog tops with the codeql hardening round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    # 2. the changelog rides the round.
+    check("the changelog rides the codeql hardening round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
+          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
 
     # 3. the five libwebp widenings, one by one (the alerts' exact sites).
     check("alpha_dec multiplies in the wide type (codeql #5)",
@@ -10282,9 +10303,10 @@ def t_round144():
           '#define VERSION_STRING "1.1.18-rc.3"' in version and
           '#define VERSION_TYPE ""' in version)
 
-    # 2. the changelog tops with the round.
-    check("the changelog tops with the instruments round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    # 2. the changelog rides the round.
+    check("the changelog rides the instruments round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
+          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
 
     # 3. the menu suite's one bash call is a pure-python port now: no
     #    bash spawns anywhere in the suite, and the port's key lines
@@ -10394,8 +10416,9 @@ def t_round142():
           '#define VERSION_TYPE ""' in version)
 
     # 2. the changelog: the round's section tops it and names its passengers.
-    check("the changelog tops with the documentation round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog rides the documentation round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
+          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
     check("the changelog names the passengers this release carries",
           "Version 1.1.16-rc.6 (the field feedback round II)" in changes and
           "Version 1.1.16-rc.7 (the default programs round)" in changes)
@@ -10512,8 +10535,9 @@ def t_round141():
           '#define VERSION_STRING "1.1.18-rc.3"' in version and
           '#define VERSION_TYPE ""' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
-    check("the changelog tops with the default programs round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog rides the default programs round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
+          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
     check("the changelog states the name-match contract",
           "applicationname must always match" in " ".join(changes.split()))
 
@@ -10617,8 +10641,8 @@ def t_round140():
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
     readme_cn = read("README_CN.md").decode("utf-8", errors="replace")
-    check("the changelog tops with the field feedback round II",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog rides the field feedback round II",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
     check("the rc.6 one-liner retired with the 1.1.16 diet (the ledger keeps the arc)",
           "**1.1.16-rc.6 \u2014 the field feedback round II:**" not in readme and
           "**1.1.16-rc.6 \u2014 \u5b9e\u673a\u53cd\u9988\u8f6e II\uff1a**" not in readme_cn)
@@ -10739,10 +10763,10 @@ def t_round149():
     check("the probe never arms the sticky failure and never creates the device",
           "_viv_d3d_failed = 1" not in probe_d3d and
           "CreateDevice" not in probe_d3d)
-    check("the settings switch greys with the machine's answer",
-          "return _viv_hwd3d_available() ? 1 : 0;" in settings)
-    check("the settings desc names the unavailable face",
-          "_viv_hwd3d_available() ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE" in settings)
+    check("the settings switch greys with the machine's answer (the rc.3 family ladder)",
+          "((_viv_hwd3d12_available()) || (_viv_hwd3d11_available()) || (_viv_hwd3d_available())) ? 1 : 0;" in settings)
+    check("the settings desc names the unavailable face (the rc.3 family probe)",
+          "(_viv_hwd3d12_available() || _viv_hwd3d11_available() || _viv_hwd3d_available()) ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE" in settings)
     check("the menu radios grey the unavailable back ends (the opengl radio retired in rc.3)",
           "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,_viv_hwd3d_available() ? MF_ENABLED : MF_GRAYED);" in menu)
     check("the view command refuses an unavailable back end",
@@ -10833,8 +10857,9 @@ def t_round145():
     check("version.h = 1.1.18.120 (the responsive and hardware round)",
           "#define VERSION_BUILD 120" in vh and
           '#define VERSION_STRING "1.1.18-rc.3"' in vh)
-    check("the changelog tops with the audit response round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog rides the audit response round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
+          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
 
     # 2. P0-1: the elevated relay only forwards words it can spell
     #    itself (the quote guard was dead - the tokenizer ate the
