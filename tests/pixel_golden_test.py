@@ -79,8 +79,8 @@ def main():
           "two defects can" in ps1)
     check("the export canvas is the fixed 640x480 (the min-width headroom)",
           '$size = "640x480"' in ps1)
-    check("the renderer legs map to the hidden switches",
-          '"-render-gdi"' in ps1 and '"-render-gl"' in ps1 and '"-render-d3d"' in ps1)
+    check("the renderer legs map to the hidden switches (the gl leg retired with the back end in rc.3)",
+          '"-render-gdi"' in ps1 and '"-render-gl"' not in ps1 and '"-render-d3d"' in ps1)
     check("the exit code contract is documented in the harness",
           "0 rendered, 2 the" in ps1.replace("\r\n", "\n").replace("\n", " ") or
           re.search(r"0 rendered, 2 the\s*#\s*load refused", ps1) is not None or
@@ -121,8 +121,8 @@ def main():
     nulls = []
     for sample, legs in sorted(manifest.items()):
         nulls += [(sample, leg) for leg, h in sorted(legs.items()) if not h]
-    check("the manifest's one null stays the one known null (29_control/gl)",
-          nulls == [("29_control_png_4000x3000.png", "gl")], str(nulls))
+    check("the manifest carries no null legs (the gl null retired with the leg in rc.3)",
+          nulls == [], str(nulls))
 
     # 2. the export module carries the matching contract.
     check("the export timeout matches the harness wait",
@@ -197,7 +197,7 @@ def main():
               "(%d entries)" % len(samples))
         bad_hashes = []
         for s, entry in manifest.items():
-            for leg in ("gdi", "gl", "d3d"):
+            for leg in ("gdi", "d3d"):
                 v = entry.get(leg)
                 if v is not None and not re.fullmatch(r"[0-9a-f]{64}", v):
                     bad_hashes.append("%s/%s" % (s, leg))
@@ -218,7 +218,7 @@ def main():
         parity_exempt = {("29_control_png_4000x3000.png", "gl")}
         check("every parity-sized golden sample answers on every leg (a null read as an environment gap while whole decoder families were being refused)",
               all(manifest[s].get(leg) for s in manifest
-                  for leg in ("gdi", "gl", "d3d")
+                  for leg in ("gdi", "d3d")
                   if (s, leg) not in parity_exempt) if manifest else False)
         # the fourth audit's discrimination finding: the two control
         # pngs are single solid fills - their role is the scaling
@@ -244,8 +244,8 @@ def main():
                              "fx_still_qoi_rgb.qoi", "fx_still_qoi_rgba.qoi",
                              "fx_still_rgba.png", "fx_anim_pulse.webp",
                              "fx_still_webp_odd.webp", "fx_still_textured.png"}
-        check("every scaled textured golden sample answers three-way distinct (the fake green the fourth audit flagged; the 1:1 samples legitimately agree under the upright mapping)",
-              all(len({manifest[s].get(leg) for leg in ("gdi", "gl", "d3d")}) == 3
+        check("every scaled textured golden sample answers distinct per leg (the fake green the fourth audit flagged; the gl leg retired in rc.3 leaves the gdi/d3d pair; the 1:1 samples legitimately agree under the upright mapping)",
+              all(len({manifest[s].get(leg) for leg in ("gdi", "d3d")}) == 2
                   for s in manifest
                   if s not in solid_exempt and s not in one_to_one_exempt)
               if manifest else False)
