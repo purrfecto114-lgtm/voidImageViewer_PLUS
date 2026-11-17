@@ -677,12 +677,6 @@ MUTATIONS = [
      "if (0)",
      ["menu"]),
 
-    ("the gl upload forgets the refill path (round-151)",
-     "src/hwgl.c",
-     "(_viv_gl_texsubimage2d) && ",
-     "",
-     ["menu"]),
-
     ("the settings wheel truncates sub-notch deltas again (round-151)",
      "src/viv_settings.c",
      "delta = (delta < 0 ? -delta : delta) + (WHEEL_DELTA / 2);",

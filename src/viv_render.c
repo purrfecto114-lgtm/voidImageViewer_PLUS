@@ -1014,7 +1014,6 @@ HBITMAP *_viv_prepare_oriented_frames(const _viv_frame_t *frames,int count,int o
 
 void _viv_hw_release_image(void)
 {
-	_viv_hwgl_release_image();
 	_viv_hwd3d_release_image();
 }
 

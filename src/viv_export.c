@@ -29,7 +29,6 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_export.h"
-#include "hwgl.h"
 #include "hwd3d.h"
 #include "viv_chrome.h"
 
@@ -154,11 +153,6 @@ int _viv_export_probe_command_line(void)
 			if (string_icompare_lowercase_ascii(bufstart,"render-gdi") == 0)
 			{
 				_viv_export_renderer = CONFIG_RENDERER_GDI;
-			}
-			else
-			if (string_icompare_lowercase_ascii(bufstart,"render-gl") == 0)
-			{
-				_viv_export_renderer = CONFIG_RENDERER_OPENGL;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"render-d3d") == 0)
@@ -390,7 +384,6 @@ static int _viv_export_readback_gdi(BYTE *bits,int wide,int high)
 // the run: pump, paint, read back, write, answer the harness contract.
 static void _viv_export_free(BYTE *bits)
 {
-	_viv_hwgl_export_end();
 	_viv_hwd3d_export_end();
 	mem_free(bits);
 }
@@ -438,11 +431,6 @@ int _viv_export_run(void)
 	// arm the readback before the pump: the first frame reply
 	// invalidates, and the wm_paint it wakes can fire inside the
 	// dispatch - that paint must land in the export buffer.
-	if (_viv_export_renderer == CONFIG_RENDERER_OPENGL)
-	{
-		_viv_hwgl_export_begin(bits,_viv_export_wide,_viv_export_high);
-	}
-	else
 	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D)
 	{
 		_viv_hwd3d_export_begin(bits,_viv_export_wide,_viv_export_high);
@@ -517,18 +505,6 @@ int _viv_export_run(void)
 			_viv_export_free(bits);
 			
 			return 1;
-		}
-	}
-	else
-	if (_viv_export_renderer == CONFIG_RENDERER_OPENGL)
-	{
-		if (!_viv_hwgl_export_filled())
-		{
-			debug_printf("render-export: the opengl renderer refused\r\n");
-			
-			_viv_export_free(bits);
-			
-			return 3;
 		}
 	}
 	else

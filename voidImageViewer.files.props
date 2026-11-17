@@ -107,7 +107,6 @@
     <ClCompile Include="..\src\wchar.c" />
     <ClCompile Include="..\src\webp.c" />
     <ClCompile Include="..\src\hwd3d.c" />
-    <ClCompile Include="..\src\hwgl.c" />
     <ClCompile Include="..\src\shellmenu.c" />
     <ClCompile Include="..\src\wic.c" />
     <ClCompile Include="..\src\zoomui.c" />
@@ -183,7 +182,6 @@
     <ClInclude Include="..\src\wchar.h" />
     <ClInclude Include="..\src\webp.h" />
     <ClInclude Include="..\src\hwd3d.h" />
-    <ClInclude Include="..\src\hwgl.h" />
     <ClInclude Include="..\src\shellmenu.h" />
     <ClInclude Include="..\src\wic.h" />
     <ClInclude Include="..\src\zoomui.h" />

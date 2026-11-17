@@ -2228,11 +2228,10 @@ def t_sim_field_response_round124():
 
     # --- the renderer orientation contract ---
     d3d = read("src/hwd3d.c").decode().replace("\r\n", "\n")
-    gl = read("src/hwgl.c").decode().replace("\r\n", "\n")
-    check("the renderers no longer read the unrecoverable sign",
-          "dsBmih.biHeight > 0" not in d3d and "dsBmih.biHeight > 0" not in gl)
+    check("the renderer no longer reads the unrecoverable sign (the opengl leg retired with the back end in rc.3)",
+          "dsBmih.biHeight > 0" not in d3d)
     check("the orientation flags are gone (one mapping for every frame)",
-          "_viv_d3d_bottom_up" not in d3d and "_viv_gl_bottom_up" not in gl)
+          "_viv_d3d_bottom_up" not in d3d)
     check("the clipboard normalizes to the top-down frame contract",
           "_viv_clipboard_top_down" in load)
 
@@ -2243,7 +2242,7 @@ def t_sim_field_response_round124():
         # machine, which is why every image rode the flip).
         return frame_top_down
 
-    check("a top-down frame draws upright on both hardware legs",
+    check("a top-down frame draws upright on the hardware leg",
           draws_upright(True))
 
 

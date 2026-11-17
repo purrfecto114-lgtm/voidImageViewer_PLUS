@@ -97,15 +97,6 @@ jobs:
       # the gl runtime's behaviour gate: the production upload/render
       # bodies spliced onto a stub harness and run against a real mesa
       # egl context (surfaceless, so no display is needed). the leg
-      # needs the mesa runtime - an os package, not a pip one. the stub
-      # was one undeclared symbol away from compiling and the suite was
-      # in no workflow, so neither failure could ever reach a ci run.
-      - name: GL runtime regression (real Mesa EGL, surfaceless)
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends libegl1 libgl1
-          python3 tests/gl_runtime_regression_test.py
-
       - name: Memory, renderer and installer repair regressions
         run: python3 tests/repair_regression_test.py
 

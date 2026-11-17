@@ -280,8 +280,8 @@ static int _viv_settings_hot_swatch = -1;
 static int _viv_settings_appdata;
 static int _viv_settings_startmenu;
 // rc.6: the hardware back end the switch restores on its next ON (the
-// face is two-state; the memory keeps the opengl choice reachable
-// from it - the menu trio stays the fine-grained seat).
+// face is two-state; the memory keeps the hardware choice reachable
+// from it - the menu stays the fine-grained seat).
 static int _viv_settings_last_hw_renderer = CONFIG_RENDERER_DIRECT3D;
 // the open window snapshot: cancel rewinds to these.
 static int _viv_settings_snap_language;
@@ -2244,7 +2244,6 @@ static void _viv_settings_restore(void)
 	// the snapshot's back end on the next paint (the toggle's shape).
 	if (config_renderer != _viv_settings_snap_renderer)
 	{
-		_viv_hwgl_shutdown();
 		_viv_hwd3d_shutdown();
 
 		config_renderer = _viv_settings_snap_renderer;
@@ -3322,7 +3321,6 @@ static void _viv_settings_activate(int index,int x,int y)
 					// the modules release their contexts and the next paint
 					// answers the new back end (or falls back to gdi when it
 					// refuses - the refusal never rewrites the ini).
-					_viv_hwgl_shutdown();
 					_viv_hwd3d_shutdown();
 
 					// rc.6: the switch face cannot tell the hardware back

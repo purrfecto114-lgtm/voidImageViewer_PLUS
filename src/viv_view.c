@@ -136,12 +136,11 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 			
 		case VIV_ID_VIEW_RENDERER_GDI:
-		case VIV_ID_VIEW_RENDERER_OPENGL:
 		case VIV_ID_VIEW_RENDERER_DIRECT3D:
 			// the unavailable back end never answers its own command (the
 			// menu greys it; the belt for the keyboard and any other caller
 			// the grey cannot reach).
-			if (((command_id == VIV_ID_VIEW_RENDERER_OPENGL) && (!_viv_hwgl_available())) || ((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D) && (!_viv_hwd3d_available())))
+			if ((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D) && (!_viv_hwd3d_available()))
 			{
 				break;
 			}
@@ -149,10 +148,9 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			// the renderer is a session toggle: the modules release
 			// their contexts and the next paint answers the new back
 			// end (or falls back to gdi when the new one refuses).
-			_viv_hwgl_shutdown();
 			_viv_hwd3d_shutdown();
 			
-			config_renderer = (command_id == VIV_ID_VIEW_RENDERER_GDI) ? CONFIG_RENDERER_GDI : ((command_id == VIV_ID_VIEW_RENDERER_OPENGL) ? CONFIG_RENDERER_OPENGL : CONFIG_RENDERER_DIRECT3D);
+			config_renderer = (command_id == VIV_ID_VIEW_RENDERER_GDI) ? CONFIG_RENDERER_GDI : CONFIG_RENDERER_DIRECT3D;
 			
 			// rc.6: the new back end deserves a clean slate - the sticky
 			// fallback note answered the OLD back end's refusal, and a

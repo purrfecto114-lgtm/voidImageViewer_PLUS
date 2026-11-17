@@ -2804,11 +2804,6 @@ static LRESULT _viv_on_wm_enter_idle(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 // Dispatch the current frame and clear color to the selected renderer.
 static int _viv_hw_render_frame(HWND hwnd,HDC hdc,int dst_x,int dst_y,int dst_wide,int dst_high,COLORREF clear_color)
 {
-	if (config_renderer == CONFIG_RENDERER_OPENGL)
-	{
-		return _viv_hwgl_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
-	}
-
 	if (config_renderer == CONFIG_RENDERER_DIRECT3D)
 	{
 		return _viv_hwd3d_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);

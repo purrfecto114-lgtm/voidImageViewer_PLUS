@@ -1509,7 +1509,7 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 104)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders + the R96 gl, d3d and shell menu modules + the R102 export module
+          len(re.findall(r"<ClCompile ", fp)) == 103)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders + the R96 d3d and shell menu modules + the R102 export module (the gl module retired in rc.3)
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
     check("shared props has the resource script and the app icon only",
@@ -1615,9 +1615,9 @@ def t_modernization_round6():
     check("glyphs.c/h exist and are in the shared props",
           os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
           and "glyphs.c" in fp and "glyphs.h" in fp)
-    check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair, the remake pair, the R96 renderers and the R102 export module",
-          len(re.findall(r"<ClCompile ", fp)) == 104
-          and len(re.findall(r"<ClInclude ", fp)) == 73)
+    check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair, the remake pair, the R96 renderer and the R102 export module (the gl pair retired in rc.3)",
+          len(re.findall(r"<ClCompile ", fp)) == 103
+          and len(re.findall(r"<ClInclude ", fp)) == 72)
     check("glyphs.c loads its own gdi+ flat api table",
           '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
           and '"GdipCreateBitmapFromScan0"' in gc
@@ -4815,8 +4815,6 @@ def t_todo_closure_round96():
     configh = read("src/config.h").decode("latin-1")
     shellh = read("src/shellmenu.h").decode("latin-1")
     shellc = read("src/shellmenu.c").decode("latin-1")
-    glh = read("src/hwgl.h").decode("latin-1")
-    glc = read("src/hwgl.c").decode("latin-1")
     d3dh = read("src/hwd3d.h").decode("latin-1")
     d3dc = read("src/hwd3d.c").decode("latin-1")
     files_txt = read("build-zig/files.txt").decode("latin-1")
@@ -4876,27 +4874,7 @@ def t_todo_closure_round96():
           wnd.index("_viv_menu_measure_item") and
           wnd.count("_viv_shell_context_menu_handle_menu_msg(hwnd,msg,wParam,lParam)") == 3)
 
-    # 3. the opengl renderer module.
-    check("hwgl.c loads opengl32 dynamically (the gdi+ table precedent)",
-          'LoadLibraryA("opengl32.dll")' in glc and
-          "wglCreateContext" in glc and
-          "ChoosePixelFormat" in glc)
-    check("hwgl.c probes GL_EXT_bgra before the bgr direct upload",
-          "GL_EXT_bgra" in glc and "GL_BGR_EXT" in glc)
-    check("hwgl.c pads to power-of-two textures (the GL 1.1 contract)",
-          "power of two" in glc and glc.count("<<= 1") == 2)
-    check("hwgl.c rides the linear filter without the glu dependency",
-          "GL_LINEAR" in glc and "glu" not in glc)
-    check("hwgl.c swaps buffers and shuts down its context",
-          "SwapBuffers" in glc and
-          "wglDeleteContext" in glc and
-          "wglMakeCurrent(NULL,NULL)" in glc)
-    check("hwgl.c caps the texture by the max size query",
-          "GL_MAX_TEXTURE_SIZE" in glc)
-    check("the hwgl file rides the crlf discipline",
-          "\r\n" in glc)
-
-    # 4. the direct3d renderer module.
+    # 3. the direct3d renderer module.
     check("hwd3d.c loads d3d9.dll dynamically",
           'LoadLibraryA("d3d9.dll")' in d3dc and
           "Direct3DCreate9" in d3dc)
@@ -4924,16 +4902,14 @@ def t_todo_closure_round96():
           "_VIV_MENU_VIEW_RENDERER" in stateh and
           "LOCALIZATION_ID_RENDERER,MF_POPUP" in vivc)
     check("the renderer items ride radio checks in the command table",
-          vivc.count("|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_") == 3)
+          vivc.count("|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_") == 2)
     check("the radios check against the config in _viv_check_menus",
           menu.count("VIV_ID_VIEW_RENDERER_") >= 3 and
           "config_renderer == CONFIG_RENDERER_GDI" in menu)
-    check("the command dispatch lands the trio and resets both modules",
+    check("the command dispatch lands the pair and resets the module",
           "VIV_ID_VIEW_RENDERER_GDI:" in view and
-          "_viv_hwgl_shutdown();" in view and
           "_viv_hwd3d_shutdown();" in view)
-    check("the kill path and the dispatch release both renderers (the r70 splice counts viv.c plus every viv_*.c)",
-          vivc.count("_viv_hwgl_shutdown();") == 4 and
+    check("the kill path and the dispatch release the renderer (the r70 splice counts viv.c)",
           vivc.count("_viv_hwd3d_shutdown();") == 4)
 
     # 6. the config wiring.
@@ -4976,21 +4952,20 @@ def t_todo_closure_round96():
           wnd.count("COLORREF brush_color;") == 1)
 
     # 9. the build wiring.
-    check("the zig file list carries the four new units",
-          "src/hwgl.c" in files_txt and
+    check("the zig file list carries the hardware units (opengl retired in rc.3)",
+          "src/hwgl.c" not in files_txt and
           "src/hwd3d.c" in files_txt and
           "src/shellmenu.c" in files_txt and
           "src/viv_export.c" in files_txt and
-          files_txt.count("\n") == 104)
-    check("the shared props list carries all six new files",
-          props.count('Include="..\\src\\hwgl.c"') == 1 and
+          files_txt.count("\n") == 103)
+    check("the shared props list carries the module files (opengl retired in rc.3)",
+          props.count('Include="..\\src\\hwgl.c"') == 0 and
           props.count('Include="..\\src\\hwd3d.c"') == 1 and
           props.count('Include="..\\src\\shellmenu.c"') == 1 and
-          props.count('Include="..\\src\\hwgl.h"') == 1 and
           props.count('Include="..\\src\\hwd3d.h"') == 1 and
           props.count('Include="..\\src\\shellmenu.h"') == 1)
-    check("viv.h carries the three new module headers",
-          '#include "hwgl.h"' in vivh and
+    check("viv.h carries the module headers (opengl retired in rc.3)",
+          '#include "hwgl.h"' not in vivh and
           '#include "hwd3d.h"' in vivh and
           '#include "shellmenu.h"' in vivh)
 
@@ -5457,7 +5432,6 @@ def t_audit_response_round101():
     osc = read("src/os.c").decode("latin-1")
     osh = read("src/os.h").decode("latin-1")
     chrome = read("src/viv_chrome.c").decode("latin-1")
-    hwgl = read("src/hwgl.c").decode("latin-1")
     hwd3d = read("src/hwd3d.c").decode("latin-1")
     loc_en = read("src/localization_en_us.h").decode("latin-1")
     loc_zh = read("src/localization_zh_cn.h").decode("utf-8", errors="replace")
@@ -5498,16 +5472,6 @@ def t_audit_response_round101():
     #    two wrong claims retire on evidence: the load path pre-flattens
     #    the alpha onto the backdrop, so the hardware paths' opaque
     #    writes match the gdi semantics - the comment pins it).
-    fn = hwgl[hwgl.find("static int _viv_gl_context_create"):hwgl.find("int _viv_hwgl_render")]
-    check("the gl pixel format re-runs for a window change (outside the context guard)",
-          "if (hwnd != _viv_gl_pixel_format_hwnd)" in fn and
-          0 <= fn.find("if (hwnd != _viv_gl_pixel_format_hwnd)") < fn.find("if (!_viv_gl_context)"))
-    check("the gl padding replicates the image edges (the round-101 zero retired)",
-          "ZeroMemory(buf,size);" not in hwgl and
-          "the pad must answer as if the texture border sat at the image" in hwgl and
-          "for(x=wide;x<pot_wide;x++)" in hwgl)
-    check("the gl upload records the pre-flattened alpha evidence",
-          "pre-flattened" in hwgl)
     check("the d3d texture refills in place for same padded dimensions",
           "_viv_d3d_last_pot_wide" in hwd3d and
           "pot_wide != _viv_d3d_last_pot_wide" in hwd3d and
@@ -5573,7 +5537,6 @@ def t_pixel_oracle_round102():
     render export, the pixel regression harness the external audit asked
     for: the real pipeline renders a sample, the exact pixels read back,
     and the ci hashes them against committed goldens)."""
-    hwgl = read("src/hwgl.c").decode("latin-1")
     hwd3d = read("src/hwd3d.c").decode("latin-1")
     exp = read("src/viv_export.c").decode("latin-1")
     exph = read("src/viv_export.h").decode("latin-1")
@@ -5584,29 +5547,13 @@ def t_pixel_oracle_round102():
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
 
-    # 1. the gl context rebuild: the wglMakeCurrent contract (the dc must
-    #    answer the same device and the same pixel format the rc was
-    #    created against - the msdn wording, second-verified) leaves the
-    #    old rc unusable on a differently formatted dc; keeping it was the
-    #    original refusal wearing a more hidden shell.
-    fn = hwgl[hwgl.find("static int _viv_gl_context_create"):hwgl.find("int _viv_hwgl_render")]
-    check("the gl context rebuilds when the window changes",
-          "if (_viv_gl_context)" in fn and
-          "_viv_gl_wglDeleteContext(_viv_gl_context);" in fn and
-          "_viv_gl_texture = 0;" in fn and
-          "_viv_gl_last_hbitmap = 0;" in fn)
-    check("the gl rebuild lives inside the pixel format branch",
-          fn.find("if (_viv_gl_context)") > fn.find("if (hwnd != _viv_gl_pixel_format_hwnd)") >= 0)
-    # 2. the pad edge replication (both renderers): the linear sampler's
+    # 1. the pad edge replication (the d3d renderer): the linear sampler's
     #    half texel at the sub-rectangle edge reads the pad; clamp only
-    #    answers at the texture's own border. the round-101 gl zero
-    #    retired (a zeroed pad still averages black into the outermost
-    #    destination pixels on a heavy upscale) and the d3d same-size
-    #    reuse cannot bleed the previous frame back in.
-    check("the gl pad replicates the last column and the last row",
-          "for(x=wide;x<pot_wide;x++)" in hwgl and
-          "for(y=high;y<pot_high;y++)" in hwgl and
-          "ZeroMemory(buf,size);" not in hwgl)
+    #    answers at the texture's own border. the round-101 zero retired
+    #    (a zeroed pad still averages black into the outermost destination
+    #    pixels on a heavy upscale) and the same-size reuse cannot bleed
+    #    the previous frame back in. (the opengl renderer's half of this
+    #    group retired with the back end in rc.3.)
     check("the d3d pad replicates the last column and the last row",
           "for(x=wide;x<pot_wide;x++)" in hwd3d and
           "for(y=high;y<pot_high;y++)" in hwd3d and
@@ -5652,9 +5599,6 @@ def t_pixel_oracle_round102():
           "int _viv_paint_readback(BYTE *bits,int wide,int high)" in chrome and
           "GetDIBits(screen_hdc,_viv_paint_hbitmap" in chrome and
           "bmi.bmiHeader.biHeight = -high;" in chrome)
-    check("the gl readback rides glreadpixels with the reserved byte pinned",
-          "_viv_gl_readpixels" in hwgl and
-          "d[x * 4 + 3] = 0;" in hwgl)
     check("the d3d readback rides getrendertargetdata through a system memory surface",
           "GetRenderTargetData" in hwd3d and
           "D3DPOOL_SYSTEMMEM" in hwd3d and
@@ -5686,9 +5630,6 @@ def t_pixel_oracle_round102():
     #    garbage, the readbacks disarm, the background color pins (a
     #    developer machine's custom mat must not leak into the goldens)
     #    and the harness never leaks a wedged export.
-    check("the gl max clause answers the pot overshoot",
-          "(pot_wide > _viv_gl_max_texture)" in hwgl and
-          "(pot_high > _viv_gl_max_texture)" in hwgl)
     check("the d3d max clauses answer the pot and square overshoots",
           "(pot_wide > _viv_d3d_max_wide)" in hwd3d and
           "(pot_high > _viv_d3d_max_high)" in hwd3d)
@@ -5696,7 +5637,6 @@ def t_pixel_oracle_round102():
           "scene_ok" in hwd3d and
           "desc.Format == D3DFMT_X8R8G8B8" in hwd3d)
     check("the readbacks disarm after the fill",
-          "_viv_gl_export_bits = 0;" in hwgl and
           "_viv_d3d_export_bits = 0;" in hwd3d)
     check("the export pins the windowed background",
           "config_windowed_background_color_r = 255;" in exp and
@@ -5714,9 +5654,8 @@ def t_pixel_oracle_round102():
     #    never dismiss), the fit gates pin, the animation pause re-asserts
     #    after the first-frame reply resets it, and the shutdowns clear
     #    the export pointers.
-    check("the renderer words carry consumption cases (no usage box)",
+    check("the renderer words carry consumption cases (no usage box; the render-gl word retired in rc.3)",
           'string_icompare_lowercase_ascii(bufstart,"render-gdi")' in viv and
-          'string_icompare_lowercase_ascii(bufstart,"render-gl")' in viv and
           'string_icompare_lowercase_ascii(bufstart,"render-d3d")' in viv and
           "a click that never comes" in viv)
     check("the export pins the fit gates",
@@ -5725,7 +5664,6 @@ def t_pixel_oracle_round102():
     check("the export re-asserts the animation pause before the paint",
           exp.count("_viv_animation_play = 0;") >= 2)
     check("the shutdowns clear the export pointers",
-          "_viv_gl_export_bits = 0;" in hwgl and
           "_viv_d3d_export_bits = 0;" in hwd3d)
 
 
@@ -6015,7 +5953,6 @@ def t_renderer_parity_round105():
     sections so the hardware renderers actually render every decoder
     family, the golden set gains the shape dimension, and the ceiling
     smoke stage proves the refusal through the export oracle)."""
-    hwgl = read("src/hwgl.c").decode("latin-1")
     hwd3d = read("src/hwd3d.c").decode("latin-1")
     vivload = read("src/viv_load.c").decode("latin-1")
     vivrender = read("src/viv_render.c").decode("latin-1")
@@ -6075,24 +6012,6 @@ def t_renderer_parity_round105():
                 prev_text = l.strip()
         return stack
 
-    gutter = _c_enclosing(hwgl, "d += (pot_wide - wide) * 4;")
-    check("the gl upload's gutter increment sits inside the rgba else (the brace-stack answer to the overflow claim)",
-          gutter is not None and
-          len(gutter) == 4 and
-          gutter[-1][1] == "else" and
-          gutter[-2][1] == "for(y=0;y<high;y++)" and
-          all("if (format == GL_BGR_EXT)" not in g[0] for g in gutter),
-          repr(gutter[-1]) if gutter else None)
-    bgr = _c_enclosing(hwgl, "d += pot_wide * 3;")
-    check("the bgr row advance stays inside its own branch (the whole-pot stride)",
-          bgr is not None and
-          any(g[1] == "if (format == GL_BGR_EXT)" for g in bgr) and
-          bgr[-1][1] == "if (format == GL_BGR_EXT)")
-    stride = _c_enclosing(hwgl, "s += stride;")
-    check("the source stride advance answers to the row loop, not a branch",
-          stride is not None and
-          any(g[1] == "for(y=0;y<high;y++)" for g in stride) and
-          all(g[1] != "else" for g in stride))
 
     def _c_indent_clean(src):
         lines = src.split("\n")
@@ -6108,9 +6027,8 @@ def t_renderer_parity_round105():
                         return False
         return True
 
-    check("every closing brace in the hardware renderers sits at its opening's depth (the indent bait retired)",
-          _c_indent_clean(hwgl) and _c_indent_clean(hwd3d))
-
+    check("every closing brace in the hardware renderer sits at its opening's depth (the indent bait retired)",
+          _c_indent_clean(hwd3d))
     # 2. the renderer parity: the gdi+ frames, their thumbnails and the
     #    orientation copies answer the dib contract the hardware gates
     #    read; the gdi-only surfaces (clipboard copy, mipmaps, the gdi
@@ -6126,10 +6044,8 @@ def t_renderer_parity_round105():
           vivload.count("CreateCompatibleBitmap(") == 1)
     check('orientation preserves top-down 24/32bpp DIBs',
           "bmi.bmiHeader.biHeight = -high;" in vivrender and "bmi.bmiHeader.biBitCount = bitmap.bmBitsPixel;" in vivrender and "result = CreateDIBSection(NULL,&bmi,DIB_RGB_COLORS,(void **)&bits,NULL,0);" in vivrender and "SetDIBits(" not in vivrender)
-    check("the renderer refusals name their reason (the silent zero retired)",
-          'debug_printf("opengl: the frame is not a dib section (no bits answered) - the gdi path paints it\\r\\n");' in hwgl and
+    check("the renderer refusals name their reason (the silent zero retired; the opengl leg retired with the back end in rc.3)",
           'debug_printf("direct3d: the frame is not a dib section (no bits answered) - the gdi path paints it\\r\\n");' in hwd3d and
-          'debug_printf("opengl: the frame is %d bpp (24 or 32 answer) - the gdi path paints it\\r\\n",ds.dsBm.bmBitsPixel);' in hwgl and
           'debug_printf("direct3d: the frame is %d bpp (24 or 32 answer) - the gdi path paints it\\r\\n",ds.dsBm.bmBitsPixel);' in hwd3d)
 
     # 3. the shape dimension: the fixtures, the golden wiring, and the
@@ -6432,7 +6348,7 @@ def t_corrections_round107():
           'The selected renderer cannot display this image - painting with GDI.' in loce and
           "所选渲染器无法显示此图像" in locz)
     check("the debug channel still names the refusal it always named",
-          "the frame is not a dib section" in read("src/hwgl.c").decode("latin-1"))
+          "the frame is not a dib section" in read("src/hwd3d.c").decode("latin-1"))
 
     # 7. the documentation honesty: credits, dco, the language guide,
     #    the sole-maintainer expectation, and the one style nit.
@@ -7989,7 +7905,6 @@ def t_field_response_round124():
     state = read("src/viv_state.h").decode("utf-8", errors="replace")
     anim = read("src/viv_anim.c").decode("utf-8", errors="replace")
     d3d = read("src/hwd3d.c").decode("utf-8", errors="replace")
-    gl = read("src/hwgl.c").decode("utf-8", errors="replace")
     render = read("src/viv_render.c").decode("utf-8", errors="replace")
     loc = read("src/localization.h").decode("utf-8", errors="replace")
     en = read("src/localization_en_us.h").decode("utf-8", errors="replace")
@@ -8029,10 +7944,8 @@ def t_field_response_round124():
 
     # --- the renderer orientation contract (the sign is unrecoverable
     #     through getobject - it answers the absolute height) ---
-    check("the d3d leg no longer reads the sign it can never see",
+    check("the d3d leg no longer reads the sign it can never see (the gl leg retired with the back end in rc.3)",
           "dsBmih.biHeight > 0" not in d3d and "_viv_d3d_bottom_up" not in d3d)
-    check("the gl leg no longer reads the sign it can never see",
-          "dsBmih.biHeight > 0" not in gl and "_viv_gl_bottom_up" not in gl)
     check("the clipboard normalizes to the top-down frame contract",
           "_viv_clipboard_top_down" in load)
 
@@ -9999,8 +9912,8 @@ def t_round136():
           "EnableMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_MINUS,is_image_enabled);" in read("src/viv_menu.c").decode("latin-1"))
     check("the command case runs the pane's own stroke",
           "case VIV_ID_ANIMATION_FRAME_MINUS:" in view)
-    check("the command count carries the seat",
-          "#define _VIV_COMMAND_COUNT\t160" in read("src/viv_state.h").decode("latin-1"))
+    check("the command count carries the seat (the opengl renderer row retired in rc.3)",
+          "#define _VIV_COMMAND_COUNT\t159" in read("src/viv_state.h").decode("latin-1"))
 
     # 3. THE COUNTER IS BORN AT ITS CEILING.
     check("the layout measures the ceiling through the shared builder",
@@ -10752,8 +10665,6 @@ def t_round149():
     wnd = read("src/viv_wndproc.c").decode("latin-1")
     d3d = read("src/hwd3d.c").decode()
     d3dh = read("src/hwd3d.h").decode()
-    gl = read("src/hwgl.c").decode()
-    glh = read("src/hwgl.h").decode()
     en = read("src/localization_en_us.h").decode()
     zh = read("src/localization_zh_cn.h").decode("utf-8", errors="replace")
     version = read("src/version.h").decode()
@@ -10826,19 +10737,14 @@ def t_round149():
     check("the probe never arms the sticky failure and never creates the device",
           "_viv_d3d_failed = 1" not in probe_d3d and
           "CreateDevice" not in probe_d3d)
-    check("the opengl probe answers at the module level and caches",
-          "int _viv_hwgl_available(void)" in gl and
-          "int _viv_hwgl_available(void);" in glh and
-          "_viv_gl_probe_ok = _viv_gl_procs();" in gl)
     check("the settings switch greys with the machine's answer",
           "return _viv_hwd3d_available() ? 1 : 0;" in settings)
     check("the settings desc names the unavailable face",
           "_viv_hwd3d_available() ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE" in settings)
-    check("the menu radios grey the unavailable back ends",
-          "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_OPENGL,_viv_hwgl_available() ? MF_ENABLED : MF_GRAYED);" in menu and
+    check("the menu radios grey the unavailable back ends (the opengl radio retired in rc.3)",
           "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,_viv_hwd3d_available() ? MF_ENABLED : MF_GRAYED);" in menu)
     check("the view command refuses an unavailable back end",
-          "((command_id == VIV_ID_VIEW_RENDERER_OPENGL) && (!_viv_hwgl_available()))" in view)
+          "VIV_ID_VIEW_RENDERER_OPENGL" not in view)
     check("the installer probe gates the direct3d save",
           "if ((hardware_acceleration) && (_viv_hwd3d_available()))" in install)
 
@@ -11062,7 +10968,6 @@ def t_arm_arrives_round151():
     rnd = read("src/viv_render.c").decode(errors="replace")
     anim = read("src/viv_anim.c").decode(errors="replace")
     qoi = read("src/qoi.c").decode(errors="replace")
-    hwgl = read("src/hwgl.c").decode(errors="replace")
     st = read("src/viv_settings.c").decode(errors="replace")
     dlg = read("src/viv_dialogs.c").decode(errors="replace")
     viv = read("src/viv.c").decode(errors="replace")
@@ -11145,9 +11050,6 @@ def t_arm_arrives_round151():
           "if (d[3] != 255)" in qoi)
     check("the webp blend skips the math for opaque pixels",
           "if (a == 255)" in anim)
-    check("the gl upload refills an unchanged shape",
-          "(_viv_gl_texsubimage2d) && " in hwgl and
-          "_viv_gl_texsubimage2d(GL_TEXTURE_2D,0,0,0,pot_wide,pot_high,format,GL_UNSIGNED_BYTE,buf);" in hwgl)
 
     # 5. the ux round.
     check("the settings wheel rounds sub-notch deltas",
