@@ -291,6 +291,16 @@ def t_d3d_family():
     check("d3d12's flip model keeps alt-enter (the viewer's own fullscreen)",
           "DXGI_SWAP_EFFECT_FLIP_DISCARD" in d3d12 and
           "DXGI_MWA_NO_ALT_ENTER" in d3d12)
+    # the golden oracle rides the shipped renderer family: the gl legs
+    # retired with the back end (the v143 runner caught the drift).
+    manifest = read("tests/golden/golden-manifest.json")
+    golden_ps1 = read("tests/render_golden.ps1")
+    check("the golden manifest carries no gl leg (the back end retired in rc.3)",
+          '"gl"' not in manifest)
+    check("the golden harness answers the shipped switch words",
+          "-render-gl" not in golden_ps1 and
+          '"gdi"' in golden_ps1 and '"d3d"' in golden_ps1 and
+          'foreach ($r in @("gdi", "gl", "d3d"))' not in golden_ps1)
     check("the self-check's size cap keeps a huge image from paying a second texture",
           d3d11.count("wide > 4096") == 1 and d3d12.count("wide > 4096") == 1)
 

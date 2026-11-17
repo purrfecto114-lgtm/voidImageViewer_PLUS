@@ -105,10 +105,11 @@ foreach ($s in $goldenSamples) {
 $size = "640x480"
 
 # the renderer legs. the switch words map to the hidden export options
-# (viv_export.c): -render-gdi, -render-gl, -render-d3d.
+# (viv_export.c): -render-gdi, -render-d3d. the gl leg retired with the
+# back end (rc.3) - its manifest rows went with it. the d3d11 and d3d12
+# legs wait for a dispatch bootstrap (their goldens need a windows run).
 $renderers = @(
     @{ Name = "gdi"; Switch = "-render-gdi" },
-    @{ Name = "gl";  Switch = "-render-gl"  },
     @{ Name = "d3d"; Switch = "-render-d3d" }
 )
 
@@ -135,7 +136,7 @@ try {
     $results = @{}
     foreach ($s in $goldenSamples) { $results[$s] = @{} }
     $failures = 0
-    $renderersAvailable = @{ gdi = $true; gl = $false; d3d = $false }
+    $renderersAvailable = @{ gdi = $true; d3d = $false }
 
     foreach ($r in $renderers) {
         foreach ($s in $goldenSamples) {
@@ -224,7 +225,7 @@ try {
             if ($solidControls -contains $s) { continue }
             if ($oneToOne -contains $s) { continue }
             $answered = @()
-            foreach ($r in @("gdi", "gl", "d3d")) {
+            foreach ($r in @("gdi", "d3d")) {
                 if ($results[$s].ContainsKey($r) -and $results[$s][$r]) { $answered += $results[$s][$r] }
             }
             $unique = @($answered | Select-Object -Unique)
@@ -240,7 +241,7 @@ try {
         $ordered = [ordered]@{}
         foreach ($s in $goldenSamples) {
             $entry = [ordered]@{ gdi = $results[$s]["gdi"] }
-            foreach ($r in @("gl", "d3d")) {
+            foreach ($r in @("d3d")) {
                 if ($results[$s].ContainsKey($r)) { $entry[$r] = $results[$s][$r] }
                 else { $entry[$r] = $null }
             }
@@ -258,7 +259,7 @@ try {
     # (the renderer came back) - compared for information, not failure.
     $mismatched = 0
     foreach ($s in $goldenSamples) {
-        foreach ($r in @("gdi", "gl", "d3d")) {
+        foreach ($r in @("gdi", "d3d")) {
             $expected = $null
             if ($manifest.PSObject.Properties[$s] -and $manifest.$s.PSObject.Properties[$r]) {
                 $expected = $manifest.$s.$r
@@ -300,7 +301,7 @@ try {
     # for information whenever more than one leg answered.
     foreach ($s in $goldenSamples) {
         $gdi = $results[$s]["gdi"]
-        foreach ($r in @("gl", "d3d")) {
+        foreach ($r in @("d3d")) {
             $hw = $null
             if ($results[$s].ContainsKey($r)) { $hw = $results[$s][$r] }
             if ($gdi -and $hw) {
@@ -315,9 +316,8 @@ try {
     }
 
     Write-Host ""
-    Write-Host ("renderer availability: gdi={0} gl={1} d3d={2}" -f `
+    Write-Host ("renderer availability: gdi={0} d3d={1}" -f `
         $(if ($renderersAvailable["gdi"]) {"yes"} else {"NO"}), `
-        $(if ($renderersAvailable["gl"]) {"yes"} else {"no"}), `
         $(if ($renderersAvailable["d3d"]) {"yes"} else {"no"}))
     Write-Host ("golden samples: {0}, hash mismatches: {1}, export failures: {2}" -f `
         $goldenSamples.Count, $mismatched, $failures)
