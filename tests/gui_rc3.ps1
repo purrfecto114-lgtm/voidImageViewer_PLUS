@@ -59,7 +59,7 @@ public static class VivGui {
         // error and the hung verdict so the log answers why, not just that.
         for (int attempt = 1; attempt <= 3; attempt++) {
             IntPtr result;
-            SetLastError(true);
+            SetLastError(1);
             if (SendMessageTimeout(window,msg,new IntPtr(w),new IntPtr(l),2,4000,out result)!=IntPtr.Zero)
                 return;
         }
