@@ -27,6 +27,7 @@ public static class VivGui {
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr h);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hi, uint flags);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
@@ -79,6 +80,16 @@ function Wait-Until([scriptblock]$Condition, [string]$Description) {
         Start-Sleep -Milliseconds 75
     } while ($stopwatch.ElapsedMilliseconds -lt 12000)
     throw "Timed out waiting for $Description"
+}
+# the diagnostic wrapper: a send that fails names the viewer's real state -
+# a dead process answers instantly with an invalid handle, a wedged thread
+# trips the hung flag, and a live thread says so outright.
+function Send-Msg([IntPtr]$target,[uint32]$msg,[int]$w,[int]$l) {
+    try { [VivGui]::Send($target,$msg,$w,$l) }
+    catch {
+        $script:proc.Refresh()
+        throw ("send 0x{0:x} failed - viewer hasExited={1} exitCode={2} windowAlive={3}" -f $msg,$script:proc.HasExited,$script:proc.ExitCode,[VivGui]::IsWindow($target))
+    }
 }
 function Child([string]$Name) {
     [VivGui]::FindWindowEx($script:window,[IntPtr]::Zero,$Name,$null)
@@ -192,19 +203,24 @@ renderer=0
     # the first injected message waits on the app's message loop, so prove
     # the thread finished its first layout and is pumping before the dpi
     # lane starts (the v145 image's slower startup raced the old order).
-    Wait-Until { [VivGui]::IsWindowVisible((Child "_VIV_TOOLBAR")) } "the command strip before the dpi injections"
+    Wait-Until {
+        if ($proc.HasExited) { throw "Viewer exited with code $($proc.ExitCode)" }
+        [VivGui]::IsWindowVisible((Child "_VIV_TOOLBAR"))
+    } "the command strip before the dpi injections"
 
     # At a wide baseline, keyboard wrap lands on fullscreen, then rotate.
-    [VivGui]::Send($window,0x02e0,(96 + (96 -shl 16)),0)
+    # a 96 dpi runner gets no injection: echoing the same dpi back is the
+    # fragile no-op the v145 lane raced - only a real normalization sends.
+    if ($nativeDpi -ne 96) { Send-Msg $window 0x02e0 (96 + (96 -shl 16)) 0 }
     if (-not [VivGui]::SetWindowPos($window,[IntPtr]::Zero,0,0,1700,800,0x14)) {
         throw "Could not size the baseline window"
     }
     $toolbar = Child "_VIV_TOOLBAR"
     Wait-Until { [VivGui]::IsWindowVisible($toolbar) } "windowed command strip"
     Capture "windowed-96dpi"
-    [VivGui]::Send($toolbar,7,0,0)
-    [VivGui]::Send($toolbar,0x100,0x25,0)
-    [VivGui]::Send($toolbar,0x100,0x25,0)
+    Send-Msg $toolbar 7 0 0
+    Send-Msg $toolbar 0x100 0x25 0
+    Send-Msg $toolbar 0x100 0x25 0
     [VivGui]::Post($toolbar,0x100,0x0d,0)
     Wait-Until {
         foreach ($entry in Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp') {
@@ -219,7 +235,7 @@ renderer=0
 
     # Supply 300 DPI to the production WM_DPICHANGED handler, then narrow
     # the restored window until the toolbar has about four 44-DIP slots.
-    [VivGui]::Send($window,0x02e0,(300 + (300 -shl 16)),0)
+    Send-Msg $window 0x02e0 (300 + (300 -shl 16)) 0
     $menu = Child "_VIV_MENUBAR"
     $border = (Bounds $window).Width - (Bounds $window -Client).Width
     $menuWidth = (Bounds $menu -Client).Width
@@ -234,12 +250,12 @@ renderer=0
     Capture "restored-300dpi-overflow"
     [VivGui]::Click($toolbar,($bar.Width-35),75)
     Wait-Until { [VivGui]::MenuOpen($window) } "More menu"
-    [VivGui]::Send($window,0x1f,0,0)
+    Send-Msg $window 0x1f 0 0
     Wait-Until { -not [VivGui]::MenuOpen($window) } "More menu dismissal"
 
-    [VivGui]::Send($toolbar,7,0,0)
-    [VivGui]::Send($toolbar,0x100,0x25,0)
-    [VivGui]::Send($toolbar,0x100,0x25,0)
+    Send-Msg $toolbar 7 0 0
+    Send-Msg $toolbar 0x100 0x25 0
+    Send-Msg $toolbar 0x100 0x25 0
     [VivGui]::Post($toolbar,0x100,0x0d,0)
     Wait-Until {
         -not [VivGui]::IsWindowVisible((Child "_VIV_TOOLBAR")) -and [VivGui]::IsWindowVisible((Child "_VIV_ZOOMUI"))
