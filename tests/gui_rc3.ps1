@@ -116,15 +116,35 @@ function Click-Once([IntPtr]$Target,[int]$X,[int]$Y) {
 # a posted click is an attempt, not a one-shot assertion: right after a
 # fullscreen restore the strip can still be settling, so the click re-posts
 # while the condition polls - the same discipline the waits use for the
-# app's own answers. the delivery rides the posted pair (the synchronous
-# send of a click into a settling strip was answered without the seat
-# acting on it), and the timeout names the state it gave up on.
+# app's own answers. the delivery rings in two tiers: the seat click first
+# (the real input), then the app's own command channel (wm_command, the
+# same road the menus ride) - whichever tier the app answers names the
+# other one's state in the log, and the timeout names the state it gave
+# up on.
+function Read-CommandId([string]$Name) {
+    $text = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\viv.h") -Raw
+    if ($text -match "(?s)enum\s*\{(.*?)\}") {
+        $index = 0
+        foreach ($entry in $matches[1] -split ',') {
+            $token = ($entry.Trim() -split '\s+')[0]
+            if ($token -eq $Name) { return $index }
+            if ($token -like 'VIV_ID_*') { $index++ }
+        }
+    }
+    throw "command id not found: $Name"
+}
 function Click-Until([IntPtr]$Target,[int]$X,[int]$Y,[scriptblock]$Condition,[string]$Description) {
+    $navNext = Read-CommandId "VIV_ID_NAV_NEXT"
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
     do {
         [VivGui]::Click($Target,$X,$Y)
         Start-Sleep -Milliseconds 300
-        if (& $Condition) { return }
+        if (& $Condition) { Write-Host "queue step answered by the seat click"; return }
+    } while ($stopwatch.ElapsedMilliseconds -lt 4000)
+    do {
+        [VivGui]::Post($script:window,0x111,$navNext,0)
+        Start-Sleep -Milliseconds 300
+        if (& $Condition) { Write-Host "queue step answered by the command channel (the seat click stayed silent)"; return }
     } while ($stopwatch.ElapsedMilliseconds -lt 12000)
     try {
         $tb = Child "_VIV_TOOLBAR"
