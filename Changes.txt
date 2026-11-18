@@ -1,4 +1,34 @@
-﻿Pre-release: Version 1.1.18-rc.4
+﻿Pre-release: Version 1.1.18-rc.5
+
+        the 4k rotation round takes its tag. rotation moves into
+        its own unit with an async worker: the rotate command
+        returns at once, the preview rides a temporary copy and
+        the commit lands on the poll, so a 4k image turns without
+        holding the ui thread. the gui drive grows a 4k fixture
+        with corner pixel verification, rides the effective dpi
+        each image accepts and rings in two tiers - the posted
+        seat click first, then the app's own command channel - so
+        a delivery gap names itself in the log. the link gate
+        joins ci as a static undefined-symbol check, the crash
+        dump elf that rode the tree left it, and the link-color
+        token carries the status tooltip's shared face.
+
+        the failed preload landing settles like the activation
+        does: the rework that lets navigation land on the parked
+        preload wrote the caption before the failure state
+        landed, so the caption keeps the outgoing file's name
+        forever - the step onto a broken image answered with a
+        window title that still claimed the file it had just
+        abandoned. the failure branch now pays the same
+        post-settle title call, and the title follows every
+        step, onto readable images and broken ones alike.
+
+        Stepping to an image that cannot be displayed now moves
+        the window title with the step. The status bar still
+        carries the reason, and the previous image's name no
+        longer stays in the title bar.
+
+Pre-release: Version 1.1.18-rc.4
 
         the responsive and hardware round takes its tag. the
         command bar lays out at the live dpi and narrows from

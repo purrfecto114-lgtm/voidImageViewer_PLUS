@@ -461,10 +461,10 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.18.121 (the quiet chrome round)",
-          (major, minor, rev, build) == ("1", "1", "18", "121") and vtype == "")
-    check("VERSION_STRING is the release identity (the 1.1.18-rc.4 tag)",
-          vstr == "1.1.18-rc.4")
+    check("version.h = 1.1.18.122 (the quiet chrome round)",
+          (major, minor, rev, build) == ("1", "1", "18", "122") and vtype == "")
+    check("VERSION_STRING is the release identity (the 1.1.18-rc.5 tag)",
+          vstr == "1.1.18-rc.5")
     check("rc derives everything from version.h",
           '#include "../src/version.h"' in rc and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in rc and
@@ -3231,7 +3231,7 @@ def t_about_band_round64():
 
     version = read("src/version.h").decode("latin-1")
     check("the release candidate line rides the current build (the reentry state round sweeps the pin)",
-          "#define VERSION_BUILD 121" in version)
+          "#define VERSION_BUILD 122" in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the two coordinate systems and the template move",
@@ -3302,8 +3302,8 @@ def t_white_band_round67():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the reentry state round sweeps them)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the flip sweep gap and the frame fix",
@@ -3548,9 +3548,9 @@ def t_structure_round76():
 
     # 7. the version moved to rc.5 / build 47.
     version = read("src/version.h").decode()
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the structure round",
           "the structure round" in changes and
@@ -3608,8 +3608,8 @@ def t_theme_race_round72():
 
     version = read("src/version.h").decode("latin-1")
     check("the version pins ride the current release (the reentry state round sweeps them)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog states the race and the self heal",
@@ -4171,9 +4171,9 @@ def t_review_absorption_round82():
 
     # 6. the version and the changelog.
     version = read("src/version.h").decode()
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     flat = " ".join(changes.split())
     check("the changelog states the review absorption",
           "the review absorption round" in flat and
@@ -4347,9 +4347,9 @@ def t_halftone_palette_round89():
     check("the destroy path releases the palette",
           "DeleteObject(_viv_halftone_palette)" in destroy)
     # 4. the version and the readme candidate slot.
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the rc.3 entry rides the one-line list (the rc.4 candidate took the slot)",
           "**1.1.13-rc.3 \u2014" not in readme)
     # 5. the changelog carries the round.
@@ -4468,9 +4468,9 @@ def t_high_dpi_icons_round90():
     check("the init path pins the icons after the dpi sync",
           vivc.index("_viv_icons_apply(_viv_hwnd);") >
           vivc.index("os_window_update_dpi(_viv_hwnd);"))
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the rc.4 entry rides the one-line list (the rc.5 candidate took the slot)",
           "**1.1.13-rc.4 \u2014" not in readme)
     # 5. the changelog carries the round.
@@ -4544,9 +4544,9 @@ def t_dead_residue_round91():
     check("the full cbs/rbs state ladder stays (guard-pinned table)",
           "#define OS_BS_CHECKEDDISABLED 8" in osh)
     # 5. the version and the readme slot.
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.16 \u2014 the previous stable**" in readme)
     # 6. the changelog carries the round.
@@ -4679,9 +4679,9 @@ def t_peripheral_residue_round92():
                for k in set(ts_light) | set(light_c)
                if ts_light.get(k) != light_c.get(k)}))
     # 6. the version and the readme slot.
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.16 \u2014 the previous stable**" in readme)
     # 7. the changelog carries the round.
@@ -4794,9 +4794,9 @@ def t_format_horizons_round94():
     # 8. the changelog and the version.
     check("the changelog top entry is the stable promotion",
           "Stable: Version 1.1.13 (the format horizons round)" in changes)
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
     # 9. the closing scan's slam-dunks: two dead prototypes retire
     #    (the dispatch-wired families stay - macro token pasting is
@@ -4984,9 +4984,9 @@ def t_todo_closure_round96():
     #     closure round rides one line in the readme list below).
     check("the changelog carries the todo closure pre-release (below the fixture round)",
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
-    check("the version is 1.1.18-rc.4 build 121 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
 def t_field_sweep_round93():
     """Guards for the field sweep round (1.1.13-rc.7: the cold-start
@@ -5127,9 +5127,9 @@ def t_field_sweep_round93():
           len(ico) < 90000)
 
     # 7. the version and the readme slot.
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the current line is the stable promotion stable",
           "**1.1.16 \u2014 the previous stable**" in readme)
     check("the rc.6 entry rides the one-line list",
@@ -5349,9 +5349,9 @@ def t_fixture_round98():
     #     entry; the fixture round rides one line in the readme list below).
     check("the changelog carries the fixture round pre-release (below the navigation visibility round)",
           "Pre-release: Version 1.1.14-rc.2 (the fixture round)" in changes)
-    check("the version is 1.1.18-rc.4 build 121 (the navigation visibility round pins ride it)",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122 (the navigation visibility round pins ride it)",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
 
 def t_navigation_visibility_round99():
@@ -5423,9 +5423,9 @@ def t_navigation_visibility_round99():
     #     below).
     check("the changelog carries the navigation visibility round pre-release (below the corner and audit response round)",
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
-    check("the version is 1.1.18-rc.4 build 121 (the corner and audit response round pins ride it)",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122 (the corner and audit response round pins ride it)",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
 
 def t_audit_response_round101():
@@ -5525,9 +5525,9 @@ def t_audit_response_round101():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog carries the corner and audit response round pre-release (below the pixel oracle round)",
           "Pre-release: Version 1.1.14-rc.4 (the corner and audit response round)" in changes)
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the readme discloses the unsigned binaries",
           "binaries are unsigned" in readme)
     check("the readme's format line conditions the store-backed codecs",
@@ -5619,10 +5619,10 @@ def t_pixel_oracle_round102():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.16 \u2014 the previous stable**" in readme)
     flat_changes = " ".join(changes.split())
@@ -5938,10 +5938,10 @@ def t_input_ceiling_round104():
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.16 \u2014 the previous stable**" in readme)
     flat_changes = " ".join(changes.split())
@@ -6083,10 +6083,10 @@ def t_renderer_parity_round105():
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.16 \u2014 the previous stable**" in readme)
     flat_changes = " ".join(changes.split())
@@ -6199,10 +6199,10 @@ def t_navigation_faces_round106():
     # 6. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
-    check("the version is 1.1.18-rc.4 build 121",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
+    check("the version is 1.1.18-rc.5 build 122",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the readme candidate slot holds the navigation faces round",
           "**1.1.16 \u2014 the previous stable**" in readme)
     flat_changes = " ".join(changes.split())
@@ -6416,8 +6416,8 @@ def t_stable_promotion_round108():
     # 1. the version marks the stable promotion (the rc phase suffix
     #    is gone; the plain tag form is the stable release form).
     check("version.h = 1.1.15-rc.11.90 (the stable promotion round pins ride the slot architecture round)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version and
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the defaults the promotion promises, pinned as facts: both
@@ -6515,7 +6515,7 @@ def t_stable_promotion_round108():
 
     # 8. the changelog, the readme and the demotion ride the promotion
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.4"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.5"))
     check("the readme current-stable line says 1.1.14",
           "**1.1.16 \u2014 the previous stable**" in readme)
     check("the 1.1.13 full section demotes to the one-line list",
@@ -6551,8 +6551,8 @@ def t_slot_architecture_round109():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the slot architecture round's pins ride the audit response round)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
     # 2. the type: one held image - the file identity, the frames,
     #    both counts, the dimensions and the preload role's state -
@@ -6667,7 +6667,7 @@ def t_slot_architecture_round109():
 
     # 12. the changelog, the readme and the candidate block
     check("the changelog tops with the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.4"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.5"))
     check("the readme carries one stable block and the diet retired the candidate ladder",
           readme.count("(the current stable):**") == 1 and
           "**1.1.15-rc.6 \u2014" not in readme)
@@ -6704,8 +6704,8 @@ def t_audit_response_round110():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the fourth audit response round)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
     # 2. the neighbor predicate: one helper in the navigation domain,
     #    declared on the navigation's own export face, carrying the
@@ -6769,7 +6769,7 @@ def t_audit_response_round110():
 
     # 6. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fourth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.4"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.5"))
     check("the rc.1 one-liner retired with the 1.1.16 diet (the ledger keeps the arc)",
           "**1.1.15-rc.6 \u2014" not in readme and
           readme.count("(the current stable):**") == 1)
@@ -6817,8 +6817,8 @@ def t_audit_response_round111():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the fifth audit response round)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
     # 2. the navigation trio - the sort pollution: the path completes
     #    before the first compare, at all three scan sites, and the six
@@ -6917,7 +6917,7 @@ def t_audit_response_round111():
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the fifth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.4"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.5"))
     check("the changelog carries the round's own ledger",
           "the navigation trio first, because two of the three are ordering defects" in changes and
           "the ladder step is extracted, not self-written" in changes and
@@ -7250,8 +7250,8 @@ def t_audit_response_round113():
 
     # 9. the version mark.
     check("version.h = 1.1.15-rc.11.90 (the sixth audit response round)",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
 
 def t_command_picker_round112():
@@ -7280,8 +7280,8 @@ def t_command_picker_round112():
 
     # 1. the version mark
     check("version.h = 1.1.15-rc.11.90 (the command picker round)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
     # 2. the command dropdown answers through the cascade picker, and
     #    the flat call that used to feed it retired.
@@ -7341,7 +7341,7 @@ def t_command_picker_round112():
 
     # 12. the changelog, the readme and the candidate rotation
     check("the changelog tops with the command picker round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.4"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.5"))
     check("the changelog carries the round's own ledger",
           "eighty-six commands\r\n\twere unreachable" in changes and
           "the cascade is the real menu tree" in changes and
@@ -7625,8 +7625,8 @@ def t_memory_and_cache_round120():
 
     # 12. the version moved to rc.11 build 90 (the sweep that renamed this round's pins).
     check("the version moved to 1.1.15-rc.11 build 90",
-          "#define VERSION_BUILD 121" in vh and
-          '#define VERSION_STRING "1.1.18-rc.4"' in vh)
+          "#define VERSION_BUILD 122" in vh and
+          '#define VERSION_STRING "1.1.18-rc.5"' in vh)
 
 
 def t_gui_limits_round121():
@@ -7734,10 +7734,10 @@ def t_gui_limits_round121():
     # 10. the version and the changelog.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
-    check("the version is 1.1.18-rc.4 build 121",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
+    check("the version is 1.1.18-rc.5 build 122",
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
 
 def t_resume_and_chain_round122():
@@ -7874,10 +7874,10 @@ def t_resume_and_chain_round122():
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
-    check("the version is 1.1.18-rc.4 build 121",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
+    check("the version is 1.1.18-rc.5 build 122",
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the readme twins carry the promotion as the stable",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -8380,10 +8380,10 @@ def t_report_fusion_round123():
     # 22. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the review verdict round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
-    check("the version is 1.1.18-rc.4 build 121",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
+    check("the version is 1.1.18-rc.5 build 122",
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the readme twins carry the promotion as the stable",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -8569,10 +8569,10 @@ def t_settings_capacity_round126():
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the settings footer round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
-    check("the version is 1.1.18-rc.4 build 121",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
+    check("the version is 1.1.18-rc.5 build 122",
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the readme twins carry the promotion as the stable",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -8662,10 +8662,10 @@ def t_pill_field_round127():
     # 5. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the pill field round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
-    check("the version is 1.1.18-rc.4 build 121",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
+    check("the version is 1.1.18-rc.5 build 122",
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the readme twins carry the promotion as the stable",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -8706,8 +8706,8 @@ def t_round147():
     check("the help url launch names its refusals (the return check)",
           "(INT_PTR)ShellExecuteA(_viv_hwnd,NULL,url,NULL,NULL,SW_SHOWNORMAL) <= 32" in view)
     check("the round rides the live tree (1.1.16 build 114 at the promotion)",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the changelog answers the review with its verdicts",
           "the second carpet review's asks meet the tree's" in changes and
           "fail-if-exists, and false overwrites" in changes)
@@ -8762,8 +8762,8 @@ def t_round148():
     changes = read("Changes.txt").decode("utf-8", errors="replace")
 
     check("the round is 1.1.16 build 114",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
     # 1. the hit test clips to the viewport the paint already clips to.
     body = body148(settings, "static int _viv_settings_hit_test(int x,int y)")
@@ -9223,11 +9223,11 @@ def t_parallel_eval_round128():
           '#define VERSION_MAJOR 1' in version and
           '#define VERSION_MINOR 1' in version and
           '#define VERSION_REVISION 18' in version and
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the parallel evaluation round pre-release",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
 
 
 def t_default_app_honesty_round129():
@@ -9398,9 +9398,9 @@ def t_default_app_honesty_round129():
           '"默认应用"' in zh and "打开方式" in zh and "默认应用吗" in zh)
 
     # 6. THE VERSION
-    check("the version is 1.1.18-rc.4 build 121 (the default-app honesty round)",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+    check("the version is 1.1.18-rc.5 build 122 (the default-app honesty round)",
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
 
 def t_toolbar_overflow():
@@ -9434,13 +9434,13 @@ def t_stable_promotion_round133():
     top = changes.lstrip("\ufeff").split("\r\n")[0]
 
     check("the version string carries the release identity (the exact identity)",
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
     check("the type field stays empty (the string is the identity)",
           '#define VERSION_TYPE ""' in version)
     check("the build rides the live tree (112 at the 1.1.16 promotion)",
-          "#define VERSION_BUILD 121" in version)
+          "#define VERSION_BUILD 122" in version)
     check("the changelog top entry is the stable round's own heading",
-          top == "Pre-release: Version 1.1.18-rc.4", top)
+          top == "Pre-release: Version 1.1.18-rc.5", top)
     check("the readme twins promote the stable block",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -10038,13 +10038,13 @@ def t_round143():
 
     # 1. the version (the round's own face).
     check("version.h = 1.1.17.114 (the codeql hardening round)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version and
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the changelog tops with the round.
     check("the changelog tops with the codeql hardening round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.4"))
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.5"))
 
     # 3. the five libwebp widenings, one by one (the alerts' exact sites).
     check("alpha_dec multiplies in the wide type (codeql #5)",
@@ -10103,13 +10103,13 @@ def t_round144():
 
     # 1. the version (the round's own face).
     check("version.h = 1.1.17.114 (the instruments round)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version and
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the changelog tops with the round.
     check("the changelog tops with the instruments round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.4"))
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.5"))
 
     # 3. the menu suite's one bash call is a pure-python port now: no
     #    bash spawns anywhere in the suite, and the port's key lines
@@ -10214,13 +10214,13 @@ def t_round142():
 
     # 1. the version (the round's own face).
     check("version.h = 1.1.17.114 (the documentation round)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version and
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version and
           '#define VERSION_TYPE ""' in version)
 
     # 2. the changelog: the round's section tops it and names its passengers.
     check("the changelog tops with the documentation round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.4"))
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.5"))
     check("the changelog names the passengers this release carries",
           "Version 1.1.16-rc.6 (the field feedback round II)" in changes and
           "Version 1.1.16-rc.7 (the default programs round)" in changes)
@@ -10333,12 +10333,12 @@ def t_round141():
     # 8. the version.
     version = read("src/version.h").decode("latin-1")
     check("version.h = 1.1.17.114 (the default programs round)",
-          "#define VERSION_BUILD 121" in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version and
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version and
           '#define VERSION_TYPE ""' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     check("the changelog tops with the default programs round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.4"))
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.5"))
     check("the changelog states the name-match contract",
           "applicationname must always match" in " ".join(changes.split()))
 
@@ -10443,7 +10443,7 @@ def t_round140():
     readme = read("README.md").decode("utf-8", errors="replace")
     readme_cn = read("README_CN.md").decode("utf-8", errors="replace")
     check("the changelog tops with the field feedback round II",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.4"))
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.5"))
     check("the rc.6 one-liner retired with the 1.1.16 diet (the ledger keeps the arc)",
           "**1.1.16-rc.6 \u2014 the field feedback round II:**" not in readme and
           "**1.1.16-rc.6 \u2014 \u5b9e\u673a\u53cd\u9988\u8f6e II\uff1a**" not in readme_cn)
@@ -10499,8 +10499,8 @@ def t_round149():
     loch = read("src/localization.h").decode()
 
     check("the round is 1.1.16 build 114 (the re-release)",
-          '#define VERSION_BUILD 121' in version and
-          '#define VERSION_STRING "1.1.18-rc.4"' in version)
+          '#define VERSION_BUILD 122' in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
 
     # 1. the scroll lattice: no row paints half-cut under the title.
     check("the lattice helper answers both directions",
@@ -10655,11 +10655,11 @@ def t_round145():
     vh = read("src/version.h").decode("utf-8", errors="replace")
 
     # 1. the version (the round's own face).
-    check("version.h = 1.1.18.121 (the quiet chrome round)",
-          "#define VERSION_BUILD 121" in vh and
-          '#define VERSION_STRING "1.1.18-rc.4"' in vh)
+    check("version.h = 1.1.18.122 (the quiet chrome round)",
+          "#define VERSION_BUILD 122" in vh and
+          '#define VERSION_STRING "1.1.18-rc.5"' in vh)
     check("the changelog tops with the audit response round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.4"))
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.5"))
 
     # 2. P0-1: the elevated relay only forwards words it can spell
     #    itself (the quote guard was dead - the tokenizer ate the
@@ -10988,6 +10988,41 @@ def t_residual_fix_round152():
           mt.count("the lost device loses its reset road again") == 1)
 
 
+def t_failed_landing_title_round153():
+    """Guards for the failed-landing title round (1.1.18-rc.5): the
+    preload-settle rework left the failed branch of _viv_open_preload
+    without the post-settle title call the activation path pays - the
+    step onto a broken file set load_failed, cleared the slot and
+    never revisited the caption, and the window title kept claiming
+    the file the step had just abandoned (the 4k drive's queue
+    condition watched a title that could never move while both
+    delivery tiers came back innocent). the failure branch now settles
+    its title like the activation does, and the drive's delivery
+    rings in two tiers with a timeout snapshot that reports its own
+    failure."""
+    version = read("src/version.h").decode("latin-1")
+    check("the version pins ride the current release (the failed-landing round sweeps them)",
+          "#define VERSION_BUILD 122" in version and
+          '#define VERSION_STRING "1.1.18-rc.5"' in version)
+
+    load = read("src/viv_load.c").decode(errors="replace")
+    check("the failed preload landing settles its title after the state lands",
+          "rc.6's settle rule, failed branch" in load and
+          load.count("_viv_update_title();") >= 7)
+
+    drive = read("tests/gui_rc3.ps1").decode(errors="replace")
+    check("the queue delivery rings in two tiers and names the tier that answered",
+          "answered by the seat click" in drive and
+          "answered by the command channel" in drive and
+          "Read-CommandId" in drive)
+
+    changes = read("Changes.txt").decode("utf-8", errors="replace")
+    check("the changelog states the failed-landing settle and the delivery rings",
+          "the failed preload landing" in changes and
+          "the caption keeps the outgoing file's name" in changes and
+          "rings in two tiers" in changes)
+
+
 if __name__ == "__main__":
     t_panscan_gone()
     t_view_menu_shape()
@@ -11098,6 +11133,7 @@ if __name__ == "__main__":
     t_repository_hygiene_round150()
     t_arm_arrives_round151()
     t_residual_fix_round152()
+    t_failed_landing_title_round153()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")
