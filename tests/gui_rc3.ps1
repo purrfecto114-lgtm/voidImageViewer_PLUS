@@ -29,7 +29,8 @@ public static class VivGui {
     [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
-    [DllImport("user32.dll")] public static extern bool IsHungAppWindow(IntPtr h);
+    public static bool IsHungAppWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint process);
     [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr h);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hi, uint flags);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
@@ -64,6 +65,25 @@ public static class VivGui {
                 return;
         }
         throw new InvalidOperationException("send msg=" + msg + " lastError=" + Marshal.GetLastWin32Error() + " targetHung=" + IsHungAppWindow(window));
+    }
+
+    // the mechanism probe: a harmless wm_null through the same
+    // sendimetimeout path. if the null answers, the send mechanism and the
+    // target thread are fine and only the dpi message is refused; if the
+    // null fails the same way, the lane's whole synchronous channel is.
+    public static string Probe(IntPtr window) {
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            IntPtr result;
+            SetLastError(1);
+            if (SendMessageTimeout(window,0,new IntPtr(0),new IntPtr(0),2,2000,out result)!=IntPtr.Zero)
+                return "ok result=" + result;
+        }
+        return "fail err=" + Marshal.GetLastWin32Error() + " hung=" + IsHungAppWindow(window);
+    }
+
+    public static uint WindowThread(IntPtr window) {
+        uint process;
+        return GetWindowThreadProcessId(window,out process);
     }
     public static void Post(IntPtr window,uint msg,int w,int l) {
         if (!PostMessage(window,msg,new IntPtr(w),new IntPtr(l)))
