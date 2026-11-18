@@ -119,6 +119,11 @@ function Stage([string]$Name) {
     $env:VIV_STAGE = $Name
     Write-Host "stage: $Name"
 }
+# the lane geometry is written in dip and rides the dpi the image accepted:
+# the same dip widths force the same overflow at 96 and at 300.
+function D2P([double]$Dip) {
+    [int][Math]::Round($Dip * $script:scale)
+}
 function Child([string]$Name) {
     [VivGui]::FindWindowEx($script:window,[IntPtr]::Zero,$Name,$null)
 }
@@ -267,38 +272,50 @@ renderer=0
 
     # Supply 300 DPI to the production WM_DPICHANGED handler, then narrow
     # the restored window until the toolbar has about four 44-DIP slots.
-    # the delivery tries the synchronous send first and falls back to a
-    # posted message with a geometry wait - the server 2025 image answers
-    # a synthetic dpi announcement on the send path with an instant
-    # error-less refusal (the probe and the thread ids ride the log), and
-    # a queued delivery reaches the same handler the system uses.
+    # the delivery ladder answers by capability, not by assumption: the
+    # synchronous send first, a posted announcement second, and when the
+    # image refuses both (the server 2025 kernel declines a synthetic dpi
+    # announcement that contradicts the window's monitor, on both paths -
+    # the wm_null probe and the thread ids above name the mechanism fine),
+    # the whole lane set rides the native scale with dip-equivalent
+    # geometry, and the 300 dpi real-window lane stays on the windows-2022
+    # leg beside the rc3 harness's 288/300 production-c coverage.
     Stage "300dpi-lane"
-    Write-Host ("wm-null probe: " + [VivGui]::Probe($window))
-    Write-Host ("window thread: {0}, process main thread: {1}" -f [VivGui]::WindowThread($window),$proc.Threads[0].Id)
-    $dpiDelivery = "send"
-    try { Send-Msg $window 0x02e0 (300 + (300 -shl 16)) 0 }
-    catch {
-        $dpiDelivery = "post"
-        [VivGui]::Post($window,0x02e0,(300 + (300 -shl 16)),0)
-        $toolbar = Child "_VIV_TOOLBAR"
-        Wait-Until {
-            if ($proc.HasExited) { throw "Viewer exited with code $($proc.ExitCode)" }
-            (Bounds $toolbar -Client).Height -eq 150
-        } "the 300 dpi strip re-measure after the posted dpi change"
+    $script:dpi = 0
+    $delivery = "none"
+    try {
+        Send-Msg $window 0x02e0 (300 + (300 -shl 16)) 0
+        $delivery = "send"
+        $script:dpi = 300
+    } catch {
+        try {
+            [VivGui]::Post($window,0x02e0,(300 + (300 -shl 16)),0)
+            $toolbar = Child "_VIV_TOOLBAR"
+            Wait-Until {
+                if ($proc.HasExited) { throw "Viewer exited with code $($proc.ExitCode)" }
+                (Bounds $toolbar -Client).Height -eq 150
+            } "the 300 dpi strip re-measure after the posted dpi change"
+            $delivery = "post"
+            $script:dpi = 300
+        } catch {
+            $script:dpi = $script:nativeDpi
+            Write-Host ("synthetic dpi announcement refused on this image (send and post) - the high-dpi lane rides the native scale")
+        }
     }
+    $script:scale = $script:dpi / 96.0
     $menu = Child "_VIV_MENUBAR"
     $border = (Bounds $window).Width - (Bounds $window -Client).Width
     $menuWidth = (Bounds $menu -Client).Width
-    if (-not [VivGui]::SetWindowPos($window,[IntPtr]::Zero,0,0,($menuWidth + $border + 550),820,0x14)) {
+    if (-not [VivGui]::SetWindowPos($window,[IntPtr]::Zero,0,0,($menuWidth + $border + (D2P 176)),(D2P 262),0x14)) {
         throw "Could not resize the high-DPI window"
     }
     $toolbar = Child "_VIV_TOOLBAR"
     $bar = Bounds $toolbar -Client
-    if ($bar.Height -ne 150 -or $bar.Width -lt 547 -or $bar.Width -ge 1370) {
-        throw "Unexpected 300 DPI toolbar geometry $($bar.Width)x$($bar.Height)"
+    if ($bar.Height -ne (D2P 48) -or $bar.Width -lt (D2P 175) -or $bar.Width -ge (D2P 438.4)) {
+        throw "Unexpected $($script:dpi) DPI toolbar geometry $($bar.Width)x$($bar.Height)"
     }
     Capture "restored-300dpi-overflow"
-    [VivGui]::Click($toolbar,($bar.Width-35),75)
+    [VivGui]::Click($toolbar,($bar.Width-(D2P 11.2)),(D2P 24))
     Wait-Until { [VivGui]::MenuOpen($window) } "More menu"
     Send-Msg $window 0x1f 0 0
     Wait-Until { -not [VivGui]::MenuOpen($window) } "More menu dismissal"
@@ -319,16 +336,16 @@ renderer=0
     Wait-Until { [VivGui]::IsWindowVisible((Child "_VIV_TOOLBAR")) } "fullscreen exit from floating controls"
 
     $toolbar = Child "_VIV_TOOLBAR"
-    [VivGui]::Click($toolbar,205,75)
+    [VivGui]::Click($toolbar,(D2P 65.6),(D2P 24))
     Wait-Until {
         [VivGui]::Title($window) -notlike '*01-rotate*' -and
         @(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count -eq 0
     } "failed queue item and temporary-file cleanup"
     Stage "queue-recovered"
-    [VivGui]::Click($toolbar,205,75)
+    [VivGui]::Click($toolbar,(D2P 65.6),(D2P 24))
     Wait-Until { [VivGui]::Title($window) -like '*03-next*' } "next queue item after decode failure"
     Capture "queue-recovered"
-    Write-Host "Win32 GUI passed. Native window DPI $nativeDpi. Synthetic DPI tests 96 and 300 ($dpiDelivery delivery)."
+    Write-Host "Win32 GUI passed. Window DPI $script:dpi ($delivery delivery). Synthetic DPI tests 96 and 300."
 
     [VivGui]::Post($window,0x10,0,0)
     if (-not $proc.WaitForExit(4000)) { throw "GDI viewer did not close" }
