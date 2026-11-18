@@ -3,7 +3,7 @@
 voidImageViewer_PLUS is a lightweight Windows image viewer written in
 plain C89 against the Win32 API — a fork of
 [voidtools/voidImageViewer](https://github.com/voidtools/voidImageViewer)
-focused on touch and gesture support, rendering (the GDI/OpenGL/Direct3D
+focused on touch and gesture support, rendering (the GDI/Direct3D
 pipeline and the dark UI) and bilingual localization (English /
 简体中文). Bug reports, anomaly sample files, features and pull requests
 are all welcome. Pull requests target `main`; a PR that changes `src/`
@@ -80,11 +80,12 @@ available with `python3 audit/evidence/replay_zoom_matrix.py`; use `--output DIR
 to retain its generated C, commands and raw logs. Current findings and pending
 device checks are in [the follow-up audit](AUDIT-2026-10-17.md).
 
-On Windows (PowerShell 5.1+), two real-machine scripts:
+On Windows (PowerShell 5.1+), run the executable smoke tests:
 
 ```
 powershell -ExecutionPolicy Bypass -File tests\smoke_test.ps1 -ExePath build\x64\voidImageViewer.exe -SamplesDir tests\samples
-powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath build\x64\voidImageViewer.exe -SamplesDir tests\samples
+powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\render
+powershell -ExecutionPolicy Bypass -File tests\gui_rc3.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\gui
 ```
 
 `smoke_test.ps1` opens the whole anomaly sample set through the exe and
@@ -92,7 +93,7 @@ watches for crashes (the samples generate inline with pure-stdlib Python
 when the directory is missing); `render_golden.ps1` runs the pixel
 oracle described below. CI (`.github/workflows/tests.yml`) runs the five
 Python suites on every push, pull request and tag, and compiles both
-platforms on the pinned `windows-2022` (v143) and `windows-2025` (v145)
+platforms on the pinned `windows-2022` (v143) and `windows-2025-vs2026` (v145)
 images, with the smoke and golden legs riding the windows-2022 one.
 
 ## Version rules
@@ -169,14 +170,14 @@ golden sample set, per renderer. It is regenerated in exactly one way:
    with the `bootstrap-golden` input checked.
 3. Download the `golden-manifest` artifact and commit it to the tree.
 
-Never hand-edit the manifest. The bootstrap goes through the dispatch on
-purpose: the hashes must come from the same environment CI verifies in.
-The runner's 96 DPI desktop gives the export window its exact canvas,
-while a developer display above 100% scaling makes the window manager
-refuse the exact client rect and the harness exits before hashing
-anything. Once the manifest is tracked, every push compares strictly and
-every release compares the shipping binary strictly — so a deliberate
-pixel change rides the bootstrap flow, not the editor.
+The manifest stores GDI and Direct3D 9 baselines. Direct3D 11 and 12
+are checked independently through WARP for CI. Their native-size
+fixtures must agree with the GDI pixels, and a scaled texture verifies
+that the Direct3D sampler ran. Use `-Hardware` to repeat the pixel
+tests on the physical adapter. `gui_rc3.ps1` drives the real window
+at synthetic 96 and 300 DPI, exercises rotation, the queue, fullscreen
+and swap-chain resize, and captures the GDI window. Test a physical
+mixed-DPI setup and the device driver separately from the WARP run.
 
 ## Adding a language
 

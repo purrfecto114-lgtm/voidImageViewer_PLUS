@@ -59,6 +59,7 @@ void _viv_controls_show(int show);
 void _viv_status_update(void);
 void _viv_status_update_frame(void);
 int _viv_status_frame_pane_index(void);
+int _viv_status_file_command_at(POINT point);
 
 // the pixel chip: the hover facts' readout following the cursor over
 // the canvas (the settings row decides whether it appears at all).

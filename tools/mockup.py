@@ -344,41 +344,6 @@ M = live_metrics()
 # the metrics, read off the c sources. each one names its home.
 
 
-
-def _glyph_ids():
-    """the glyph name -> id map, straight out of glyphs.h."""
-    ids = {}
-    for m in re.finditer(r"#define (GLYPH_[A-Z0-9_]+)\s+(\d+)", read_src("src/glyphs.h")):
-        ids[m.group(1)] = int(m.group(2))
-    return ids
-
-
-def read_src(rel):
-    with open(os.path.join(ROOT, rel), "r", encoding="utf-8", errors="replace") as fh:
-        return fh.read()
-
-
-def _toolbar_items():
-    """the strip's own table, parsed seat by seat from viv_toolbar.c -
-    the preview cannot carry a hand list without drifting from the code
-    it claims to draw (the rc.3 lesson: the stale list rendered the
-    retired strip)."""
-    tb = read_src("src/viv_toolbar.c")
-    gids = _glyph_ids()
-    items = []
-    for m in re.finditer(r"\{_VIV_TOOLBAR_TYPE_(BUTTON|SEP|ZOOM),([^{}]*)\}", tb):
-        kind, fields = m.group(1), m.group(2)
-        if kind == "SEP":
-            items.append(("sep", 0))
-            continue
-        if kind == "ZOOM":
-            items.append(("zoom", 0))
-            continue
-        g = re.search(r"(GLYPH_[A-Z0-9_]+)", fields)
-        items.append(("btn", gids.get(g.group(1), 0) if g else 0))
-    return items
-
-
 def photo(w, h, theme):
     """a stand-in photograph for the canvas (device pixels)."""
     w, h = int(w * SCALE), int(h * SCALE)
@@ -420,8 +385,20 @@ def current_main(theme, wide=1180, high=720, lang="en"):
     ty = 0
     bh = M["menubar_high"]
     c.line([(0, 0), (wide, 0)], theme["VIV_TK_CHROME_LINE"])
-    items = _toolbar_items()
-    gids = _glyph_ids()
+    items = [
+        ("sep", 0),
+        ("btn", 8),
+        ("sep", 0),
+        ("btn", 0), ("btn", 3), ("btn", 1),
+        ("sep", 0),
+        ("btn", 5), ("btn", 4),
+        ("sep", 0),
+        ("zoom", 0),
+        ("sep", 0),
+        ("btn", 11),
+        ("sep", 0),
+        ("btn", 12),
+    ]
     x = menubar_w + 8
     ic = M["toolbar_icon"]
     tgt = M["toolbar_target"]
@@ -465,28 +442,16 @@ def current_main(theme, wide=1180, high=720, lang="en"):
     # the fact strip: the position, the dimensions and the frame counter -
     # the zoom left for the cluster, the date for the properties dialog,
     # the pixel pair for the chip that follows the cursor.
-    # the fact strip's shipped shape: the index, the file name (the pane
-    # that opens the folder on click, the info square beside it opening
-    # the properties - the rc.3 doors), the frame counter, the dimensions.
-    name_pane = "DSC_4284.NEF"
-    info_w = 22
-    panes = ["3 / 27", None, "Frame 1 / 1", "5712 x 4284  (24.5 MP)"]
+    panes = ["3 / 27", "5712 x 4284  (24.5 MP)", "Frame 1 / 1"]
     px = 12
     for i, p in enumerate(panes):
-        if p is None:
-            c.text(px, sy + M["status_high"] / 2.0, name_pane, sf,
-                   theme["VIV_TK_TEXT"], anchor="lm")
-            px += c.text_size(name_pane, sf)[0] + 10 + info_w
-            square = icon(gids["GLYPH_INFO"], 14, dark=theme.mode == "dark")
-            c.paste(square, px - info_w, sy + (M["status_high"] - 14) / 2.0)
-        else:
-            c.text(px, sy + M["status_high"] / 2.0, p, sf, theme["VIV_TK_TEXT2"], anchor="lm")
-            px += c.text_size(p, sf)[0] + 26
-        c.line([(px - 13, sy + 6), (px - 13, sy + M["status_high"] - 6)], theme["VIV_TK_CHROME_LINE"])
+        c.text(px, sy + M["status_high"] / 2.0, p, sf, theme["VIV_TK_TEXT2"], anchor="lm")
+        px += c.text_size(p, sf)[0] + 26
+        if i == 0:
+            c.line([(px - 13, sy + 6), (px - 13, sy + M["status_high"] - 6)], theme["VIV_TK_CHROME_LINE"])
 
     # --- the pixel chip: the hover facts' readout, riding past the cursor
-    chip_w, chip_h = 156, 56
-    chip_door = 26
+    chip_w, chip_h = 128, 56
     chx, chy = wide * 0.55, high * 0.52
     c.roundrect((chx, chy, chx + chip_w, chy + chip_h), 12,
                 fill=theme["VIV_TK_NAV_FACE"], outline=theme["VIV_TK_LINE"])
@@ -494,12 +459,6 @@ def current_main(theme, wide=1180, high=720, lang="en"):
            theme["VIV_TK_TEXT"], anchor="lm")
     c.text(chx + 10, chy + chip_h * 0.72, "RGB 222, 116, 84", font(11),
            theme["VIV_TK_TEXT"], anchor="lm")
-    # the fullscreen door (rc.3): a hairline, then the brackets - the one
-    # surface fullscreen leaves a mouse user reachable.
-    door_x = chx + chip_w - chip_door
-    c.line([(door_x, chy + 10), (door_x, chy + chip_h - 10)], theme["VIV_TK_LINE"])
-    c.paste(icon(gids["GLYPH_FULLSCREEN"], 16, dark=theme.mode == "dark"),
-            door_x + (chip_door - 16) / 2.0, chy + (chip_h - 16) / 2.0)
 
     # --- the floating pill: the transport and the zoom, over the canvas
     cells = [("g", 0), ("g", 3), ("g", 1), ("sep",), ("g", 9), ("pct", "100%"), ("g", 10)]

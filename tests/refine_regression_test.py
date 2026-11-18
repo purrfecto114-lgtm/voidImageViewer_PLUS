@@ -176,7 +176,7 @@ int main(void) {
 
 def status(root):
     source = (root / "src/viv_chrome.c").read_text()
-    enum = re.search(r'enum\s*\{\s*_VIV_STATUS_INDEX,.*?\};', source, re.S)
+    enum = re.search(r'enum\s*\{\s*_VIV_STATUS_FILE,.*?\};', source, re.S)
     require(enum is not None, "semantic pane roles missing")
     cap = re.search(r'^#define _VIV_STATUS_PART_MAX\s+\d+', (root / "src/viv_state.h").read_text(), re.M)
     code = '#include <assert.h>\n#include <stdio.h>\n' + cap.group() + '\n' + enum.group() + '\n'
@@ -187,12 +187,13 @@ static void fill(int *w,int index,int preload,int mask) {
     w[_VIV_STATUS_INDEX]=index?90:0; w[_VIV_STATUS_PRELOAD]=preload?128:0;
     w[_VIV_STATUS_DIMENSION]=200;
     w[_VIV_STATUS_FRAME]=(mask&1)?70:0;
+    w[_VIV_STATUS_FILE]=(mask&2)?350:0;
 }
 int main(void) {
     int w[_VIV_STATUS_ROLE_COUNT], edges[_VIV_STATUS_PART_MAX+1], roles[_VIV_STATUS_PART_MAX+1];
     int index,preload,mask,avail,n,i,cases=0;
     for(index=0;index<2;index++) for(preload=0;preload<2;preload++)
-    for(mask=0;mask<2;mask++) for(avail=0;avail<=2048;avail+=7) {
+    for(mask=0;mask<4;mask++) for(avail=0;avail<=2048;avail+=7) {
         int previous=0, seen=0;
         fill(w,index,preload,mask); edges[_VIV_STATUS_PART_MAX]=roles[_VIV_STATUS_PART_MAX]=0x12345678;
         n=_viv_status_layout_parts(w,avail,edges,roles);
@@ -205,6 +206,9 @@ int main(void) {
             if(i<n-1) { assert(edges[i]>=previous && edges[i]<=avail); previous=edges[i]; }
         }
         assert(seen&(1<<_VIV_STATUS_MESSAGE));
+        if ((mask&2) && avail >= 2) {
+            assert(roles[0]==_VIV_STATUS_FILE && edges[0]<=avail/2);
+        }
         assert(seen&(1<<_VIV_STATUS_DIMENSION)); cases++;
     }
     { const int widths[]={690,610,520,450,380,270,269};

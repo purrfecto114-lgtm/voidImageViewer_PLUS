@@ -90,9 +90,9 @@
 #define _ZOOMUI_GDIP_UNIT_PIXEL 2
 #define _ZOOMUI_GDIP_SMOOTHING_ANTIALIAS 4
 
-// the seven cells of the row, left to right. the same row serves
+// the eight cells of the row, left to right. the same row serves
 // windowed mode and fullscreen: the mode only decides the idle fade.
-#define _ZOOMUI_CELL_COUNT 7
+#define _ZOOMUI_CELL_COUNT 8
 #define _ZOOMUI_CELL_PREV 0
 #define _ZOOMUI_CELL_PLAYPAUSE 1
 #define _ZOOMUI_CELL_NEXT 2
@@ -100,6 +100,7 @@
 #define _ZOOMUI_CELL_ZOOMOUT 4
 #define _ZOOMUI_CELL_PCT 5
 #define _ZOOMUI_CELL_ZOOMIN 6
+#define _ZOOMUI_CELL_FULLSCREEN 7
 
 // command ids for the fixed button cells. the play/pause cell resolves
 // its command from the slideshow state at fire time (play when stopped,
@@ -115,6 +116,7 @@ static const int _zoomui_cell_command_ids[_ZOOMUI_CELL_COUNT] =
 	VIV_ID_VIEW_ZOOM_OUT,
 	_ZOOMUI_CELL_COMMAND_NONE,
 	VIV_ID_VIEW_ZOOM_IN,
+	VIV_ID_VIEW_FULLSCREEN,
 };
 
 // glyphs for the fixed cells. the play/pause cell picks GLYPH_PLAY or
@@ -131,6 +133,7 @@ static const int _zoomui_cell_glyph_ids[_ZOOMUI_CELL_COUNT] =
 	GLYPH_ZOOMOUT,
 	_ZOOMUI_CELL_GLYPH_NONE,
 	GLYPH_ZOOMIN,
+	GLYPH_FULLSCREEN,
 };
 
 // fade parameters. rc.15: the old 15ms interval fought the 15.6ms system
@@ -671,6 +674,7 @@ static void _zoomui_place(int wide,int high)
 	int container_high;
 	int x;
 	int y;
+	int top = _viv_get_view_top();
 
 	if (!_zoomui_hwnd)
 	{
@@ -694,7 +698,7 @@ static void _zoomui_place(int wide,int high)
 	// height arrives viewport relative: land the y in client coordinates
 	// below the top strips (zero in fullscreen, where the strips hide).
 	x = (wide - container_wide) / 2;
-	y = _viv_get_view_top() + high - container_high - _zoomui_margin;
+	y = top + high - container_high - _zoomui_margin;
 
 	// clamp inside the image area so a tiny window never pushes the
 	// pill off screen; when the area is smaller than the pill, pin to
@@ -716,21 +720,9 @@ static void _zoomui_place(int wide,int high)
 		}
 	}
 
-	if (container_high >= high)
+	if (container_high >= high || y < top)
 	{
-		y = 0;
-	}
-	else
-	{
-		if (y < 0)
-		{
-			y = 0;
-		}
-
-		if (y + container_high > high)
-		{
-			y = high - container_high;
-		}
+		y = top;
 	}
 
 	SetWindowPos(_zoomui_hwnd,HWND_TOP,x,y,container_wide,container_high,SWP_NOACTIVATE);
@@ -790,7 +782,7 @@ static int _zoomui_step_button_cell(int fromi,int dir)
 
 	if (fromi < 0)
 	{
-		return (dir < 0) ? _ZOOMUI_CELL_ZOOMIN : _ZOOMUI_CELL_PREV;
+		return (dir < 0) ? _ZOOMUI_CELL_FULLSCREEN : _ZOOMUI_CELL_PREV;
 	}
 
 	celli = fromi;
@@ -958,6 +950,8 @@ static localization_id_t _zoomui_tooltip_id_for_cell(int celli)
 
 		case _ZOOMUI_CELL_ZOOMIN:
 			return LOCALIZATION_ID_ZOOMUI_TOOLTIP_ZOOM_IN;
+		case _ZOOMUI_CELL_FULLSCREEN:
+			return _viv_is_fullscreen ? LOCALIZATION_ID_TOOLBAR_EXIT_FULLSCREEN : LOCALIZATION_ID_TOOLBAR_FULLSCREEN;
 	}
 
 	return (localization_id_t)0;
@@ -1900,6 +1894,10 @@ static int _zoomui_cell_glyph_id(int celli)
 		return _viv_is_slideshow ? GLYPH_PAUSE : GLYPH_PLAY;
 	}
 
+	if (celli == _ZOOMUI_CELL_FULLSCREEN && _viv_is_fullscreen)
+	{
+		return GLYPH_RESTORE;
+	}
 	return _zoomui_cell_glyph_ids[celli];
 }
 

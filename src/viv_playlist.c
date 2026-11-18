@@ -676,12 +676,7 @@ void _viv_playlist_rename(const wchar_t *old_filename,const wchar_t *new_filenam
 	d = _viv_playlist_start;
 	while(d)
 	{
-		// the identity is the file name under the case-folded compare the
-		// queue's every other lookup rides (the from-fd and shuffle-index
-		// lookups, the delete beside this function): the raw wchar diff a
-		// rename with a different letter case hits missed the row and left
-		// a ghost the navigation walked onto and the delete never removed.
-		if (_viv_icompare_filename(d->fd.cFileName,old_filename) == 0)
+		if (string_compare(d->fd.cFileName,old_filename) == 0)
 		{
 			string_copy(d->fd.cFileName,new_filename);
 		
@@ -858,7 +853,8 @@ static _viv_open_outcome_t _viv_playlist_add_path_ex(const wchar_t *full_path_an
 			
 			if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 			{
-				if (!((string_compare_ascii(fd.cFileName,".") == 0) || (string_compare_ascii(fd.cFileName,"..") == 0)))
+				if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) &&
+					!((string_compare_ascii(fd.cFileName,".") == 0) || (string_compare_ascii(fd.cFileName,"..") == 0)))
 				{
 					if (!string_path_combine(search_wbuf,full_path_and_filename,fd.cFileName))
 					{
@@ -993,6 +989,15 @@ _viv_open_outcome_t _viv_playlist_add_filename_report(const wchar_t *filename,_v
 		directory_wbuf[dir_len] = 0;
 	}
 
+	// An explicitly added file may already occupy a row (including the
+	// current file that seeded an empty queue). Acknowledge it without
+	// issuing a second ID or changing the shuffle order.
+	{
+		WIN32_FIND_DATA identity = {0};
+		string_copy_with_bufsize(identity.cFileName,MAX_PATH,full_path_and_filename);
+		if (string_path_is_short(full_path_and_filename) && _viv_playlist_from_fd(&identity))
+			return VIV_OPEN_OPENED;
+	}
 	outcome = _viv_playlist_add_fd(directory_wbuf,&fd,report);
 	
 	if (outcome != VIV_OPEN_OPENED)
@@ -1196,17 +1201,7 @@ int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wchar_t *s
 {
 	if (randomize)
 	{	
-		// add is ignored in this case. the previous random query's string
-		// frees first - every sibling path (the typed search, the random
-		// reply, the blank) freed the old one; this branch was the holdout
-		// that leaked a string per search.
-		if (_viv_random)
-		{
-			mem_free(_viv_random);
-			
-			_viv_random = 0;
-		}
-
+		// add is ignored in this case.
 		_viv_random = string_alloc(search);
 
 		_viv_random_tot_results = 0xffffffff;
@@ -1337,45 +1332,8 @@ static void _viv_add_current_path_to_playlist(void)
 	{
 		for(;;)
 		{
-			if (_viv_is_valid_filename(&fd))
-			{
-				_viv_playlist_t *d;
-				
-				// the shared per entry gate: the whitelist, the full
-				// path and the MAX_PATH cFileName limit are decided in
-				// one place for every walk now, so this seed cannot
-				// queue an entry whose name was clipped into a file
-				// that does not exist. the seed keeps no tally (a
-				// startup shuffle is not a user refusal), so an
-				// unopenable entry is passed over rather than named.
-				if (_viv_playlist_add_fd(path_wbuf,&fd,0) == VIV_OPEN_OPENED)
-				{
-					// the entry's full path is in the playlist, not in
-					// the walk's find data: read the row back by name.
-					// the combine lives inside _viv_playlist_add_fd (a
-					// local entry), so the read-back rebuilds the same
-					// combined name here - the bare walk name never
-					// matched the rows on its own, and the whole
-					// copy-back was dead since the combine moved.
-					WIN32_FIND_DATA row_fd;
-					
-					os_zero_memory(&row_fd,sizeof(WIN32_FIND_DATA));
-					string_copy(row_fd.cFileName,path_wbuf);
-					string_cat(row_fd.cFileName,L"\\");
-					string_cat(row_fd.cFileName,fd.cFileName);
-					
-					d = _viv_playlist_from_fd(&row_fd);
-					
-					if ((d) && (string_compare(row_fd.cFileName,_viv_current_fd->cFileName) == 0))
-					{
-						// copy back the FD ID.
-						// so when we get the next image we get the next image from the current image instead of the home image.
-						_viv_current_fd->dwReserved0 = d->fd.dwReserved0;
-						_viv_current_fd->dwReserved1 = d->fd.dwReserved1;
-					}
-				}
-			}
-			
+			_viv_playlist_add_fd(path_wbuf,&fd,0);
+
 			if (!FindNextFile(h,&fd)) break;
 		}
 
@@ -1424,6 +1382,44 @@ _viv_playlist_t *_viv_playlist_from_fd(const WIN32_FIND_DATA *fd)
 
 	return 0;
 }
+const WIN32_FIND_DATA *_viv_playlist_step(const WIN32_FIND_DATA *cursor,int prev)
+{
+	const _viv_playlist_t *row, *current, *edge = NULL, *next = NULL;
+	if (!_viv_playlist_count) return NULL;
+
+	if (config_shuffle && _viv_playlist_shuffle_indexes)
+	{
+		int index = _viv_playlist_shuffle_index_from_fd(cursor);
+		if (index < 0) index = prev ? _viv_playlist_count - 1 : 0;
+		else
+		{
+			if (_viv_playlist_count == 1) return NULL;
+			index = (index + (prev ? _viv_playlist_count - 1 : 1)) % _viv_playlist_count;
+		}
+		return &_viv_playlist_shuffle_indexes[index]->fd;
+	}
+
+	current = _viv_playlist_from_fd(cursor);
+	for (row = _viv_playlist_start; row; row = row->next)
+	{
+		int direction;
+		if (row == current || _viv_icompare_filename(row->fd.cFileName,cursor->cFileName) == 0) continue;
+
+		if (!edge || (prev ? _viv_fd_compare(&row->fd,&edge->fd) > 0 : _viv_fd_compare(&row->fd,&edge->fd) < 0))
+			edge = row;
+
+		if (!current) continue;
+		direction = _viv_fd_compare(&row->fd,&current->fd);
+		if ((prev ? direction < 0 : direction > 0) &&
+			(!next || (prev ? _viv_fd_compare(&row->fd,&next->fd) > 0 : _viv_fd_compare(&row->fd,&next->fd) < 0)))
+		{
+			next = row;
+		}
+	}
+	if (!next) next = edge;
+	return next ? &next->fd : NULL;
+}
+
 void _viv_do_initial_shuffle(void)
 {
 	// if we don't have a playlist, but we have a current image, add the current path to the playlist and shuffle it.

@@ -2222,14 +2222,9 @@ def t_sim_field_response_round124():
     check("an alpha image reloads - the old backdrop is baked into its pixels",
           backdrop_reload(True) is True)
 
-    # --- the rotate's unblocked verb ---
-    check("the rotate verb launches on the temp copy without the ui-thread wait (the rc.3 non-destructive round)",
-          'os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise ? "rotate270" : "rotate90",0)' in view and
-          "MB_OKCANCEL | MB_ICONQUESTION" not in view[view.find("_viv_edit_rotate"):view.find("_viv_edit_rotate") + 4000])
-
     # --- the renderer orientation contract ---
     d3d = read("src/hwd3d.c").decode().replace("\r\n", "\n")
-    check("the renderer no longer reads the unrecoverable sign (the opengl leg retired with the back end in rc.3)",
+    check("the renderers no longer read the unrecoverable sign",
           "dsBmih.biHeight > 0" not in d3d)
     check("the orientation flags are gone (one mapping for every frame)",
           "_viv_d3d_bottom_up" not in d3d)
@@ -2243,7 +2238,7 @@ def t_sim_field_response_round124():
         # machine, which is why every image rode the flip).
         return frame_top_down
 
-    check("a top-down frame draws upright on the hardware leg",
+    check("a top-down frame draws upright on both hardware legs",
           draws_upright(True))
 
 
@@ -2816,198 +2811,6 @@ def t_sim_merged_report_round130():
           default_dir(False) == "$LOCALAPPDATA\\Programs")
 
 
-def t_sim_paging_round132():
-    """Behavioral model for the toolbar paging round. the walk is
-    re-executed: the item table parses seat by seat from the shipped
-    source, the walk order / floor / clamp rules are pinned to the
-    source, and the model answers the narrow-window scenarios - the
-    fit that never pages, the overflow that hides groups behind an
-    arrow, the page that turns around the open button, the last page
-    that drops the right arrow, the stale page that goes home, and
-    the gap that keeps two adjacent faces from ever sharing an
-    edge."""
-    print("sim: the toolbar paging (round 132)")
-    tb = read("src/viv_toolbar.c").decode("utf-8", errors="replace").replace("\r\n", "\n")
-
-    # the table, parsed seat by seat.
-    rows = re.findall(r"\{_VIV_TOOLBAR_TYPE_(BUTTON|SEP|ZOOM),[^{}]*?,(\d)\}", tb)
-    # quiet chrome: the zoom pair is one cluster seat - fourteen seats,
-    # eight buttons, the cluster, five separators.
-    check("the item table parses to twelve seats (the zoom cluster is one; the open and info faces left in rc.3)",
-          len(rows) == 12 and [t for t, g in rows].count("BUTTON") == 7 and
-          [t for t, g in rows].count("SEP") == 4 and
-          [t for t, g in rows].count("ZOOM") == 1, str(rows))
-    items = [(t, int(g)) for t, g in rows]
-
-    # the walk order and rules, pinned to the source.
-    check("the walk runs the fit before the page fill before the arrow probes (the code anchors, not the comments)",
-          tb.find("_viv_toolbar_walk_total() <= _viv_toolbar_wide") <
-          tb.find("_viv_toolbar_page_visible(_viv_toolbar_page,_viv_toolbar_item_visible);") <
-          tb.find("_viv_toolbar_page_visible(page,probe_visible);"))
-    check("the arrows reserve their slots before the right walk",
-          "avail = _viv_toolbar_wide - _viv_toolbar_arrow_wide;" in tb)
-
-    # the model: the walk, mirrored. synthetic widths stand in for the
-    # font pass (the runtime cannot run here); the arithmetic is the
-    # walk's own. round 135 (the fourth report's P2-16 + P3-9): the
-    # constants extract from the source - the gap lived as a sim-side 8
-    # while the c-side define answered to no pin, and the walk floor
-    # mutation reddened only the menu's own string pin.
-    GAP = int(re.findall(r"#define VIV_UI_GAP (\d+)", read("src/viv_theme.h").decode())[0])
-    # quiet chrome: the model rides the c's own targets now - the buttons
-    # and the arrows share the 44 dip target, the cluster prices its two
-    # handles and the percent cell (the synthetic 60+g widths retired with
-    # the labelled strip they modeled).
-    TARGET = int(re.findall(r"#define _VIV_TOOLBAR_TARGET (\d+)", tb)[0])
-    CELL = int(re.findall(r"#define _VIV_TOOLBAR_ZOOM_CELL_WIDE (\d+)", tb)[0])
-    AW = TARGET
-    GROUP_MAX = int(re.findall(r"#define _VIV_TOOLBAR_GROUP_MAX (\d+)", tb)[0])
-    check("the extracted constants are the shipped ones (shared gap 4, target 44, cell 72, five groups)",
-          (GAP, TARGET, CELL, GROUP_MAX) == (4, 44, 72, 4), str((GAP, TARGET, CELL, GROUP_MAX)))
-
-    def widths_for(scale):
-        return [TARGET if t == "BUTTON" else (TARGET * 2 + CELL if t == "ZOOM" else 17) for t, g in items]
-
-    def walk(wide, page, mask=0x1f, widths=None):
-        if widths is None:
-            widths = widths_for(60)
-        visible = [bool(mask >> g & 1) for t, g in items]
-
-        def total():
-            tot, prev_button = 0, False
-            for i, (t, g) in enumerate(items):
-                if visible[i]:
-                    if t == "BUTTON" and prev_button:
-                        tot += GAP
-                    prev_button = t == "BUTTON"
-                    tot += widths[i]
-            return tot
-
-        if total() <= wide:
-            # the c's fast path clamps the page home (the strip that fits
-            # never pages) - the model returned the input page, and only
-            # the faithful widths ever exposed the drift.
-            return 0, 0, 0, list(visible)
-
-        left_hidden = 0
-        if page > 0:
-            for i, (t, g) in enumerate(items):
-                if visible[i] and 1 <= g <= page:
-                    visible[i] = False
-                    left_hidden += 1
-            if not left_hidden:
-                page = 0
-        left_arrow = 1 if page > 0 else 0
-
-        avail = wide - AW - (AW if left_arrow else 0)
-        right_hidden = 0
-        group = GROUP_MAX
-        while total() > avail and group > 0:
-            for i, (t, g) in enumerate(items):
-                if visible[i] and g == group:
-                    visible[i] = False
-                    right_hidden += 1
-            group -= 1
-        right_arrow = 1 if right_hidden else 0
-        return page, left_arrow, right_arrow, list(visible)
-
-    def groups_shown(state):
-        return sorted({g for i, (t, g) in enumerate(items) if state[3][i]})
-
-    # 1. the fit never pages.
-    state = walk(10000, 0)
-    check("a fitting strip shows every group and no arrows",
-          state[1] == 0 and state[2] == 0 and groups_shown(state) == [0, 1, 2, 3, 4])
-
-    # 2. the overflow hides from the right behind the arrow.
-    state = walk(240, 0)
-    check("the overflow keeps the early groups, hides the late ones, shows the arrow",
-          state[2] == 1 and state[1] == 0 and 0 in groups_shown(state) and
-          4 not in groups_shown(state))
-
-    # 3. the page turns around the open button.
-    state = walk(240, 1)
-    check("page one hides the fit group from the left and keeps the nav group",
-          state[1] == 1 and 0 in groups_shown(state) and 1 not in groups_shown(state))
-
-    # 4. the last page drops the right arrow.
-    state = walk(240, 4)
-    check("the last page shows only the nav group and the back arrow",
-          state[1] == 1 and state[2] == 0 and groups_shown(state) == [0])
-
-    # 5. the stale page goes home (its groups all hid behind the mask).
-    # quiet chrome: at the faithful widths the step's own page answers the
-    # same set (the rotate group fits either way), so no forward arrow
-    # lights - the starved-window dead-arrow rule, not a regression.
-    state = walk(320, 2, mask=0x19)
-    check("a page whose groups all hid clamps home",
-          state[0] == 0 and state[1] == 0 and state[2] == 0 and
-          groups_shown(state) == [0, 3, 4])
-
-    # 6. group zero never hides, however narrow.
-    state = walk(10, 5)
-    check("the floor: the open group never hides",
-          0 in groups_shown(state))
-
-    # 7. the gap: two adjacent faces never share an edge.
-    widths = widths_for(60)
-    adj = None
-    for i in range(len(items) - 1):
-        if items[i][0] == "BUTTON" and items[i + 1][0] == "BUTTON":
-            adj = (i, i + 1)
-            break
-    if not check("the table seats two adjacent buttons (prev and next)", adj is not None):
-        return
-    xs, x, prev_button = {}, 0, False
-    for i, (t, g) in enumerate(items):
-        if t == "BUTTON" and prev_button:
-            x += GAP
-        prev_button = t == "BUTTON"
-        xs[i] = x
-        x += widths[i]
-    check("two adjacent buttons carry the design's gap between their faces",
-          xs[adj[1]] - (xs[adj[0]] + widths[adj[0]]) == GAP)
-
-    # round 135 (the fourth report's P2-1, the dead arrow): the step
-    # skips the groups the mask killed. the navigation group unchecked
-    # under a narrow window made page one a dead step - the walk clamped
-    # it home and the lit chevron promised a turn that never came.
-    check("the c-side step skips the dead groups (the source anchor)",
-          "static int _viv_toolbar_group_live(int group)" in tb and
-          "while ((page <= _VIV_TOOLBAR_GROUP_MAX) && (!_viv_toolbar_group_live(page)))" in tb and
-          "while ((page > 0) && (!_viv_toolbar_group_live(page)))" in tb)
-
-    def group_live(g, mask=0x1f):
-        return bool((mask >> g) & 1) and any(gg == g for _, gg in items)
-
-    def step(page, dirn, mask=0x1f):
-        if dirn > 0:
-            p = page + 1
-            while p <= GROUP_MAX and not group_live(p, mask):
-                p += 1
-            return None if p > GROUP_MAX else p
-        p = max(0, page - 1)
-        while p > 0 and not group_live(p, mask):
-            p -= 1
-        return p
-
-    nav_dead = 0x1f & ~(1 << 1)
-    check("the forward step skips the dead navigation group",
-          step(0, +1, nav_dead) == 2)
-    after = walk(400, step(0, +1, nav_dead), mask=nav_dead)
-    before = walk(400, 0, mask=nav_dead)
-    check("the skipped step moves the content (the arrow's promise is delivered)",
-          after[0] == 2 and after[1] == 1 and after[3] != before[3],
-          str((after[:3], before[:3])))
-    check("the dead page still clamps home when something else lands it there",
-          walk(400, 1, mask=nav_dead)[0] == 0)
-    two_dead = 0x1f & ~((1 << 1) | (1 << 2))
-    check("the back step skips dead groups too (or goes home)",
-          step(3, -1, two_dead) == 0)
-    check("a mask with nothing forward owes no turn",
-          step(0, +1, 0x01) is None)
-
-
 def t_sim_fusion4_round135():
     """Simulation replays for the fourth fusion response round
     (1.1.16-rc.1): the process exit legs counted from the tree - the
@@ -3057,7 +2860,6 @@ if __name__ == "__main__":
     t_sim_settings_round126()
     t_sim_title_borrow_round129()
     t_sim_merged_report_round130()
-    t_sim_paging_round132()
     t_sim_fusion4_round135()
     print()
     if failures:

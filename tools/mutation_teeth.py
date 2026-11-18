@@ -35,6 +35,7 @@ SUITES = {
     "zoom": ["python3", "tests/zoom_math_test.py"],
     "byte": ["python3", "tests/byte_invariant_test.py"],
     "pixel": ["python3", "tests/pixel_golden_test.py"],
+    "rc3": ["python3", "tests/rc3_regression_test.py"],
     "native": [sys.executable, "tests/native_regression_test.py", "--sanitize"],
     # the qoi decoder's behavioral gate: hostile streams against the real
     # production decode body (the round-151 teeth only had the menu
@@ -49,8 +50,8 @@ SUITES = {
 MUTATIONS = [
     ("the toggle anchor regresses to the wrong pane",
      "src/viv_wndproc.c",
-     "else if ((item >= 0) && (item == _viv_status_frame_pane_index()))",
-     "else if ((item >= 0) && (item == (int)SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2))",
+     "if ((item >= 0) && (item == _viv_status_frame_pane_index()))",
+     "if ((item >= 0) && (item == (int)SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0) - 2))",
      ["menu"]),
 
     ("the layout measures the opening text again (the 9-to-10 hitch)",
@@ -83,11 +84,17 @@ MUTATIONS = [
      "case 0x0BAD:",
      ["menu"]),
 
-    ("the dead arrow lights for any hidden group again",
+    ("the overflow button has no width in a restored narrow window",
      "src/viv_toolbar.c",
-     "_viv_toolbar_arrow_left = (itemi < _VIV_TOOLBAR_ITEM_COUNT) ? 1 : 0;",
-     "_viv_toolbar_arrow_left = (_viv_toolbar_page > 0) ? 1 : 0;",
-     ["menu"]),
+     "_viv_toolbar_more_wide = target < _viv_toolbar_wide ? target : _viv_toolbar_wide;",
+     "_viv_toolbar_more_wide = 0;",
+     ["rc3"]),
+
+    ("a cancelled decoder swallows the latest foreground request again",
+     "src/viv_load.c",
+     "!_VIV_LOAD_TERMINATED() && !_viv_load_image_next_fd && (string_compare",
+     "(string_compare",
+     ["rc3"]),
 
     ("the frame step pauses on a refused step again",
      "src/viv_anim.c",
@@ -121,8 +128,8 @@ MUTATIONS = [
 
     ("the strip's tab leg goes missing again",
      "src/viv_toolbar.c",
-     "if (wParam == VK_TAB)",
-     "if (wParam == 0x0BAD)",
+     "case VK_TAB:",
+     "case 0x0BAD:",
      ["menu"]),
 
     ("the zero-delay webp burns a core again",
@@ -217,7 +224,7 @@ MUTATIONS = [
 
     ("the hardware acceleration switch stops persisting",
      "src/viv_install.c",
-     "\t\tconfig_renderer = CONFIG_RENDERER_DIRECT3D;",
+     "\t\tconfig_renderer = _viv_gpu_preferred();",
      "\t\tconfig_renderer = CONFIG_RENDERER_GDI;",
      ["menu"]),
 
@@ -547,7 +554,7 @@ MUTATIONS = [
 
     ("the hardware switch forgets the probe again (round-149)",
      "src/viv_settings.c",
-     "return _viv_hwd3d_available() ? 1 : 0;",
+     "return (_viv_gpu_preferred() != CONFIG_RENDERER_GDI) ? 1 : 0;",
      "return 1;",
      ["menu"]),
 
@@ -577,8 +584,8 @@ MUTATIONS = [
 
     ("the menu radio forgets the machine's answer again (round-149)",
      "src/viv_menu.c",
-     "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,_viv_hwd3d_available() ? MF_ENABLED : MF_GRAYED);",
-     "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,MF_ENABLED);",
+     "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_D3D9,_viv_gpu_renderer_available(CONFIG_RENDERER_D3D9) ? MF_ENABLED : MF_GRAYED);",
+     "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_D3D9,MF_ENABLED);",
      ["menu"]),
 
     ("the arm64 installer loses its target machine (round-151)",

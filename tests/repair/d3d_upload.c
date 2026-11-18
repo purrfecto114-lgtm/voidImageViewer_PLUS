@@ -10,6 +10,8 @@ struct IDirect3DDevice9 {DVTABLE*lpVtbl;};
 #define D3DPOOL_MANAGED 1
 #define VIV_MAX_HARDWARE_BYTES (512u*1024u*1024u)
 #define VIV_MAX_IMAGE_PIXELS 400000000
+int _viv_d3d_client_wide, _viv_d3d_client_high;
+static int create_calls;
 static int live,fail_create,fail_lock,fail_unlock;
 static IDirect3DTexture9*bound;
 static ULONG release(IDirect3DTexture9*t){assert(t->refs>0);int refs=--t->refs;if(!refs){live--;free(t);}return refs;}
@@ -17,12 +19,13 @@ static HRESULT lock(IDirect3DTexture9*t,UINT l,D3DLOCKED_RECT*r,void*p,DWORD f){
 static HRESULT unlock(IDirect3DTexture9*t,UINT l){return fail_unlock?-1:0;}
 static TVTABLE tvt={release,lock,unlock};
 static HRESULT set_texture(IDirect3DDevice9*d,DWORD s,IDirect3DBaseTexture9*t){if(t)t->refs++;if(bound)release(bound);bound=t;return 0;}
-static HRESULT create_texture(IDirect3DDevice9*d,UINT w,UINT h,UINT l,DWORD f,int fmt,int pool,IDirect3DTexture9**out,void*shared){if(fail_create)return -1;assert(w*h*4<=1024);IDirect3DTexture9*t=calloc(1,sizeof(*t));assert(t);t->lpVtbl=&tvt;t->wide=w;t->high=h;t->refs=1;live++;*out=t;return 0;}
+static HRESULT create_texture(IDirect3DDevice9*d,UINT w,UINT h,UINT l,DWORD f,int fmt,int pool,IDirect3DTexture9**out,void*shared){create_calls++;if(fail_create || (size_t)w*h*4>1024)return -1;IDirect3DTexture9*t=calloc(1,sizeof(*t));assert(t);t->lpVtbl=&tvt;t->wide=w;t->high=h;t->refs=1;live++;*out=t;return 0;}
 static DVTABLE dvt={set_texture,create_texture};static IDirect3DDevice9 device={&dvt},*_viv_d3d_device=&device;
 static IDirect3DTexture9*_viv_d3d_texture;
 static int _viv_d3d_need_pot,_viv_d3d_need_square,_viv_d3d_last_pot_wide,_viv_d3d_last_pot_high,_viv_d3d_max_wide=16384,_viv_d3d_max_high=16384;
 static HBITMAP _viv_d3d_last_hbitmap;static float _viv_d3d_u,_viv_d3d_v;
 static size_t safe_size_mul(size_t a,size_t b){return b && a>SIZE_MAX/b?SIZE_MAX:a*b;}
+size_t safe_size_add(size_t a,size_t b){return b>SIZE_MAX-a?SIZE_MAX:a+b;}
 /* PRODUCTION */
 int main(void){
  BYTE pixels[256];memset(pixels,255,sizeof(pixels));DIBSECTION ds={{3,5,12,1,32,pixels}};
@@ -32,6 +35,10 @@ int main(void){
  fail_lock=1;assert(!_viv_d3d_texture_upload(10,&ds));assert(!live && !_viv_d3d_texture);fail_lock=0;
  fail_unlock=1;assert(!_viv_d3d_texture_upload(11,&ds));assert(!live && !_viv_d3d_last_hbitmap);fail_unlock=0;
  ds.dsBm.bmWidth=10000;ds.dsBm.bmHeight=10000;assert(!_viv_d3d_texture_upload(12,&ds));assert(!live);
+ _viv_d3d_client_wide=3840;_viv_d3d_client_high=2160;
+ ds.dsBm.bmWidth=8000;ds.dsBm.bmHeight=8000;create_calls=0;
+ assert(!_viv_d3d_texture_upload(12,&ds));
+ assert(create_calls==0 && "the 4K backbuffer and managed texture share the allocation budget");
  _viv_d3d_need_pot=1;ds.dsBm.bmWidth=3;ds.dsBm.bmHeight=5;assert(_viv_d3d_texture_upload(13,&ds));assert(_viv_d3d_last_pot_wide==4 && _viv_d3d_last_pot_high==8);assert(_viv_d3d_texture->data[(7*4+3)*4]==255);
  set_texture(&device,0,_viv_d3d_texture);_viv_hwd3d_release_image();assert(!live && !bound);puts("D3D refs, allocation/lock/unlock failures, POT padding and byte budget PASS");
 }

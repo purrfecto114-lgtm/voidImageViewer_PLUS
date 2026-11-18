@@ -396,17 +396,7 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		config_save_settings(config_appdata);
 	}
 	
-	if ((hardware_acceleration) && (_viv_hwd3d12_available()))
-	{
-		config_renderer = CONFIG_RENDERER_DIRECT3D12;
-	}
-	else
-	if ((hardware_acceleration) && (_viv_hwd3d11_available()))
-	{
-		config_renderer = CONFIG_RENDERER_DIRECT3D11;
-	}
-	else
-	if ((hardware_acceleration) && (_viv_hwd3d_available()))
+	if ((hardware_acceleration) && (_viv_gpu_preferred() != CONFIG_RENDERER_GDI))
 	{
 		// the installer's hardware acceleration box: the switch only
 		// ever names direct3d (the exe default stays gdi; an unchecked
@@ -417,7 +407,7 @@ int _viv_process_install_command_line_options(wchar_t *cl)
 		// gdi default instead of promising a backend the first paint
 		// would have to fall back from (the field round's detection
 		// question).
-		config_renderer = CONFIG_RENDERER_DIRECT3D;
+		config_renderer = _viv_gpu_preferred();
 		
 		config_save_settings(config_appdata);
 	}

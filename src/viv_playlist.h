@@ -108,6 +108,7 @@ int _viv_nav_compare(const void *va,const void *vb);
 void _viv_search_everything(int add);
 int _viv_send_everything_search(HWND hwnd,int add,int randomize,const wchar_t *search);
 int _viv_playlist_shuffle_index_from_fd(const WIN32_FIND_DATA *fd);
+const WIN32_FIND_DATA *_viv_playlist_step(const WIN32_FIND_DATA *cursor,int prev);
 _viv_playlist_t *_viv_playlist_from_fd(const WIN32_FIND_DATA *fd);
 void _viv_do_initial_shuffle(void);
 void _viv_send_random_everything_search(void);

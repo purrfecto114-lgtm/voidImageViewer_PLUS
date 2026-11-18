@@ -325,37 +325,37 @@ static const _glyphs_stroke_t _glyphs_gamepad_strokes[] =
 	{0,4,0,&_glyphs_pad_button2}
 };
 
-// chevron left: a single angled stroke (the strip's page-back arrow).
-static const _glyphs_point_t _glyphs_chevron_left_pts[] = { {30,12},{18,24},{30,36} };
-static const _glyphs_stroke_t _glyphs_chevron_left_strokes[] =
+static const _glyphs_point_t _glyphs_fullscreen_points[4][3] =
 {
-	{3,5,_glyphs_chevron_left_pts}
+	{{8,18},{8,8},{18,8}}, {{30,8},{40,8},{40,18}},
+	{{40,30},{40,40},{30,40}}, {{18,40},{8,40},{8,30}}
 };
-
-// chevron right: the mirror (the page-forward arrow).
-static const _glyphs_point_t _glyphs_chevron_right_pts[] = { {18,12},{30,24},{18,36} };
-static const _glyphs_stroke_t _glyphs_chevron_right_strokes[] =
-{
-	{3,5,_glyphs_chevron_right_pts}
-};
-
-// fullscreen: the four corner brackets of a viewfinder - the same face
-// answers enter and exit like the rotate glyph answers its arc.
-static const _glyphs_point_t _glyphs_fullscreen_tl[] = { {9,17},{9,9},{17,9} };
-static const _glyphs_point_t _glyphs_fullscreen_tr[] = { {31,9},{39,9},{39,17} };
-static const _glyphs_point_t _glyphs_fullscreen_br[] = { {39,31},{39,39},{31,39} };
-static const _glyphs_point_t _glyphs_fullscreen_bl[] = { {17,39},{9,39},{9,31} };
 static const _glyphs_stroke_t _glyphs_fullscreen_strokes[] =
 {
-	{3,4,_glyphs_fullscreen_tl},
-	{3,4,_glyphs_fullscreen_tr},
-	{3,4,_glyphs_fullscreen_br},
-	{3,4,_glyphs_fullscreen_bl}
+	{3,4,_glyphs_fullscreen_points[0]}, {3,4,_glyphs_fullscreen_points[1]},
+	{3,4,_glyphs_fullscreen_points[2]}, {3,4,_glyphs_fullscreen_points[3]}
+};
+static const _glyphs_point_t _glyphs_restore_points[4][3] =
+{
+	{{18,7},{18,18},{7,18}}, {{41,18},{30,18},{30,7}},
+	{{30,41},{30,30},{41,30}}, {{7,30},{18,30},{18,41}}
+};
+static const _glyphs_stroke_t _glyphs_restore_strokes[] =
+{
+	{3,4,_glyphs_restore_points[0]}, {3,4,_glyphs_restore_points[1]},
+	{3,4,_glyphs_restore_points[2]}, {3,4,_glyphs_restore_points[3]}
+};
+static const _glyphs_ellipse_t _glyphs_more_dots[] =
+{
+	{8,21,6,6}, {21,21,6,6}, {34,21,6,6}
+};
+static const _glyphs_stroke_t _glyphs_more_strokes[] =
+{
+	{0,4,0,&_glyphs_more_dots[0]}, {0,4,0,&_glyphs_more_dots[1]}, {0,4,0,&_glyphs_more_dots[2]}
 };
 
 static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
 {
-
 	{2,_glyphs_prev_strokes},
 	{1,_glyphs_play_strokes},
 	{2,_glyphs_pause_strokes},
@@ -372,9 +372,9 @@ static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =
 	{10,_glyphs_settings_strokes},
 	{3,_glyphs_picture_strokes},
 	{8,_glyphs_gamepad_strokes},
-	{1,_glyphs_chevron_left_strokes},
-	{1,_glyphs_chevron_right_strokes},
-	{4,_glyphs_fullscreen_strokes}
+	{4,_glyphs_fullscreen_strokes},
+	{4,_glyphs_restore_strokes},
+	{3,_glyphs_more_strokes}
 };
 
 // resolve the gdi+ flat api table. gdi+ must have been started before

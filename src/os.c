@@ -1779,37 +1779,23 @@ void os_dark_titlebar(HWND hwnd,int dark)
 // monitor dpi (per monitor v2). returns 1 when the values changed.
 // when the api is missing (pre windows 10 1607) or reports nothing the
 // init time constants stay and the caller keeps the old scaling.
+int os_window_set_dpi(UINT wide,UINT high)
+{
+	if (!wide || !high) return 0;
+	if (wide < 96) wide = 96;
+	if (high < 96) high = 96;
+	if ((int)wide == os_logical_wide && (int)high == os_logical_high) return 0;
+	os_logical_wide = (int)wide;
+	os_logical_high = (int)high;
+	return 1;
+}
+
 int os_window_update_dpi(HWND hwnd)
 {
 	UINT dpi;
-	
-	if ((!hwnd) || (!_os_GetDpiForWindow))
-	{
-		return 0;
-	}
-	
+	if (!hwnd || !_os_GetDpiForWindow) return 0;
 	dpi = _os_GetDpiForWindow(hwnd);
-	
-	if (!dpi)
-	{
-		return 0;
-	}
-	
-	// never scale below 96 dpi: sub 96 values would shrink every metric.
-	if (dpi < 96)
-	{
-		dpi = 96;
-	}
-	
-	if (((int)dpi == os_logical_wide) && ((int)dpi == os_logical_high))
-	{
-		return 0;
-	}
-	
-	os_logical_wide = (int)dpi;
-	os_logical_high = (int)dpi;
-	
-	return 1;
+	return os_window_set_dpi(dpi,dpi);
 }
 
 // fill lf with the menu font the system metrics use for the current

@@ -1014,9 +1014,7 @@ HBITMAP *_viv_prepare_oriented_frames(const _viv_frame_t *frames,int count,int o
 
 void _viv_hw_release_image(void)
 {
-	_viv_hwd3d_release_image();
-	_viv_hwd3d11_release_image();
-	_viv_hwd3d12_release_image();
+	_viv_gpu_release_image();
 }
 
 HBITMAP _viv_get_mipmap(HBITMAP hbitmap,int image_wide,int image_high,int render_wide,int render_high,int *pmip_wide,int *pmip_high,_viv_mipmap_t **out_mip)

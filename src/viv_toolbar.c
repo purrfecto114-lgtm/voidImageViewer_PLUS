@@ -20,21 +20,8 @@
 // SOFTWARE.
 //
 // VoidImageViewer
-// viv_toolbar.c - the toolbar, remade: a fully self drawn command strip.
-//
-// The comctl toolbar needed an image list rebuilt on every theme and dpi
-// change, its button widths re-pinned after every re-metric, and it always
-// measured from the light palette with the dark chrome patched on around
-// it. this module owns the strip end to end, cloned from the menubar
-// remake: one child window of a class registered here, one wm_paint that
-// draws the face, the top edge, the hover and the press, and the glyph
-// icons drawn from the vector set at the exact size in the current theme
-// color. every button carries an icon plus its label at the menu font, the
-// enabled states follow the old toolbar rule (the no image gate of the
-// menus included), and the commands fire as bn_clicked wm_command messages
-// to the main window. when the window is too narrow, whole groups (a
-// separator with the buttons to its right) hide from the right until only
-// the open button is left - no wrapping, no overflow chevron.
+// The command strip shares the top band with the menu bar. At reduced
+// widths it drops labels first, then exposes the remaining actions in More.
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_chrome.h"
@@ -53,32 +40,22 @@
 #define _VIV_TOOLBAR_BAR_HIGH 48 // the strip height: the one band - menus left, commands right - against the 84 dip the menu bar plus the toolbar stacked before.
 #define _VIV_TOOLBAR_ICON_SIZE 20 // the glyph box.
 #define _VIV_TOOLBAR_TARGET 44 // the icon-only touch target: the 20 dip icon with 12 dip of padding each side, riding 2 dip of air top and bottom in the 48-dip band.
-#define _VIV_TOOLBAR_ZOOM_CELL_WIDE 72 // the zoom cluster's percent cell: the fixed measure the status pane's floor rode, moving with the value it owns.
-#define _VIV_TOOLBAR_ZOOM_CELL_WIDE 72 // the zoom cluster's percent cell: the fixed measure the status pane's floor rode, moving with the value it owns.
-#define _VIV_TOOLBAR_ZOOM_CELL_WIDE 72 // the zoom cluster's percent cell: the fixed measure the status pane's floor rode, moving with the value it owns.
+#define _VIV_TOOLBAR_ZOOM_CELL_WIDE 72
 #define _VIV_TOOLBAR_ICON_TEXT_GAP VIV_UI_GAP // between the glyph and the label.
 #define _VIV_TOOLBAR_BUTTON_PAD VIV_UI_PAD // inside the button, left and right.
 #define _VIV_TOOLBAR_BUTTON_GAP VIV_UI_GAP // between the buttons.
 #define _VIV_TOOLBAR_SEP_HIGH 20 // the separator line height: the icon's own height, not a stub beside it.
 #define _VIV_TOOLBAR_RADIUS VIV_UI_RADIUS // the hover face corner radius.
 
-// the strip content: twelve slots, seven buttons, the zoom cluster and
-// four separators. the open button left the strip (rc.3: the menu and
-// the drop own the same answer with the folder's full depth) and the
-// info face moved to the status strip's name pane beside the file it
-// describes. the groups are the overflow units - a separator carries
-// the group of the buttons to its right, so a group always hides with
-// its separator and no dangling line is left behind.
-// prev next playpause | 1to1 bestfit | zoom out zoom in | rotate | fullscreen.
-#define _VIV_TOOLBAR_ITEM_COUNT 12
+// Keep the existing customization bits for navigation, fit, zoom and rotate.
+#define _VIV_TOOLBAR_ITEM_COUNT 11
 #define _VIV_TOOLBAR_GROUP_MAX 4
-#define _VIV_TOOLBAR_ITEM_PLAY 2 // the play / pause face slot.
+#define _VIV_TOOLBAR_ITEM_PLAY 2
+#define _VIV_TOOLBAR_ITEM_ZOOM 7
+#define _VIV_TOOLBAR_ITEM_FULLSCREEN 10
 
-// item types.
 #define _VIV_TOOLBAR_TYPE_BUTTON 0
 #define _VIV_TOOLBAR_TYPE_SEP 1
-#define _VIV_TOOLBAR_TYPE_ZOOM 2
-#define _VIV_TOOLBAR_TYPE_ZOOM 2
 #define _VIV_TOOLBAR_TYPE_ZOOM 2
 
 typedef struct _viv_toolbar_item_s
@@ -94,18 +71,18 @@ typedef struct _viv_toolbar_item_s
 
 static const _viv_toolbar_item_t _viv_toolbar_items[_VIV_TOOLBAR_ITEM_COUNT] =
 {
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_NAV_PREV,GLYPH_PREV,GLYPH_PREV,LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON,LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON,0},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_NAV_NEXT,GLYPH_NEXT,GLYPH_NEXT,LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON,LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON,0},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_SLIDESHOW,GLYPH_PLAY,GLYPH_PAUSE,LOCALIZATION_ID_TOOLBAR_PLAY_SLIDESHOW_BUTTON,LOCALIZATION_ID_TOOLBAR_PAUSE_SLIDESHOW_BUTTON,0},
-	{_VIV_TOOLBAR_TYPE_SEP,0,0,0,0,0,1},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_1TO1,GLYPH_1TO1,GLYPH_1TO1,LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON,LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON,1},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_BESTFIT,GLYPH_BESTFIT,GLYPH_BESTFIT,LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON,LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON,1},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_NAV_PREV,GLYPH_PREV,GLYPH_PREV,LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON,LOCALIZATION_ID_TOOLBAR_PREVIOUS_IMAGE_BUTTON,1},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_NAV_NEXT,GLYPH_NEXT,GLYPH_NEXT,LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON,LOCALIZATION_ID_TOOLBAR_NEXT_IMAGE_BUTTON,1},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_SLIDESHOW,GLYPH_PLAY,GLYPH_PAUSE,LOCALIZATION_ID_TOOLBAR_PLAY_SLIDESHOW_BUTTON,LOCALIZATION_ID_TOOLBAR_PAUSE_SLIDESHOW_BUTTON,1},
 	{_VIV_TOOLBAR_TYPE_SEP,0,0,0,0,0,2},
-	{_VIV_TOOLBAR_TYPE_ZOOM,0,0,0,0,0,2},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_1TO1,GLYPH_1TO1,GLYPH_1TO1,LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON,LOCALIZATION_ID_TOOLBAR_ACTUAL_SIZE_BUTTON,2},
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_BESTFIT,GLYPH_BESTFIT,GLYPH_BESTFIT,LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON,LOCALIZATION_ID_TOOLBAR_BEST_FIT_BUTTON,2},
 	{_VIV_TOOLBAR_TYPE_SEP,0,0,0,0,0,3},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_EDIT_ROTATE_90,GLYPH_ROTATE_CW,GLYPH_ROTATE_CW,LOCALIZATION_ID_TOOLBAR_ROTATE,LOCALIZATION_ID_TOOLBAR_ROTATE,3},
+	{_VIV_TOOLBAR_TYPE_ZOOM,0,0,0,0,0,3},
 	{_VIV_TOOLBAR_TYPE_SEP,0,0,0,0,0,4},
-	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_FULLSCREEN,GLYPH_FULLSCREEN,GLYPH_FULLSCREEN,LOCALIZATION_ID_TOOLBAR_FULLSCREEN,LOCALIZATION_ID_TOOLBAR_FULLSCREEN,4}
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_EDIT_ROTATE_90,GLYPH_ROTATE_CW,GLYPH_ROTATE_CW,LOCALIZATION_ID_TOOLBAR_ROTATE,LOCALIZATION_ID_TOOLBAR_ROTATE,4},
+
+	{_VIV_TOOLBAR_TYPE_BUTTON,VIV_ID_VIEW_FULLSCREEN,GLYPH_FULLSCREEN,GLYPH_RESTORE,LOCALIZATION_ID_TOOLBAR_FULLSCREEN,LOCALIZATION_ID_TOOLBAR_EXIT_FULLSCREEN,0}
 };
 
 static HWND _viv_toolbar_hwnd = 0;
@@ -122,6 +99,8 @@ static int _viv_toolbar_radius = 0;
 static int _viv_toolbar_item_glyph[_VIV_TOOLBAR_ITEM_COUNT]; // the face in use.
 static int _viv_toolbar_item_x[_VIV_TOOLBAR_ITEM_COUNT]; // client coords.
 static int _viv_toolbar_item_wide[_VIV_TOOLBAR_ITEM_COUNT];
+static int _viv_toolbar_item_label_wide[_VIV_TOOLBAR_ITEM_COUNT];
+static BYTE _viv_toolbar_item_overflow[_VIV_TOOLBAR_ITEM_COUNT];
 static BYTE _viv_toolbar_item_visible[_VIV_TOOLBAR_ITEM_COUNT];
 static BYTE _viv_toolbar_item_enabled[_VIV_TOOLBAR_ITEM_COUNT];
 static wchar_t _viv_toolbar_item_text[_VIV_TOOLBAR_ITEM_COUNT][STRING_SIZE];
@@ -132,18 +111,16 @@ static int _viv_toolbar_hover = -1; // the item under the mouse, or -1.
 static int _viv_toolbar_pressed = -1; // the item held with capture, or -1.
 static BYTE _viv_toolbar_tracking = 0; // the mouse leave tracking is armed.
 static HWND _viv_toolbar_tooltip_hwnd = 0; // the strip rect tooltip (the zoomui pill clone).
-static BYTE _viv_toolbar_item_tool[_VIV_TOOLBAR_ITEM_COUNT]; // a tooltip tool exists for the item.
-static int _viv_toolbar_arrow_wide = 0; // the page arrow slot (the icon-only button width).
-static BYTE _viv_toolbar_arrow_left = 0; // 1 = the back arrow rides the left edge.
-static BYTE _viv_toolbar_arrow_right = 0; // 1 = the forward arrow rides the right edge.
-static int _viv_toolbar_arrow_hover = -1; // 0 = left, 1 = right, or -1.
+static BYTE _viv_toolbar_item_tool[_VIV_TOOLBAR_ITEM_COUNT + 1]; // a tooltip tool exists for the item.
+static int _viv_toolbar_more_x;
+static int _viv_toolbar_more_wide;
+static int _viv_toolbar_compact;
+static int _viv_toolbar_more_hover;
+static int _viv_toolbar_more_pressed;
+static int _viv_toolbar_focus = -1; // item index, or ITEM_COUNT for More.
 static int _viv_toolbar_zoom_hover = -2; // the cluster zone under the mouse (-1 minus, 0 percent, 1 plus, -2 none).
 static int _viv_toolbar_zoom_pressed = -2; // the cluster zone held with capture, or -2.
 static int _viv_toolbar_zoom_last = -1; // the percent the strip last painted.
-static int _viv_toolbar_arrow_pressed = -1; // the arrow held with capture, or -1.
-static int _viv_toolbar_page = 0; // the page: groups hidden from the left.
-static BYTE _viv_toolbar_auto_icon_only = 0; // 1 = this layout dropped the labels on its own (the labeled strip did not fit).
-
 // the faces resolve through the theme tokens now: one palette for every
 // surface (the private dark values duplicated the token table), and a
 // theme or accent flip re-skins the strip through the cache flush in the
@@ -156,13 +133,8 @@ static int _viv_toolbar_tooltip_id(int itemi);
 static void _viv_toolbar_tooltip_sync(void);
 static void _viv_toolbar_tooltip_destroy(void);
 static void _viv_toolbar_tooltip_apply_colors(void);
-static int _viv_toolbar_walk_total(void);
-static void _viv_toolbar_walk_place(int x);
 static void _viv_toolbar_walk(void);
-static void _viv_toolbar_arrow_rect(int arrowi,RECT *rect);
-static int _viv_toolbar_arrow_hit_test(int x,int y);
-static void _viv_toolbar_invalidate_arrow(int arrowi);
-static void _viv_toolbar_page_step(int dir);
+static void _viv_toolbar_open_overflow(void);
 void _viv_start_move_window(void); // viv_view.c: the strip background drag
 void _viv_zoom_edit_layout(void); // viv_dialogs.c: the in place zoom editor parks on its cell
 void _viv_set_zoom_dialog(void); // viv_dialogs.c: the in place zoom editor opens on its cell
@@ -195,6 +167,11 @@ static HBRUSH _viv_toolbar_line_brush(void)
 // slideshow or the animation runs.
 static int _viv_toolbar_item_label_id(int itemi)
 {
+	if (itemi == _VIV_TOOLBAR_ITEM_FULLSCREEN)
+	{
+		return _viv_is_fullscreen ? _viv_toolbar_items[itemi].localization_pause : _viv_toolbar_items[itemi].localization_play;
+	}
+
 	if ((itemi == _VIV_TOOLBAR_ITEM_PLAY) && (_viv_toolbar_playing))
 	{
 		return _viv_toolbar_items[itemi].localization_pause;
@@ -205,6 +182,11 @@ static int _viv_toolbar_item_label_id(int itemi)
 
 static int _viv_toolbar_item_glyph_id(int itemi)
 {
+	if (itemi == _VIV_TOOLBAR_ITEM_FULLSCREEN)
+	{
+		return _viv_is_fullscreen ? _viv_toolbar_items[itemi].glyph_pause : _viv_toolbar_items[itemi].glyph_play;
+	}
+
 	if ((itemi == _VIV_TOOLBAR_ITEM_PLAY) && (_viv_toolbar_playing))
 	{
 		return _viv_toolbar_items[itemi].glyph_pause;
@@ -213,414 +195,127 @@ static int _viv_toolbar_item_glyph_id(int itemi)
 	return _viv_toolbar_items[itemi].glyph_play;
 }
 
-// the laid-out width of the visible set: the item widths plus the
-// design's own gap, spent at last - adjacent buttons carry the 8-dip
-// air the separators always had (the flush rounded faces read as one
-// control bleeding into the next; the field report's corners exceeding
-// the button borders). one helper, so every re-count after a hide
-// agrees with the first count.
-// the laid-out width of the visible set: the item widths plus the
-// design's own gap, spent at last - adjacent buttons carry the 8-dip
-// air the separators always had (the field report's corners exceeding
-// the button borders). one helper over any visible array, so every
-// re-count after a hide - and the arrow predicates' counts of the
-// neighboring pages - agree with the first count.
 static int _viv_toolbar_visible_total(const BYTE *visible)
 {
+	int total = 0;
 	int itemi;
-	int total;
-	int prev_button;
-	
-	total = 0;
-	prev_button = 0;
-	
-	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+	int previous_button = 0;
+
+	for (itemi = 0; itemi < _VIV_TOOLBAR_ITEM_COUNT; itemi++)
 	{
 		if (visible[itemi])
 		{
-			if ((_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_BUTTON) && (prev_button))
+			int button = _viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_BUTTON;
+			if (!_viv_toolbar_compact && button && previous_button)
 			{
 				total += _viv_toolbar_button_gap;
 			}
-			
-			prev_button = (_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_BUTTON) ? 1 : 0;
-			
 			total += _viv_toolbar_item_wide[itemi];
+			previous_button = button;
 		}
 	}
-	
 	return total;
 }
 
-static int _viv_toolbar_walk_total(void)
-{
-	return _viv_toolbar_visible_total(_viv_toolbar_item_visible);
-}
-
-// assign the x positions of the visible set from x, the same gap rule
-// the total prices (the hit test, the paint and the tooltips all read
-// these).
 static void _viv_toolbar_walk_place(int x)
 {
 	int itemi;
-	int prev_button;
-	
-	prev_button = 0;
-	
-	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+	int previous_button = 0;
+
+	for (itemi = 0; itemi < _VIV_TOOLBAR_ITEM_COUNT; itemi++)
 	{
 		if (_viv_toolbar_item_visible[itemi])
 		{
-			if ((_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_BUTTON) && (prev_button))
+			int button = _viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_BUTTON;
+			if (!_viv_toolbar_compact && button && previous_button)
 			{
 				x += _viv_toolbar_button_gap;
 			}
-			
-			prev_button = (_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_BUTTON) ? 1 : 0;
-			
 			_viv_toolbar_item_x[itemi] = x;
-			
 			x += _viv_toolbar_item_wide[itemi];
+			previous_button = button;
 		}
 	}
 }
 
-
-static int _viv_toolbar_group_live(int group);
-
-// the visible set a given page shows: the mask, the left page's
-// hidden groups, then the right walk against the slots that page's
-// arrows own. pure - it reads only the mask, the measured widths and
-// the page it is handed, so the walk and both arrow predicates ask
-// the same question and get the same answer (the old right-arrow
-// predicate counted what the right walk hid, which a too-narrow
-// window hides on every page alike - the arrow lit for a turn that
-// changed nothing).
-static void _viv_toolbar_page_visible(int page,BYTE *out_visible)
-{
-	int itemi;
-	int avail;
-	int group;
-	
-	// the customization mask: a group the user hid never lays out.
-	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
-	{
-		out_visible[itemi] = (config_toolbar_groups & (1 << _viv_toolbar_items[itemi].group)) ? 1 : 0;
-	}
-	
-	// the left page: groups 1..page hide from the left (group 0, the
-	// open button, never pages away).
-	if (page > 0)
-	{
-		for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
-		{
-			if ((out_visible[itemi]) && (_viv_toolbar_items[itemi].group >= 1) && (_viv_toolbar_items[itemi].group <= page))
-			{
-				out_visible[itemi] = 0;
-			}
-		}
-	}
-	
-	// the right walk, the forward arrow's slot reserved (a page past
-	// zero also owns the back arrow's slot).
-	avail = _viv_toolbar_wide - _viv_toolbar_arrow_wide;
-	
-	if (page > 0)
-	{
-		avail -= _viv_toolbar_arrow_wide;
-	}
-	
-	group = _VIV_TOOLBAR_GROUP_MAX;
-	
-	while ((_viv_toolbar_visible_total(out_visible) > avail) && (group > 0))
-	{
-		for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
-		{
-			if ((_viv_toolbar_items[itemi].group == group) && (out_visible[itemi]))
-			{
-				out_visible[itemi] = 0;
-			}
-		}
-		
-		group--;
-	}
-}
-
-// the overflow walk: the visible set, the page and the arrows, all
-// decided in one pass. the full-fit fast path first - the strip that
-// fits never pages and shows no arrows, the common window, zero
-// behavior change from the amputation era. past that the walk lays
-// out the current page's set and the arrows promise exactly what the
-// neighboring pages deliver: an arrow lights only when the page a
-// step would land on shows a different set than the one on screen
-// (the step's own dead-group skip rides inside the probe, so an arrow
-// never lights for a turn the step itself would refuse - and never
-// for a turn that changes nothing, the starved-window arrow that
-// clicked forever). no wrapping, no chevron popup, no timer - a
-// click is one page.
 static void _viv_toolbar_walk(void)
 {
-	BYTE probe_visible[_VIV_TOOLBAR_ITEM_COUNT];
+	// Preserve the on-screen order while reserving space for Fullscreen
+	// and adjacent-file navigation before secondary commands.
+	static const int priority[] = {_VIV_TOOLBAR_ITEM_FULLSCREEN,0,1,_VIV_TOOLBAR_ITEM_ZOOM,2,5,4,9};
 	int itemi;
-	int left_hidden;
-	int page;
-	
-	// the customization mask: a group the user hid never lays out (the
-	// separator hides with its group). the width never joins the total,
-	// so the walks below see exactly the masked strip.
-	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+	int target = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
+	int remaining;
+	int have_command = 0;
+
+	_viv_toolbar_compact = config_toolbar_icon_only;
+	_viv_toolbar_more_wide = 0;
+	_viv_toolbar_more_x = _viv_toolbar_wide;
+	for (itemi = 0; itemi < _VIV_TOOLBAR_ITEM_COUNT; itemi++)
 	{
-		_viv_toolbar_item_visible[itemi] = (config_toolbar_groups & (1 << _viv_toolbar_items[itemi].group)) ? 1 : 0;
+		const _viv_toolbar_item_t *item = &_viv_toolbar_items[itemi];
+		int enabled = !item->group || (config_toolbar_groups & (1 << item->group));
+		int separator = item->type == _VIV_TOOLBAR_TYPE_SEP;
+		_viv_toolbar_item_wide[itemi] = _viv_toolbar_item_label_wide[itemi];
+		_viv_toolbar_item_visible[itemi] = enabled && (!separator || have_command);
+		_viv_toolbar_item_overflow[itemi] = 0;
+		if (enabled && !separator) have_command = 1;
 	}
-	
-	// the arrow slot: the icon-only button width (a compact, fixed target).
-	_viv_toolbar_arrow_wide = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
-	
-	// the full-fit fast path: the strip that fits never pages.
-	if (_viv_toolbar_walk_total() <= _viv_toolbar_wide)
+
+	if (_viv_toolbar_compact || _viv_toolbar_visible_total(_viv_toolbar_item_visible) > _viv_toolbar_wide)
 	{
-		_viv_toolbar_page = 0;
-		_viv_toolbar_arrow_left = 0;
-		_viv_toolbar_arrow_right = 0;
-		
-		_viv_toolbar_walk_place(0);
-		
-		return;
-	}
-	
-	// the current page's visible set (the left page's hidden groups,
-	// the right walk against the slots that page's arrows own).
-	_viv_toolbar_page_visible(_viv_toolbar_page,_viv_toolbar_item_visible);
-	
-	// a page whose groups all hid (masked out, paged past) goes home:
-	// its left range holds nothing the walk could hide.
-	left_hidden = 0;
-	
-	if (_viv_toolbar_page > 0)
-	{
-		for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+		_viv_toolbar_compact = 1;
+		for (itemi = 0; itemi < _VIV_TOOLBAR_ITEM_COUNT; itemi++)
 		{
-			if ((config_toolbar_groups & (1 << _viv_toolbar_items[itemi].group)) && (_viv_toolbar_items[itemi].group >= 1) && (_viv_toolbar_items[itemi].group <= _viv_toolbar_page))
+			if (_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_SEP)
+				_viv_toolbar_item_visible[itemi] = 0;
+			else
+				_viv_toolbar_item_wide[itemi] = itemi == _VIV_TOOLBAR_ITEM_ZOOM ? target * 3 : target;
+		}
+	}
+
+	if (_viv_toolbar_visible_total(_viv_toolbar_item_visible) > _viv_toolbar_wide)
+	{
+		_viv_toolbar_more_wide = target < _viv_toolbar_wide ? target : _viv_toolbar_wide;
+		_viv_toolbar_more_x = _viv_toolbar_wide - _viv_toolbar_more_wide;
+		remaining = _viv_toolbar_more_x;
+
+		for (itemi = 0; itemi < (int)(sizeof(priority) / sizeof(priority[0])); itemi++)
+		{
+			int index = priority[itemi];
+			if (!_viv_toolbar_item_visible[index]) continue;
+			if (_viv_toolbar_item_wide[index] <= remaining)
 			{
-				left_hidden++;
+				remaining -= _viv_toolbar_item_wide[index];
+			}
+			else
+			{
+				_viv_toolbar_item_visible[index] = 0;
+				_viv_toolbar_item_overflow[index] = 1;
 			}
 		}
 	}
-	
-	if (!left_hidden)
-	{
-		_viv_toolbar_page = 0;
-		
-		_viv_toolbar_page_visible(0,_viv_toolbar_item_visible);
-	}
-	
-	// the back arrow: the previous live page shows a different set.
-	page = _viv_toolbar_page - 1;
-	
-	if (page < 0)
-	{
-		page = 0;
-	}
-	
-	while ((page > 0) && (!_viv_toolbar_group_live(page)))
-	{
-		page--;
-	}
-	
-	_viv_toolbar_page_visible(page,probe_visible);
-	
-	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
-	{
-		if (probe_visible[itemi] != _viv_toolbar_item_visible[itemi])
-		{
-			break;
-		}
-	}
-	
-	_viv_toolbar_arrow_left = (itemi < _VIV_TOOLBAR_ITEM_COUNT) ? 1 : 0;
-	
-	// the forward arrow: the next live page shows a different set.
-	page = _viv_toolbar_page + 1;
-	
-	while ((page <= _VIV_TOOLBAR_GROUP_MAX) && (!_viv_toolbar_group_live(page)))
-	{
-		page++;
-	}
-	
-	_viv_toolbar_arrow_right = 0;
-	
-	if (page <= _VIV_TOOLBAR_GROUP_MAX)
-	{
-		_viv_toolbar_page_visible(page,probe_visible);
-		
-		for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
-		{
-			if (probe_visible[itemi] != _viv_toolbar_item_visible[itemi])
-			{
-				_viv_toolbar_arrow_right = 1;
-				
-				break;
-			}
-		}
-	}
-	
-	_viv_toolbar_walk_place(_viv_toolbar_arrow_left ? _viv_toolbar_arrow_wide : 0);
+	_viv_toolbar_walk_place(0);
 }
 
-// the page arrows' rects: the back arrow pinned at the left edge, the
-// forward arrow at the right (fixed targets; the content pages under
-// them).
-static void _viv_toolbar_arrow_rect(int arrowi,RECT *rect)
+static void _viv_toolbar_more_rect(RECT *rect)
 {
-	rect->top = 0;
-	rect->bottom = _viv_toolbar_bar_high;
-	
-	if (arrowi == 0)
-	{
-		rect->left = 0;
-		rect->right = _viv_toolbar_arrow_wide;
-	}
-	else
-	{
-		rect->left = _viv_toolbar_wide - _viv_toolbar_arrow_wide;
-		rect->right = _viv_toolbar_wide;
-	}
+	SetRect(rect,_viv_toolbar_more_x,0,_viv_toolbar_wide,_viv_toolbar_bar_high);
 }
 
-// the arrows hit ahead of the items (an arrow never fires the button
-// beneath it).
-static int _viv_toolbar_arrow_hit_test(int x,int y)
+static int _viv_toolbar_more_hit_test(int x,int y)
+{
+	return _viv_toolbar_more_wide > 0 && x >= _viv_toolbar_more_x &&
+		x < _viv_toolbar_wide && y >= 0 && y < _viv_toolbar_bar_high;
+}
+
+static void _viv_toolbar_invalidate_more(void)
 {
 	RECT rect;
-	int arrowi;
-	
-	if ((y < 0) || (y >= _viv_toolbar_bar_high))
-	{
-		return -1;
-	}
-	
-	for(arrowi=0;arrowi<2;arrowi++)
-	{
-		if ((arrowi) ? (_viv_toolbar_arrow_right) : (_viv_toolbar_arrow_left))
-		{
-			_viv_toolbar_arrow_rect(arrowi,&rect);
-			
-			if ((x >= rect.left) && (x < rect.right))
-			{
-				return arrowi;
-			}
-		}
-	}
-	
-	return -1;
+	_viv_toolbar_more_rect(&rect);
+	InvalidateRect(_viv_toolbar_hwnd,&rect,FALSE);
 }
 
-static void _viv_toolbar_invalidate_arrow(int arrowi)
-{
-	RECT rect;
-	
-	if ((arrowi >= 0) && (arrowi < 2) && (_viv_toolbar_hwnd))
-	{
-		_viv_toolbar_arrow_rect(arrowi,&rect);
-		
-		InvalidateRect(_viv_toolbar_hwnd,&rect,FALSE);
-	}
-}
-
-// a group the mask kept is the only group a page can be: a dead
-// group's page is a dead step (the walk's home clamp would bounce
-// it straight back and the arrow would promise a turn that never
-// comes). the navigation group unchecked under a narrow window is
-// exactly that shape - page one held nothing, so every forward
-// click clamped home with the chevron still lit.
-static int _viv_toolbar_group_live(int group)
-{
-	int itemi;
-	
-	if (!(config_toolbar_groups & (1 << group)))
-	{
-		return 0;
-	}
-	
-	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
-	{
-		if (_viv_toolbar_items[itemi].group == group)
-		{
-			return 1;
-		}
-	}
-	
-	return 0;
-}
-
-// one page: a click on an edge arrow. the page unit is the group
-// and the step skips the groups the mask killed - it lands on the
-// next live group's page (or home, going back: page zero is always
-// live, the open button never pages away). the strip re-measures
-// (the walk re-runs, the tooltips follow the fresh rects) and one
-// full repaint lands - the content shifts under the arrows, so a
-// partial invalidate would tear.
-static void _viv_toolbar_page_step(int dir)
-{
-	int page;
-
-	if (dir > 0)
-	{
-		page = _viv_toolbar_page + 1;
-
-		while ((page <= _VIV_TOOLBAR_GROUP_MAX) && (!_viv_toolbar_group_live(page)))
-		{
-			page++;
-		}
-
-		if (page > _VIV_TOOLBAR_GROUP_MAX)
-		{
-			// no live group ahead: the arrow owes no turn.
-			return;
-		}
-	}
-	else
-	{
-		page = _viv_toolbar_page - 1;
-
-		if (page < 0)
-		{
-			page = 0;
-		}
-
-		while ((page > 0) && (!_viv_toolbar_group_live(page)))
-		{
-			page--;
-		}
-	}
-	
-	if (page != _viv_toolbar_page)
-	{
-		_viv_toolbar_page = page;
-		
-		_viv_toolbar_hover = -1;
-		
-		_viv_toolbar_measure();
-		
-		if (_viv_toolbar_hwnd)
-		{
-			InvalidateRect(_viv_toolbar_hwnd,0,FALSE);
-		}
-	}
-}
-
-// the compact face: the manual preference or the automatic stage - one
-// predicate, so the measure, the paint and the hit test answer the same
-// question (the auto stage engages when the labeled strip cannot fit the
-// band and the manual preference is off; the labels stay in the text
-// store either way, so the tooltips keep naming the commands).
-static int _viv_toolbar_compact(void)
-{
-	return ((config_toolbar_icon_only) || (_viv_toolbar_auto_icon_only)) ? 1 : 0;
-}
-
-// re-read the strip metrics, the labels and the widths at the current font,
-// then hand the strip to the walk (the visible set, the page, the arrows).
 static void _viv_toolbar_measure(void)
 {
 	HDC hdc;
@@ -682,50 +377,22 @@ static void _viv_toolbar_measure(void)
 	{
 		if (_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_SEP)
 		{
-			_viv_toolbar_item_wide[itemi] = _viv_toolbar_sep_wide;
+			_viv_toolbar_item_label_wide[itemi] = _viv_toolbar_sep_wide;
 		}
 		else if (_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_ZOOM)
 		{
-			// the cluster: the two handles are the touch target itself, the
-			// painted percent rides its own fixed cell between them.
-			_viv_toolbar_item_wide[itemi] = _VIV_TOOLBAR_DIP_X((_VIV_TOOLBAR_TARGET * 2) + _VIV_TOOLBAR_ZOOM_CELL_WIDE);
-		}
-		else if (_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_ZOOM)
-		{
-			// the cluster: the two handles are the touch target itself, the
-			// painted percent rides its own fixed cell between them.
-			_viv_toolbar_item_wide[itemi] = _VIV_TOOLBAR_DIP_X((_VIV_TOOLBAR_TARGET * 2) + _VIV_TOOLBAR_ZOOM_CELL_WIDE);
-		}
-		else if (_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_ZOOM)
-		{
-			// the cluster: the two handles are the touch target itself, the
-			// painted percent rides its own fixed cell between them.
-			_viv_toolbar_item_wide[itemi] = _VIV_TOOLBAR_DIP_X((_VIV_TOOLBAR_TARGET * 2) + _VIV_TOOLBAR_ZOOM_CELL_WIDE);
+			_viv_toolbar_item_label_wide[itemi] = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET) * 2 + _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_ZOOM_CELL_WIDE);
 		}
 		else
 		{
 			size.cx = 0;
 			size.cy = 0;
-			
-			if (_viv_toolbar_compact())
-			{
-				// icon-only: the strip draws the glyph alone, centered, so a
-				// narrow window fits every group (the full strip outgrows a
-				// default 3/5 window at 96 dpi and the overflow contract hid
-				// whole groups - the zoom pair first).
-				_viv_toolbar_item_wide[itemi] = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
-			}
-			else
-			{
-				string_copy_utf8_string(_viv_toolbar_item_text[itemi],localization_get_string((localization_id_t)_viv_toolbar_item_label_id(itemi)));
-				
-				GetTextExtentPoint32W(hdc,_viv_toolbar_item_text[itemi],(int)string_get_length(_viv_toolbar_item_text[itemi]),&size);
-				
-				_viv_toolbar_item_wide[itemi] = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size + _viv_toolbar_icon_text_gap + size.cx;
-			}
+			string_copy_utf8_string(_viv_toolbar_item_text[itemi],localization_get_string((localization_id_t)_viv_toolbar_item_label_id(itemi)));
+			GetTextExtentPoint32W(hdc,_viv_toolbar_item_text[itemi],(int)string_get_length(_viv_toolbar_item_text[itemi]),&size);
+			_viv_toolbar_item_label_wide[itemi] = (_viv_toolbar_button_pad * 2) + _viv_toolbar_icon_size + _viv_toolbar_icon_text_gap + size.cx;
 		}
-		
-			_viv_toolbar_item_glyph[itemi] = _viv_toolbar_item_glyph_id(itemi);
+
+		_viv_toolbar_item_glyph[itemi] = _viv_toolbar_item_glyph_id(itemi);
 	}
 	
 	if (old_font)
@@ -735,50 +402,7 @@ static void _viv_toolbar_measure(void)
 	
 	ReleaseDC(_viv_toolbar_hwnd,hdc);
 	
-	// the automatic compact stage (rc.3): the labeled strip a narrow window
-	// cannot hold - a restored 4k window at 300% is the field report's
-	// shape - drops its labels BEFORE the overflow walk starts hiding
-	// whole groups. the icons keep every command one click away and the
-	// page arrows stay the last resort of the ladder (labels, compact,
-	// group hiding, arrows). the manual icon-only preference rides above
-	// this stage; a wide window releases the stage on the next measure.
-	if (!config_toolbar_icon_only)
-	{
-		BYTE mask_visible[_VIV_TOOLBAR_ITEM_COUNT];
-		int maski;
-		int labeled_total;
 
-		for(maski=0;maski<_VIV_TOOLBAR_ITEM_COUNT;maski++)
-		{
-			mask_visible[maski] = (config_toolbar_groups & (1 << _viv_toolbar_items[maski].group)) ? 1 : 0;
-		}
-
-		labeled_total = _viv_toolbar_visible_total(mask_visible);
-
-		if (labeled_total > _viv_toolbar_wide)
-		{
-			_viv_toolbar_auto_icon_only = 1;
-
-			for(maski=0;maski<_VIV_TOOLBAR_ITEM_COUNT;maski++)
-			{
-				if (_viv_toolbar_items[maski].type == _VIV_TOOLBAR_TYPE_BUTTON)
-				{
-					_viv_toolbar_item_wide[maski] = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
-				}
-			}
-		}
-		else
-		{
-			_viv_toolbar_auto_icon_only = 0;
-		}
-	}
-	else
-	{
-		_viv_toolbar_auto_icon_only = 0;
-	}
-
-	// the walk owns the visible set, the page and the arrows (round 132:
-	// the strip pages its overflow instead of amputating it).
 	_viv_toolbar_walk();
 	
 	// the tools follow the fresh layout (rects, visibility, the play face).
@@ -789,15 +413,7 @@ static void _viv_toolbar_measure(void)
 	_viv_zoom_edit_layout();
 }
 
-// round-125: the strip tooltip - the zoomui pill rect mechanism ported
-// over. one comctl tooltip child of the strip, one tool per visible
-// button (uId = item index), TTF_SUBCLASS so the control relays the
-// mouse messages itself. the text is the button own localized command
-// name (the label family the command table uses for these verbs), the
-// play slot following its live face like the pill play cell does. the
-// rect follows every layout pass, so the overflow walk and the group
-// mask never leave a stale tool behind: a masked slot keeps the x of
-// the slot after it, and a stale rect there would name the wrong button.
+// Tooltips follow the live command rectangles, including More.
 static int _viv_toolbar_tooltip_id(int itemi)
 {
 	if (_viv_toolbar_items[itemi].type != _VIV_TOOLBAR_TYPE_BUTTON)
@@ -864,13 +480,13 @@ static void _viv_toolbar_tooltip_sync(void)
 		return;
 	}
 	
-	for(itemi=0;itemi<_VIV_TOOLBAR_ITEM_COUNT;itemi++)
+	for(itemi=0;itemi<=_VIV_TOOLBAR_ITEM_COUNT;itemi++)
 	{
 		int id;
 		
-		id = _viv_toolbar_tooltip_id(itemi);
+		id = itemi == _VIV_TOOLBAR_ITEM_COUNT ? LOCALIZATION_ID_TOOLBAR_MORE : _viv_toolbar_tooltip_id(itemi);
 		
-		if ((id) && (_viv_toolbar_item_visible[itemi]))
+		if ((id) && ((itemi == _VIV_TOOLBAR_ITEM_COUNT) ? _viv_toolbar_more_wide : _viv_toolbar_item_visible[itemi]))
 		{
 			TOOLINFOW ti;
 			wchar_t wbuf[STRING_SIZE];
@@ -881,10 +497,11 @@ static void _viv_toolbar_tooltip_sync(void)
 			ti.uFlags = TTF_SUBCLASS;
 			ti.hwnd = _viv_toolbar_hwnd;
 			ti.uId = (UINT_PTR)itemi;
-			ti.rect.left = _viv_toolbar_item_x[itemi];
-			ti.rect.top = 0;
-			ti.rect.right = _viv_toolbar_item_x[itemi] + _viv_toolbar_item_wide[itemi];
-			ti.rect.bottom = _viv_toolbar_bar_high;
+			if (itemi == _VIV_TOOLBAR_ITEM_COUNT)
+				_viv_toolbar_more_rect(&ti.rect);
+			else
+				SetRect(&ti.rect,_viv_toolbar_item_x[itemi],0,
+					_viv_toolbar_item_x[itemi] + _viv_toolbar_item_wide[itemi],_viv_toolbar_bar_high);
 			ti.hinst = 0;
 			string_copy_utf8_string(wbuf,localization_get_string((localization_id_t)id));
 			ti.lpszText = wbuf;
@@ -959,7 +576,7 @@ static int _viv_toolbar_zoom_cell_rect(RECT *rect)
 		{
 			rect->left = _viv_toolbar_item_x[itemi] + _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
 			rect->top = (_viv_toolbar_bar_high - _VIV_TOOLBAR_DIP_Y(_VIV_TOOLBAR_TARGET)) / 2;
-			rect->right = rect->left + _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_ZOOM_CELL_WIDE);
+			rect->right = _viv_toolbar_item_x[itemi] + _viv_toolbar_item_wide[itemi] - _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);
 			rect->bottom = rect->top + _VIV_TOOLBAR_DIP_Y(_VIV_TOOLBAR_TARGET);
 
 			return 1;
@@ -978,11 +595,15 @@ HWND _viv_toolbar_window(void)
 
 int _viv_toolbar_zoom_cell(RECT *rect)
 {
-	if ((!_viv_toolbar_hwnd) || (!_viv_toolbar_zoom_cell_rect(rect)))
-	{
-		return 0;
-	}
+	int target;
+	if (!_viv_toolbar_hwnd || !IsWindowVisible(_viv_toolbar_hwnd)) return 0;
+	if (_viv_toolbar_zoom_cell_rect(rect)) return 1;
+	if (!_viv_toolbar_item_overflow[_VIV_TOOLBAR_ITEM_ZOOM]) return 0;
 
+	// An exact zoom selected from More edits in the right end of the bar.
+	target = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_ZOOM_CELL_WIDE);
+	if (_viv_toolbar_wide < target) return 0;
+	SetRect(rect,_viv_toolbar_wide - target,0,_viv_toolbar_wide,_viv_toolbar_bar_high);
 	return 1;
 }
 
@@ -1070,7 +691,7 @@ static void _viv_toolbar_zoom_fire(int zone)
 
 	// the strip never keeps a focus a click can land on it (the fire
 	// path's own rule): the keyboard shortcuts answer the next key press.
-	SetFocus(_viv_hwnd);
+	if (zone) SetFocus(_viv_hwnd);
 }
 
 static int _viv_toolbar_hit_test(int x,int y)
@@ -1140,62 +761,115 @@ static void _viv_toolbar_fire(int itemi)
 	SetFocus(_viv_hwnd);
 }
 
+static void _viv_toolbar_overflow_row(HMENU menu, UINT_PTR id, int label, int enabled)
+{
+	wchar_t text[STRING_SIZE];
+	void *row = _viv_menu_row_alloc(_VIV_MENU_POOL_CONTEXT,_VIV_MENU_DRAW_LOCALIZED,0,label,0);
+	string_copy_utf8_string(text,localization_get_string((localization_id_t)label));
+	AppendMenuW(menu,MF_STRING | (enabled ? MF_ENABLED : MF_GRAYED) |
+		(row ? MF_OWNERDRAW : 0),id,row ? (LPCWSTR)row : text);
+}
+
+static void _viv_toolbar_open_overflow(void)
+{
+	HMENU menu;
+	POINT point;
+	int itemi, choice;
+
+	if (!_viv_toolbar_more_wide) return;
+	menu = CreatePopupMenu();
+	if (!menu) return;
+	_viv_menu_row_pool_reset(_VIV_MENU_POOL_CONTEXT);
+
+	for (itemi = 0; itemi < _VIV_TOOLBAR_ITEM_COUNT; itemi++)
+	{
+		if (!_viv_toolbar_item_overflow[itemi]) continue;
+		if (_viv_toolbar_items[itemi].type == _VIV_TOOLBAR_TYPE_ZOOM)
+		{
+			_viv_toolbar_overflow_row(menu,_VIV_TOOLBAR_ITEM_COUNT + 1,LOCALIZATION_ID_TOOLBAR_ZOOM_OUT_BUTTON,1);
+			_viv_toolbar_overflow_row(menu,_VIV_TOOLBAR_ITEM_COUNT + 2,LOCALIZATION_ID_ZOOM_SET,1);
+			_viv_toolbar_overflow_row(menu,_VIV_TOOLBAR_ITEM_COUNT + 3,LOCALIZATION_ID_TOOLBAR_ZOOM_IN_BUTTON,1);
+		}
+		else
+		{
+			_viv_toolbar_overflow_row(menu,itemi + 1,_viv_toolbar_item_label_id(itemi),_viv_toolbar_item_enabled[itemi]);
+		}
+	}
+	point.x = _viv_toolbar_wide;
+	point.y = _viv_toolbar_bar_high;
+	ClientToScreen(_viv_toolbar_hwnd,&point);
+	_viv_show_cursor();
+	choice = TrackPopupMenu(menu,TPM_RETURNCMD | TPM_RIGHTALIGN | TPM_RIGHTBUTTON,point.x,point.y,0,_viv_hwnd,0);
+	DestroyMenu(menu);
+	_viv_update_show_cursor();
+
+	if (choice > _VIV_TOOLBAR_ITEM_COUNT)
+		_viv_toolbar_zoom_fire(choice - _VIV_TOOLBAR_ITEM_COUNT - 2);
+	else if (choice > 0)
+		_viv_toolbar_fire(choice - 1);
+}
+
+static int _viv_toolbar_keyboard_step(int current,int delta)
+{
+	int remaining;
+	for (remaining = 0; remaining <= _VIV_TOOLBAR_ITEM_COUNT; remaining++)
+	{
+		current = (current + delta + _VIV_TOOLBAR_ITEM_COUNT + 1) % (_VIV_TOOLBAR_ITEM_COUNT + 1);
+		if (current == _VIV_TOOLBAR_ITEM_COUNT)
+		{
+			if (_viv_toolbar_more_wide) return current;
+		}
+		else if (_viv_toolbar_item_visible[current] && _viv_toolbar_item_enabled[current] &&
+			_viv_toolbar_items[current].type != _VIV_TOOLBAR_TYPE_SEP)
+		{
+			return current;
+		}
+	}
+	return -1;
+}
+
 static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch (msg)
 	{
 		case WM_GETDLGCODE:
-			// the strip answers its own arrows (the pill's rule): the
-			// dialog manager, were one to host this strip, would not
-			// swallow them.
 			return DLGC_WANTARROWS;
-		
 		case WM_SETFOCUS:
+			_viv_toolbar_focus = _viv_toolbar_keyboard_step(-1,1);
+			InvalidateRect(hwnd,0,FALSE);
+			return 0;
 		case WM_KILLFOCUS:
-			// the focus face is the arrow face: either edge repaints the
-			// arrows (the paint's hot test reads the focus below).
-			_viv_toolbar_invalidate_arrow(0);
-			_viv_toolbar_invalidate_arrow(1);
-			break;
-		
+			_viv_toolbar_focus = -1;
+			InvalidateRect(hwnd,0,FALSE);
+			return 0;
 		case WM_KEYDOWN:
-			// the keyboard reaches the paging arrows at last: left and
-			// right turn the page the mouse clicks turn, escape and
-			// tab both hand the focus back to the viewer (the pill's
-			// exit rule - tab walks in, tab walks out). the strip
-			// never held a keyboard leg of its own.
-			if (wParam == VK_LEFT)
+			switch (wParam)
 			{
-				_viv_toolbar_page_step(-1);
-				
-				return 0;
-			}
-			
-			if (wParam == VK_RIGHT)
-			{
-				_viv_toolbar_page_step(1);
-				
-				return 0;
-			}
-			
-			if (wParam == VK_ESCAPE)
-			{
-				SetFocus(_viv_hwnd);
-				
-				return 0;
-			}
-			
-			// the return trip: the pipe in the main loop only runs
-			// with the focus home (this window's own messages), so
-			// the way out is the strip's to answer.
-			if (wParam == VK_TAB)
-			{
-				SetFocus(_viv_hwnd);
-				
-				return 0;
+				case VK_LEFT:
+				case VK_RIGHT:
+					_viv_toolbar_focus = _viv_toolbar_keyboard_step(
+						_viv_toolbar_focus < 0 ? _VIV_TOOLBAR_ITEM_COUNT : _viv_toolbar_focus,
+						wParam == VK_LEFT ? -1 : 1);
+					InvalidateRect(hwnd,0,FALSE);
+					return 0;
+				case VK_RETURN:
+				case VK_SPACE:
+				case VK_DOWN:
+					if (_viv_toolbar_focus == _VIV_TOOLBAR_ITEM_COUNT)
+						_viv_toolbar_open_overflow();
+					else if (_viv_toolbar_focus == _VIV_TOOLBAR_ITEM_ZOOM && _viv_toolbar_item_visible[_VIV_TOOLBAR_ITEM_ZOOM])
+						_viv_set_zoom_dialog();
+					else if (_viv_toolbar_focus >= 0 && _viv_toolbar_item_visible[_viv_toolbar_focus] &&
+						_viv_toolbar_item_enabled[_viv_toolbar_focus] && wParam != VK_DOWN)
+						_viv_toolbar_fire(_viv_toolbar_focus);
+					return 0;
+				case VK_TAB:
+				case VK_ESCAPE:
+					SetFocus(_viv_hwnd);
+					return 0;
 			}
 			break;
-		
+
 		case WM_PAINT:
 		{
 			PAINTSTRUCT ps;
@@ -1214,7 +888,6 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			int offset;
 			int sep_x;
 			int text_left;
-			int arrowi;
 			
 			hdc = BeginPaint(hwnd,&ps);
 			
@@ -1355,7 +1028,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 						continue;
 					}
 
-				hot = ((_viv_toolbar_item_enabled[itemi]) && ((itemi == _viv_toolbar_hover) || (itemi == _viv_toolbar_pressed))) ? 1 : 0;
+				hot = ((_viv_toolbar_item_enabled[itemi]) && ((itemi == _viv_toolbar_hover) || (itemi == _viv_toolbar_pressed) || (itemi == _viv_toolbar_focus))) ? 1 : 0;
 				
 				// the pressed content nudges one pixel down right, but only
 				// while the press is still under the cursor.
@@ -1379,7 +1052,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					
 					// the icon rides at the pad in the full strip and centered
 					// in the icon-only strip (the label never enters the box).
-					icon_x = _viv_toolbar_compact() ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset) : (_viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + offset);
+					icon_x = _viv_toolbar_compact ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset) : (_viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + offset);
 					icon_y = ((_viv_toolbar_bar_high - _viv_toolbar_icon_size) / 2) + offset;
 					
 					if (!_viv_toolbar_item_enabled[itemi])
@@ -1395,7 +1068,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 					}
 				}
 				
-				if (!_viv_toolbar_compact())
+				if (!_viv_toolbar_compact)
 				{
 					text_left = _viv_toolbar_item_x[itemi] + _viv_toolbar_button_pad + _viv_toolbar_icon_size + _viv_toolbar_icon_text_gap + offset;
 					
@@ -1410,43 +1083,24 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				}
 			}
 			
-			// the page arrows: the same hover and press faces the buttons
-			// wear, pinned at the strip's edges. the glyphs are the chevron
-			// pair; a click is one page (no timer - the click rule the
-			// buttons already follow).
-			for(arrowi=0;arrowi<2;arrowi++)
+			if (_viv_toolbar_more_wide)
 			{
-				RECT arect;
-				HICON aicon;
-				int ahot;
-				
-				if ((arrowi) ? (!_viv_toolbar_arrow_right) : (!_viv_toolbar_arrow_left))
+				RECT more;
+				int size = _viv_toolbar_icon_size < _viv_toolbar_more_wide ? _viv_toolbar_icon_size : _viv_toolbar_more_wide;
+				_viv_toolbar_more_rect(&more);
+				if (_viv_toolbar_more_hover || _viv_toolbar_more_pressed || _viv_toolbar_focus == _VIV_TOOLBAR_ITEM_COUNT)
 				{
-					continue;
+					SelectObject(hdc,_viv_toolbar_more_pressed ? _viv_toolbar_press_brush() : _viv_toolbar_hot_brush());
+					RoundRect(hdc,more.left,more.top,more.right,more.bottom,_viv_toolbar_radius * 2,_viv_toolbar_radius * 2);
 				}
-				
-				_viv_toolbar_arrow_rect(arrowi,&arect);
-				
-				// the keyboard focus lights the arrows too - the tab key walks
-				// the focus here now, and an arrow lit with no other change is
-				// the only face a keyboard arrival has.
-				ahot = ((arrowi == _viv_toolbar_arrow_hover) || (arrowi == _viv_toolbar_arrow_pressed) || (GetFocus() == hwnd)) ? 1 : 0;
-				
-				if (ahot)
+				icon = glyphs_icon(GLYPH_MORE,_viv_toolbar_dark,size);
+				if (icon)
 				{
-					SelectObject(hdc,(arrowi == _viv_toolbar_arrow_pressed) ? _viv_toolbar_press_brush() : _viv_toolbar_hot_brush());
-					
-					RoundRect(hdc,arect.left,arect.top,arect.right,arect.bottom,_viv_toolbar_radius * 2,_viv_toolbar_radius * 2);
-				}
-				
-				aicon = glyphs_icon((arrowi) ? GLYPH_CHEVRON_RIGHT : GLYPH_CHEVRON_LEFT,_viv_toolbar_dark,_viv_toolbar_icon_size);
-				
-				if (aicon)
-				{
-					DrawIconEx(hdc,arect.left + (((arect.right - arect.left) - _viv_toolbar_icon_size) / 2),(_viv_toolbar_bar_high - _viv_toolbar_icon_size) / 2,aicon,_viv_toolbar_icon_size,_viv_toolbar_icon_size,0,NULL,DI_NORMAL);
+					DrawIconEx(hdc,more.left + (_viv_toolbar_more_wide - size) / 2,
+						(_viv_toolbar_bar_high - size) / 2,icon,size,size,0,NULL,DI_NORMAL);
 				}
 			}
-			
+
 			SelectObject(hdc,old_pen);
 			
 			if (old_font)
@@ -1474,7 +1128,7 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 		{
 			TRACKMOUSEEVENT tme;
 			int hit;
-			int arrow;
+			int more;
 			int zone;
 			
 			// re-arm the leave track on every uncaptured move: a press
@@ -1492,9 +1146,9 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				_viv_toolbar_tracking = 1;
 			}
 			
-			// the arrows and the cluster's zones hover ahead of the items
-			// (an arrow or a zone hides the item hover beneath it).
-			arrow = _viv_toolbar_arrow_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
+			// More and the zoom zones take precedence over items
+
+			more = _viv_toolbar_more_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
 			
 			zone = _viv_toolbar_zoom_zone(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
 
@@ -1506,15 +1160,13 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				_viv_toolbar_zoom_hover = zone;
 			}
 
-			if (arrow != _viv_toolbar_arrow_hover)
+			if (more != _viv_toolbar_more_hover)
 			{
-				_viv_toolbar_invalidate_arrow(_viv_toolbar_arrow_hover);
-				_viv_toolbar_invalidate_arrow(arrow);
-				
-				_viv_toolbar_arrow_hover = arrow;
+				_viv_toolbar_more_hover = more;
+				_viv_toolbar_invalidate_more();
 			}
 			
-			hit = ((arrow >= 0) || (zone != -2)) ? -1 : _viv_toolbar_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
+			hit = (more || (zone != -2)) ? -1 : _viv_toolbar_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
 			
 			if (hit != _viv_toolbar_hover)
 			{
@@ -1541,13 +1193,12 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 				return 0;
 			}
 			
-			if (_viv_toolbar_arrow_hover != -1)
+			if (_viv_toolbar_more_hover)
 			{
-				_viv_toolbar_invalidate_arrow(_viv_toolbar_arrow_hover);
-				
-				_viv_toolbar_arrow_hover = -1;
+				_viv_toolbar_more_hover = 0;
+				_viv_toolbar_invalidate_more();
 			}
-			
+
 			if (_viv_toolbar_zoom_hover != -2)
 			{
 				_viv_toolbar_invalidate_zoom(_viv_toolbar_zoom_hover);
@@ -1570,27 +1221,19 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 		case WM_LBUTTONDOWN:
 		{
 			int hit;
-			int arrow;
+			int more;
 			int zone;
 			
-			arrow = _viv_toolbar_arrow_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
+			more = _viv_toolbar_more_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
 			
-			// the arrows press like the buttons: capture, the face, the fire
-			// on the release inside (the strip's own rule).
-			if (arrow >= 0)
+			if (more)
 			{
-				_viv_toolbar_invalidate_arrow(_viv_toolbar_arrow_hover);
-				
-				_viv_toolbar_arrow_pressed = arrow;
-				_viv_toolbar_arrow_hover = arrow;
-				
+				_viv_toolbar_more_pressed = _viv_toolbar_more_hover = 1;
 				SetCapture(hwnd);
-				
-				_viv_toolbar_invalidate_arrow(arrow);
-				
+				_viv_toolbar_invalidate_more();
 				return 0;
 			}
-			
+
 			hit = _viv_toolbar_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
 			
 			// a disabled button never takes the press: no capture, no face,
@@ -1640,40 +1283,21 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 		{
 			int hit;
 			int pressed;
-			int arrow;
+			int more;
 			int zone;
 			int hit_zone;
 			
-			if (_viv_toolbar_arrow_pressed >= 0)
+			if (_viv_toolbar_more_pressed)
 			{
-				arrow = _viv_toolbar_arrow_pressed;
-				
-				_viv_toolbar_arrow_pressed = -1;
-				
+				_viv_toolbar_more_pressed = 0;
 				ReleaseCapture();
-				
-				hit = _viv_toolbar_arrow_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
-				
-				_viv_toolbar_invalidate_arrow(arrow);
-				
-				_viv_toolbar_arrow_hover = hit;
-				
-				_viv_toolbar_invalidate_arrow(hit);
-				
-				if (hit == arrow)
-				{
-					_viv_toolbar_page_step(arrow ? 1 : -1);
-					
-					// the strip never keeps a focus a click can land on it
-					// (the fire path's own rule, mirrored for the arrows:
-					// the keyboard shortcuts must answer the next key press,
-					// not the one after a click on the strip).
-					SetFocus(_viv_hwnd);
-				}
-				
+				more = _viv_toolbar_more_hit_test(GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam));
+				_viv_toolbar_more_hover = more;
+				_viv_toolbar_invalidate_more();
+				if (more) _viv_toolbar_open_overflow();
 				return 0;
 			}
-			
+
 			if (_viv_toolbar_zoom_pressed != -2)
 			{
 				zone = _viv_toolbar_zoom_pressed;
@@ -1770,27 +1394,14 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 		}
 		
 		case WM_CAPTURECHANGED:
-		{
-			int pressed;
-			int arrow;
-			
-			// the capture went elsewhere (a menu, another window): drop the
-			// press visual, the command never fired (the zoom pill rule).
-			pressed = _viv_toolbar_pressed;
-			
+			_viv_toolbar_invalidate_item(_viv_toolbar_pressed);
 			_viv_toolbar_pressed = -1;
-			
-			_viv_toolbar_invalidate_item(pressed);
-			
-			arrow = _viv_toolbar_arrow_pressed;
-			
-			_viv_toolbar_arrow_pressed = -1;
-			
-			_viv_toolbar_invalidate_arrow(arrow);
-			
+			_viv_toolbar_invalidate_zoom(_viv_toolbar_zoom_pressed);
+			_viv_toolbar_zoom_pressed = -2;
+			_viv_toolbar_more_pressed = 0;
+			_viv_toolbar_invalidate_more();
 			return 0;
-		}
-		
+
 		default:
 		
 			break;
@@ -1813,11 +1424,11 @@ static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_
 	{
 		static const int group_ids[_VIV_TOOLBAR_GROUP_MAX + 1] =
 		{
+			0,
 			LOCALIZATION_ID_TOOLBAR_GROUP_NAV,
 			LOCALIZATION_ID_TOOLBAR_GROUP_FIT,
 			LOCALIZATION_ID_TOOLBAR_GROUP_ZOOM,
 			LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE,
-			LOCALIZATION_ID_TOOLBAR_GROUP_FULLSCREEN,
 		};
 		int i;
 
@@ -1842,7 +1453,7 @@ static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_
 			}
 		}
 
-		for(i=0;i<=_VIV_TOOLBAR_GROUP_MAX;i++)
+		for(i=1;i<=_VIV_TOOLBAR_GROUP_MAX;i++)
 		{
 			wchar_t text_wbuf[STRING_SIZE];
 			UINT command_id;
@@ -1888,11 +1499,11 @@ static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_
 
 			if (row)
 			{
-				AppendMenuW(hmenu,MF_STRING | MF_OWNERDRAW,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 6,(LPCWSTR)row);
+				AppendMenuW(hmenu,MF_STRING | MF_OWNERDRAW,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7,(LPCWSTR)row);
 			}
 			else
 			{
-				AppendMenuW(hmenu,MF_STRING,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 6,text_wbuf);
+				AppendMenuW(hmenu,MF_STRING,_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7,text_wbuf);
 			}
 		}
 
@@ -1902,7 +1513,7 @@ static void _viv_toolbar_context_menu(HWND toolbar_hwnd,int screen_x,int screen_
 			void *row;
 			UINT command_id;
 
-			command_id = (UINT)(_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7);
+			command_id = (UINT)(_VIV_TOOLBAR_CONTEXT_ID_FIRST + 8);
 
 			string_copy_utf8_string(text_wbuf,localization_get_string(LOCALIZATION_ID_TOOLBAR_ICON_ONLY));
 
@@ -1942,18 +1553,18 @@ void _viv_toolbar_context_command(int command_id)
 		return;
 	}
 
-	if (index == 6)
+	if (index == 7)
 	{
 		// show all: the mask returns to its default.
-		config_toolbar_groups = 0x1f;
+		config_toolbar_groups = 0x3f;
 	}
 	else
-	if ((index >= 1) && (index <= _VIV_TOOLBAR_GROUP_MAX + 1))
+	if ((index >= 2) && (index <= _VIV_TOOLBAR_GROUP_MAX + 1))
 	{
 		config_toolbar_groups ^= (1 << (index - 1));
 	}
 	else
-	if (index == 7)
+	if (index == 8)
 	{
 		// icon-only: the toggle re-measures with the labels gone (the
 		// overflow walk below sees the shorter strip).
@@ -2028,11 +1639,10 @@ void _viv_toolbar_destroy(void)
 		_viv_toolbar_hwnd = 0;
 		_viv_toolbar_hover = -1;
 		_viv_toolbar_pressed = -1;
-		_viv_toolbar_arrow_hover = -1;
-		_viv_toolbar_arrow_pressed = -1;
-		_viv_toolbar_page = 0;
+		_viv_toolbar_more_hover = 0;
+		_viv_toolbar_more_pressed = 0;
+		_viv_toolbar_focus = -1;
 		_viv_toolbar_tracking = 0;
-		_viv_toolbar_auto_icon_only = 0;
 		
 		// rc.13: the play latch rides the face state, not the window -
 		// a rebuild re-reads it anyway, but a stale latch must never
@@ -2052,6 +1662,7 @@ void _viv_toolbar_layout(int wide)
 	// cluster takes the rest (a hidden menu bar answers zero and the
 	// strip owns the whole band).
 	_viv_toolbar_wide = wide - _viv_menubar_strip_wide();
+	if (_viv_toolbar_wide < 0) _viv_toolbar_wide = 0;
 	
 	_viv_toolbar_measure();
 	
@@ -2151,7 +1762,7 @@ void _viv_toolbar_update_buttons(void)
 			
 			case VIV_ID_EDIT_ROTATE_90:
 			
-				enable = has_image;
+				enable = has_image && _viv_rotation_ready();
 				break;
 			
 			default:
@@ -2169,7 +1780,8 @@ void _viv_toolbar_update_buttons(void)
 		}
 	}
 	
-	if (playing != _viv_toolbar_playing)
+	if (playing != _viv_toolbar_playing ||
+		_viv_toolbar_item_glyph[_VIV_TOOLBAR_ITEM_FULLSCREEN] != _viv_toolbar_item_glyph_id(_VIV_TOOLBAR_ITEM_FULLSCREEN))
 	{
 		_viv_toolbar_playing = playing;
 		

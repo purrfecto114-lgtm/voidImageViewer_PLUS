@@ -55,26 +55,10 @@ static void _viv_status_set(int part,const wchar_t *text);
 int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item);
 int _viv_get_status_high(void);
 int _viv_get_controls_high(void);
-// the name pane's two faces (rc.3): the pane that names the file owns the
-// facts' doors now - clicking the filename opens the file's folder, and the
-// info square at the pane's right end opens the properties dialog (the
-// toolbar's info face left the strip in the same round). the latch rides
-// the same chain the pane text rides: a temp line, a loading line, a
-// failure line and a slideshow note are facts, not a file, and neither
-// door answers on them.
-static BYTE _viv_status_name_clickable = 0;
-static int _viv_status_message_part(int *part_out);
-static int _viv_status_info_rect(RECT *box);
-static void _viv_status_set_name_clickable(int clickable);
-
-static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
-static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam);
-
-
-
 static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 
 {
+	static int pressed_command;
 
 	switch (msg) 
 
@@ -321,82 +305,34 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 			
 			return (LRESULT)viv_theme_brush(VIV_TK_NAV_FACE);
 			
-		case WM_LBUTTONUP:
-
+		case WM_LBUTTONDOWN:
 		{
-			POINT pt;
-			RECT box;
-			RECT pane;
-			int parti;
-
-			pt.x = (short)LOWORD(lParam);
-			pt.y = (short)HIWORD(lParam);
-
-			if ((_viv_status_info_rect(&box)) && (PtInRect(&box,pt)))
+			POINT point = {GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
+			pressed_command = _viv_status_file_command_at(point);
+			if (pressed_command)
 			{
-				_viv_properties();
-
+				SetCapture(hwnd);
 				return 0;
 			}
-
-			if ((_viv_status_name_clickable) && (_viv_status_message_part(&parti)))
-			{
-				SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)parti,(LPARAM)&pane);
-
-				if (PtInRect(&pane,pt))
-				{
-					_viv_open_file_location();
-
-					return 0;
-				}
-			}
-
 			break;
 		}
 
-		case WM_SETCURSOR:
-
-		{
-			POINT pt;
-			RECT box;
-			RECT pane;
-			int parti;
-			int hand;
-
-			hand = 0;
-
-			if (LOWORD(lParam) == HTCLIENT)
+		case WM_LBUTTONUP:
+			if (pressed_command)
 			{
-				GetCursorPos(&pt);
-
-				ScreenToClient(hwnd,&pt);
-
-				if ((_viv_status_info_rect(&box)) && (PtInRect(&box,pt)))
-				{
-					hand = 1;
-				}
-				else
-				if ((_viv_status_name_clickable) && (_viv_status_message_part(&parti)))
-				{
-					SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)parti,(LPARAM)&pane);
-
-					if (PtInRect(&pane,pt))
-					{
-						hand = 1;
-					}
-				}
+				POINT point = {GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
+				int command = pressed_command;
+				pressed_command = 0;
+				ReleaseCapture();
+				if (_viv_status_file_command_at(point) == command)
+					SendMessage(_viv_hwnd,WM_COMMAND,MAKEWPARAM(command,0),0);
+				return 0;
 			}
-
-			if (hand)
-			{
-				SetCursor(LoadCursor(NULL,IDC_HAND));
-
-				return TRUE;
-			}
-
 			break;
-		}
 
+		case WM_CAPTURECHANGED:
+			pressed_command = 0;
+			break;
 
 		case WM_NCHITTEST:
 		{
@@ -1542,7 +1478,7 @@ void _viv_status_show(int show)
 				WS_EX_COMPOSITED,
 				STATUSCLASSNAMEA,
 				"",
-				WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | SBARS_SIZEGRIP | WS_VISIBLE,
+				WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | SBARS_SIZEGRIP | SBARS_TOOLTIPS | WS_VISIBLE,
 				0,0,0,0,
 				_viv_hwnd,(HMENU)VIV_ID_STATUS,os_hinstance,NULL);
 				
@@ -1767,6 +1703,7 @@ int _viv_status_frame_pane_index(void)
 // chip that follows the cursor - a hover fact never owned a pane.
 enum
 {
+	_VIV_STATUS_FILE,
 	_VIV_STATUS_INDEX,
 	_VIV_STATUS_PRELOAD,
 	_VIV_STATUS_MESSAGE,
@@ -1776,67 +1713,21 @@ enum
 };
 
 static int _viv_status_roles[_VIV_STATUS_PART_MAX];
+static int _viv_status_file_pane = -1;
 
-// the message pane's pane index (the one face the two doors live on).
-static int _viv_status_message_part(int *part_out)
+static int _viv_status_info_width(void)
 {
-	int parti;
-	int part_count;
-
-	*part_out = -1;
-
-	if (!_viv_status_hwnd)
-	{
-		return 0;
-	}
-
-	part_count = (int)SendMessage(_viv_status_hwnd,SB_GETPARTS,0,0);
-
-	for(parti=part_count-1;parti>=0;parti--)
-	{
-		if ((parti < _VIV_STATUS_PART_MAX) && (_viv_status_roles[parti] == _VIV_STATUS_MESSAGE))
-		{
-			*part_out = parti;
-
-			return 1;
-		}
-	}
-
-	return 0;
+	return VIV_UI_SCALE(32,os_logical_wide,96);
 }
 
-// the info square's box inside the message pane: a pad and one icon cell
-// at the pane's right end - the draw reserves the same measure, so the
-// painted face and the hit test never disagree. the doors only exist
-// while the pane names a file (the latch the update sets).
-static int _viv_status_info_rect(RECT *box)
+int _viv_status_file_command_at(POINT point)
 {
-	RECT pane;
-	int parti;
-	int pad;
-	int icon;
-
-	if ((!_viv_status_name_clickable) || (!_viv_status_message_part(&parti)))
-	{
-		return 0;
-	}
-
-	SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)parti,(LPARAM)&pane);
-
-	pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
-	icon = VIV_UI_SCALE(16,os_logical_wide,96);
-
-	box->left = pane.right - pad - icon;
-	box->top = pane.top;
-	box->right = pane.right - pad;
-	box->bottom = pane.bottom;
-
-	return (box->left > pane.left) ? 1 : 0;
-}
-
-static void _viv_status_set_name_clickable(int clickable)
-{
-	_viv_status_name_clickable = clickable ? 1 : 0;
+	RECT rect;
+	if (!_viv_status_hwnd || _viv_status_file_pane < 0 || !*_viv_slot_current.fd.cFileName ||
+		!SendMessage(_viv_status_hwnd,SB_GETRECT,_viv_status_file_pane,(LPARAM)&rect) ||
+		!PtInRect(&rect,point)) return 0;
+	return point.x < rect.left + _viv_status_info_width() ?
+		VIV_ID_FILE_PROPERTIES : VIV_ID_FILE_OPEN_FILE_LOCATION;
 }
 
 
@@ -1856,6 +1747,11 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *r
 	}
 
 	// a long preload label never consumes more than a quarter of the bar.
+	if (widths[_VIV_STATUS_FILE] > avail_wide / 2)
+	{
+		widths[_VIV_STATUS_FILE] = avail_wide / 2;
+	}
+
 	if (widths[_VIV_STATUS_PRELOAD] > avail_wide / 4)
 	{
 		widths[_VIV_STATUS_PRELOAD] = avail_wide / 4;
@@ -1916,7 +1812,7 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *r
 	{
 		// the last pane: the resolution, clipped only after the optional
 		// readouts have gone. the -1 edge still pins it to the right.
-		widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_PRELOAD];
+		widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_PRELOAD] - widths[_VIV_STATUS_FILE];
 		if (widths[_VIV_STATUS_DIMENSION] < 0)
 		{
 			widths[_VIV_STATUS_DIMENSION] = 0;
@@ -1973,6 +1869,8 @@ void _viv_status_update(void)
 		int part_count;
 		int parti;
 		int index_wide;
+		int file_wide = 0;
+		const wchar_t *filename = string_get_filename_part(_viv_slot_current.fd.cFileName);
 		int nav_index;
 		wchar_t index_buf[STRING_SIZE];
 		RECT rect;
@@ -2163,6 +2061,12 @@ void _viv_status_update(void)
 				}
 
 				SelectObject(hdc,_viv_ui_font(VIV_UI_FONT_STATUS));
+				if (*filename)
+				{
+					size.cx = 0;
+					GetTextExtentPoint32W(hdc,filename,(int)string_get_length(filename),&size);
+					file_wide = _viv_status_info_width() + size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
+				}
 				if (*preload_buf)
 				{
 					if (GetTextExtentPoint32(hdc,preload_buf,string_get_length(preload_buf),&size))
@@ -2180,6 +2084,7 @@ void _viv_status_update(void)
 		// add size box
 		dimension_wide += GetSystemMetrics(SM_CXVSCROLL) + GetSystemMetrics(SM_CXBORDER);
 		
+		widths[_VIV_STATUS_FILE] = file_wide;
 		widths[_VIV_STATUS_INDEX] = index_wide;
 		widths[_VIV_STATUS_PRELOAD] = preload_wide;
 		widths[_VIV_STATUS_MESSAGE] = 0;
@@ -2187,11 +2092,13 @@ void _viv_status_update(void)
 		widths[_VIV_STATUS_DIMENSION] = dimension_wide;
 
 		part_count = _viv_status_layout_parts(widths,rect.right - rect.left,part_array,_viv_status_roles);
-		_viv_status_frame_pane = -1;
+		_viv_status_frame_pane = _viv_status_file_pane = -1;
 		_viv_status_frame_wide = widths[_VIV_STATUS_FRAME];
 
 		for (parti=0; parti<part_count; parti++)
 		{
+			if (_viv_status_roles[parti] == _VIV_STATUS_FILE)
+				_viv_status_file_pane = parti;
 			if (_viv_status_roles[parti] == _VIV_STATUS_FRAME)
 			{
 				_viv_status_frame_pane = parti;
@@ -2204,9 +2111,6 @@ void _viv_status_update(void)
 			wchar_t *text;
 			wchar_t text_buf[STRING_SIZE];
 			
-		// the doors reset while the chain picks the face: only the file
-		// name re-arms them (see the click handling in the strip proc).
-		_viv_status_set_name_clickable(0);
 			text =  L"";
 			
 			if (_viv_status_temp_text)
@@ -2232,31 +2136,18 @@ void _viv_status_update(void)
 				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING));
 				text = text_buf;
 			}
-			else
-			if (*_viv_slot_current.fd.cFileName)
+			else if (_viv_hw_render_fallback)
 			{
-				string_copy(text_buf,string_get_filename_part(_viv_slot_current.fd.cFileName));
-
-				// the pane names a file: both doors arm (the info square and
-				// the open-folder click).
-				_viv_status_set_name_clickable(1);
-
-				// the renderer's honesty line rides the position text: a
-				// hardware back end the user picked that cannot take this
-				// image (no context on the machine, a canvas past the
-				// texture ceiling, a frame the upload paths do not take)
-				// names itself beside the filename - the gdi path still
-				// paints the image, the status says which path is painting
-				// it. cleared when the next load dispatches.
-				if (_viv_hw_render_fallback)
-				{
-					string_cat_utf8(text_buf,(const utf8_t *)"  ");
-					string_cat_utf8(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK));
-				}
-
+				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK));
 				text = text_buf;
 			}
-		
+			else if (_viv_rotation_active())
+			{
+				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ROTATED_PREVIEW));
+				text = text_buf;
+			}
+
+			texts[_VIV_STATUS_FILE] = filename;
 			texts[_VIV_STATUS_INDEX] = index_buf;
 			texts[_VIV_STATUS_PRELOAD] = preload_buf;
 			texts[_VIV_STATUS_MESSAGE] = text;
@@ -2266,6 +2157,13 @@ void _viv_status_update(void)
 			for (parti=0; (parti<part_count) && (parti<_VIV_STATUS_PART_MAX); parti++)
 			{
 				_viv_status_set(parti,texts[_viv_status_roles[parti]]);
+			}
+			if (_viv_status_file_pane >= 0)
+			{
+				string_printf(text_buf,"%s / %s",
+					localization_get_string(LOCALIZATION_ID_TOOLBAR_IMAGE_INFO),
+					localization_get_string(LOCALIZATION_ID_STATUS_BAR_SHOW_IN_FOLDER));
+				SendMessageW(_viv_status_hwnd,SB_SETTIPTEXTW,_viv_status_file_pane,(LPARAM)text_buf);
 			}
 		}
 
@@ -2380,7 +2278,7 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 	text_rect.left += VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 	text_rect.right -= VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 	
-	hfont = _viv_ui_font((_viv_status_roles[part] == _VIV_STATUS_MESSAGE) || (_viv_status_roles[part] == _VIV_STATUS_PRELOAD) ? VIV_UI_FONT_STATUS : VIV_UI_FONT_NUMBER);
+	hfont = _viv_ui_font((_viv_status_roles[part] == _VIV_STATUS_FILE) || (_viv_status_roles[part] == _VIV_STATUS_MESSAGE) || (_viv_status_roles[part] == _VIV_STATUS_PRELOAD) ? VIV_UI_FONT_STATUS : VIV_UI_FONT_NUMBER);
 	last_font = 0;
 	
 	if (hfont)
@@ -2391,20 +2289,21 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 	SetBkMode(hdc,TRANSPARENT);
 	SetTextColor(hdc,text_color);
 	
-	_viv_ui_text_rect(hdc,&text_rect);
-	// the message pane's info face: the square rides the pane's right end
-	// (the same box the click test reads) and the text ellipsizes before it
-	// instead of running under it.
+	if (_viv_status_roles[part] == _VIV_STATUS_FILE)
 	{
-		RECT info_box;
-
-		if ((_viv_status_roles[part] == _VIV_STATUS_MESSAGE) && (_viv_status_info_rect(&info_box)))
+		int glyph_size = VIV_UI_SCALE(16,os_logical_high,96);
+		int icon_width = _viv_status_info_width();
+		HICON icon = glyphs_icon(GLYPH_INFO,_viv_is_dark(),glyph_size);
+		if (icon && draw_item->rcItem.right - draw_item->rcItem.left >= icon_width)
 		{
-			text_rect.right = info_box.left;
+			DrawIconEx(hdc,draw_item->rcItem.left + (icon_width - glyph_size) / 2,
+				draw_item->rcItem.top + (draw_item->rcItem.bottom - draw_item->rcItem.top - glyph_size) / 2,
+				icon,glyph_size,glyph_size,0,NULL,DI_NORMAL);
 		}
+		text_rect.left += icon_width;
+		SetTextColor(hdc,viv_theme_color(VIV_TK_ACCENT));
 	}
-
-
+	_viv_ui_text_rect(hdc,&text_rect);
 	DrawTextW(hdc,_viv_status_part_text[part],-1,&text_rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOPREFIX);
 	
 	if (last_font)
@@ -2412,28 +2311,6 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 		SelectObject(hdc,last_font);
 	}
 	
-
-	// the info face itself: the glyph cache's icon, centered in the square
-	// the text reserved (the pane's own text color family answers the
-	// theme - the glyph cache carries the dark variant).
-	{
-		RECT info_box;
-
-		if ((_viv_status_roles[part] == _VIV_STATUS_MESSAGE) && (_viv_status_info_rect(&info_box)))
-		{
-			int size;
-			HICON icon;
-
-			size = VIV_UI_SCALE(14,os_logical_wide,96);
-			icon = glyphs_icon(GLYPH_INFO,_viv_is_dark(),size);
-
-			if (icon)
-			{
-				DrawIconEx(hdc,info_box.left + (((info_box.right - info_box.left) - size) / 2),info_box.top + (((info_box.bottom - info_box.top) - size) / 2),icon,size,size,0,NULL,DI_NORMAL);
-			}
-		}
-	}
-
 	return 1;
 }
 int _viv_get_status_high(void)
@@ -2566,7 +2443,7 @@ void _viv_zoomui_update(void)
 	// copy stays.
 	zoomui_set_fullscreen(_viv_is_fullscreen);
 
-	zoomui_show(config_show_zoom_controls);
+	zoomui_show(config_show_zoom_controls || _viv_is_fullscreen);
 }
 void _viv_show_cursor(void)
 {
@@ -2658,31 +2535,6 @@ static BYTE _viv_pixel_chip_tracking = 0;
 
 #define _VIV_PIXEL_CHIP_LINE 20 // one readout line's dip height.
 
-// the chip's one door (rc.3): the fullscreen square rides the chip's
-// right end. the chip stays a readout everywhere else - the square is the
-// only pixel that answers a click (fullscreen hides the menubar, the
-// strip and the status bar, so the floating readout is the one surface a
-// mouse user can still reach; the door is the mouse's way back out).
-static int _viv_pixel_chip_button_wide(void)
-{
-	return VIV_UI_SCALE(24,os_logical_wide,96);
-}
-
-static void _viv_pixel_chip_button_rect(HWND hwnd,RECT *rect)
-{
-	RECT client;
-	int pad;
-
-	GetClientRect(hwnd,&client);
-
-	pad = VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
-
-	rect->left = client.right - pad - _viv_pixel_chip_button_wide();
-	rect->top = client.top + pad;
-	rect->right = client.right - pad;
-	rect->bottom = client.bottom - pad;
-}
-
 static LRESULT CALLBACK _viv_pixel_chip_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	switch(msg)
@@ -2726,13 +2578,10 @@ static LRESULT CALLBACK _viv_pixel_chip_proc(HWND hwnd,UINT msg,WPARAM wParam,LP
 			line_rect.top = rect.top + pad;
 			line_rect.right = rect.right - pad;
 			line_rect.bottom = line_rect.top + line_high;
-			line_rect.right -= _viv_pixel_chip_button_wide();
-
 			DrawTextW(hdc,pos_buf,-1,&line_rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
 
 			line_rect.top = line_rect.bottom;
 			line_rect.bottom = rect.bottom - pad;
-
 			DrawTextW(hdc,rgb_buf,-1,&line_rect,DT_SINGLELINE | DT_LEFT | DT_VCENTER | DT_END_ELLIPSIS);
 
 			if (old_font)
@@ -2740,108 +2589,10 @@ static LRESULT CALLBACK _viv_pixel_chip_proc(HWND hwnd,UINT msg,WPARAM wParam,LP
 				SelectObject(hdc,old_font);
 			}
 
-
-			// the fullscreen door: a hairline divides it from the facts and
-			// the glyph cache's fullscreen brackets ride its center (the
-			// dark variant answers the theme like every chip face).
-			{
-				RECT btn;
-				RECT line_rect2;
-				int size;
-				HICON icon;
-
-				_viv_pixel_chip_button_rect(hwnd,&btn);
-
-				line_rect2.left = btn.left - pad / 2;
-				line_rect2.top = btn.top + pad / 2;
-				line_rect2.right = line_rect2.left + 1;
-				line_rect2.bottom = btn.bottom - pad / 2;
-
-				FillRect(hdc,&line_rect2,viv_theme_brush(VIV_TK_CHROME_LINE));
-
-				size = VIV_UI_SCALE(16,os_logical_wide,96);
-				icon = glyphs_icon(GLYPH_FULLSCREEN,_viv_is_dark(),size);
-
-				if (icon)
-				{
-					DrawIconEx(hdc,btn.left + ((btn.right - btn.left - size) / 2),btn.top + ((btn.bottom - btn.top - size) / 2),icon,size,size,0,NULL,DI_NORMAL);
-				}
-			}
-
 			EndPaint(hwnd,&ps);
 
 			return 0;
 		}
-
-		case WM_NCHITTEST:
-
-		{
-			POINT pt;
-			RECT btn;
-
-			pt.x = (short)LOWORD(lParam);
-			pt.y = (short)HIWORD(lParam);
-
-
-				ScreenToClient(hwnd,&pt);
-
-			_viv_pixel_chip_button_rect(hwnd,&btn);
-
-			// the square is the chip's one client pixel; every other pixel
-			// stays the click-through readout the chip has always been
-			// (httransparent hands the hit to the same-thread canvas).
-			return PtInRect(&btn,pt) ? HTCLIENT : HTTRANSPARENT;
-		}
-
-		case WM_SETCURSOR:
-
-			if (LOWORD(lParam) == HTCLIENT)
-			{
-				POINT pt;
-				RECT btn;
-
-				GetCursorPos(&pt);
-
-				ScreenToClient(hwnd,&pt);
-
-				_viv_pixel_chip_button_rect(hwnd,&btn);
-
-				if (PtInRect(&btn,pt))
-				{
-					SetCursor(LoadCursor(NULL,IDC_HAND));
-
-					return TRUE;
-				}
-			}
-
-			break;
-
-		case WM_LBUTTONDOWN:
-
-		{
-			POINT pt;
-			RECT btn;
-
-			pt.x = (short)LOWORD(lParam);
-			pt.y = (short)HIWORD(lParam);
-
-			_viv_pixel_chip_button_rect(hwnd,&btn);
-
-			if (PtInRect(&btn,pt))
-			{
-				// the toggle answers before the chip hides: the chrome
-				// sweep rebuilds the surfaces and the chip's follow dies
-				// with the mouse leave the fullscreen enter drives.
-				_viv_toggle_fullscreen();
-
-				_viv_pixel_chip_hide();
-
-				return 0;
-			}
-
-			break;
-		}
-
 
 		case WM_MOUSEACTIVATE:
 
@@ -2873,7 +2624,7 @@ static void _viv_pixel_chip_create(void)
 		0);
 
 	_viv_pixel_chip_hwnd = os_CreateWindowEx(
-		WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+		WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TRANSPARENT,
 		"_VIV_PIXEL_CHIP",
 		"",
 		WS_POPUP,
@@ -2948,7 +2699,7 @@ void _viv_pixel_chip_follow(void)
 		ReleaseDC(_viv_pixel_chip_hwnd,hdc);
 	}
 
-	wide += pad * 2 + _viv_pixel_chip_button_wide();
+	wide += pad * 2;
 
 	// the rounded shape rides the shared radius token, cut fresh at every
 	// size (the region is the system's once set - never freed here).

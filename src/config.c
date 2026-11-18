@@ -972,20 +972,8 @@ static void _config_load_settings_by_location(const wchar_t *path,int is_root)
 		config_allow_shrinking = ini_get_int(ini,(const utf8_t *)"allow_shrinking",config_allow_shrinking);
 		config_shrink_blit_mode = ini_get_int(ini,(const utf8_t *)"shrink_blit_mode",config_shrink_blit_mode);
 		config_renderer = ini_get_int(ini,(const utf8_t *)"renderer",config_renderer);
-
-		// the opengl back end left the tree (rc.3): an ini that still names
-		// it (renderer=1) wanted hardware acceleration, and direct3d is the
-		// hardware path the tree carries. anything past the family lands
-		// on the gdi default rather than an undefined back end.
-		if (config_renderer == CONFIG_RENDERER_OPENGL)
-		{
-			config_renderer = CONFIG_RENDERER_DIRECT3D;
-		}
-
-		if ((config_renderer < CONFIG_RENDERER_GDI) || (config_renderer > CONFIG_RENDERER_DIRECT3D12))
-		{
+		if (config_renderer < CONFIG_RENDERER_D3D9 || config_renderer > CONFIG_RENDERER_D3D12)
 			config_renderer = CONFIG_RENDERER_GDI;
-		}
 		config_toolbar_groups = ini_get_int(ini,(const utf8_t *)"toolbar_groups",config_toolbar_groups);
 		config_toolbar_icon_only = ini_get_int(ini,(const utf8_t *)"toolbar_icon_only",config_toolbar_icon_only);
 		config_mag_filter = ini_get_int(ini,(const utf8_t *)"mag_filter",config_mag_filter);

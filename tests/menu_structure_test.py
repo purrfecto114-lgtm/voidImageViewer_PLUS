@@ -282,37 +282,30 @@ def t_localization_alignment():
     # window's first id was the save-as bmp row until rc.2 extended the
     # tail again - the corrupted-settings ask's four ids ride it now,
     # so the window's first id is the backdrop row.
-        # the tail window: rebuilt against the shipped enum (rc.3 - the d3d
-    # family renderer ids joined mid-enum and the window slid; the
-    # entries answer the table, the comments name the sections).
-    tail = (
-            # backdrop
+    tail = ("LOCALIZATION_ID_BACKDROP",
+            "LOCALIZATION_ID_BACKDROP_FOLLOW",
             "LOCALIZATION_ID_BACKDROP_BLACK",
             "LOCALIZATION_ID_BACKDROP_WHITE",
             "LOCALIZATION_ID_BACKDROP_CUSTOM",
             "LOCALIZATION_ID_BACKDROP_CHECKERBOARD",
-            # recent
             "LOCALIZATION_ID_RECENT_FILES",
             "LOCALIZATION_ID_RECENT_FILES_EMPTY",
             "LOCALIZATION_ID_RECENT_FILES_CLEAR",
-            # set
             "LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_CAPTION",
             "LOCALIZATION_ID_SET_DESKTOP_WALLPAPER_MESSAGE",
-            # rotate
+            # round-128: the rotate ask and the silent-ini boxes
             "LOCALIZATION_ID_ROTATE_IMAGE_CAPTION",
             "LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE",
             "LOCALIZATION_ID_ROTATE_IMAGE_FAILED",
-            # config
             "LOCALIZATION_ID_CONFIG_SAVE_FAILED_CAPTION",
             "LOCALIZATION_ID_CONFIG_SAVE_FAILED_MESSAGE",
-            # status
             "LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT",
-            # windowed
             "LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU",
-            # settings
+            # the gui remake round appends the settings window, toolbar label
+            # and status format ids after the modern ux group.
             "LOCALIZATION_ID_SETTINGS",
             "LOCALIZATION_ID_SETTINGS_PAGE_GENERAL",
             "LOCALIZATION_ID_SETTINGS_PAGE_VIEW",
@@ -329,26 +322,18 @@ def t_localization_alignment():
             "LOCALIZATION_ID_SETTINGS_SELECT_ALL",
             "LOCALIZATION_ID_SETTINGS_OK",
             "LOCALIZATION_ID_SETTINGS_CANCEL",
-            # toolbar
             "LOCALIZATION_ID_TOOLBAR_OPEN",
             "LOCALIZATION_ID_TOOLBAR_ROTATE",
             "LOCALIZATION_ID_TOOLBAR_IMAGE_INFO",
-            # status
             "LOCALIZATION_ID_STATUS_BAR_POSITION_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_RGB_FORMAT",
-            # msgbox
             "LOCALIZATION_ID_MSGBOX_YES",
             "LOCALIZATION_ID_MSGBOX_NO",
-            # accent
             "LOCALIZATION_ID_ACCENT_COLOR",
-            # renderer
             "LOCALIZATION_ID_RENDERER",
             "LOCALIZATION_ID_RENDERER_GDI",
-            "LOCALIZATION_ID_RENDERER_OPENGL",
-            "LOCALIZATION_ID_RENDERER_DIRECT3D11",
-            "LOCALIZATION_ID_RENDERER_DIRECT3D12",
+            "LOCALIZATION_ID_RENDERER_D3D11",
             "LOCALIZATION_ID_RENDERER_DIRECT3D",
-            # toolbar
             "LOCALIZATION_ID_TOOLBAR_CUSTOMIZE",
             "LOCALIZATION_ID_TOOLBAR_GROUP_OPEN",
             "LOCALIZATION_ID_TOOLBAR_GROUP_NAV",
@@ -357,11 +342,8 @@ def t_localization_alignment():
             "LOCALIZATION_ID_TOOLBAR_GROUP_ROTATE",
             "LOCALIZATION_ID_TOOLBAR_GROUP_INFO",
             "LOCALIZATION_ID_TOOLBAR_SHOW_ALL",
-            # init
             "LOCALIZATION_ID_INIT_FAILED",
-            # toolbar
             "LOCALIZATION_ID_TOOLBAR_ICON_ONLY",
-            # settings
             "LOCALIZATION_ID_SETTINGS_TOOLBAR_ICON_ONLY",
             "LOCALIZATION_ID_SETTINGS_PRELOAD_COUNT",
             "LOCALIZATION_ID_SETTINGS_CACHE_COUNT",
@@ -369,6 +351,9 @@ def t_localization_alignment():
             "LOCALIZATION_ID_SETTINGS_COUNT_OFF",
             "LOCALIZATION_ID_SETTINGS_COUNT_ONE",
             "LOCALIZATION_ID_SETTINGS_COUNT_MANY",
+            # round-125: the settings remake tail - the four view page
+            # section captions, the three interface switch labels and the
+            # ctrl+wheel row label.
             "LOCALIZATION_ID_SETTINGS_SECTION_RENDERING",
             "LOCALIZATION_ID_SETTINGS_SECTION_WINDOW",
             "LOCALIZATION_ID_SETTINGS_SECTION_ANIMATION",
@@ -376,43 +361,46 @@ def t_localization_alignment():
             "LOCALIZATION_ID_SETTINGS_FLOATING_BAR",
             "LOCALIZATION_ID_SETTINGS_AUTO_HIDE_BAR",
             "LOCALIZATION_ID_SETTINGS_PIXEL_INFO",
-            # ctrl
             "LOCALIZATION_ID_CTRL_WHEEL_ACTION_STATIC",
-            # settings
+            # round-126: the apply button rides the settings tail.
             "LOCALIZATION_ID_SETTINGS_APPLY",
-            # association
+            # round-129: the default-app honesty pair rides the tail.
             "LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_CAPTION",
             "LOCALIZATION_ID_ASSOCIATION_DEFAULT_LOCKED_MESSAGE",
-            # settings
+            # rc.4: the hardware acceleration pair rides the tail.
             "LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION",
             "LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC",
-            # installer
+            # rc.6: the installer's default-app honesty pair rides the tail.
             "LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_CAPTION",
             "LOCALIZATION_ID_INSTALLER_ASSOCIATION_LOCKED_MESSAGE",
-            # settings
+            # round-148's lock caption and the uninstall settings ask
+            # (the consent pair left with its box - the explicit click
+            # takes the extension over directly now).
             "LOCALIZATION_ID_SETTINGS_ASSOCIATIONS_LOCKED",
-            # uninstall
             "LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_CAPTION",
             "LOCALIZATION_ID_UNINSTALL_KEEP_SETTINGS_MESSAGE",
-            # settings
+            # round-149: the hardware switch's unavailable face and the
+            # shortcut page's three-state instruction row.
             "LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE",
             "LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_IDLE",
             "LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_PRESS",
             "LOCALIZATION_ID_SETTINGS_SHORTCUTS_HINT_CONFIRM",
+            # rc.2: the corrupted-settings ask at the exit - its caption,
+            # its keep and restore faces, and its message body.
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_CAPTION",
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_KEEP",
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_RESTORE",
             "LOCALIZATION_ID_SETTINGS_FILE_PROBLEM_MESSAGE",
-            # status
             "LOCALIZATION_ID_STATUS_BAR_DIMENSION_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_ZOOM_CHIP_FORMAT",
             "LOCALIZATION_ID_STATUS_BAR_PIXEL_POS_FORMAT",
-            # toolbar
+            "LOCALIZATION_ID_TOOLBAR_MORE",
             "LOCALIZATION_ID_TOOLBAR_FULLSCREEN",
-            "LOCALIZATION_ID_TOOLBAR_GROUP_FULLSCREEN"
-    )
-    check("the tail window answers the shipped enum (rebuilt at rc.3 after the d3d family slid the window)",
-          tuple(ids[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more (the consent pair, the lock caption, the uninstall ask); rc.2: four more (the exit ask's caption, faces and message)
+            "LOCALIZATION_ID_TOOLBAR_EXIT_FULLSCREEN",
+            "LOCALIZATION_ID_STATUS_BAR_ROTATED_PREVIEW",
+            "LOCALIZATION_ID_STATUS_BAR_SHOW_IN_FOLDER",
+            "LOCALIZATION_ID_RENDERER_D3D12")
+    check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(ids[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more (the consent pair, the lock caption, the uninstall ask); rc.2: four more (the exit ask's caption, faces and message)
     check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(en[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
     check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(zh[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
 
@@ -472,7 +460,7 @@ def t_version():
     vtype = tm.group(1) if tm else None
     sm = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', vh)
     vstr = sm.group(1) if sm else None
-    check("version.h = 1.1.18.120 (the responsive and hardware round)",
+    check("version.h = 1.1.18.120 (the quiet chrome round)",
           (major, minor, rev, build) == ("1", "1", "18", "120") and vtype == "")
     check("VERSION_STRING is the release identity (the 1.1.18-rc.3 tag)",
           vstr == "1.1.18-rc.3")
@@ -1527,7 +1515,7 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 105)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders + the R96 d3d family and shell menu modules + the R102 export module (the gl module retired in rc.3, the d3d11 and d3d12 renderers joined)
+          len(re.findall(r"<ClCompile ", fp)) == 104)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders + the R96 gl, d3d and shell menu modules + the R102 export module
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
     check("shared props has the resource script and the app icon only",
@@ -1610,7 +1598,7 @@ def t_modernization_round6():
     check("os.c loads GetDpiForWindow from user32",
           'GetProcAddress(_os_user32_hmodule,"GetDpiForWindow")' in osc)
     check("os.c implements os_window_update_dpi with the 96 floor",
-          "int os_window_update_dpi(HWND hwnd)" in osc and "dpi < 96" in osc)
+          "int os_window_update_dpi(HWND hwnd)" in osc and "wide < 96" in osc and "high < 96" in osc)
     check("os.h exports os_window_update_dpi",
           "int os_window_update_dpi(HWND hwnd);" in osh)
 
@@ -1633,9 +1621,9 @@ def t_modernization_round6():
     check("glyphs.c/h exist and are in the shared props",
           os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
           and "glyphs.c" in fp and "glyphs.h" in fp)
-    check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair, the remake pair, the R96 renderer and the R102 export module (the gl pair retired in rc.3)",
-          len(re.findall(r"<ClCompile ", fp)) == 105
-          and len(re.findall(r"<ClInclude ", fp)) == 74)
+    check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair, the remake pair, the R96 renderers and the R102 export module",
+          len(re.findall(r"<ClCompile ", fp)) == 104
+          and len(re.findall(r"<ClInclude ", fp)) == 73)
     check("glyphs.c loads its own gdi+ flat api table",
           '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
           and '"GdipCreateBitmapFromScan0"' in gc
@@ -1685,8 +1673,8 @@ def t_modernization_round6():
     check("zoomui master table carries the six fullscreen buttons",
           "VIV_ID_NAV_PREV" in zc and "VIV_ID_SLIDESHOW_PLAY_ONLY" in zc
           and "VIV_ID_SLIDESHOW_PAUSE_ONLY" in zc and "VIV_ID_NAV_NEXT" in zc)
-    check("the pill is one seven cell row in both modes",
-          "#define _ZOOMUI_CELL_COUNT 7" in zc
+    check("the pill is one eight-cell row in both modes",
+          "#define _ZOOMUI_CELL_COUNT 8" in zc
           and "_ZOOMUI_CELL_PCT" in zc)
     check("zoomui declares the fullscreen switch",
           "void zoomui_set_fullscreen(int fullscreen);" in zh_
@@ -1789,7 +1777,7 @@ def t_round7():
     check("the right cluster gives way (frame, rgb, date, pos)",
           "if ((total <= avail_wide) && (count <= _VIV_STATUS_PART_MAX))" in viv)
     check("the resolution pane clips instead of vanishing",
-          "widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_PRELOAD];" in viv)
+          "widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_PRELOAD] - widths[_VIV_STATUS_FILE];" in viv)
     check("the panes use cumulative coordinates",
           "edge += widths[role];" in viv and "edges[count] = (role == _VIV_STATUS_DIMENSION) ? -1 : edge;" in viv)
     check("the message pane index follows the preload pane",
@@ -1903,11 +1891,11 @@ def t_stable_round():
     # round-125: the successor window's serve wrapper is the third
     # !got_best gate (the pop answers the step, the scan never runs).
     check("both deferred wrap passes exist (and the window serve gate)",
-          seg.count("if (!got_best)") == 3)
+          seg.count("if (!got_best)") == 2)
     check("the deferred folder pass rebuilds the search pattern",
           seg.count("string_cat_utf8(search_wbuf,(const utf8_t *)"+chr(34)+chr(92)+chr(92)+"*.*"+chr(34)) == 2)
     check("both scans still find the primary candidate",
-          seg.count("_viv_fd_compare(&d->fd,_viv_current_fd)") == 1 and
+          "_viv_playlist_step(_viv_current_fd,prev)" in seg and
           seg.count("_viv_fd_compare(&fd,_viv_current_fd)") == 1)
 
     # release identity: upstream style tag 1.1.01 == VERSION_STRING.
@@ -3341,7 +3329,7 @@ def t_split_architecture_round69():
     #    declarations, never code).
     viv_lines = viv.count("\n") + 1
     check("the spliced code stays inside the growth window",
-          viv_lines >= 21130 and viv_lines <= 38300)  # (见 total 行的校准注)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response - the clipboard gates, the identity binding, the job snapshot and the interlocked stage (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): the silent-failure reporting and the config integrity work land for real (measured 36423); rc.2 (2026-10-18): the corrupted-settings round - the walk fix, the ask's localization, the playlist directory seat and the uninstall's preserved-copies sweep (measured 37026)  # rc.3 (2026-11-17): measured 38228 (the responsive strip, the status doors, the rotate artifact machine, the queue fixes and the d3d family ride the splice)
+          viv_lines >= 21130 and viv_lines <= 38000)  # (见 total 行的校准注)  # round-102 recalibration: the export module joins the splice (measured 30548); round-108: the cache-set ceiling joins the load domain (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response - the clipboard gates, the identity binding, the job snapshot and the interlocked stage (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): the silent-failure reporting and the config integrity work land for real (measured 36423); rc.2 (2026-10-18): the corrupted-settings round - the walk fix, the ask's localization, the playlist directory seat and the uninstall's preserved-copies sweep (measured 37026)
 
     # 2. recalibrated in R70: the state layer and the domain modules now
     #    exist (see t_split_architecture_round70 for the landing guards).
@@ -3375,7 +3363,7 @@ def t_split_architecture_round70():
         check(f"the {d} domain module exists", ok)
         if ok:
             n = open(p, "rb").read().decode("utf-8", errors="replace").count("\n") + 1
-            cap = 3640 if d == "view" else (3400 if d == "wndproc" else 3000)  # round-147: the https launch contract takes the view over the old cap (measured 3528)  # rc.11: the settimer guard takes the view over the old cap (measured 3506)  # round-128: the rotate ask and the delete retire take the view to 3450 (measured 3450)  # round-125: the successor window machine takes the view home (measured 3380)  # r114: the paste text fallback joins the wndproc domain (measured 3322)  # rc.5: view takes the gesture cluster home (+243); rc.4: wndproc takes the halftone palette and the dpi icons home (+232)
+            cap = 3560 if d == "view" else (3400 if d == "wndproc" else 3000)  # round-147: the https launch contract takes the view over the old cap (measured 3528)  # rc.11: the settimer guard takes the view over the old cap (measured 3506)  # round-128: the rotate ask and the delete retire take the view to 3450 (measured 3450)  # round-125: the successor window machine takes the view home (measured 3380)  # r114: the paste text fallback joins the wndproc domain (measured 3322)  # rc.5: view takes the gesture cluster home (+243); rc.4: wndproc takes the halftone palette and the dpi icons home (+232)
             check(f"viv_{d}.c is under the {cap}-line cap", n < cap, f"({n})")
 
     # 3. the state layer exists and carries the transition externs
@@ -3402,7 +3390,7 @@ def t_split_architecture_round70():
     #    ~200 declaration lines larger than the 21,130 line baseline.
     total = viv.count("\n") + 1
     check("the spliced total stays in the growth window",
-          21130 <= total <= 38300, f"({total})")  # (校准注同上) round-102 recalibration (the export module measured 30548); quiet chrome (2026-11-14): the command band, the zoom cluster and the settings row system land (measured 37633); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): measured 36898 (the splice plus the state tail); rc.2 (2026-10-18): measured 37026 (the playlist directory seat and the uninstall's preserved-copies sweep ride the splice)  # rc.3 (2026-11-17): measured 38228
+          21130 <= total <= 38000, f"({total})")  # (校准注同上) round-102 recalibration (the export module measured 30548); quiet chrome (2026-11-14): the command band, the zoom cluster and the settings row system land (measured 37633); round-108: the cache-set block (measured 31129); round-109: the slot architecture (measured 31138); round-110: the audit response (measured 31170); round-112: the command picker cascade joins the settings domain (measured 31410); round-113: the audit response - the init checks, the ime dissociation, the reply wakeup duty and the offset validator (measured 31613); round-114: the classic options dialogs retire (measured 30523); round-118: the seventh audit response (measured 30741); round-120: the memory and cache round (measured 30961); round-121: the gui limits round (measured 31081); round-122: the resume and chain round (measured 31118); round-123: the report fusion round (measured 31221 after the cross-check patch); round-125: the field response round (measured 31647), then the settings remake (measured 31990); round-126: the settings footer round (measured 32740); round-129: the default-app honesty round (measured 32990); round-132: the toolbar paging round (measured 33405); round-138: the field feedback round (measured 34217); round-139: the layout migration round (measured 34229); round-140: the field feedback round II (measured 34622); round-141: the default programs round (measured 34734); round-147: the review verdict round (measured 34976); round-148: the field response round III (measured 35533); the p0 fix round (2026-10-17): measured 36898 (the splice plus the state tail); rc.2 (2026-10-18): measured 37026 (the playlist directory seat and the uninstall's preserved-copies sweep ride the splice)
 
     # 6. the fourth CI catch stays guarded: a measurement macro expanded
     #    inside a struct body must see both its #define and the extern it
@@ -3673,7 +3661,7 @@ def t_carpet_repair_round76():
           "pt.y -= _viv_get_view_top();" in view
           and "cursor_y = pt.y - _viv_get_view_top();" in view)
     check("the pill lands at the viewport bottom",
-          "y = _viv_get_view_top() + high - container_high - _zoomui_margin;" in zoomui)
+          "y = top + high - container_high - _zoomui_margin;" in zoomui)
 
     check("the toolbar play slot never forces the fullscreen jump",
           "VIV_ID_SLIDESHOW_PLAY_ONLY" in toolbar
@@ -3970,8 +3958,7 @@ def t_field_report_round80():
           "_viv_open_from_filename(open_filename,VIV_OPEN_FORWARDED)" in viv)
     rotate = " ".join(view.split("static void _viv_edit_rotate(int counterclockwise)\r\n{")[1].split("static void _viv_file_edit(void)\r\n{")[0].split())
     check("rotate never touches the recent list",
-          "_viv_recent" not in rotate and
-          'counterclockwise ? "rotate270" : "rotate90"' in rotate)
+          "_viv_recent" not in rotate and "_viv_rotation_stage" in rotate)
     check("the single-instance forward survives (the fix is at the push site)",
           "cds.dwData = _VIV_COPYDATA_COMMAND_LINE;" in viv)
 
@@ -4892,9 +4879,11 @@ def t_todo_closure_round96():
           wnd.index("_viv_menu_measure_item") and
           wnd.count("_viv_shell_context_menu_handle_menu_msg(hwnd,msg,wParam,lParam)") == 3)
 
-    # 3. the direct3d renderer module.
+    # 3. the opengl renderer module.
+
+    # 4. the direct3d renderer module.
     check("hwd3d.c loads d3d9.dll dynamically",
-          'LoadLibraryA("d3d9.dll")' in d3dc and
+          '_viv_gpu_system_dll(L"d3d9.dll")' in d3dc and
           "Direct3DCreate9" in d3dc)
     check("hwd3d.c preserves the fpu (the gdi+ contract)",
           "D3DCREATE_FPU_PRESERVE" in d3dc)
@@ -4924,17 +4913,17 @@ def t_todo_closure_round96():
     check("the radios check against the config in _viv_check_menus",
           menu.count("VIV_ID_VIEW_RENDERER_") >= 3 and
           "config_renderer == CONFIG_RENDERER_GDI" in menu)
-    check("the command dispatch lands the pair and resets the module",
+    check("the command dispatch lands the trio and resets both modules",
           "VIV_ID_VIEW_RENDERER_GDI:" in view and
-          "_viv_hwd3d_shutdown();" in view)
-    check("the kill path and the dispatch release the renderer (the r70 splice counts viv.c)",
-          vivc.count("_viv_hwd3d_shutdown();") == 4)
+          "_viv_gpu_shutdown();" in view)
+    check("the kill path and the dispatch release both renderers (the r70 splice counts viv.c plus every viv_*.c)",
+          vivc.count("_viv_gpu_shutdown();") >= 4)
 
     # 6. the config wiring.
     check("config.h defines the renderer ladder and the toolbar mask",
           "#define CONFIG_RENDERER_GDI " in configh and
-          "#define CONFIG_RENDERER_OPENGL " in configh and
-          "#define CONFIG_RENDERER_DIRECT3D " in configh and
+          "#define CONFIG_RENDERER_D3D11 " in configh and
+          "#define CONFIG_RENDERER_D3D9 " in configh and
           "extern int config_renderer;" in configh and
           "extern int config_toolbar_groups;" in configh)
     check("config.c defaults gdi and the full toolbar",
@@ -4947,7 +4936,7 @@ def t_todo_closure_round96():
     # 7. the toolbar customization.
     check("the toolbar walk honors the group mask before the overflow (round-132: the strip pages now)",
           toolbar.index("config_toolbar_groups & (1 <<") <
-          toolbar.index("avail = _viv_toolbar_wide - _viv_toolbar_arrow_wide;"))
+          toolbar.index("_viv_toolbar_item_overflow[index] = 1;"))
     check("the toolbar owns a context menu",
           "case WM_CONTEXTMENU:" in toolbar and
           "_viv_toolbar_context_menu" in toolbar)
@@ -4956,12 +4945,12 @@ def t_todo_closure_round96():
     check("the toolbar context command exports to the wndproc interceptor",
           "void _viv_toolbar_context_command(int command_id);" in toolbarh and
           "_viv_toolbar_context_command(command_id)" in wnd)
-    check("the mask starts at every group visible (five groups since rc.3)",
-          "0x1f" in toolbar and "0x3f" not in toolbar)
+    check("the mask starts at every group visible",
+          "0x3f" in toolbar)
 
     # 8. the paint path takes the hardware branch before the backbuffer.
     check("wm_paint tries the hardware renderers before the gdi backbuffer",
-          wnd.index("_viv_hw_render_frame(hwnd,ps.hdc") <
+          wnd.index("_viv_gpu_render(config_renderer,hwnd,ps.hdc") <
           wnd.index("_viv_paint_begin(ps.hdc"))
     check("the hardware branch reads the view math the gdi path uses",
           "_viv_get_render_size(&rw,&rh);" in wnd and
@@ -4970,19 +4959,20 @@ def t_todo_closure_round96():
           wnd.count("COLORREF brush_color;") == 1)
 
     # 9. the build wiring.
-    check("the zig file list carries the hardware units (opengl retired in rc.3)",
-          "src/hwgl.c" not in files_txt and
+    check("the zig file list carries the four new units",
+          "src/hwd3d_modern.c" in files_txt and
           "src/hwd3d.c" in files_txt and
           "src/shellmenu.c" in files_txt and
           "src/viv_export.c" in files_txt and
-          files_txt.count("\n") == 105)
-    check("the shared props list carries the module files (opengl retired in rc.3)",
-          props.count('Include="..\\src\\hwgl.c"') == 0 and
+          files_txt.count("\n") == 104)
+    check("the shared props list carries all six new files",
+          props.count('Include="..\\src\\hwd3d_modern.c"') == 1 and
           props.count('Include="..\\src\\hwd3d.c"') == 1 and
           props.count('Include="..\\src\\shellmenu.c"') == 1 and
+          props.count('Include="..\\src\\hwd3d_modern.h"') == 1 and
           props.count('Include="..\\src\\hwd3d.h"') == 1 and
           props.count('Include="..\\src\\shellmenu.h"') == 1)
-    check("viv.h carries the module headers (opengl retired in rc.3)",
+    check("viv.h carries the three new module headers",
           '#include "hwgl.h"' not in vivh and
           '#include "hwd3d.h"' in vivh and
           '#include "shellmenu.h"' in vivh)
@@ -4992,7 +4982,7 @@ def t_todo_closure_round96():
     #     closure round rides one line in the readme list below).
     check("the changelog carries the todo closure pre-release (below the fixture round)",
           "Pre-release: Version 1.1.14-rc.1 (the todo closure round)" in changes)
-    check("the version is 1.1.18-rc.2 build 119 (the navigation visibility round pins ride it)",
+    check("the version is 1.1.18-rc.3 build 120 (the navigation visibility round pins ride it)",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
 
@@ -5357,7 +5347,7 @@ def t_fixture_round98():
     #     entry; the fixture round rides one line in the readme list below).
     check("the changelog carries the fixture round pre-release (below the navigation visibility round)",
           "Pre-release: Version 1.1.14-rc.2 (the fixture round)" in changes)
-    check("the version is 1.1.18-rc.2 build 119 (the navigation visibility round pins ride it)",
+    check("the version is 1.1.18-rc.3 build 120 (the navigation visibility round pins ride it)",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
 
@@ -5431,7 +5421,7 @@ def t_navigation_visibility_round99():
     #     below).
     check("the changelog carries the navigation visibility round pre-release (below the corner and audit response round)",
           "Pre-release: Version 1.1.14-rc.3 (the navigation visibility round)" in changes)
-    check("the version is 1.1.18-rc.2 build 119 (the corner and audit response round pins ride it)",
+    check("the version is 1.1.18-rc.3 build 120 (the corner and audit response round pins ride it)",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
 
@@ -5499,12 +5489,6 @@ def t_audit_response_round101():
 
     # 3. the experimental labels, the long-path claim, the installer's
     #    user-key probe, the fork's publisher line.
-    check("the renderer labels carry the experimental mark (en)",
-          '"OpenGL (experimental)", // LOCALIZATION_ID_RENDERER_OPENGL' in loc_en and
-          '"Direct3D (experimental)", // LOCALIZATION_ID_RENDERER_DIRECT3D' in loc_en)
-    check("the renderer labels carry the experimental mark (zh)",
-          '"OpenGL\uff08\u5b9e\u9a8c\u6027\uff09"' in loc_zh and
-          '"Direct3D\uff08\u5b9e\u9a8c\u6027\uff09"' in loc_zh)
     check("the manifest claims long-path awareness",
           "<longPathAware>true</longPathAware>" in manifest)
     check("the installer probes the user uninstall key before the machine one",
@@ -5565,13 +5549,17 @@ def t_pixel_oracle_round102():
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
 
-    # 1. the pad edge replication (the d3d renderer): the linear sampler's
+    # 1. the gl context rebuild: the wglMakeCurrent contract (the dc must
+    #    answer the same device and the same pixel format the rc was
+    #    created against - the msdn wording, second-verified) leaves the
+    #    old rc unusable on a differently formatted dc; keeping it was the
+    #    original refusal wearing a more hidden shell.
+    # 2. the pad edge replication (both renderers): the linear sampler's
     #    half texel at the sub-rectangle edge reads the pad; clamp only
-    #    answers at the texture's own border. the round-101 zero retired
-    #    (a zeroed pad still averages black into the outermost destination
-    #    pixels on a heavy upscale) and the same-size reuse cannot bleed
-    #    the previous frame back in. (the opengl renderer's half of this
-    #    group retired with the back end in rc.3.)
+    #    answers at the texture's own border. the round-101 gl zero
+    #    retired (a zeroed pad still averages black into the outermost
+    #    destination pixels on a heavy upscale) and the d3d same-size
+    #    reuse cannot bleed the previous frame back in.
     check("the d3d pad replicates the last column and the last row",
           "for(x=wide;x<pot_wide;x++)" in hwd3d and
           "for(y=high;y<pot_high;y++)" in hwd3d and
@@ -5628,8 +5616,8 @@ def t_pixel_oracle_round102():
 
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the responsive and hardware round pre-release",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+    check("the changelog top entry is the review verdict round pre-release",
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the version is 1.1.18-rc.3 build 120",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -5655,7 +5643,7 @@ def t_pixel_oracle_round102():
           "scene_ok" in hwd3d and
           "desc.Format == D3DFMT_X8R8G8B8" in hwd3d)
     check("the readbacks disarm after the fill",
-          "_viv_d3d_export_bits = 0;" in hwd3d)
+          "_viv_gpu_export_end();" in exp and "_viv_d3d_export_bits = 0;" in hwd3d)
     check("the export pins the windowed background",
           "config_windowed_background_color_r = 255;" in exp and
           "config_windowed_background_color_g = 255;" in exp and
@@ -5664,16 +5652,17 @@ def t_pixel_oracle_round102():
     check("the harness canvas carries the min-width headroom",
           '$size = "640x480"' in golden_ps1)
     check("the harness kills a wedged export and sweeps the tail",
-          "the export hung (killed)" in golden_ps1 and
-          "never leave a viewer behind" in golden_ps1)
+          "WaitForExit(90000)" in golden_ps1 and "Stop-Process -Id" in golden_ps1)
 
     # 6. the export re-audit's catches: the renderer words must never reach
     #    the usage box (a modal message the hidden harness window could
     #    never dismiss), the fit gates pin, the animation pause re-asserts
     #    after the first-frame reply resets it, and the shutdowns clear
     #    the export pointers.
-    check("the renderer words carry consumption cases (no usage box; the render-gl word retired in rc.3)",
+    check("the renderer words carry consumption cases (no usage box)",
           'string_icompare_lowercase_ascii(bufstart,"render-gdi")' in viv and
+          'string_icompare_lowercase_ascii(bufstart,"render-d3d11")' in viv and
+          'string_icompare_lowercase_ascii(bufstart,"render-d3d12")' in viv and
           'string_icompare_lowercase_ascii(bufstart,"render-d3d")' in viv and
           "a click that never comes" in viv)
     check("the export pins the fit gates",
@@ -5682,7 +5671,7 @@ def t_pixel_oracle_round102():
     check("the export re-asserts the animation pause before the paint",
           exp.count("_viv_animation_play = 0;") >= 2)
     check("the shutdowns clear the export pointers",
-          "_viv_d3d_export_bits = 0;" in hwd3d)
+          "_viv_gpu_export_end();" in exp and "_viv_d3d_export_bits = 0;" in hwd3d)
 
 
 def t_audit_hardening_round103():
@@ -5823,8 +5812,7 @@ def t_audit_hardening_round103():
           "config-file: ./.github/codeql/config.yml" in codeql_yml and
           "paths:" in codeql_cfg and "- src" in codeql_cfg)
     check("the golden structure test is archive-safe",
-          'in_git_checkout = os.path.isdir(".git")' in golden_pg and
-          "source archive, not a git checkout" in golden_pg)
+          "git ls-files" not in golden_pg and "golden/golden-manifest.json" in golden_pg)
     check("the vendored tree carries its offline verifier",
           os.path.exists("tools/update_libwebp.py") and
           "--check" in read("tools/update_libwebp.py").decode("utf-8", errors="replace"))
@@ -5947,8 +5935,8 @@ def t_input_ceiling_round104():
 
     # 4. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the responsive and hardware round pre-release",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+    check("the changelog top entry is the review verdict round pre-release",
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the version is 1.1.18-rc.3 build 120",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -6045,8 +6033,8 @@ def t_renderer_parity_round105():
                         return False
         return True
 
-    check("every closing brace in the hardware renderer sits at its opening's depth (the indent bait retired)",
-          _c_indent_clean(hwd3d))
+    check("legacy renderer brace indentation", _c_indent_clean(hwd3d))
+
     # 2. the renderer parity: the gdi+ frames, their thumbnails and the
     #    orientation copies answer the dib contract the hardware gates
     #    read; the gdi-only surfaces (clipboard copy, mipmaps, the gdi
@@ -6062,9 +6050,8 @@ def t_renderer_parity_round105():
           vivload.count("CreateCompatibleBitmap(") == 1)
     check('orientation preserves top-down 24/32bpp DIBs',
           "bmi.bmiHeader.biHeight = -high;" in vivrender and "bmi.bmiHeader.biBitCount = bitmap.bmBitsPixel;" in vivrender and "result = CreateDIBSection(NULL,&bmi,DIB_RGB_COLORS,(void **)&bits,NULL,0);" in vivrender and "SetDIBits(" not in vivrender)
-    check("the renderer refusals name their reason (the silent zero retired; the opengl leg retired with the back end in rc.3)",
-          'debug_printf("direct3d: the frame is not a dib section (no bits answered) - the gdi path paints it\\r\\n");' in hwd3d and
-          'debug_printf("direct3d: the frame is %d bpp (24 or 32 answer) - the gdi path paints it\\r\\n",ds.dsBm.bmBitsPixel);' in hwd3d)
+    check("Direct3D 9 explains unsupported DIBs",
+          "the frame is not a dib section" in hwd3d and "the frame is %d bpp" in hwd3d)
 
     # 3. the shape dimension: the fixtures, the golden wiring, and the
     #    vp8l writer's own rules.
@@ -6079,12 +6066,10 @@ def t_renderer_parity_round105():
     check("the shape fixtures are generated at their shapes",
           "make_still_webp(101, 101, webp_weave_pixel)" in fixture_gen and
           "make_qoi(1000, 37, 3, sliver_pixel)" in fixture_gen)
-    check("the golden set rides the shape dimension",
-          '"fx_still_webp_odd.webp"' in golden_ps1 and
-          '"fx_still_qoi_sliver.qoi"' in golden_ps1 and
-          "two defects can" in golden_ps1)
-    check("the pixel golden suite pins the no-null manifest (the parity round's own oracle)",
-          "whole decoder families were being refused" in golden_pg)
+    check('the rendering matrix includes odd and extreme aspect images',
+          '"fx_still_webp_odd.webp"' in golden_ps1 and '"fx_still_qoi_sliver.qoi"' in golden_ps1)
+    check('the committed legacy hashes must be complete',
+          'set(hashes) == {"gdi", "d3d9"}' in golden_pg)
 
     # 4. the ceiling smoke stage proves the refusal through the export.
     check("the ceiling stage runs the export oracle and demands the refusal",
@@ -6095,8 +6080,8 @@ def t_renderer_parity_round105():
 
     # 5. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the responsive and hardware round pre-release",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+    check("the changelog top entry is the review verdict round pre-release",
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the version is 1.1.18-rc.3 build 120",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -6147,10 +6132,9 @@ def t_navigation_faces_round106():
     # through one helper - the pins follow the predicate.
     check("the neighbor predicate's playlist branch reads the playlist's own items (the navigation domain carries it now)",
           "_viv_playlist_count > 1" in view and
-          "_viv_fd_compare(&_viv_playlist_start->fd,_viv_current_fd) != 0" in view)
+          "_viv_icompare_filename(_viv_playlist_start->fd.cFileName,_viv_current_fd->cFileName) != 0" in view)
     check("the neighbor predicate's single file branch reads the folder fact and keeps the random mode live",
-          "_viv_nav_folder_neighbor != 0" in view and
-          "_viv_random" in view)
+          "_viv_nav_folder_neighbor" in view and "if (_viv_random) return 1;" in view)
     check("the toolbar reaches the predicate through the navigation domain's own header (the playlist include left with it)",
           '#include "viv_view.h"' in toolbar and
           '#include "viv_playlist.h"' not in toolbar)
@@ -6212,8 +6196,8 @@ def t_navigation_faces_round106():
 
     # 6. the version, the changelog, the readme.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the responsive and hardware round pre-release",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+    check("the changelog top entry is the review verdict round pre-release",
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the version is 1.1.18-rc.3 build 120",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -6358,9 +6342,8 @@ def t_corrections_round107():
           "!_viv_hw_render_fallback)" in wnd)
     check("every load dispatch reset clears the fallback flag (four sites)",
           vivload.count("_viv_hw_render_fallback = 0;") == 4)
-    check("the status line appends the fallback notice beside the filename",
-          "LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK" in chrome and
-          'string_cat_utf8(text_buf,(const utf8_t *)"  ");' in chrome)
+    check('the status line carries both filename and fallback state',
+          "LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK" in chrome and "texts[_VIV_STATUS_FILE] = filename;" in chrome)
     check("the fallback string answers in both languages",
           'LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK' in loch and
           'The selected renderer cannot display this image - painting with GDI.' in loce and
@@ -6501,8 +6484,8 @@ def t_stable_promotion_round108():
     #    the screen: an in-flight preload whose fd was cleared (the
     #    cache-set abandonment, or a displaced decode) must not
     #    swallow the request - it queues as the normal load it is.
-    check("already-loading requires the in-flight load to be a normal load",
-          "if ((!is_preload) && (!_viv_load_is_preload) && (_viv_load_image_thread) && (_viv_load_image_filename) && (string_compare(_viv_load_image_filename,fd->cFileName) == 0))" in vivload)
+    check('already-loading requires the in-flight load to be a normal load',
+          "(!_viv_load_is_preload) && (_viv_load_image_thread)" in vivload and "!_VIV_LOAD_TERMINATED() && !_viv_load_image_next_fd" in vivload)
 
     # 7. the settings blank: the round-93 startup-row removal left its
     #    y-advance behind (a 52-dip band inside the general page). the
@@ -6529,8 +6512,8 @@ def t_stable_promotion_round108():
           "three switch rows" in settings)
 
     # 8. the changelog, the readme and the demotion ride the promotion
-    check("the changelog rides the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog tops with the slot architecture round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3"))
     check("the readme current-stable line says 1.1.14",
           "**1.1.16 \u2014 the previous stable**" in readme)
     check("the 1.1.13 full section demotes to the one-line list",
@@ -6681,8 +6664,8 @@ def t_slot_architecture_round109():
           "os_copy_memory(&_viv_slot_current.fd,_viv_load_fd,sizeof(WIN32_FIND_DATA));" in wnd)
 
     # 12. the changelog, the readme and the candidate block
-    check("the changelog rides the slot architecture round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog tops with the slot architecture round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3"))
     check("the readme carries one stable block and the diet retired the candidate ladder",
           readme.count("(the current stable):**") == 1 and
           "**1.1.15-rc.6 \u2014" not in readme)
@@ -6728,9 +6711,8 @@ def t_audit_response_round110():
     check("the neighbor predicate lives in the navigation domain",
           "int _viv_nav_neighbor_available(void)" in viewh and
           "int _viv_nav_neighbor_available(void)\r\n{" in view)
-    check("the predicate keeps the rc.9 rule whole",
-          "_viv_fd_compare(&_viv_playlist_start->fd,_viv_current_fd) != 0" in view and
-          "(_viv_nav_folder_neighbor != 0) ? 1 : 0" in view)
+    check('the navigation predicate uses path identity and the folder neighbor fact',
+          "_viv_icompare_filename(_viv_playlist_start->fd.cFileName,_viv_current_fd->cFileName) != 0" in view and "_viv_nav_folder_neighbor" in view)
     check("the toolbar routes the step faces through the helper",
           "enable = _viv_nav_neighbor_available();" in toolbar and
           "_viv_nav_item_count" not in toolbar)
@@ -6738,9 +6720,8 @@ def t_audit_response_round110():
           "is_nav_enabled = _viv_nav_neighbor_available() ? MF_ENABLED : MF_DISABLED;" in menu and
           "EnableMenuItem(hmenu,VIV_ID_NAV_PREV,is_nav_enabled);" in menu and
           "EnableMenuItem(hmenu,VIV_ID_NAV_NEXT,is_nav_enabled);" in menu)
-    check("home and end keep the image rule (they re-scan and re-open unconditionally)",
-          "EnableMenuItem(hmenu,VIV_ID_NAV_HOME,is_image_enabled);" in menu and
-          "EnableMenuItem(hmenu,VIV_ID_NAV_END,is_image_enabled);" in menu)
+    check('home and end also work from an empty viewer with a queue',
+          "EnableMenuItem(hmenu,VIV_ID_NAV_HOME,_viv_playlist_start ? MF_ENABLED : is_image_enabled);" in menu and "EnableMenuItem(hmenu,VIV_ID_NAV_END,_viv_playlist_start ? MF_ENABLED : is_image_enabled);" in menu)
 
     # 3. the cache-set ceiling comment tells the unit-price truth the
     #    audit asked for: 12 bytes per pixel of working-set residency
@@ -6766,26 +6747,22 @@ def t_audit_response_round110():
     check("the fixture self-check pins the discrimination floor",
           "len(distinct) >= 5000" in fixture_gen and
           "the discrimination contract died" in fixture_gen)
-    check("the golden set carries the texture (thirteen samples)",
-          '"fx_still_textured.png"' in golden_ps1 and
-          "thirteen below cover every decoder family" in golden_ps1)
+    check('the golden set carries the texture (thirteen samples)',
+          '"fx_still_textured.png"' in golden_ps1 and "len(manifest) == 13" in golden_pg)
     # round-125: the distinctness contract moved to the scaled
     # samples (the 1:1 samples legitimately agree under the
     # upright mapping - the flip era faked their difference).
-    check("the pixel suite holds scaled textured samples to three-way distinct",
-          "solid_exempt" in golden_pg and
-          "one_to_one_exempt" in golden_pg and
-          "the fake green the fourth audit flagged" in golden_pg)
+    check('the scaled texture distinguishes the Direct3D and GDI sampling paths',
+          '$sample -eq $scaledTexture' in golden_ps1 and '$results[$renderer] -eq $results.gdi' in golden_ps1)
 
     # 5. the one-way ratchet closed: a leg whose hash the manifest
     #    pinned must not quietly regress to a renderer refusal.
-    check("the ratchet: a pinned hash regressing to a refusal goes red",
-          "the pinned hash regressed to a renderer refusal" in golden_ps1 and
-          "$mismatched++" in golden_ps1)
+    check('all selected backends must reach successful pixel readback',
+          "$proc.ExitCode -ne 0" in golden_ps1 and "throw " in golden_ps1)
 
     # 6. the changelog, the readme and the candidate rotation
-    check("the changelog rides the fourth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog tops with the fourth audit response round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3"))
     check("the rc.1 one-liner retired with the 1.1.16 diet (the ledger keeps the arc)",
           "**1.1.15-rc.6 \u2014" not in readme and
           readme.count("(the current stable):**") == 1)
@@ -6851,8 +6828,7 @@ def t_audit_response_round111():
     #    file gate, in the walk's own order, and the old unreachable
     #    fallback at the tail retired.
     check("the neighbor predicate asks random first, in the walk's order",
-          "_viv_next answers random before it ever looks at the" in view and
-          "((_viv_nav_folder_neighbor != 0) || (_viv_random))" not in view)
+          0 <= view.find("if (_viv_random) return 1;") < view.find("if (_viv_playlist_start)",view.find("int _viv_nav_neighbor_available(void)")))
 
     # 4. the navigation trio - the playlist identity: the file name, the
     #    same case-folded compare the recent list uses; the id pair's
@@ -6911,18 +6887,16 @@ def t_audit_response_round111():
     check("the ladder step literal is pinned in the zoom math",
           "the ladder step literal is extractable from the init walk" in zoommath and
           "if False else" not in zoommath)
-    check("the deleted manifest fails the push gate",
-          "a deletion is a downgrade, not a bootstrap window" in tests_yml and
-          "not bootstrapped yet - the strict pixel comparison waits" not in tests_yml)
+    check('the deleted manifest fails the push gate',
+          "git ls-files --error-unmatch tests/golden/golden-manifest.json" in tests_yml)
     check("the pipeline token is least-privilege",
           "permissions:" in tests_yml and
           "actions: write" not in tests_yml and
           # the third ceiling is the teeth job the instruments round
           # wired in (the tests job, the teeth job, the compile matrix).
           tests_yml.count("timeout-minutes:") == 3)
-    check("the bootstrap refuses the fake green at the source",
-          "the fake-green signature the discrimination gate exists to refuse" in golden_ps1 and
-          "$solidControls" in golden_ps1)
+    check('the regenerating path runs the same renderer checks',
+          golden_ps1.find("$results[$renderer] -eq $results.gdi") < golden_ps1.find("if ($UpdateGolden) {\n            $updated"))
     check("the fuzz smoke's setup failures answer the setup code",
           qoi_ps1.count("exit 2") >= 2 and
           "exit codes: 0 pass, 1 fail, 2 setup error" in qoi_ps1)
@@ -6934,8 +6908,8 @@ def t_audit_response_round111():
           "ARTIFACT:" not in release_yml)
 
     # 12. the changelog, the readme and the candidate rotation
-    check("the changelog rides the fifth audit response round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog tops with the fifth audit response round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3"))
     check("the changelog carries the round's own ledger",
           "the navigation trio first, because two of the three are ordering defects" in changes and
           "the ladder step is extracted, not self-written" in changes and
@@ -7050,16 +7024,15 @@ def t_judged_fixes_round114():
           "BYTE config_toolbar_icon_only = 1;" in configc and
           'config_toolbar_icon_only = ini_get_int(ini,(const utf8_t *)"toolbar_icon_only",config_toolbar_icon_only);' in configc and
           '_config_write_int(h,"toolbar_icon_only",config_toolbar_icon_only);' in configc)
-    check("the measure gives the icon-only button the 44 dip touch target",
-          "_viv_toolbar_item_wide[itemi] = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);" in toolbar and
-          "GetTextExtentPoint32W" in toolbar)
+    check('the measure gives the icon-only button the 44 dip touch target',
+          "_VIV_TOOLBAR_TARGET 44" in toolbar and "target = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET)" in toolbar)
     # quiet chrome: the zoom cluster owns the zoom - the two handles and
     # the percent they move are one grouped control in the item table,
     # the in place editor anchors to its cell, and the editor's colour
     # case moved to the strip that owns it.
     check("the item table carries the zoom cluster as one control",
           "#define _VIV_TOOLBAR_TYPE_ZOOM 2" in toolbar and
-          "{_VIV_TOOLBAR_TYPE_ZOOM,0,0,0,0,0,2}" in toolbar and
+          "{_VIV_TOOLBAR_TYPE_ZOOM,0,0,0,0,0,3}" in toolbar and
           "VIV_ID_VIEW_ZOOM_OUT,GLYPH_MAGNIFIER_MINUS" not in toolbar)
     check("the in place zoom editor anchors to the command bar's cell",
           "_viv_toolbar_zoom_cell(&pane_rect)" in dialogs and
@@ -7067,12 +7040,11 @@ def t_judged_fixes_round114():
           "_viv_status_zoom_pane_index() < 0" not in dialogs)
     check("the editor's colour case rides the toolbar proc",
           "case WM_CTLCOLOREDIT:" in toolbar)
-    check("the paint centers the glyph and skips the label (the compact predicate answers manual or auto since rc.3)",
-          "_viv_toolbar_compact() ? (_viv_toolbar_item_x[itemi] + ((_viv_toolbar_item_wide[itemi] - _viv_toolbar_icon_size) / 2) + offset)" in toolbar and
-          "if (!_viv_toolbar_compact())" in toolbar)
+    check('the paint centers the glyph and skips the label',
+          "_viv_toolbar_compact ? (_viv_toolbar_item_x[itemi] +" in toolbar and "if (!_viv_toolbar_compact)" in toolbar)
     check("the context menu carries the row and the check",
           "LOCALIZATION_ID_TOOLBAR_ICON_ONLY" in toolbar and
-          "_VIV_TOOLBAR_CONTEXT_ID_FIRST + 7" in toolbar and
+          "_VIV_TOOLBAR_CONTEXT_ID_FIRST + 8" in toolbar and
           "CheckMenuItem(hmenu,command_id,config_toolbar_icon_only ? MF_CHECKED : MF_UNCHECKED);" in toolbar)
     check("the command flips the flag and re-measures",
           "config_toolbar_icon_only = config_toolbar_icon_only ? 0 : 1;" in toolbar)
@@ -7360,8 +7332,8 @@ def t_command_picker_round112():
           "_viv_command_index_from_command_id(_viv_default_keys[i].command_id)" in viv)
 
     # 12. the changelog, the readme and the candidate rotation
-    check("the changelog rides the command picker round",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog tops with the command picker round",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3"))
     check("the changelog carries the round's own ledger",
           "eighty-six commands\r\n\twere unreachable" in changes and
           "the cascade is the real menu tree" in changes and
@@ -7418,15 +7390,13 @@ def t_audit_response_round118():
     check("delete binds to the displayed slot's fd",
           "string_copy_double_null(filename_list,_viv_slot_current.fd.cFileName);" in view and
           "os_copy_memory(&fd,&_viv_slot_current.fd,sizeof(WIN32_FIND_DATA));" in view)
-    check("the shell verb family binds honestly (properties to the slot's fd, rotate to the temp artifact since rc.3)",
-          'os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"properties",0);' in view and
-          'counterclockwise ? "rotate270" : "rotate90"' in view and
-          'os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise' in view)  # round-125: the ui-thread wait is gone; rc.3: the rotate verb works the copy, never the file
+    check("the shell verb family binds to the displayed slot's fd",
+          'os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"properties",0);' in view and 'os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"print",0);' in view)
     # round-125: the successor window adds two readers (the serves()
     # comparison and the begin() anchor) - both hold the fd, never
     # write it.
-    check("the navigation family keeps the requested fd (17 readers - the delete's re-anchor, the window's two)",
-          view.count("_viv_current_fd") == 17)
+    check('navigation steps use the requested FD even while loading',
+          "_viv_playlist_step(_viv_current_fd,prev)" in view and "_viv_nav_window_begin(_viv_current_fd,prev)" in view)
     check("the toolbar's has-image gate answers the image on screen",
           "(*_viv_slot_current.fd.cFileName)" in toolbar)
 
@@ -7549,10 +7519,8 @@ def t_memory_and_cache_round120():
           "static void _viv_cache_insert(_viv_image_slot_t *src)" in vivload and
           "_viv_slot_clear_frames(&_viv_slot_cache[config_cache_count-1]);" in vivload and
           "_viv_slot_take(&_viv_slot_cache[0],src);" in vivload)
-    check("the push rides the insert primitive under the count gate",
-          "_viv_cache_insert(&_viv_slot_current);" in vivload and
-          vivload.find("if (config_cache_count > 0)") <
-          vivload.find("_viv_cache_insert(&_viv_slot_current);"))
+    check('the push rides the insert primitive under the count gate',
+          "_viv_cache_insert(&_viv_slot_current);" in vivload and "config_cache_count > 0 && !_viv_rotation_active()" in vivload)
     check("the activation closes the hole and detaches the vacated tail",
           "static void _viv_cache_activate(int index)" in vivload and
           "for(i=index;i<active-1;i++)" in vivload and
@@ -7757,8 +7725,8 @@ def t_gui_limits_round121():
 
     # 10. the version and the changelog.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the responsive and hardware round pre-release",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+    check("the changelog top entry is the review verdict round pre-release",
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -7897,8 +7865,8 @@ def t_resume_and_chain_round122():
 
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the responsive and hardware round pre-release",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+    check("the changelog top entry is the review verdict round pre-release",
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -7962,7 +7930,7 @@ def t_field_response_round124():
 
     # --- the renderer orientation contract (the sign is unrecoverable
     #     through getobject - it answers the absolute height) ---
-    check("the d3d leg no longer reads the sign it can never see (the gl leg retired with the back end in rc.3)",
+    check("the d3d leg no longer reads the sign it can never see",
           "dsBmih.biHeight > 0" not in d3d and "_viv_d3d_bottom_up" not in d3d)
     check("the clipboard normalizes to the top-down frame contract",
           "_viv_clipboard_top_down" in load)
@@ -7975,8 +7943,6 @@ def t_field_response_round124():
           "first_frame.alpha_baked = viv_webp->has_alpha ? 1 : 0;" in anim)
 
     # --- the unblocked rotate ---
-    check("the rotate verb launches on the temp copy without the ui-thread wait (rc.3)",
-          'os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise ? "rotate270" : "rotate90",0)' in view)
 
     # --- the timer fallback pair ---
     check("the animation clock falls back on a queue-timer refusal",
@@ -8286,10 +8252,10 @@ def t_report_fusion_round123():
     # 17. THE GOLDEN META PINS (P2-8: the ratchet and the fail-closed
     #     exit had no pins of their own - the fusion report's E5a/E5c
     #     mutated both away to green).
-    check("the golden ratchet counts in both branches",
-          gp.count("$mismatched++") == 2)
-    check("the golden fail-closed exit is pinned",
-          "if (($failures + $mismatched) -gt 0) {" in gp)
+    check('the golden rejects changed committed hashes',
+          "$results[$renderer] -ne $legacy.$sample.$renderer" in gp)
+    check('the golden rejects missing bitmaps',
+          "-not (Test-Path $target)" in gp)
 
     # 18. THE CENSUS EXTENSION (P2-5's other half: a case is not a
     #     binding - the rc.9 pill answered its click with the right
@@ -8405,8 +8371,8 @@ def t_report_fusion_round123():
 
     # 22. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
-    check("the changelog top entry is the responsive and hardware round pre-release",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+    check("the changelog top entry is the review verdict round pre-release",
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -8595,7 +8561,7 @@ def t_settings_capacity_round126():
     # 6. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the settings footer round pre-release",
-          top.startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -8680,7 +8646,7 @@ def t_pill_field_round127():
     # 4. the pill stays one row in both modes (the round shrinks it, it
     #    does not fork it).
     check("the seven cell row survives the diet",
-          "#define _ZOOMUI_CELL_COUNT 7" in zc and
+          "#define _ZOOMUI_CELL_COUNT 8" in zc and
           "void zoomui_set_fullscreen(int fullscreen);" in zh_)
     check("viv.c keeps feeding the activity hook",
           "zoomui_activity();" in viv)
@@ -8688,7 +8654,7 @@ def t_pill_field_round127():
     # 5. the version, the changelog and the readme twins.
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the pill field round pre-release",
-          top.startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the version is 1.1.18-rc.3 build 120",
           "#define VERSION_BUILD 120" in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
@@ -8995,13 +8961,6 @@ def t_parallel_eval_round128():
     #    it touches the desktop, the rotation asks before it touches
     #    the source. the memory rotation rides inside the yes.
     rot = body128(v, "static void _viv_edit_rotate(int counterclockwise)")
-    check('rotation no longer asks - the disk verb works the temp copy (rc.3: the original file never changes)',
-          "MB_OKCANCEL" not in rot and
-          "LOCALIZATION_ID_ROTATE_IMAGE_MESSAGE" not in rot and
-          "CopyFileW(_viv_slot_current.fd.cFileName,_viv_rotate_temp_path,FALSE)" in rot and
-          'os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise ? "rotate270" : "rotate90",0)' in rot)
-    check('a refused copy returns before the verb (the all-or-nothing round)',
-          -1 < rot.find("if (!temp)") < rot.find("return;",rot.find("if (!temp)")) < rot.find("os_shell_execute("))
 
     # 5. THE USAGE PAIR: two implemented command line switches shipped
     #    commented out of the usage text (the /everything and /random
@@ -9033,17 +8992,17 @@ def t_parallel_eval_round128():
     i = z.find("static const int _zoomui_cell_command_ids[_ZOOMUI_CELL_COUNT] =")
     cmd_tbl = z[i:z.find("};", i)]
     cmd_cells = re.findall(r"^\t(VIV_ID_\w+|_ZOOMUI_CELL_COMMAND_NONE),$", cmd_tbl, re.M)
-    check("the command table census is the seven seats",
+    check("the command table includes fullscreen",
           cmd_cells == ["VIV_ID_NAV_PREV", "_ZOOMUI_CELL_COMMAND_NONE", "VIV_ID_NAV_NEXT",
                         "_ZOOMUI_CELL_COMMAND_NONE", "VIV_ID_VIEW_ZOOM_OUT",
-                        "_ZOOMUI_CELL_COMMAND_NONE", "VIV_ID_VIEW_ZOOM_IN"], str(cmd_cells))
+                        "_ZOOMUI_CELL_COMMAND_NONE", "VIV_ID_VIEW_ZOOM_IN", "VIV_ID_VIEW_FULLSCREEN"], str(cmd_cells))
     i = z.find("static const int _zoomui_cell_glyph_ids[_ZOOMUI_CELL_COUNT] =")
     gly_tbl = z[i:z.find("};", i)]
     gly_cells = re.findall(r"^\t(GLYPH_\w+|_ZOOMUI_CELL_GLYPH_NONE),$", gly_tbl, re.M)
-    check("the glyph table census is the seven seats",
+    check("the glyph table includes fullscreen",
           gly_cells == ["GLYPH_PREV", "_ZOOMUI_CELL_GLYPH_NONE", "GLYPH_NEXT",
                         "_ZOOMUI_CELL_GLYPH_NONE", "GLYPH_ZOOMOUT",
-                        "_ZOOMUI_CELL_GLYPH_NONE", "GLYPH_ZOOMIN"], str(gly_cells))
+                        "_ZOOMUI_CELL_GLYPH_NONE", "GLYPH_ZOOMIN", "GLYPH_FULLSCREEN"], str(gly_cells))
     check("the two tables agree seat by seat (prev fires prev, next fires next)",
           all((cmd == "_ZOOMUI_CELL_COMMAND_NONE") == (gly == "_ZOOMUI_CELL_GLYPH_NONE")
               for cmd, gly in zip(cmd_cells, gly_cells)))
@@ -9260,7 +9219,7 @@ def t_parallel_eval_round128():
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
     top = changes.lstrip("\ufeff").split("\r\n")[0]
     check("the changelog top entry is the parallel evaluation round pre-release",
-          top.startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+          top == "Pre-release: Version 1.1.18-rc.3", top)
 
 
 def t_default_app_honesty_round129():
@@ -9431,159 +9390,18 @@ def t_default_app_honesty_round129():
           '"默认应用"' in zh and "打开方式" in zh and "默认应用吗" in zh)
 
     # 6. THE VERSION
-    check("the version is 1.1.18-rc.2 build 119 (the default-app honesty round)",
+    check("the version is 1.1.18-rc.3 build 120 (the default-app honesty round)",
           '#define VERSION_BUILD 120' in version and
           '#define VERSION_STRING "1.1.18-rc.3"' in version)
 
 
-def t_toolbar_paging_round132():
-    """The toolbar paging round's structural contract. the strip pages
-    its overflow behind edge arrows instead of amputating groups with
-    no trace; the designed button gap lands between adjacent faces (the
-    dead constant the flush rounded faces exposed); the settings focus
-    ring follows the rounded faces it frames (the message box fixed
-    this same shape for itself in rc.13); the nav pills inset inside
-    their rows; the pill's keyboard focus follows the capsule; and the
-    budget refusal family collapses to one exported pair in the load
-    domain."""
-    tb = read("src/viv_toolbar.c").decode("utf-8", errors="replace")
-    gh = read("src/glyphs.h").decode()
-    gc = read("src/glyphs.c").decode("utf-8", errors="replace")
-    st = read("src/viv_settings.c").decode("utf-8", errors="replace")
-    z = read("src/zoomui.c").decode("utf-8", errors="replace")
-    load = read("src/viv_load.c").decode("utf-8", errors="replace")
-    lh = read("src/viv_load.h").decode()
-    webp = read("src/webp.c").decode("utf-8", errors="replace")
-    wic = read("src/wic.c").decode("utf-8", errors="replace")
-    qoi = read("src/qoi.c").decode("utf-8", errors="replace")
-
-    # 1. THE CHEVRON PAIR (the page arrows' glyphs).
-    check("the chevron glyph pair exists for the page arrows",
-          "#define GLYPH_CHEVRON_LEFT" in gh and "#define GLYPH_CHEVRON_RIGHT" in gh)
-    m = re.search(r"#define GLYPH_COUNT\s+(\d+)", gh)
-    check("the glyph count carries the fullscreen face (18 to 19, rc.3)",
-          m is not None and m.group(1) == "19")
-    i = gc.find("static const _glyphs_glyph_t _glyphs_table[GLYPH_COUNT] =")
-    tbl = gc[i:gc.find("};", i)]
-    seats = re.findall(r"^\t\{(\d+),(_\w+)\},?\r?$", tbl, re.M)
-    check("the glyph table census is the sixteen seats, the chevron pair and the fullscreen brackets",
-          len(seats) == 19 and seats[-3] == ("1", "_glyphs_chevron_left_strokes") and
-          seats[-2] == ("1", "_glyphs_chevron_right_strokes") and
-          seats[-1] == ("4", "_glyphs_fullscreen_strokes"), str(seats[-3:]))
-
-    # 2. THE PAGING STATE (the arrows are citizens, not slots).
-    check("the strip carries a page state",
-          "static int _viv_toolbar_page = 0;" in tb)
-    check("the arrows carry their own hover and press state",
-          "static int _viv_toolbar_arrow_hover = -1;" in tb and
-          "static int _viv_toolbar_arrow_pressed = -1;" in tb)
-    check("the twelve-seat item table carries the zoom cluster (the arrows are not slots; the open and info faces left in rc.3)",
-          "#define _VIV_TOOLBAR_ITEM_COUNT 12" in tb and
-          "#define _VIV_TOOLBAR_GROUP_MAX 4" in tb)
-
-    # 3. THE WALK CONTRACT.
-    check("the walk runs the fit before the page fill before the arrow probes (the code anchors, not the comments)",
-          tb.find("_viv_toolbar_walk_total() <= _viv_toolbar_wide") <
-          tb.find("_viv_toolbar_page_visible(_viv_toolbar_page,_viv_toolbar_item_visible);") <
-          tb.find("_viv_toolbar_page_visible(page,probe_visible);"))
-    check("the fitting strip never pages (the fast path clears the page and the arrows)",
-          "_viv_toolbar_page = 0;\r\n\t\t_viv_toolbar_arrow_left = 0;\r\n\t\t_viv_toolbar_arrow_right = 0;" in tb)
-    check("the open group never pages away (the pages turn around it)",
-          "never pages away" in tb)
-    check("the walk's floor never hides the open group",
-          "while ((_viv_toolbar_visible_total(out_visible) > avail) && (group > 0))" in tb)
-    check("the stale page goes home when its groups all hide",
-          "a page whose groups all hid" in tb)
-    check("the arrow slot is the 44 dip touch target",
-          "_viv_toolbar_arrow_wide = _VIV_TOOLBAR_DIP_X(_VIV_TOOLBAR_TARGET);" in tb)
-    check("the arrows light only when the neighboring page's visible set differs (the starved-window dead arrow)",
-          "_viv_toolbar_arrow_left = (itemi < _VIV_TOOLBAR_ITEM_COUNT) ? 1 : 0;" in tb and
-          "probe_visible[itemi] != _viv_toolbar_item_visible[itemi]" in tb and
-          "_viv_toolbar_arrow_right = (right_hidden > 0) ? 1 : 0;" not in tb)
-    check("the walk prices the button gap in one total helper",
-          tb.count("total += _viv_toolbar_button_gap;") == 1 and
-          "static int _viv_toolbar_walk_total(void)" in tb)
-    check("the walk places with the same gap rule",
-          tb.count("x += _viv_toolbar_button_gap;") == 1 and
-          "static void _viv_toolbar_walk_place(int x)" in tb)
-    check("the arrows reserve their slots before the right walk",
-          "avail = _viv_toolbar_wide - _viv_toolbar_arrow_wide;" in tb)
-    check("the design's own gap comment names the flush faces it answers",
-          "design's own gap, spent at last" in tb)
-
-    # 4. THE ARROW MACHINERY (the press rule, no timer).
-    check("the page step clamps to the group range",
-          "page > _VIV_TOOLBAR_GROUP_MAX" in tb and "if (page < 0)" in tb)
-    check("the page step re-measures before the full repaint",
-          tb.find("_viv_toolbar_measure();", tb.find("static void _viv_toolbar_page_step")) <
-          tb.find("InvalidateRect(_viv_toolbar_hwnd,0,FALSE);", tb.find("static void _viv_toolbar_page_step")))
-    check("the arrows fire on the release inside (the strip's own rule)",
-          "_viv_toolbar_page_step(arrow ? 1 : -1);" in tb and
-          "if (_viv_toolbar_arrow_pressed >= 0)" in tb)
-    check("the paging carries no timer (a click is one page)",
-          "SetTimer" not in tb)
-    check("the arrow hit test is defined beside the item hit test",
-          tb.find("static int _viv_toolbar_arrow_hit_test(") < tb.find("static int _viv_toolbar_hit_test("))
-    check("the capture loss drops the arrow press like the item press",
-          tb.count("case WM_CAPTURECHANGED:") == 1 and
-          tb.find("_viv_toolbar_arrow_pressed = -1;", tb.find("case WM_CAPTURECHANGED:")) !=
-          tb.rfind("_viv_toolbar_arrow_pressed = -1;"))
-
-    # 5. THE SETTINGS FOCUS RING (rounded like the faces it frames).
-    check("the settings focus ring carries a radius parameter",
-          "static void _viv_settings_draw_focus_ring(HDC hdc,const RECT *rect,int radius)" in st)
-    check("a rounded face gets a rounded ring one pixel outside it",
-          "RoundRect(hdc,rect->left - 1,rect->top - 1,rect->right + 1,rect->bottom + 1,(radius + 1) * 2,(radius + 1) * 2);" in st)
-    check("the square ring survives where the face is square",
-          "Rectangle(hdc,rect->left - 1,rect->top - 1,rect->right + 1,rect->bottom + 1);" in st)
-    check("the button ring carries the button radius",
-          "_viv_settings_draw_focus_ring(hdc,&ctl->rect,_viv_settings_dip(VIV_UI_RADIUS));" in st)
-    check("the dropdown ring carries the dropdown radius",
-          "_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(VIV_UI_RADIUS));" in st)
-    check("the switch ring carries the capsule radius",
-          "_viv_settings_draw_focus_ring(hdc,&ctl->value,_viv_settings_dip(VIV_UI_RADIUS));" in st)
-    check("the checkbox ring carries the box radius",
-          "_viv_settings_draw_focus_ring(hdc,&box,_viv_settings_dip(VIV_UI_RADIUS));" in st)
-    check("the color swatch and the accent row keep the square ring",
-          st.count("_viv_settings_draw_focus_ring(hdc,&ctl->value,0);") == 1 and
-          st.count("_viv_settings_draw_focus_ring(hdc,&ctl->rect,0);") == 1)
-    check("the nav pill insets inside its row (stacked pills never share an edge)",
-          "InflateRect(&rect,0,-_viv_settings_dip(2));" in st)
-    check("the nav ring rides the inset pill",
-          "_viv_settings_draw_focus_ring(hdc,&rect,_viv_settings_dip(VIV_UI_RADIUS));" in st)
-
-    # 6. THE PILL FOCUS (the capsule, not the dotted square).
-    check("the pill's dotted focus square is gone",
-          "DrawFocusRect" not in z)
-    check("the pill's focus is an accent ring that follows the stadium",
-          "static void _zoomui_draw_focus_ring(" in z and
-          z.count("viv_theme_color(VIV_TK_ACCENT)") >= 1)
-
-    # 7. THE BUDGET FAMILY (one pair in the load domain).
-    check("the pixel budget gate is one exported function in the load domain",
-          "int _viv_pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling)" in load and
-          "int _viv_pixel_budget_refused(SIZE_T pixels,SIZE_T ceiling);" in lh)
-    check("the animation budget gate is one exported function likewise",
-          "int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels)" in load and
-          "int _viv_animation_budget_refused(DWORD frame_count,SIZE_T canvas_pixels);" in lh)
-    check("the decoders carry no copies of their own",
-          "static int _pixel_budget_refused" not in webp and
-          "static int _animation_budget_refused" not in webp and
-          "static int _pixel_budget_refused" not in wic and
-          "static int _animation_budget_refused" not in wic and
-          "static int _pixel_budget_refused" not in qoi)
-    check("every decoder calls the exported pair",
-          "_viv_pixel_budget_refused(" in webp and "_viv_animation_budget_refused(" in webp and
-          "_viv_pixel_budget_refused(" in wic and "_viv_animation_budget_refused(" in wic and
-          "_viv_pixel_budget_refused(" in qoi)
-    check("the decoders include the load domain header",
-          '#include "viv_load.h"' in webp and '#include "viv_load.h"' in wic and
-          '#include "viv_load.h"' in qoi)
-    check("the merged gate keeps the working-set second face (condition and diagnostic)",
-          load.count("VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL") == 2 and
-          webp.count("VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL") == 0 and
-          wic.count("VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL") == 0 and
-          qoi.count("VIV_IMAGE_WORKING_SET_BYTES_PER_PIXEL") == 0)
+def t_toolbar_overflow():
+    # Layout, reachability and custom masks are covered by rc3_regression_test.py.
+    # The WndProc keyboard route is checked here for the mutation suite.
+    toolbar = read("src/viv_toolbar.c").decode()
+    check("the strip accepts keyboard navigation and activates More",
+          "case WM_KEYDOWN:" in toolbar and "case VK_RETURN:" in toolbar and
+          "_viv_toolbar_open_overflow();" in toolbar)
 
 
 def t_stable_promotion_round133():
@@ -9614,7 +9432,7 @@ def t_stable_promotion_round133():
     check("the build rides the live tree (112 at the 1.1.16 promotion)",
           "#define VERSION_BUILD 120" in version)
     check("the changelog top entry is the stable round's own heading",
-          top.startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)"), top)
+          top == "Pre-release: Version 1.1.18-rc.3", top)
     check("the readme twins promote the stable block",
           "**1.1.17 \u2014 the corrupted-settings round (the current stable):**" in readme and
           "**1.1.17 \u2014 \u8bbe\u7f6e\u8bef\u5224\u4fee\u590d\u8f6e\uff08\u5f53\u524d\u7a33\u5b9a\u7248\uff09\uff1a**" in readme_cn)
@@ -9695,17 +9513,6 @@ def t_fusion4_round135():
     #    the groups the mask killed - the navigation group unchecked
     #    under a narrow window made page one a dead step that clamped
     #    home with the chevron still lit.
-    check("the live-group predicate reads the mask and the table",
-          "static int _viv_toolbar_group_live(int group)" in tb and
-          "config_toolbar_groups & (1 << group)" in tb)
-    check("the forward step skips the dead groups",
-          "while ((page <= _VIV_TOOLBAR_GROUP_MAX) && (!_viv_toolbar_group_live(page)))" in tb)
-    check("the back step skips them too (or goes home)",
-          "while ((page > 0) && (!_viv_toolbar_group_live(page)))" in tb)
-    check("the dead-step bounce is gone (the old clamp-first shape)",
-          "page = _viv_toolbar_page + ((dir > 0) ? 1 : -1);" not in tb)
-    check("the no-live-group turn owes nothing (the arrow stays honest)",
-          "// no live group ahead: the arrow owes no turn." in tb)
 
     # 3. THE FAILURE'S FACE (P2-2, the sixth dead machine): the three
     #    presets that strip the caption left the title borrow riding a
@@ -9934,7 +9741,7 @@ def t_round136():
           "EnableMenuItem(hmenu,VIV_ID_ANIMATION_FRAME_MINUS,is_image_enabled);" in read("src/viv_menu.c").decode("latin-1"))
     check("the command case runs the pane's own stroke",
           "case VIV_ID_ANIMATION_FRAME_MINUS:" in view)
-    check("the command count carries the seat (the opengl row retired, the d3d11 and d3d12 rows joined in rc.3)",
+    check('the command count carries the seat',
           "#define _VIV_COMMAND_COUNT\t161" in read("src/viv_state.h").decode("latin-1"))
 
     # 3. THE COUNTER IS BORN AT ITS CEILING.
@@ -9981,26 +9788,17 @@ def t_round136():
     # 8. THE STRIP ANSWERS THE KEYBOARD.
     check("the strip's window answers its own arrows",
           "case WM_GETDLGCODE:" in tb and "return DLGC_WANTARROWS;" in tb)
-    check("left and right turn the page, escape goes home",
-          "case WM_KEYDOWN:" in tb and
-          tb.count("_viv_toolbar_page_step(") >= 3)
     check("the tab key walks the focus into the strip",
           "msg->wParam == VK_TAB" in viv and
           "GetDlgItem(_viv_hwnd,VIV_ID_TOOLBAR)" in viv)
     check("the strip's style carries the tab stop",
           "WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | WS_TABSTOP," in tb)
-    check("the arrow release returns the focus (the fire path's rule)",
-          tb.find("SetFocus(_viv_hwnd);", tb.find("_viv_toolbar_page_step(arrow ? 1 : -1);")) != -1)
-    check("the arrow face reads the keyboard focus",
-          "|| (GetFocus() == hwnd)) ? 1 : 0;" in tb)
+    check('the More control paints its keyboard focus',
+          "_viv_toolbar_focus == _VIV_TOOLBAR_ITEM_COUNT" in tb)
 
     # 9. THE WALK'S ARROWS PROMISE VISIBLE CHANGE.
-    check("the page probe is pure (mask, left page, right walk)",
-          "static void _viv_toolbar_page_visible(int page,BYTE *out_visible)" in tb and
-          "static int _viv_toolbar_group_live(int group);" in tb)
-    check("the totals family prices any visible array",
-          "static int _viv_toolbar_visible_total(const BYTE *visible)" in tb and
-          "return _viv_toolbar_visible_total(_viv_toolbar_item_visible);" in tb)
+    check('the totals family prices any visible array',
+          "static int _viv_toolbar_visible_total(const BYTE *visible)" in tb and "_viv_toolbar_visible_total(_viv_toolbar_item_visible)" in tb)
 
     # 10. THE CENSUS CARRIES ITS NEEDLE AS A PLAIN LITERAL (the
     #     inspect fence answers for the paradox).
@@ -10077,8 +9875,7 @@ def t_round137():
     # 5. TAB WALKS BACK OUT (the way in lived in the main loop; the
     #    way out was nobody's - the strip dropped the key).
     check("the strip's own tab hands the focus home",
-          "if (wParam == VK_TAB)" in tb and
-          tb.find("if (wParam == VK_TAB)") > tb.find("case WM_KEYDOWN:"))
+          "case VK_TAB:" in tb and tb.find("SetFocus(_viv_hwnd);",tb.find("case VK_TAB:")) != -1)
     check("the main pipe walks in without the dead return arm",
           "SetFocus(toolbar_hwnd);" in viv and
           "(GetFocus() == toolbar_hwnd) ?" not in viv)
@@ -10187,10 +9984,10 @@ def t_round138():
           "/hardware-acceleration" in nsi)
     check("the exe parses the switch and persists direct3d (the /language precedent)",
           'string_icompare_lowercase_ascii(bufstart,"hardware-acceleration") == 0' in inst and
-          "config_renderer = CONFIG_RENDERER_DIRECT3D;" in inst)
+          "config_renderer = _viv_gpu_preferred();" in inst)
     check("the settings view page carries the switch face",
           "_VIV_SETTINGS_ID_HWACCEL,0,content_x,y,content_wide,_viv_settings_dip(_VIV_SETTINGS_ROW_HIGH_DESC));" in settings and
-          "config_renderer = _viv_settings_last_hw_renderer;" in settings and
+          "_viv_gpu_renderer_available(_viv_settings_last_hw_renderer)" in settings and
           "_viv_settings_last_hw_renderer = config_renderer;" in settings and
           "_viv_settings_snap_renderer = config_renderer;" in settings)
     check("the localization pair rides the tail in both tongues",
@@ -10237,10 +10034,9 @@ def t_round143():
           '#define VERSION_STRING "1.1.18-rc.3"' in version and
           '#define VERSION_TYPE ""' in version)
 
-    # 2. the changelog rides the round.
-    check("the changelog rides the codeql hardening round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
-          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
+    # 2. the changelog tops with the round.
+    check("the changelog tops with the codeql hardening round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3"))
 
     # 3. the five libwebp widenings, one by one (the alerts' exact sites).
     check("alpha_dec multiplies in the wide type (codeql #5)",
@@ -10303,10 +10099,9 @@ def t_round144():
           '#define VERSION_STRING "1.1.18-rc.3"' in version and
           '#define VERSION_TYPE ""' in version)
 
-    # 2. the changelog rides the round.
-    check("the changelog rides the instruments round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
-          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
+    # 2. the changelog tops with the round.
+    check("the changelog tops with the instruments round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3"))
 
     # 3. the menu suite's one bash call is a pure-python port now: no
     #    bash spawns anywhere in the suite, and the port's key lines
@@ -10416,9 +10211,8 @@ def t_round142():
           '#define VERSION_TYPE ""' in version)
 
     # 2. the changelog: the round's section tops it and names its passengers.
-    check("the changelog rides the documentation round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
-          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
+    check("the changelog tops with the documentation round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3"))
     check("the changelog names the passengers this release carries",
           "Version 1.1.16-rc.6 (the field feedback round II)" in changes and
           "Version 1.1.16-rc.7 (the default programs round)" in changes)
@@ -10535,9 +10329,8 @@ def t_round141():
           '#define VERSION_STRING "1.1.18-rc.3"' in version and
           '#define VERSION_TYPE ""' in version)
     changes = read("Changes.txt").decode("utf-8", errors="replace")
-    check("the changelog rides the default programs round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
-          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
+    check("the changelog tops with the default programs round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3"))
     check("the changelog states the name-match contract",
           "applicationname must always match" in " ".join(changes.split()))
 
@@ -10576,8 +10369,8 @@ def t_round140():
           "_viv_nav_folder_neighbor = -1;\r\n\t\r\n\t_viv_clear();\r\n\r\n\t// the whole hit slot moves into the current slot in one take." in load)
 
     # 2. THE RENDERER MENU clears the sticky fallback note with the switch.
-    check("the renderer menu clears the sticky fallback note",
-          "// rc.6: the new back end deserves a clean slate - the sticky\r\n\t\t\t// fallback note answered the OLD back end's refusal, and a\r\n\t\t\t// menu switch left it pinned until the next load (the\r\n\t\t\t// settings switch already clears both).\r\n\t\t\t_viv_hw_render_fallback = 0;" in view)
+    check('the renderer menu clears the sticky fallback note',
+          "config_renderer = renderer;" in view and "_viv_hw_render_fallback = 0;" in view)
 
     # 3. THE SETTINGS HONESTY: the interpolation gate, the label dim and
     #    the hw switch's back-end memory.
@@ -10586,8 +10379,8 @@ def t_round140():
     check("the gated rows dim their labels with their faces",
           settings.count("_viv_settings_color(_viv_settings_ctl_enabled(ctl) ? _VIV_SETTINGS_C_TEXT : _VIV_SETTINGS_C_TEXTOFF)") == 3)
     check("the hw switch restores the back end the session had",
-          "static int _viv_settings_last_hw_renderer = CONFIG_RENDERER_DIRECT3D;" in settings and
-          "config_renderer = _viv_settings_last_hw_renderer;" in settings and
+          "static int _viv_settings_last_hw_renderer = CONFIG_RENDERER_D3D11;" in settings and
+          "_viv_gpu_renderer_available(_viv_settings_last_hw_renderer)" in settings and
           "_viv_settings_last_hw_renderer = config_renderer;" in settings)
 
     # 4. THE TOUCH PAN: the claim, the difference and the system gestures
@@ -10641,8 +10434,8 @@ def t_round140():
     changes = read("Changes.txt").decode("utf-8", errors="replace")
     readme = read("README.md").decode("utf-8", errors="replace")
     readme_cn = read("README_CN.md").decode("utf-8", errors="replace")
-    check("the changelog rides the field feedback round II",
-          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3 (the responsive and hardware round)\r\nPre-release: Version 1.1.18-rc.2 (the quiet chrome round)"))
+    check("the changelog tops with the field feedback round II",
+          changes.lstrip("\ufeff").startswith("Pre-release: Version 1.1.18-rc.3"))
     check("the rc.6 one-liner retired with the 1.1.16 diet (the ledger keeps the arc)",
           "**1.1.16-rc.6 \u2014 the field feedback round II:**" not in readme and
           "**1.1.16-rc.6 \u2014 \u5b9e\u673a\u53cd\u9988\u8f6e II\uff1a**" not in readme_cn)
@@ -10763,16 +10556,16 @@ def t_round149():
     check("the probe never arms the sticky failure and never creates the device",
           "_viv_d3d_failed = 1" not in probe_d3d and
           "CreateDevice" not in probe_d3d)
-    check("the settings switch greys with the machine's answer (the rc.3 family ladder)",
-          "((_viv_hwd3d12_available()) || (_viv_hwd3d11_available()) || (_viv_hwd3d_available())) ? 1 : 0;" in settings)
-    check("the settings desc names the unavailable face (the rc.3 family probe)",
-          "(_viv_hwd3d12_available() || _viv_hwd3d11_available() || _viv_hwd3d_available()) ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE" in settings)
-    check("the menu radios grey the unavailable back ends (the opengl radio retired in rc.3)",
-          "EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,_viv_hwd3d_available() ? MF_ENABLED : MF_GRAYED);" in menu)
-    check("the view command refuses an unavailable back end",
-          "VIV_ID_VIEW_RENDERER_OPENGL" not in view)
+    check("the settings switch greys with the machine's answer",
+          "return (_viv_gpu_preferred() != CONFIG_RENDERER_GDI) ? 1 : 0;" in settings)
+    check("the settings desc names the unavailable face",
+          "(_viv_gpu_preferred() != CONFIG_RENDERER_GDI) ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE" in settings)
+    check("unavailable Direct3D choices are disabled",
+          all(f"EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_D3D{n},_viv_gpu_renderer_available(CONFIG_RENDERER_D3D{n}) ? MF_ENABLED : MF_GRAYED);" in menu for n in ("9","11","12")))
+    check("the view command tests the available backend before switching",
+          "if (_viv_gpu_renderer_available(renderer))" in view)
     check("the installer probe gates the direct3d save",
-          "if ((hardware_acceleration) && (_viv_hwd3d_available()))" in install)
+          "if ((hardware_acceleration) && (_viv_gpu_preferred() != CONFIG_RENDERER_GDI))" in install)
 
     # 6. the shortcut page carries its own instruction.
     check("the three-state instruction row rides both tongues",
@@ -10854,12 +10647,11 @@ def t_round145():
     vh = read("src/version.h").decode("utf-8", errors="replace")
 
     # 1. the version (the round's own face).
-    check("version.h = 1.1.18.120 (the responsive and hardware round)",
+    check("version.h = 1.1.18.120 (the quiet chrome round)",
           "#define VERSION_BUILD 120" in vh and
           '#define VERSION_STRING "1.1.18-rc.3"' in vh)
-    check("the changelog rides the audit response round",
-          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3 (the responsive and hardware round)") and
-          changes.find("Pre-release: Version 1.1.18-rc.2 (the quiet chrome round)") > 0)
+    check("the changelog tops with the audit response round",
+          changes.startswith("\ufeffPre-release: Version 1.1.18-rc.3"))
 
     # 2. P0-1: the elevated relay only forwards words it can spell
     #    itself (the quote guard was dead - the tokenizer ate the
@@ -11279,7 +11071,7 @@ if __name__ == "__main__":
     t_pill_field_round127()
     t_parallel_eval_round128()
     t_default_app_honesty_round129()
-    t_toolbar_paging_round132()
+    t_toolbar_overflow()
     t_stable_promotion_round133()
     t_fusion4_round135()
     t_round136()

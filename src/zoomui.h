@@ -55,8 +55,8 @@ int zoomui_is_pill_hwnd(HWND hwnd);
 // wide,high = the image area of the parent client (status bar / toolbar excluded).
 void zoomui_layout(int wide,int high);
 
-// switch between the windowed two button pill and the fullscreen six
-// button overlay bar. call on every fullscreen toggle.
+// switch between the windowed pill and the fullscreen pill with idle fade.
+// Call on every fullscreen toggle.
 void zoomui_set_fullscreen(int fullscreen);
 
 // notify user activity (mouse motion, key press, command): keeps the

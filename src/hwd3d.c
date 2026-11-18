@@ -23,6 +23,7 @@
 
 #include "viv.h"
 #include "hwd3d.h"
+#include "hwd3d_modern.h"
 #include <d3d9.h>
 
 typedef IDirect3D9 * (__stdcall *_viv_d3d_create9_t)(UINT sdk_version);
@@ -113,7 +114,7 @@ int _viv_hwd3d_available(void)
 
 	if (!_viv_d3d_module)
 	{
-		_viv_d3d_module = LoadLibraryA("d3d9.dll");
+		_viv_d3d_module = _viv_gpu_system_dll(L"d3d9.dll");
 		if (!_viv_d3d_module)
 		{
 			debug_printf("direct3d probe: d3d9.dll is not on this system\r\n");
@@ -182,7 +183,7 @@ static int _viv_d3d_init(HWND hwnd)
 	
 	if (!_viv_d3d_module)
 	{
-		_viv_d3d_module = LoadLibraryA("d3d9.dll");
+		_viv_d3d_module = _viv_gpu_system_dll(L"d3d9.dll");
 		if (!_viv_d3d_module)
 		{
 			debug_printf("direct3d: d3d9.dll is not on this system\r\n");
@@ -355,7 +356,8 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		return 0;
 	}
 	
-	if (safe_size_mul(safe_size_mul((SIZE_T)pot_wide,(SIZE_T)pot_high),8) > VIV_MAX_HARDWARE_BYTES)
+	if (safe_size_add(safe_size_mul(safe_size_mul((SIZE_T)pot_wide,(SIZE_T)pot_high),8),
+		safe_size_mul(safe_size_mul((SIZE_T)_viv_d3d_client_wide,(SIZE_T)_viv_d3d_client_high),4)) > VIV_MAX_HARDWARE_BYTES)
 	{
 		debug_printf("direct3d: the managed texture exceeds the hardware byte budget\r\n");
 		
@@ -520,8 +522,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	
 	if ((!ds.dsBm.bmBits) || ((ds.dsBm.bmBitsPixel != 24) && (ds.dsBm.bmBitsPixel != 32)))
 	{
-		// the refusal names its reason (the gl twin carries the full
-		// story): a silent return 0 is how an entire decoder family hid
+		// the refusal names its reason (the upload requires readable DIB pixels): a silent return 0 is how an entire decoder family hid
 		// behind this gate while the pixel oracle recorded nulls.
 		if (!ds.dsBm.bmBits)
 		{

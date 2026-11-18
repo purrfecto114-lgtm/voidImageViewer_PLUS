@@ -181,6 +181,9 @@ jobs:
       - name: Memory, renderer and installer repair regressions
         run: python3 tests/repair_regression_test.py
 
+      - name: RC3 DPI, queue and foreground dispatch regressions
+        run: python3 tests/rc3_regression_test.py
+
       - name: Refine round regressions (theme contrast, status layout, clock wrap)
         run: python3 tests/refine_regression_test.py
 
@@ -305,9 +308,21 @@ jobs:
       # packaged or published: the golden hashes pin the exact pixels of
       # the render export (strict - a tag with drifted pixels must not
       # ship; the manifest rides the tree since the pixel oracle round).
-      - name: Pixel golden test (the bitmap hash oracle)
+      - name: Pixel golden test (GDI, D3D9, D3D11 WARP and D3D12 WARP)
         shell: powershell
-        run: powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
+        run: '& .\tests\render_golden.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\render'
+
+      - name: RC3 Win32 interactions at 96 and 300 DPI
+        shell: powershell
+        run: '& .\tests\gui_rc3.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\gui'
+
+      - name: Upload release render and GUI evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-render-evidence
+          path: build/evidence
+          if-no-files-found: warn
 
       - name: Build installers (NSIS)
         shell: pwsh

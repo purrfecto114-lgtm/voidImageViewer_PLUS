@@ -230,8 +230,8 @@ void _viv_check_menus(HMENU hmenu)
 	EnableMenuItem(hmenu,VIV_ID_FILE_SAVE_AS,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_FILE_RENAME,is_image_enabled);
 
-	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_270,is_image_enabled);
-	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_90,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_270,_viv_rotation_ready() ? MF_ENABLED : MF_GRAYED);
+	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_90,_viv_rotation_ready() ? MF_ENABLED : MF_GRAYED);
 	// rc.7: the no-image gate widens - zoom, window sizing, refresh,
 	// the slideshow family and the animation family all act on an
 	// image (the toolbar and the pill already carried this per button).
@@ -239,8 +239,8 @@ void _viv_check_menus(HMENU hmenu)
 	// audit's consistency finding - see is_nav_enabled above).
 	EnableMenuItem(hmenu,VIV_ID_NAV_PREV,is_nav_enabled);
 	EnableMenuItem(hmenu,VIV_ID_NAV_NEXT,is_nav_enabled);
-	EnableMenuItem(hmenu,VIV_ID_NAV_HOME,is_image_enabled);
-	EnableMenuItem(hmenu,VIV_ID_NAV_END,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_NAV_HOME,_viv_playlist_start ? MF_ENABLED : is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_NAV_END,_viv_playlist_start ? MF_ENABLED : is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_VIEW_SLIDESHOW,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_PAUSE,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_SLIDESHOW_RATE_DEC,is_image_enabled);
@@ -288,17 +288,13 @@ void _viv_check_menus(HMENU hmenu)
 	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_WHITE,config_backdrop_mode == CONFIG_BACKDROP_MODE_WHITE ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_CUSTOM,config_backdrop_mode == CONFIG_BACKDROP_MODE_CUSTOM ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
 	CheckMenuItem(hmenu,VIV_ID_VIEW_BACKDROP_CHECKERBOARD,config_backdrop_mode == CONFIG_BACKDROP_MODE_CHECKERBOARD ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_GDI,config_renderer == CONFIG_RENDERER_GDI ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,config_renderer == CONFIG_RENDERER_DIRECT3D ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D11,config_renderer == CONFIG_RENDERER_DIRECT3D11 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D12,config_renderer == CONFIG_RENDERER_DIRECT3D12 ? (MF_CHECKED|MFT_RADIOCHECK) : (MF_UNCHECKED|MFT_RADIOCHECK));
-
-	// the radio trio answers the machine's own answer: an unavailable
-	// back end greys in the menu (the settings switch and the installer
-	// box ask the same probes - the field round's detection question).
-	EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D,_viv_hwd3d_available() ? MF_ENABLED : MF_GRAYED);
-	EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D11,_viv_hwd3d11_available() ? MF_ENABLED : MF_GRAYED);
-	EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_DIRECT3D12,_viv_hwd3d12_available() ? MF_ENABLED : MF_GRAYED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_GDI,config_renderer == CONFIG_RENDERER_GDI ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_D3D9,config_renderer == CONFIG_RENDERER_D3D9 ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_D3D11,config_renderer == CONFIG_RENDERER_D3D11 ? MF_CHECKED : MF_UNCHECKED);
+	CheckMenuItem(hmenu,VIV_ID_VIEW_RENDERER_D3D12,config_renderer == CONFIG_RENDERER_D3D12 ? MF_CHECKED : MF_UNCHECKED);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_D3D9,_viv_gpu_renderer_available(CONFIG_RENDERER_D3D9) ? MF_ENABLED : MF_GRAYED);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_D3D11,_viv_gpu_renderer_available(CONFIG_RENDERER_D3D11) ? MF_ENABLED : MF_GRAYED);
+	EnableMenuItem(hmenu,VIV_ID_VIEW_RENDERER_D3D12,_viv_gpu_renderer_available(CONFIG_RENDERER_D3D12) ? MF_ENABLED : MF_GRAYED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_STATUS,config_show_status ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_ALLOW_SHRINKING,config_allow_shrinking ? MF_CHECKED : MF_UNCHECKED);
 	CheckMenuItem(hmenu,VIV_ID_VIEW_KEEP_ASPECT_RATIO,config_keep_aspect_ratio ? MF_CHECKED : MF_UNCHECKED);

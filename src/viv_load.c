@@ -110,6 +110,7 @@ static void _viv_slot_take(_viv_image_slot_t *dst,_viv_image_slot_t *src)
 // _viv_process_pending_clear should be called after the new frame is shown.
 void _viv_clear(void)
 {
+	_viv_rotation_clear();
 	_viv_hw_release_image();
 	_viv_paint_kill();
 	// the mailbox is single-slot by the single-flight invariant: every
@@ -395,6 +396,13 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 	
 }
 
+	// A speculative preload cannot interrupt an explicit open, including
+	// a request waiting for a cancelled decoder to finish.
+	if (is_preload && _viv_load_image_thread &&
+		(!_viv_load_is_preload || _viv_should_activate_preload_on_load ||
+		(_viv_load_image_next_fd && !_viv_load_image_next_is_preload)))
+		return;
+
 	if (!is_preload)
 	{
 		if (_viv_file_not_found)
@@ -466,7 +474,8 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		return;
 	}
 	else
-	if ((!is_preload) && (!_viv_load_is_preload) && (_viv_load_image_thread) && (_viv_load_image_filename) && (string_compare(_viv_load_image_filename,fd->cFileName) == 0))
+	if ((!is_preload) && (!_viv_load_is_preload) && (_viv_load_image_thread) && (_viv_load_image_filename) &&
+		!_VIV_LOAD_TERMINATED() && !_viv_load_image_next_fd && (string_compare(_viv_load_image_filename,fd->cFileName) == 0))
 	{
 		debug_printf("already loading...\n");
 		// already loading this one - and only a load headed for the
@@ -497,6 +506,7 @@ debug_printf("CURRENTLY LOADING %S preload %d\n",_viv_load_image_filename,_viv_l
 		// already loading a different image.
 		// add it to the queue and cancel this one.
 		debug_printf("SET TERMINATE (next)\n");
+		if (!is_preload) _viv_load_image_allow_draw = 0;
 		InterlockedExchange(&_viv_load_image_terminate,1);
 		
 		if (_viv_load_image_next_fd)
@@ -1073,7 +1083,16 @@ void _viv_save_image_as(void)
 				tobuf[last_dot] = 0;
 			}
 			
-			string_cat(tobuf,L".png");
+			if (_viv_rotation_active())
+				{
+					SIZE_T limit = STRING_SIZE - sizeof(L"-rotated.png") / sizeof(wchar_t);
+					if (string_get_length(tobuf) > limit) tobuf[limit] = 0;
+					string_cat(tobuf,L"-rotated.png");
+				}
+				else
+				{
+					string_cat(tobuf,L".png");
+				}
 			
 			string_printf(filter_wbuf,"%s (*.png)%c*.png%c%s (*.jpg)%c*.jpg%c%s (*.bmp)%c*.bmp%c",
 				localization_get_string(LOCALIZATION_ID_SAVE_AS_PNG),0,
@@ -1278,7 +1297,7 @@ static int _viv_input_size_refused(HANDLE h,LARGE_INTEGER *file_size)
 
 // the gdi+ frames answer as 24bpp top-down dib sections, the webp path's
 // own shape (viv_anim.c). the hardware renderers read the bits through the
-// dib contract and a ddb answers GetObject with bmBits == NULL: the gl/d3d
+// dib contract and a ddb answers GetObject with bmBits == NULL: the Direct3D
 // gates refuse such frames, so every png/gif/bmp/jpeg frame used to fall
 // back to the gdi path silently - the user picked a hardware renderer and
 // the viewer painted with gdi anyway, while the pixel oracle recorded null
@@ -2418,7 +2437,7 @@ debug_printf("*** Cache PUSH : %S\n",_viv_slot_current.fd.cFileName);
 
 	// only cache if the whole image was loaded.
 	// Otherwise we need to reload the whole image again..
-	if (config_cache_count > 0)
+	if (config_cache_count > 0 && !_viv_rotation_active())
 	{
 		if (_viv_slot_current.frame_count == _viv_slot_current.frame_loaded_count)
 		{

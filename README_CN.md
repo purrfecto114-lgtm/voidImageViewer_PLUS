@@ -22,6 +22,14 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 每个发布资产都带有构建来源证明（build-provenance attestation）：`gh attestation verify <file> --repo purrfecto114-lgtm/voidImageViewer_PLUS`
 可查出每个文件由哪次工作流运行、哪个提交构建而来（签名是另一轮的事——attestation 证明的是来源，不是发布者身份）。
 
+### 1.1.18-rc.3
+
+窗口缩窄时，工具栏先收起文字，余下动作可以在 **更多命令** 中一次打开。点击左下角的文件名可打开所在文件夹，旁边的图片信息按钮打开文件属性。工具栏和悬浮控制条都可切换全屏。
+
+旋转使用临时副本，随后显示旋转预览。**另存为** 默认建议一个新文件名，重新载入原图可恢复磁盘上的方向。动图会旋转已加载的全部帧，**另存为** 导出当前显示帧。
+
+在 **视图 → 渲染器** 中选择 GDI、Direct3D 9、Direct3D 11 或 Direct3D 12（11On12）。渲染器无法处理当前图片或设备出错时回退到 GDI。旧 Direct3D 设置对应 Direct3D 9，旧 OpenGL 设置迁移到 GDI。
+
 升级与卸载注意事项
 --------
 
@@ -112,13 +120,13 @@ https://github.com/purrfecto114-lgtm/voidImageViewer_PLUS/releases
 2. 构建 `voidImageViewer` 项目（x64、Win32 或 ARM64）。
 3. 可选安装包：NSIS 3，经 `nsis\build_installer.ps1`（自动探测 VS 版本；源码以 `/utf-8` 编译）。
 
-zig 交叉构建无需 Visual Studio：先运行 `python3 -m pip install ziglang==0.16.0`（与 CI 固定版本一致），再运行 `sh build-zig/build.sh`（105 个翻译单元；产物大小取决于工具链与构建选项）；`sh build-zig/build-arm64.sh` 为 aarch64 编译同一棵树。ARM64 发布产物本身是 MSVC v143 构建（`Platform=ARM64`）——zig 腿是证明树仍能为该目标翻译的编译门。VS 链接器内嵌 `res/voidImageViewer.Manifest`（per-monitor v2）；zig 构建不内嵌清单，而是在 exe 旁写出 `viv.exe.manifest`，`os_init` 的运行时声明覆盖连被剥离的副本——两个文件请放在一起，需要单文件二进制时请走 VS 构建。
+zig 交叉构建无需 Visual Studio：先运行 `python3 -m pip install ziglang==0.16.0`（与 CI 固定版本一致），再运行 `sh build-zig/build.sh`（104 个翻译单元；产物大小取决于工具链与构建选项）；`sh build-zig/build-arm64.sh` 为 aarch64 编译同一棵树。ARM64 发布产物本身是 MSVC v143 构建（`Platform=ARM64`）——zig 腿是证明树仍能为该目标翻译的编译门。VS 链接器内嵌 `res/voidImageViewer.Manifest`（per-monitor v2）；zig 构建不内嵌清单，而是在 exe 旁写出 `viv.exe.manifest`，`os_init` 的运行时声明覆盖连被剥离的副本——两个文件请放在一起，需要单文件二进制时请走 VS 构建。
 
 源码布局：一个核心（`src/viv.c`——启动、命令行、拆卸）加十八个领域模块（`src/viv_<domain>.c/.h`）、解码器模块（`src/webp.c`、`src/qoi.c`、`src/wic.c`）与共享上下文头（`src/viv_state.h`）。`src/viv_selfshot.c` 是额外的测试辅助模块，仅由 `build-zig/build-selfshot.sh` 链接。
 
 zig 脚本显式选择 Windows GUI 子系统；CI 检查 x64 和 ARM64 产物的 PE 架构与子系统字段。
 
-GitHub Actions 编译每次推送（固定 `windows-2022`/v143 + `windows-2025`/v145 双腿）；tag 推送运行测试、端到端校验 SHA-256 并发布资产。
+GitHub Actions 编译每次推送（固定 `windows-2022`/v143 + `windows-2025-vs2026`/v145 双腿）；tag 推送运行测试、端到端校验 SHA-256 并发布资产。
 
 ![Void Image Viewer Image View](https://www.voidtools.com/voidImageViewer.Image.View10.gif)
 

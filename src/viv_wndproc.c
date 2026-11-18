@@ -2190,7 +2190,8 @@ static LRESULT _viv_on_wm_dpichanged(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	
 	// refresh the dpi derived metrics before the resize below
 	// triggers any layout work.
-	dpi_changed = os_window_update_dpi(hwnd);
+	dpi_changed = (LOWORD(wParam) && HIWORD(wParam)) ?
+		os_window_set_dpi(LOWORD(wParam),HIWORD(wParam)) : os_window_update_dpi(hwnd);
 	
 	if (dpi_changed)
 	{
@@ -2538,7 +2539,12 @@ static LRESULT _viv_on_wm_setcursor(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPar
 		
 		GetCursorPos(&pt);
 		ScreenToClient(_viv_status_hwnd,&pt);
-		
+		if (_viv_status_file_command_at(pt))
+		{
+			SetCursor(LoadCursor(NULL,IDC_HAND));
+			return TRUE;
+		}
+
 		// the frame counter pane toggles the same way - it earns the same hand.
 		if ((_viv_status_frame_pane_index() >= 0) && (SendMessage(_viv_status_hwnd,SB_GETRECT,(WPARAM)_viv_status_frame_pane_index(),(LPARAM)&pane_rect)) && (PtInRect(&pane_rect,pt)))
 		{
@@ -2801,27 +2807,6 @@ static LRESULT _viv_on_wm_enter_idle(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 	return 0;
 }
 
-// Dispatch the current frame and clear color to the selected renderer.
-static int _viv_hw_render_frame(HWND hwnd,HDC hdc,int dst_x,int dst_y,int dst_wide,int dst_high,COLORREF clear_color)
-{
-	if (config_renderer == CONFIG_RENDERER_DIRECT3D)
-	{
-		return _viv_hwd3d_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
-	}
-
-	if (config_renderer == CONFIG_RENDERER_DIRECT3D11)
-	{
-		return _viv_hwd3d11_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
-	}
-
-	if (config_renderer == CONFIG_RENDERER_DIRECT3D12)
-	{
-		return _viv_hwd3d12_render(hwnd,hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,dst_x,dst_y,dst_wide,dst_high,clear_color);
-	}
-
-	return 0;
-}
-
 static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
 	RECT rect;
@@ -2957,7 +2942,8 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				if (config_renderer != CONFIG_RENDERER_GDI &&
 				    !_viv_hw_render_fallback)
 				{
-					if (_viv_hw_render_frame(hwnd,ps.hdc,rx,ry + view_top,rw,rh,brush_color))
+					if (_viv_gpu_render(config_renderer,hwnd,ps.hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,
+						wide,high,view_top,rx,ry,rw,rh,brush_color))
 					{
 						_viv_paint_kill();
 						_viv_is_animation_paint = 0;
@@ -2969,7 +2955,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 						return 0;
 					}
 
-					_viv_hw_release_image();
+					_viv_gpu_shutdown();
 					// the refusal the debug channel already names reaches
 					// the user: a hardware back end the user picked that
 					// cannot take this image says so on the status line
@@ -3334,7 +3320,7 @@ static LRESULT _viv_on_wm_erasebkgnd(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lPa
 
 static LRESULT _viv_on_wm_getminmaxinfo(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-
+	if (!_viv_export_mode)
 	{
 		int wide;
 		int high;

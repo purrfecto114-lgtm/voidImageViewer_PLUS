@@ -326,9 +326,10 @@ enum
 	// view menu renderer radio trio (the todo closure round,
 	// appended so existing ids are not shifted)
 	VIV_ID_VIEW_RENDERER_GDI,
-	VIV_ID_VIEW_RENDERER_DIRECT3D,
-	VIV_ID_VIEW_RENDERER_DIRECT3D11,
-	VIV_ID_VIEW_RENDERER_DIRECT3D12,
+	VIV_ID_VIEW_RENDERER_RETIRED, // Preserve IDs stored in existing shortcut bindings.
+	VIV_ID_VIEW_RENDERER_D3D9,
+	VIV_ID_VIEW_RENDERER_D3D11,
+	VIV_ID_VIEW_RENDERER_D3D12,
 };
 
 #include "version.h"
@@ -351,8 +352,6 @@ enum
 #include "qoi.h"
 #include "wic.h"
 #include "hwd3d.h"
-#include "hwd3d11.h"
-#include "hwd3d12.h"
 #include "shellmenu.h"
 #include "small_pool.h"
 #include "safe_size.h"

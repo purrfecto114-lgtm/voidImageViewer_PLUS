@@ -22,6 +22,14 @@ The binaries are unsigned (an open-source signing account is on the roadmap) —
 Every release artifact also carries a build-provenance attestation: `gh attestation verify <file> --repo purrfecto114-lgtm/voidImageViewer_PLUS`
 answers the workflow run and commit each file was built from (signing would still be its own round — attestation proves origin, not publisher identity).
 
+### 1.1.18-rc.3
+
+The command strip drops text labels as the window narrows. **More** lists the remaining commands. The filename at the bottom opens its folder, and the adjacent info button opens the file properties. Enter fullscreen from the toolbar and leave it from the floating controls.
+
+Rotation works on a temporary copy and shows the rotated preview immediately after it is ready. **Save As** suggests a separate name. Loading the original again restores its disk contents. For an animation, the preview rotates every loaded frame and Save As exports the frame currently shown.
+
+Choose GDI, Direct3D 9, Direct3D 11, or Direct3D 12 (11On12) under **View → Renderer**. Unsupported images and device failures use GDI. Old Direct3D settings select Direct3D 9 and the retired OpenGL setting migrates to GDI.
+
 Upgrade & uninstall notes
 --------
 
@@ -111,13 +119,13 @@ Plain C + Win32 API, Visual Studio:
 2. Build the `voidImageViewer` project (x64, Win32 or ARM64).
 3. Optional setup: NSIS 3 via `nsis\build_installer.ps1` (auto-detects the VS version; sources compile with `/utf-8`).
 
-The zig cross build needs no Visual Studio: first run `python3 -m pip install ziglang==0.16.0` (the CI-pinned version), then `sh build-zig/build.sh` (105 translation units; binary size varies with the toolchain and build options); `sh build-zig/build-arm64.sh` compiles the same tree for aarch64. The ARM64 release payload itself is the MSVC v143 build (`Platform=ARM64`) - the zig leg is the compile gate that proves the tree still translates for the target. The vs linker embeds `res/voidImageViewer.Manifest` (per-monitor v2); the zig build keeps no embedded manifest, so it writes `viv.exe.manifest` next to the exe and the runtime claim in `os_init` covers even a stripped copy — keep the two files together, or build through vs when you need a single-file binary.
+The zig cross build needs no Visual Studio: first run `python3 -m pip install ziglang==0.16.0` (the CI-pinned version), then `sh build-zig/build.sh` (104 translation units; binary size varies with the toolchain and build options); `sh build-zig/build-arm64.sh` compiles the same tree for aarch64. The ARM64 release payload itself is the MSVC v143 build (`Platform=ARM64`) - the zig leg is the compile gate that proves the tree still translates for the target. The vs linker embeds `res/voidImageViewer.Manifest` (per-monitor v2); the zig build keeps no embedded manifest, so it writes `viv.exe.manifest` next to the exe and the runtime claim in `os_init` covers even a stripped copy — keep the two files together, or build through vs when you need a single-file binary.
 
 The zig scripts explicitly select the Windows GUI subsystem; CI checks the x64 and ARM64 PE machine/subsystem fields.
 
 The source layout: one core (`src/viv.c` — the startup, the command line, the teardown) plus eighteen domain modules (`src/viv_<domain>.c/.h`), the decoder modules (`src/webp.c`, `src/qoi.c`, `src/wic.c`) and the shared-context header (`src/viv_state.h`). `src/viv_selfshot.c` is an additional test harness linked only by `build-zig/build-selfshot.sh`.
 
-GitHub Actions compiles every push (pinned `windows-2022`/v143 + `windows-2025`/v145 legs); tag pushes run the tests, verify SHA-256 end to end and publish the release assets.
+GitHub Actions compiles every push (pinned `windows-2022`/v143 + `windows-2025-vs2026`/v145 legs); tag pushes run the tests, verify SHA-256 end to end and publish the release assets.
 
 ![Void Image Viewer Image View](https://www.voidtools.com/voidImageViewer.Image.View10.gif)
 

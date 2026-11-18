@@ -19,11 +19,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-// the direct3d renderer: view -> renderer -> direct3d. an opt-in back
-// end like the opengl one - the default gdi path never changes, any
-// failure falls back to it, and d3d9.dll resolves dynamically (it rides
-// windows 7+ in the box, xp needs the runtime, win9x never had it).
-
+// Direct3D 9 preserves the legacy hardware path.
 #ifndef VIV_HWD3D_H
 #define VIV_HWD3D_H
 
@@ -49,5 +45,17 @@ int _viv_hwd3d_available(void);
 // from a successful readback.
 int _viv_hwd3d_export_begin(BYTE *bits,int wide,int high);
 int _viv_hwd3d_export_filled(void);
+
+// Viewer-facing hardware renderer and strict export dispatch.
+int _viv_gpu_renderer_available(int renderer);
+int _viv_gpu_preferred(void);
+void _viv_gpu_enable_warp(void);
+int _viv_gpu_render(int renderer,HWND parent,HDC hdc,HBITMAP bitmap,int wide,int high,
+	int top,int x,int y,int dst_wide,int dst_high,COLORREF color);
+void _viv_gpu_release_image(void);
+void _viv_gpu_shutdown(void);
+void _viv_gpu_export_begin(int renderer,int warp,BYTE *bits,int wide,int high);
+int _viv_gpu_export_filled(int renderer);
+void _viv_gpu_export_end(void);
 
 #endif

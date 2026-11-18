@@ -30,12 +30,12 @@
 #include "viv_state.h"
 #include "viv_export.h"
 #include "hwd3d.h"
-#include "hwd3d11.h"
-#include "hwd3d12.h"
 #include "viv_chrome.h"
 
 int _viv_export_mode = 0;
 int _viv_export_renderer = CONFIG_RENDERER_GDI;
+static int _viv_export_warp;
+static int _viv_export_bad_option;
 int _viv_export_wide = _VIV_EXPORT_DEFAULT_WIDE;
 int _viv_export_high = _VIV_EXPORT_DEFAULT_HIGH;
 wchar_t _viv_export_path[STRING_SIZE];
@@ -157,19 +157,22 @@ int _viv_export_probe_command_line(void)
 				_viv_export_renderer = CONFIG_RENDERER_GDI;
 			}
 			else
-			if (string_icompare_lowercase_ascii(bufstart,"render-d3d") == 0)
+			if (string_icompare_lowercase_ascii(bufstart,"render-d3d") == 0 ||
+				string_icompare_lowercase_ascii(bufstart,"render-d3d9") == 0)
 			{
-				_viv_export_renderer = CONFIG_RENDERER_DIRECT3D;
+				_viv_export_renderer = CONFIG_RENDERER_D3D9;
 			}
-			else
-			if (string_icompare_lowercase_ascii(bufstart,"render-d3d11") == 0)
+			else if (string_icompare_lowercase_ascii(bufstart,"render-d3d11") == 0)
 			{
-				_viv_export_renderer = CONFIG_RENDERER_DIRECT3D11;
+				_viv_export_renderer = CONFIG_RENDERER_D3D11;
 			}
-			else
-			if (string_icompare_lowercase_ascii(bufstart,"render-d3d12") == 0)
+			else if (string_icompare_lowercase_ascii(bufstart,"render-d3d12") == 0)
 			{
-				_viv_export_renderer = CONFIG_RENDERER_DIRECT3D12;
+				_viv_export_renderer = CONFIG_RENDERER_D3D12;
+			}
+			else if (string_icompare_lowercase_ascii(bufstart,"render-warp") == 0)
+			{
+				_viv_export_warp = 1;
 			}
 			else
 			if (string_icompare_lowercase_ascii(bufstart,"render-size") == 0)
@@ -178,6 +181,10 @@ int _viv_export_probe_command_line(void)
 				p = string_skip_ws(p);
 				
 				_viv_export_parse_size(buf);
+			}
+			else if (wcsncmp(bufstart,L"render-",7) == 0)
+			{
+				_viv_export_bad_option = 1;
 			}
 		}
 	}
@@ -195,6 +202,9 @@ int _viv_export_probe_command_line(void)
 		_viv_export_mode = 0;
 		_viv_export_path[0] = 0;
 	}
+
+	if (!install_word_seen && !_viv_export_mode && _viv_export_warp)
+		_viv_gpu_enable_warp();
 
 	return _viv_export_mode;
 }
@@ -396,9 +406,7 @@ static int _viv_export_readback_gdi(BYTE *bits,int wide,int high)
 // the run: pump, paint, read back, write, answer the harness contract.
 static void _viv_export_free(BYTE *bits)
 {
-	_viv_hwd3d_export_end();
-	_viv_hwd3d11_export_end();
-	_viv_hwd3d12_export_end();
+	_viv_gpu_export_end();
 	mem_free(bits);
 }
 
@@ -414,6 +422,11 @@ int _viv_export_run(void)
 		return 0;
 	}
 	
+	if (_viv_export_bad_option || (_viv_export_warp && _viv_export_renderer < CONFIG_RENDERER_D3D11))
+	{
+		return 3;
+	}
+
 	if (!_viv_export_path[0])
 	{
 		return 1;
@@ -445,21 +458,9 @@ int _viv_export_run(void)
 	// arm the readback before the pump: the first frame reply
 	// invalidates, and the wm_paint it wakes can fire inside the
 	// dispatch - that paint must land in the export buffer.
-	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D)
-	{
-		_viv_hwd3d_export_begin(bits,_viv_export_wide,_viv_export_high);
-	}
-	else
-	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D11)
-	{
-		_viv_hwd3d11_export_begin(bits,_viv_export_wide,_viv_export_high);
-	}
-	else
-	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D12)
-	{
-		_viv_hwd3d12_export_begin(bits,_viv_export_wide,_viv_export_high);
-	}
-	
+	if (_viv_export_renderer != CONFIG_RENDERER_GDI)
+		_viv_gpu_export_begin(_viv_export_renderer,_viv_export_warp,bits,_viv_export_wide,_viv_export_high);
+
 	// pump until the first frame answers, the load refuses, or the
 	// harness timeout expires. the load replies only arrive through
 	// the dispatch.
@@ -531,42 +532,13 @@ int _viv_export_run(void)
 			return 1;
 		}
 	}
-	else
-	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D)
+	else if (!_viv_gpu_export_filled(_viv_export_renderer))
 	{
-		if (!_viv_hwd3d_export_filled())
-		{
-			debug_printf("render-export: the direct3d renderer refused\r\n");
+		debug_printf("render-export: the requested Direct3D renderer refused\r\n");
+		_viv_export_free(bits);
+		return 3;
+	}
 
-			_viv_export_free(bits);
-
-			return 3;
-		}
-	}
-	else
-	if (_viv_export_renderer == CONFIG_RENDERER_DIRECT3D11)
-	{
-		if (!_viv_hwd3d11_export_filled())
-		{
-			debug_printf("render-export: the direct3d 11 renderer refused\r\n");
-			
-			_viv_export_free(bits);
-			
-			return 3;
-		}
-	}
-	else
-	{
-		if (!_viv_hwd3d12_export_filled())
-		{
-			debug_printf("render-export: the direct3d 12 renderer refused\r\n");
-			
-			_viv_export_free(bits);
-			
-			return 3;
-		}
-	}
-	
 	if (!_viv_export_write_bmp(_viv_export_path,bits,_viv_export_wide,_viv_export_high))
 	{
 		_viv_export_free(bits);

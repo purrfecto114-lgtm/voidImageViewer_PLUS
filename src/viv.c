@@ -22,7 +22,7 @@
 // VoidImageViewer
 
 // TODO (the upstream list is closed - the todo closure round
-// retired the last four items: the opengl and direct3d renderers
+// retired the last four items: the hardware renderers
 // ride view -> renderer, the toolbar customization rides the
 // toolbar's right click, and the shell context menu
 // (CDefFolderMenu_Create2) rides the canvas right click.
@@ -344,9 +344,10 @@ _viv_command_t _viv_commands[] =
 	{LOCALIZATION_ID_INVALID,MF_SEPARATOR,_VIV_MENU_VIEW,0},
 	{LOCALIZATION_ID_RENDERER,MF_POPUP,_VIV_MENU_VIEW,_VIV_MENU_VIEW_RENDERER},
 	{LOCALIZATION_ID_RENDERER_GDI,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_GDI},
-	{LOCALIZATION_ID_RENDERER_DIRECT3D,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_DIRECT3D},
-	{LOCALIZATION_ID_RENDERER_DIRECT3D11,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_DIRECT3D11},
-	{LOCALIZATION_ID_RENDERER_DIRECT3D12,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_DIRECT3D12},
+
+	{LOCALIZATION_ID_RENDERER_DIRECT3D,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_D3D9},
+	{LOCALIZATION_ID_RENDERER_D3D11,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_D3D11},
+	{LOCALIZATION_ID_RENDERER_D3D12,MF_STRING|MFT_RADIOCHECK,_VIV_MENU_VIEW_RENDERER,VIV_ID_VIEW_RENDERER_D3D12},
 
 	{LOCALIZATION_ID_SLIDESHOW_MENU,MF_POPUP,_VIV_MENU_ROOT,_VIV_MENU_SLIDESHOW},
 	{LOCALIZATION_ID_PLAY_PAUSE,MF_STRING,_VIV_MENU_SLIDESHOW,VIV_ID_SLIDESHOW_PAUSE},
@@ -669,11 +670,6 @@ void _viv_exit(void)
 	// the deferred recent-files save folds into the exit write below (the
 	// debounce timer never gets to fire once the quit is posted).
 	_viv_recent_save_fold();
-
-	// the rotate artifact: the temp copy the rc.3 rotate verb worked on
-	// (the original file was never touched) - a best-effort sweep, the
-	// session's rotated pixels only ever lived in the copy.
-	_viv_rotate_temp_cleanup();
 	
 	// the resume capture: the file on screen when the session ends is
 	// where the next session resumes (the switch lives in the settings).
@@ -1023,8 +1019,12 @@ void _viv_process_command_line(wchar_t *cl)
 			}
 			else
 			if ((string_icompare_lowercase_ascii(bufstart,"render-gdi") == 0) ||
-			    (string_icompare_lowercase_ascii(bufstart,"render-gl") == 0) ||
-			    (string_icompare_lowercase_ascii(bufstart,"render-d3d") == 0))
+			    (string_icompare_lowercase_ascii(bufstart,"render-d3d") == 0) ||
+			    (string_icompare_lowercase_ascii(bufstart,"render-d3d9") == 0) ||
+			    (string_icompare_lowercase_ascii(bufstart,"render-d3d11") == 0) ||
+			    (string_icompare_lowercase_ascii(bufstart,"render-d3d12") == 0) ||
+			    (string_icompare_lowercase_ascii(bufstart,"render-warp") == 0) ||
+			    (_viv_export_mode && wcsncmp(bufstart,L"render-",7) == 0))
 			{
 				// the renderer words are value-less: the export probe
 				// (viv_export.c) already answered them. without this case
@@ -2027,8 +2027,8 @@ for(i=0;i<4;i++)
 	_viv_settings_kill();
 	_viv_menubar_kill();
 
-	// the hardware renderer releases its contexts and devices.
-	_viv_hwd3d_shutdown();
+	// the hardware renderers release their contexts and devices.
+	_viv_gpu_shutdown();
 
 	zoomui_kill();
 

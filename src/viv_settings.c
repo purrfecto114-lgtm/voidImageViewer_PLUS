@@ -280,9 +280,9 @@ static int _viv_settings_hot_swatch = -1;
 static int _viv_settings_appdata;
 static int _viv_settings_startmenu;
 // rc.6: the hardware back end the switch restores on its next ON (the
-// face is two-state; the memory keeps the hardware choice reachable
-// from it - the menu stays the fine-grained seat).
-static int _viv_settings_last_hw_renderer = CONFIG_RENDERER_DIRECT3D;
+// face is two-state; remember the last Direct3D choice
+// from it - the menu trio stays the fine-grained seat).
+static int _viv_settings_last_hw_renderer = CONFIG_RENDERER_D3D11;
 // the open window snapshot: cancel rewinds to these.
 static int _viv_settings_snap_language;
 static int _viv_settings_snap_dark_mode;
@@ -678,9 +678,7 @@ static int _viv_settings_ctl_enabled(const _viv_settings_ctl_t *ctl)
 			// backed, and the runtime fallback is not an enablement).
 			if (ctl->id == _VIV_SETTINGS_ID_HWACCEL)
 			{
-				// the hardware face answers the best available back end
-				// (the rc.3 family: 12, 11, then the d3d9 floor).
-				return ((_viv_hwd3d12_available()) || (_viv_hwd3d11_available()) || (_viv_hwd3d_available())) ? 1 : 0;
+				return (_viv_gpu_preferred() != CONFIG_RENDERER_GDI) ? 1 : 0;
 			}
 
 			return 1;
@@ -2246,9 +2244,7 @@ static void _viv_settings_restore(void)
 	// the snapshot's back end on the next paint (the toggle's shape).
 	if (config_renderer != _viv_settings_snap_renderer)
 	{
-		_viv_hwd3d_shutdown();
-		_viv_hwd3d11_shutdown();
-		_viv_hwd3d12_shutdown();
+		_viv_gpu_shutdown();
 
 		config_renderer = _viv_settings_snap_renderer;
 		_viv_hw_render_fallback = 0;
@@ -3325,32 +3321,16 @@ static void _viv_settings_activate(int index,int x,int y)
 					// the modules release their contexts and the next paint
 					// answers the new back end (or falls back to gdi when it
 					// refuses - the refusal never rewrites the ini).
-					_viv_hwd3d_shutdown();
-					_viv_hwd3d11_shutdown();
-					_viv_hwd3d12_shutdown();
+					_viv_gpu_shutdown();
 
 					// rc.6: the switch face cannot tell the hardware back
 					// ends apart - turning it back on restores the one the
 					// session had (the old shape silently replaced an
-					// opengl choice with direct3d).
+					// renderer choice).
 					if (config_renderer == CONFIG_RENDERER_GDI)
 					{
-						config_renderer = _viv_settings_last_hw_renderer;
-					}
-
-					// the rc.3 family: a restored hardware choice still
-					// walks the ladder (12, 11, then the d3d9 floor).
-					if (config_renderer == CONFIG_RENDERER_DIRECT3D)
-					{
-						if (_viv_hwd3d12_available())
-						{
-							config_renderer = CONFIG_RENDERER_DIRECT3D12;
-						}
-						else
-						if (_viv_hwd3d11_available())
-						{
-							config_renderer = CONFIG_RENDERER_DIRECT3D11;
-						}
+						config_renderer = _viv_gpu_renderer_available(_viv_settings_last_hw_renderer) ?
+							_viv_settings_last_hw_renderer : _viv_gpu_preferred();
 					}
 					else
 					{
@@ -5047,7 +5027,7 @@ static void _viv_settings_paint(HWND hwnd)
 
 					case _VIV_SETTINGS_ID_HWACCEL:
 						label_id = LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION;
-						desc_id = (_viv_hwd3d12_available() || _viv_hwd3d11_available() || _viv_hwd3d_available()) ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE;
+						desc_id = (_viv_gpu_preferred() != CONFIG_RENDERER_GDI) ? LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC : LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_UNAVAILABLE;
 						break;
 				}
 

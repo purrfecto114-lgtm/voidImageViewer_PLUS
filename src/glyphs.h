@@ -51,9 +51,9 @@ extern "C" {
 #define GLYPH_SETTINGS        13
 #define GLYPH_PICTURE         14
 #define GLYPH_GAMEPAD         15
-#define GLYPH_CHEVRON_LEFT    16
-#define GLYPH_CHEVRON_RIGHT   17
-#define GLYPH_FULLSCREEN      18
+#define GLYPH_FULLSCREEN      16
+#define GLYPH_RESTORE         17
+#define GLYPH_MORE            18
 #define GLYPH_COUNT           19
 
 // return the glyph icon at the requested size and theme. the icon is

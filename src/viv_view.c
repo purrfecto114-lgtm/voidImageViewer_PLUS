@@ -53,28 +53,9 @@ static void _viv_file_preview(void);
 static void _viv_file_print(void);
 static void _viv_file_set_desktop_wallpaper(void);
 static void _viv_edit_rotate(int counterclockwise);
-
-// the rotate's on-disk artifact (rc.3): the shell's rotate verb used to
-// rewrite the viewed file in place - every rotate cost a confirmation box
-// and the original pixels on disk. the verb lands on a copy in the temp
-// folder now: the original file never changes, the box is gone, and the
-// copy is the session's retrievable rotated artifact (the display shows
-// the in-memory rotated frames exactly as before; the exit sweep deletes
-// the copy). one artifact per source: the rotations accumulate on it the
-// way they accumulate on the display.
-static wchar_t _viv_rotate_source_path[STRING_SIZE];
-static wchar_t _viv_rotate_temp_path[STRING_SIZE];
-
-void _viv_rotate_temp_cleanup(void)
-{
-	if (*_viv_rotate_temp_path)
-	{
-		DeleteFileW(_viv_rotate_temp_path);
-
-		_viv_rotate_temp_path[0] = 0;
-	}
-}
 static void _viv_file_edit(void);
+static void _viv_open_file_location(void);
+static void _viv_properties(void);
 void _viv_mousemove(void);
 void _viv_view_1to1(void);
 void _viv_zoom_set_percent(int percent,int screen_x,int screen_y,int force);
@@ -155,41 +136,25 @@ void _viv_command_with_is_key_repeat(int command_id,int is_key_repeat)
 			break;
 			
 		case VIV_ID_VIEW_RENDERER_GDI:
-		case VIV_ID_VIEW_RENDERER_DIRECT3D:
-		case VIV_ID_VIEW_RENDERER_DIRECT3D11:
-		case VIV_ID_VIEW_RENDERER_DIRECT3D12:
-			// the unavailable back end never answers its own command (the
-			// menu greys it; the belt for the keyboard and any other caller
-			// the grey cannot reach).
-			if (((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D) && (!_viv_hwd3d_available())) ||
-				((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D11) && (!_viv_hwd3d11_available())) ||
-				((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D12) && (!_viv_hwd3d12_available())))
+		case VIV_ID_VIEW_RENDERER_D3D9:
+		case VIV_ID_VIEW_RENDERER_D3D11:
+		case VIV_ID_VIEW_RENDERER_D3D12:
+		{
+			int renderer = CONFIG_RENDERER_GDI;
+			if (command_id == VIV_ID_VIEW_RENDERER_D3D9) renderer = CONFIG_RENDERER_D3D9;
+			if (command_id == VIV_ID_VIEW_RENDERER_D3D11) renderer = CONFIG_RENDERER_D3D11;
+			if (command_id == VIV_ID_VIEW_RENDERER_D3D12) renderer = CONFIG_RENDERER_D3D12;
+			if (_viv_gpu_renderer_available(renderer))
 			{
-				break;
+				_viv_gpu_shutdown();
+				config_renderer = renderer;
+				_viv_hw_render_fallback = 0;
+				_viv_status_update();
+				InvalidateRect(_viv_hwnd,0,FALSE);
 			}
-
-			// the renderer is a session toggle: the modules release
-			// their contexts and the next paint answers the new back
-			// end (or falls back to gdi when the new one refuses).
-			_viv_hwd3d_shutdown();
-			_viv_hwd3d11_shutdown();
-			_viv_hwd3d12_shutdown();
-			
-			config_renderer = (command_id == VIV_ID_VIEW_RENDERER_GDI) ? CONFIG_RENDERER_GDI :
-				((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D) ? CONFIG_RENDERER_DIRECT3D :
-				((command_id == VIV_ID_VIEW_RENDERER_DIRECT3D11) ? CONFIG_RENDERER_DIRECT3D11 : CONFIG_RENDERER_DIRECT3D12));
-			
-			// rc.6: the new back end deserves a clean slate - the sticky
-			// fallback note answered the OLD back end's refusal, and a
-			// menu switch left it pinned until the next load (the
-			// settings switch already clears both).
-			_viv_hw_render_fallback = 0;
-			
-			_viv_status_update();
-			
-			InvalidateRect(_viv_hwnd,0,FALSE);
 			break;
-	
+		}
+
 		case VIV_ID_HELP_HELP:
 			_viv_open_https_url(LOCALIZATION_ID_HELP_SUPPORT_URL);
 			break;
@@ -1045,7 +1010,11 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 						// add current?
 						_viv_playlist_add_current_if_empty();
 					
-						_viv_playlist_add_filename(ofn.lpstrFile);
+						if (_viv_playlist_add_filename(ofn.lpstrFile) == VIV_OPEN_OPENED &&
+							!*_viv_current_fd->cFileName)
+							_viv_home(0,0);
+						_viv_toolbar_update_buttons();
+						_viv_status_update();
 					}
 					
 					if (_viv_last_open_file)
@@ -1093,10 +1062,12 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 					
 					_viv_last_open_folder = string_alloc(filename);
 
-					if (command_id == VIV_ID_FILE_OPEN_FOLDER)
+					if (command_id == VIV_ID_FILE_OPEN_FOLDER || !*_viv_current_fd->cFileName)
 					{
 						_viv_home(0,0);
 					}
+					_viv_toolbar_update_buttons();
+					_viv_status_update();
 				}
 			}
 			
@@ -1248,35 +1219,14 @@ debug_printf("SWP %d %d %d %d\n",rect.left,rect.top,rect.right - rect.left,rect.
 // first.
 int _viv_nav_neighbor_available(void)
 {
-	// the random everything mode comes first, in the walk's own
-	// order: _viv_next answers random before it ever looks at the
-	// current file (a random fetch needs no starting image), so a
-	// predicate asking the file gate first would gray the step faces
-	// while the keys still navigated - the same divergence the
-	// faces rounds kept closing, caught here at the ordering layer.
-	if (_viv_random)
-	{
-		return 1;
-	}
-
-	if (!((*_viv_current_fd->cFileName) && (!_viv_file_not_found) && (!_viv_load_failed)))
-	{
-		return 0;
-	}
-
+	if (_viv_random) return 1;
 	if (_viv_playlist_start)
 	{
-		if (_viv_playlist_count > 1)
-		{
-			return 1;
-		}
-
-		return (_viv_fd_compare(&_viv_playlist_start->fd,_viv_current_fd) != 0) ? 1 : 0;
+		return _viv_playlist_count > 1 ||
+			_viv_icompare_filename(_viv_playlist_start->fd.cFileName,_viv_current_fd->cFileName) != 0;
 	}
-
-	// (the random fallback that used to live here retired with the
-	// hoist above - random answers before the file gate now.)
-	return (_viv_nav_folder_neighbor != 0) ? 1 : 0;
+	return *_viv_current_fd->cFileName && !_viv_file_not_found && !_viv_load_failed &&
+		_viv_nav_folder_neighbor;
 }
 
 // the successor window: one directory scan answers not just the next
@@ -1475,7 +1425,7 @@ debug_printf("_viv_next %d %d\n",prev,is_preload);
 	{
 		_viv_do_initial_shuffle();
 
-		if (*_viv_current_fd->cFileName)
+		if (*_viv_current_fd->cFileName || _viv_playlist_start)
 		{
 			WIN32_FIND_DATA start_fd;
 			WIN32_FIND_DATA best_fd;
@@ -1487,138 +1437,11 @@ debug_printf("_viv_next %d %d\n",prev,is_preload);
 			
 			if (_viv_playlist_start)
 			{
-				_viv_playlist_t *d;
-				
-				d = _viv_playlist_start;
-				
-debug_printf("next %d\n",config_shuffle);
-
-				if (config_shuffle)
+				const WIN32_FIND_DATA *next = _viv_playlist_step(_viv_current_fd,prev);
+				if (next)
 				{
-					int index;
-					
-					index = _viv_playlist_shuffle_index_from_fd(_viv_current_fd);
-					
-	debug_printf("cur %d %d\n",index,_viv_current_fd->dwReserved1);
-					
-					if (index != -1)
-					{
-						if (prev)
-						{
-							index--;
-							if (index < 0)
-							{
-								index = _viv_playlist_count - 1;
-							}
-						}
-						else
-						{
-							index++;
-							if (index >= _viv_playlist_count)
-							{
-								index = 0;
-							}
-						}
-					}
-					else
-					{
-						if (prev)
-						{
-							index = _viv_playlist_count - 1;
-						}
-						else
-						{
-							index = 0;
-						}
-					}
-					
-					os_copy_memory(&best_fd,&_viv_playlist_shuffle_indexes[index]->fd,sizeof(WIN32_FIND_DATA));
-
+					os_copy_memory(&best_fd,next,sizeof(WIN32_FIND_DATA));
 					got_best = 1;
-				}
-				else
-				{
-					_viv_playlist_t *current_d;
-					
-					current_d = _viv_playlist_from_fd(_viv_current_fd);
-	debug_printf("cur %d\n",current_d);
-					
-					while(d)
-					{
-						if (d != current_d)
-						{
-							int compare_ret;
-							
-							compare_ret = _viv_fd_compare(&d->fd,_viv_current_fd);
-
-							if (compare_ret != 0)
-							{
-								if (prev)
-								{
-									if (compare_ret < 0)
-									{
-										if ((!got_best) || (_viv_fd_compare(&d->fd,&best_fd) > 0))
-										{
-											os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-											got_best = 1;
-										}
-									}
-								}
-								else
-								{
-									if (compare_ret > 0)
-									{
-										if ((!got_best) || (_viv_fd_compare(&d->fd,&best_fd) < 0))
-										{
-											os_copy_memory(&best_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-											got_best = 1;
-										}
-									}		
-								}
-							}
-							// the wrap target is only needed when the primary direction
-							// found no candidate (the current image sits at the end of the
-							// sorted view). tracking it inside this scan costs one collation
-							// compare per file on every navigation (the natural name sort
-							// calls CompareString); the deferred second pass after the scan
-							// only runs in the wrap case.
-							
-						}
-					
-						d = d->next;
-					}
-					if (!got_best)
-					{
-						d = _viv_playlist_start;
-						
-						while(d)
-						{
-							if (d != current_d)
-							{
-								if (prev)
-								{
-									if ((!got_start) || (_viv_fd_compare(&d->fd,&start_fd) > 0))
-									{
-										os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-										
-										got_start = 1;
-									}
-								}
-								else
-								{
-									if ((!got_start) || (_viv_fd_compare(&d->fd,&start_fd) < 0))
-									{
-										os_copy_memory(&start_fd,&d->fd,sizeof(WIN32_FIND_DATA));
-										got_start = 1;
-									}
-								}
-							}
-							
-							d = d->next;
-						}
-					}
-					
-	debug_printf("gotbest %d %d\n",got_best,got_start);
 				}
 			}
 			else
@@ -2504,66 +2327,97 @@ static void _viv_file_set_desktop_wallpaper(void)
 		}
 	}
 }
+// One original snapshot and one rotated PNG belong to the displayed image.
+static HANDLE _viv_rotation_source;
+static HANDLE _viv_rotation_preview;
+
+int _viv_rotation_active(void)
+{
+	return _viv_rotation_preview != NULL;
+}
+
+void _viv_rotation_clear(void)
+{
+	if (_viv_rotation_preview) CloseHandle(_viv_rotation_preview);
+	if (_viv_rotation_source) CloseHandle(_viv_rotation_source);
+	_viv_rotation_preview = NULL;
+	_viv_rotation_source = NULL;
+}
+
+int _viv_rotation_ready(void)
+{
+	return *_viv_slot_current.fd.cFileName && !_viv_image_is_low_res &&
+		_viv_slot_current.frame_count > 0 &&
+		_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count &&
+		_viv_frame_position >= 0 && _viv_frame_position < _viv_slot_current.frame_count;
+}
+
+static int _viv_rotation_temp(wchar_t *path,const wchar_t *directory)
+{
+	return GetTempFileNameW(directory,L"viv",0,path) != 0;
+}
+
+static HANDLE _viv_rotation_own_temp(const wchar_t *path)
+{
+	HANDLE file = CreateFileW(path,DELETE,FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		NULL,OPEN_EXISTING,FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE,NULL);
+	return file == INVALID_HANDLE_VALUE ? NULL : file;
+}
+
+static int _viv_rotation_stage(HBITMAP preview)
+{
+	wchar_t directory[MAX_PATH], source[MAX_PATH], output[MAX_PATH];
+	wchar_t original[STRING_SIZE];
+	HANDLE snapshot = NULL, result = NULL;
+	DWORD length = GetTempPathW(MAX_PATH,directory);
+
+	// GetTempFileName needs room for its generated name within MAX_PATH.
+	if (!length || length >= MAX_PATH - 14) return 0;
+	if (!_viv_rotation_source)
+	{
+		if (!string_path_long(original,STRING_SIZE,_viv_slot_current.fd.cFileName) ||
+			!_viv_rotation_temp(source,directory)) return 0;
+		if (CopyFileW(original,source,FALSE) && SetFileAttributesW(source,FILE_ATTRIBUTE_TEMPORARY))
+			snapshot = _viv_rotation_own_temp(source);
+		if (!snapshot)
+		{
+			SetFileAttributesW(source,FILE_ATTRIBUTE_NORMAL);
+			DeleteFileW(source);
+			return 0;
+		}
+	}
+
+	if (_viv_rotation_temp(output,directory))
+	{
+		if (os_save_hbitmap(preview,output,0)) result = _viv_rotation_own_temp(output);
+		if (!result) DeleteFileW(output);
+	}
+	if (!result)
+	{
+		if (snapshot) CloseHandle(snapshot);
+		return 0;
+	}
+
+	if (snapshot) _viv_rotation_source = snapshot;
+	if (_viv_rotation_preview) CloseHandle(_viv_rotation_preview);
+	_viv_rotation_preview = result;
+	return 1;
+}
+
 static void _viv_edit_rotate(int counterclockwise)
 {
 	HBITMAP *prepared;
-	wchar_t caption[STRING_SIZE],message[STRING_SIZE];
-	wchar_t temp_dir[STRING_SIZE];
-	int i,temp;
-	if (!*_viv_slot_current.fd.cFileName || !_viv_slot_current.frame_count ||
-		(_viv_slot_current.frame_loaded_count != _viv_slot_current.frame_count)) return;
-	string_copy_utf8_string(caption,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_CAPTION));
+	int i, previous_width;
+
+	if (!_viv_rotation_ready()) return;
 	prepared = _viv_prepare_oriented_frames(_viv_slot_current.frames,_viv_slot_current.frame_count,counterclockwise ? 8 : 6);
 	if (prepared)
 	{
-		// the temp copy: a different source (or a source whose last copy
-		// never landed) builds the artifact fresh - the verb then works
-		// on the copy, never on the file itself. the source stamp lands
-		// only after the copy answers, and a refused copy retires both
-		// paths: a stale stamp must never route the verb at an empty
-		// temp name (the repair harness's scenario 2 caught exactly that).
-		if (string_compare(_viv_rotate_source_path,_viv_slot_current.fd.cFileName) != 0)
-		{
-			if (!GetTempPathW((DWORD)(STRING_SIZE - 60),temp_dir))
-			{
-				temp = 0;
-			}
-			else
-			{
-				string_cat_utf8(temp_dir,"voidImageViewer");
-				CreateDirectoryW(temp_dir,NULL);
-				string_cat_utf8(temp_dir,"\\");
-				string_copy(_viv_rotate_temp_path,temp_dir);
-				string_cat(_viv_rotate_temp_path,string_get_filename_part(_viv_slot_current.fd.cFileName));
-				temp = CopyFileW(_viv_slot_current.fd.cFileName,_viv_rotate_temp_path,FALSE);
-			}
-
-			if (!temp)
-			{
-				// no artifact, no rotate: an all-or-nothing round keeps the
-				// display and the disk telling the same story (the old
-				// refusal box, the same face the verb failure uses). the
-				// half-built paths retire with the round.
-				_viv_rotate_source_path[0] = 0;
-				_viv_rotate_temp_path[0] = 0;
-
-				for(i=0;i<_viv_slot_current.frame_count;i++) DeleteObject(prepared[i]);
-				mem_free(prepared);
-
-				string_copy_utf8_string(message,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_FAILED));
-				viv_msgbox(_viv_hwnd,caption,message,MB_OK | MB_ICONERROR);
-
-				return;
-			}
-
-			// the stamp: the artifact exists and answers this source.
-			string_copy(_viv_rotate_source_path,_viv_slot_current.fd.cFileName);
-		}
-
-		if (os_shell_execute(_viv_hwnd,_viv_rotate_temp_path,0,counterclockwise ? "rotate270" : "rotate90",0))
+		if (_viv_rotation_stage(prepared[_viv_frame_position]))
 		{
 			_viv_hw_release_image();
-			for(i=0;i<_viv_slot_current.frame_count;i++)
+			_viv_hw_render_fallback = 0;
+			for (i = 0; i < _viv_slot_current.frame_count; i++)
 			{
 				DeleteObject(_viv_slot_current.frames[i].hbitmap);
 				_viv_slot_current.frames[i].hbitmap = prepared[i];
@@ -2571,20 +2425,25 @@ static void _viv_edit_rotate(int counterclockwise)
 				_viv_slot_current.frames[i].mipmap = NULL;
 			}
 			mem_free(prepared);
-			temp = _viv_slot_current.image_wide;
+			previous_width = _viv_slot_current.image_wide;
 			_viv_slot_current.image_wide = _viv_slot_current.image_high;
-			_viv_slot_current.image_high = temp;
+			_viv_slot_current.image_high = previous_width;
 			_viv_view_set(_viv_view_x,_viv_view_y,1);
 			_viv_update_src_pixel(1,0);
 			_viv_status_update();
 			InvalidateRect(_viv_hwnd,0,FALSE);
 			return;
 		}
-		for(i=0;i<_viv_slot_current.frame_count;i++) DeleteObject(prepared[i]);
+		for (i = 0; i < _viv_slot_current.frame_count; i++) DeleteObject(prepared[i]);
 		mem_free(prepared);
 	}
-	string_copy_utf8_string(message,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_FAILED));
-	viv_msgbox(_viv_hwnd,caption,message,MB_OK | MB_ICONERROR);
+
+	{
+		wchar_t caption[STRING_SIZE],message[STRING_SIZE];
+		string_copy_utf8_string(caption,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_CAPTION));
+		string_copy_utf8_string(message,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_FAILED));
+		viv_msgbox(_viv_hwnd,caption,message,MB_OK | MB_ICONERROR);
+	}
 }
 static void _viv_file_edit(void)
 {
@@ -2593,70 +2452,34 @@ static void _viv_file_edit(void)
 		os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"edit",0);
 	}
 }
-void _viv_open_file_location(void)
+static void _viv_open_file_location(void)
 {
-	if (*_viv_slot_current.fd.cFileName)
+	const wchar_t *file = _viv_slot_current.fd.cFileName;
+	wchar_t directory[STRING_SIZE];
+	SIZE_T length;
+
+	if (!*file) return;
+	if (os_SHOpenFolderAndSelectItems)
 	{
-		int openpathok;
-		
-		openpathok = 0;
-		
-		if (os_SHOpenFolderAndSelectItems)
+		ITEMIDLIST *item = os_ILCreateFromPath(file);
+		if (item)
 		{
-			wchar_t path_part[STRING_SIZE];
-			ITEMIDLIST *folder_idlist;
-			
-			string_get_path_part(path_part,_viv_slot_current.fd.cFileName);
-		
-			// if path_part_buf.buf is an empty string, os_ILCreateFromPath will
-			// correctly return the desktop pidl (an empty pidl).
-			folder_idlist = os_ILCreateFromPath(path_part);
-
-		debug_printf("folder_idlist %p\n",folder_idlist);
-			if (folder_idlist)
-			{
-				ITEMIDLIST *idlist;
-				
-				idlist = os_ILCreateFromPath(_viv_slot_current.fd.cFileName);
-		debug_printf("idlist %S %p\n",_viv_slot_current.fd.cFileName,idlist);
-				if (idlist)
-				{
-					HRESULT hres;
-					
-		debug_printf("ENTER os_SHOpenFolderAndSelectItems\n");
-		
-					hres = os_SHOpenFolderAndSelectItems(folder_idlist,1,(LPCITEMIDLIST *)&idlist,0);
-					
-		debug_printf("os_SHOpenFolderAndSelectItems %08x\n",hres);
-					if (SUCCEEDED(hres))
-					{
-						openpathok = 1;
-					}
-					else
-					if (hres == E_ABORT)
-					{
-						// aborted, QTBar after 10seconds.
-						openpathok = 1;
-					}
-
-					CoTaskMemFree(idlist);
-				}
-
-				CoTaskMemFree(folder_idlist);
-			}
-		}
-		
-		if (!openpathok)
-		{
-			wchar_t path[STRING_SIZE];
-			
-			string_get_path_part(path,_viv_slot_current.fd.cFileName);
-			
-			os_shell_execute(_viv_hwnd,path,0,NULL,NULL);
+			// With zero child PIDLs the shell opens the file's parent
+			// and selects this absolute item.
+			HRESULT result = os_SHOpenFolderAndSelectItems(item,0,NULL,0);
+			CoTaskMemFree(item);
+			if (SUCCEEDED(result) || result == E_ABORT) return;
 		}
 	}
+
+	// Keep the trailing slash, particularly when the parent is a drive root.
+	length = (SIZE_T)(string_get_filename_part(file) - file);
+	if (!length || length >= ARRAYSIZE(directory)) return;
+	os_copy_memory(directory,file,length * sizeof(wchar_t));
+	directory[length] = 0;
+	os_shell_execute(_viv_hwnd,directory,0,NULL,NULL);
 }
-void _viv_properties(void)
+static void _viv_properties(void)
 {
 	if (*_viv_slot_current.fd.cFileName)
 	{

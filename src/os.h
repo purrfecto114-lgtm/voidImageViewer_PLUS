@@ -217,6 +217,7 @@ extern int os_logical_high;
 // refresh os_logical_wide / os_logical_high from the window's monitor dpi
 // (per monitor v2). returns 1 when the values changed.
 int os_window_update_dpi(HWND hwnd);
+int os_window_set_dpi(UINT wide,UINT high);
 
 // the system menu font at the current window dpi (menu bar owner draw).
 int os_menu_font(LOGFONTW *lf);

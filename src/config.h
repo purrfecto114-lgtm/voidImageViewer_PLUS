@@ -158,15 +158,11 @@ extern BYTE config_ui_accent; // ui accent color index: 0..4 (azure, teal, viole
 
 // what shows under the transparent pixels of an image with alpha (not
 // the canvas around the image: that color is the windowed background).
-// the render back end: gdi stays the default, the direct3d family is
-// an opt-in session toggle (view -> renderer) that falls back to gdi on
-// any refusal. the opengl back end left the tree in rc.3: the number 1
-// is retired - an ini that still names it maps to direct3d on load.
+// Preserve the stored value 2 for existing Direct3D 9 installations.
 #define CONFIG_RENDERER_GDI                    0
-#define CONFIG_RENDERER_OPENGL                 1 // retired: no code answers this value any more
-#define CONFIG_RENDERER_DIRECT3D               2
-#define CONFIG_RENDERER_DIRECT3D11             3
-#define CONFIG_RENDERER_DIRECT3D12             4
+#define CONFIG_RENDERER_D3D9                   2
+#define CONFIG_RENDERER_D3D11                  3
+#define CONFIG_RENDERER_D3D12                  4
 
 #define CONFIG_BACKDROP_MODE_FOLLOW                     0
 #define CONFIG_BACKDROP_MODE_BLACK                      1

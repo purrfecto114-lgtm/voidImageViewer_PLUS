@@ -94,14 +94,11 @@ jobs:
       - name: Qoi decoder behaviour gate (hostile input corpus)
         run: python3 tests/qoi_decode_test.py --sanitize
 
-      # the gl runtime's behaviour gate: the production upload/render
-      # bodies spliced onto a stub harness and run against a real mesa
-      # egl context (surfaceless, so no display is needed). the leg
       - name: Memory, renderer and installer repair regressions
         run: python3 tests/repair_regression_test.py
 
-      - name: Rc3 round guards (responsive strip, name doors, rotate artifact, queue, d3d family)
-        run: python3 tests/rc3_round_test.py
+      - name: RC3 DPI, queue and foreground dispatch regressions
+        run: python3 tests/rc3_regression_test.py
 
       - name: Refine round regressions (theme contrast, status layout, clock wrap)
         run: python3 tests/refine_regression_test.py
@@ -117,28 +114,20 @@ jobs:
       # invariant suite owns that domain - a bare \r must not read
       # as trailing whitespace here.
       - name: Whitespace discipline (git diff --check over the pushed range)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BASE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          # github.event.before is the push context's own before-sha; the
-          # underscore spelling this gate shipped with is not a context
-          # property at all - it expanded to an empty string, the -n test
-          # failed open, and every push reported green without running
-          # the diff (the audit's finding).
-          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.event.before }}" ] && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
-            base="${{ github.event.before }}"
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch --no-tags origin "${{ github.base_ref }}"
-            base="origin/${{ github.base_ref }}"
-          else
-            echo "no comparable range for a ${{ github.event_name }} event - the check waits for a push or a pull request"
-            exit 0
+          case "$EVENT_NAME" in
+            push) base="$PUSH_BASE" ;;
+            pull_request) base="$PR_BASE" ;;
+            *) exit 0 ;;
+          esac
+          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            base=$(git rev-parse --verify HEAD^ 2>/dev/null || git hash-object -t tree /dev/null)
           fi
-          WS="blank-at-eol,space-before-tab,blank-at-eof,cr-at-eol"
-          if git -c core.whitespace="$WS" diff --check "$base" HEAD; then
-            echo "whitespace clean over $base..HEAD"
-          else
-            echo "whitespace errors above - fix them before this can merge"
-            exit 1
-          fi
+          git -c core.whitespace=blank-at-eol,space-before-tab,blank-at-eof,cr-at-eol diff --check "$base" HEAD
 
       # the vendored libwebp tree: the offline verifier proves the file
       # set, the version record and the include closure carry no drift.
@@ -214,7 +203,7 @@ jobs:
             project: vs2019
             toolset: v143
           - name: windows-2025 v145
-            runner: windows-2025
+            runner: windows-2025-vs2026
             project: vs2026
             toolset: v145
     runs-on: ${{ matrix.runner }}
@@ -287,21 +276,28 @@ jobs:
       # path that may regenerate it; the old soft branch let a
       # deletion wear the pre-bootstrap era's clothes - the fifth
       # audit caught the comments claiming otherwise).
-      - name: Pixel golden test (the bitmap hash oracle)
-        if: matrix.runner == 'windows-2022'
+      - name: Pixel golden test (GDI, D3D9, D3D11 WARP and D3D12 WARP)
         shell: powershell
         env:
-          BOOTSTRAP_GOLDEN: ${{ github.event_name == 'workflow_dispatch' && inputs.bootstrap-golden }}
+          BOOTSTRAP_GOLDEN: ${{ matrix.runner == 'windows-2022' && github.event_name == 'workflow_dispatch' && inputs.bootstrap-golden }}
         run: |
-          $tracked = git ls-files tests/golden/golden-manifest.json
-          if ($env:BOOTSTRAP_GOLDEN -eq 'true') {
-            powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples" -UpdateGolden
-          } elseif ($tracked) {
-            powershell -ExecutionPolicy Bypass -File tests\render_golden.ps1 -ExePath "build\x64\voidImageViewer.exe" -SamplesDir "tests\samples"
-          } else {
-            Write-Host "::error::golden manifest is not tracked - a deletion is a downgrade, not a bootstrap window (the manifest is committed; only the dispatch bootstrap may regenerate it)"
-            exit 1
-          }
+          if (!(git ls-files --error-unmatch tests/golden/golden-manifest.json)) { exit 1 }
+          $options = @{ ExePath='build\x64\voidImageViewer.exe'; EvidenceDir='build\evidence\render' }
+          if ($env:BOOTSTRAP_GOLDEN -eq 'true') { $options.UpdateGolden = $true }
+          & .\tests\render_golden.ps1 @options
+
+      - name: RC3 Win32 interactions at 96 and 300 DPI
+        if: matrix.runner == 'windows-2025-vs2026'
+        shell: powershell
+        run: '& .\tests\gui_rc3.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\gui'
+
+      - name: Upload render and GUI evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: render-evidence-${{ matrix.runner }}
+          path: build/evidence
+          if-no-files-found: warn
 
       - name: Upload the bootstrapped golden manifest
         if: matrix.runner == 'windows-2022' && github.event_name == 'workflow_dispatch' && inputs.bootstrap-golden

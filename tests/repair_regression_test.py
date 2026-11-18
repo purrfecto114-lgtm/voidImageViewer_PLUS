@@ -28,9 +28,11 @@ def main():
     suites={'d3d':('hwd3d.c',['_viv_d3d_attempt_reset','_viv_hwd3d_render']),
             'mipmap':('viv_render.c',['_viv_get_mipmap']),
             'shell':('os.c',['os_shell_execute']),
+            'file_location':('viv_view.c',['_viv_open_file_location']),
             'orientation':('viv_render.c',['_viv_orientate_hbitmap']),
-            'rotate_atomic':('viv_view.c',['_viv_edit_rotate']),
+            'rotate_atomic':('viv_view.c',['_viv_rotation_ready','_viv_edit_rotate']),
             'd3d_upload':('hwd3d.c',['_viv_hwd3d_release_image','_viv_d3d_texture_upload']),
+            'd3d_modern_upload':('hwd3d_modern.c',['_viv_modern_release_image','upload_image']),
             'cache_budget':('viv_load.c',['_viv_frame_set_bytes']),
             'allocator':('mem.c',['mem_try_alloc_debug','mem_cc','mem_free_debug'])}
     rows=[]

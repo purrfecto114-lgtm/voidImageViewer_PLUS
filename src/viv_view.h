@@ -34,6 +34,9 @@ void _viv_nav_window_invalidate(void);
 int _viv_nav_window_peek(int index,WIN32_FIND_DATA *fd);
 void _viv_home(int end,int is_preload);
 int _viv_nav_neighbor_available(void);
+int _viv_rotation_active(void);
+int _viv_rotation_ready(void);
+void _viv_rotation_clear(void);
 void _viv_view_set(int view_x,int view_y,int invalidate);
 void _viv_slideshow(void);
 void _viv_pause(void);
@@ -50,8 +53,5 @@ int _viv_is_touch_click(void);
 int _viv_suppress_gesture_mouse(int is_down);
 void _viv_touch_double_click(void);
 int _viv_on_gesture(HWND hwnd,void *gesture_info_handle);
-void _viv_open_file_location(void);
-void _viv_rotate_temp_cleanup(void);
-void _viv_properties(void);
 
 #endif
