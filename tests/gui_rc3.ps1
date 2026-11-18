@@ -267,8 +267,25 @@ renderer=0
 
     # Supply 300 DPI to the production WM_DPICHANGED handler, then narrow
     # the restored window until the toolbar has about four 44-DIP slots.
+    # the delivery tries the synchronous send first and falls back to a
+    # posted message with a geometry wait - the server 2025 image answers
+    # a synthetic dpi announcement on the send path with an instant
+    # error-less refusal (the probe and the thread ids ride the log), and
+    # a queued delivery reaches the same handler the system uses.
     Stage "300dpi-lane"
-    Send-Msg $window 0x02e0 (300 + (300 -shl 16)) 0
+    Write-Host ("wm-null probe: " + [VivGui]::Probe($window))
+    Write-Host ("window thread: {0}, process main thread: {1}" -f [VivGui]::WindowThread($window),$proc.Threads[0].Id)
+    $dpiDelivery = "send"
+    try { Send-Msg $window 0x02e0 (300 + (300 -shl 16)) 0 }
+    catch {
+        $dpiDelivery = "post"
+        [VivGui]::Post($window,0x02e0,(300 + (300 -shl 16)),0)
+        $toolbar = Child "_VIV_TOOLBAR"
+        Wait-Until {
+            if ($proc.HasExited) { throw "Viewer exited with code $($proc.ExitCode)" }
+            (Bounds $toolbar -Client).Height -eq 150
+        } "the 300 dpi strip re-measure after the posted dpi change"
+    }
     $menu = Child "_VIV_MENUBAR"
     $border = (Bounds $window).Width - (Bounds $window -Client).Width
     $menuWidth = (Bounds $menu -Client).Width
@@ -311,7 +328,7 @@ renderer=0
     [VivGui]::Click($toolbar,205,75)
     Wait-Until { [VivGui]::Title($window) -like '*03-next*' } "next queue item after decode failure"
     Capture "queue-recovered"
-    Write-Host "Win32 GUI passed. Native window DPI $nativeDpi. Synthetic DPI tests 96 and 300."
+    Write-Host "Win32 GUI passed. Native window DPI $nativeDpi. Synthetic DPI tests 96 and 300 ($dpiDelivery delivery)."
 
     [VivGui]::Post($window,0x10,0,0)
     if (-not $proc.WaitForExit(4000)) { throw "GDI viewer did not close" }
