@@ -12,6 +12,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 
 public static class VivGui {
+    [DllImport("kernel32.dll")] public static extern void SetLastError(uint error);
     [StructLayout(LayoutKind.Sequential)] public struct Rect {
         public int Left, Top, Right, Bottom;
         public int Width { get { return Right-Left; } }
@@ -28,6 +29,7 @@ public static class VivGui {
     [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out Rect r);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool IsHungAppWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr h);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hi, uint flags);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
@@ -53,13 +55,15 @@ public static class VivGui {
         // the slower hosted images can still be inside their first layout
         // when the title goes visible, so a synchronous message can outlast
         // one 4 s window without the thread being hung: give the send three
-        // windows before calling it a failure.
+        // windows before calling it a failure. the failure names the win32
+        // error and the hung verdict so the log answers why, not just that.
         for (int attempt = 1; attempt <= 3; attempt++) {
             IntPtr result;
+            SetLastError(true);
             if (SendMessageTimeout(window,msg,new IntPtr(w),new IntPtr(l),2,4000,out result)!=IntPtr.Zero)
                 return;
         }
-        throw new InvalidOperationException("Message timed out: " + msg);
+        throw new InvalidOperationException("send msg=" + msg + " lastError=" + Marshal.GetLastWin32Error() + " targetHung=" + IsHungAppWindow(window));
     }
     public static void Post(IntPtr window,uint msg,int w,int l) {
         if (!PostMessage(window,msg,new IntPtr(w),new IntPtr(l)))
@@ -88,8 +92,12 @@ function Send-Msg([IntPtr]$target,[uint32]$msg,[int]$w,[int]$l) {
     try { [VivGui]::Send($target,$msg,$w,$l) }
     catch {
         $script:proc.Refresh()
-        throw ("send 0x{0:x} failed - viewer hasExited={1} exitCode={2} windowAlive={3}" -f $msg,$script:proc.HasExited,$script:proc.ExitCode,[VivGui]::IsWindow($target))
+        throw ("send 0x{0:x} failed - viewer hasExited={1} exitCode={2} windowAlive={3} nativeDpi={4} stage={5}" -f $msg,$script:proc.HasExited,$script:proc.ExitCode,[VivGui]::IsWindow($target),$script:nativeDpi,$env:VIV_STAGE)
     }
+}
+function Stage([string]$Name) {
+    $env:VIV_STAGE = $Name
+    Write-Host "stage: $Name"
 }
 function Child([string]$Name) {
     [VivGui]::FindWindowEx($script:window,[IntPtr]::Zero,$Name,$null)
@@ -199,7 +207,8 @@ renderer=0
         $script:window -ne [IntPtr]::Zero -and [VivGui]::Title($script:window) -like '*01-rotate*'
     } "first queued image"
     if ([VivGui]::IsZoomed($window)) { throw "Test needs a restored window" }
-    $nativeDpi = [VivGui]::GetDpiForWindow($window)
+    $script:nativeDpi = [VivGui]::GetDpiForWindow($window)
+    Stage "viewer-ready dpi=$script:nativeDpi"
     # the first injected message waits on the app's message loop, so prove
     # the thread finished its first layout and is pumping before the dpi
     # lane starts (the v145 image's slower startup raced the old order).
@@ -207,11 +216,13 @@ renderer=0
         if ($proc.HasExited) { throw "Viewer exited with code $($proc.ExitCode)" }
         [VivGui]::IsWindowVisible((Child "_VIV_TOOLBAR"))
     } "the command strip before the dpi injections"
+    Stage "strip-visible"
 
     # At a wide baseline, keyboard wrap lands on fullscreen, then rotate.
     # a 96 dpi runner gets no injection: echoing the same dpi back is the
     # fragile no-op the v145 lane raced - only a real normalization sends.
-    if ($nativeDpi -ne 96) { Send-Msg $window 0x02e0 (96 + (96 -shl 16)) 0 }
+    Stage "baseline"
+    if ($script:nativeDpi -ne 96) { Send-Msg $window 0x02e0 (96 + (96 -shl 16)) 0 }
     if (-not [VivGui]::SetWindowPos($window,[IntPtr]::Zero,0,0,1700,800,0x14)) {
         throw "Could not size the baseline window"
     }
@@ -229,12 +240,14 @@ renderer=0
         }
         $false
     } "temporary rotated PNG without a prompt"
+    Stage "rotated"
     if ((Get-FileHash -LiteralPath $first -Algorithm SHA256).Hash -ne $original) {
         throw "Rotation changed the source image"
     }
 
     # Supply 300 DPI to the production WM_DPICHANGED handler, then narrow
     # the restored window until the toolbar has about four 44-DIP slots.
+    Stage "300dpi-lane"
     Send-Msg $window 0x02e0 (300 + (300 -shl 16)) 0
     $menu = Child "_VIV_MENUBAR"
     $border = (Bounds $window).Width - (Bounds $window -Client).Width
@@ -252,6 +265,7 @@ renderer=0
     Wait-Until { [VivGui]::MenuOpen($window) } "More menu"
     Send-Msg $window 0x1f 0 0
     Wait-Until { -not [VivGui]::MenuOpen($window) } "More menu dismissal"
+    Stage "more-menu-dismissed"
 
     Send-Msg $toolbar 7 0 0
     Send-Msg $toolbar 0x100 0x25 0
@@ -260,6 +274,7 @@ renderer=0
     Wait-Until {
         -not [VivGui]::IsWindowVisible((Child "_VIV_TOOLBAR")) -and [VivGui]::IsWindowVisible((Child "_VIV_ZOOMUI"))
     } "fullscreen and floating controls"
+    Stage "fullscreen"
     Capture "fullscreen"
     $pill = Child "_VIV_ZOOMUI"
     $overlay = Bounds $pill -Client
@@ -272,6 +287,7 @@ renderer=0
         [VivGui]::Title($window) -notlike '*01-rotate*' -and
         @(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count -eq 0
     } "failed queue item and temporary-file cleanup"
+    Stage "queue-recovered"
     [VivGui]::Click($toolbar,205,75)
     Wait-Until { [VivGui]::Title($window) -like '*03-next*' } "next queue item after decode failure"
     Capture "queue-recovered"
@@ -284,6 +300,7 @@ renderer=0
     $script:window = [IntPtr]::Zero
 
     foreach ($renderer in @(2,3,4)) {
+        Stage "d3d-lane-$renderer"
         $profile.Replace("renderer=0","renderer=$renderer") | Set-Content -LiteralPath $ini -Encoding ascii
         $arguments = @('"' + $last + '"')
         if ($renderer -gt 2) { $arguments = @("-render-warp") + $arguments }
