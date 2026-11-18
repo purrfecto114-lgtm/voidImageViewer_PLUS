@@ -6747,8 +6747,13 @@ def t_audit_response_round110():
     check("the fixture self-check pins the discrimination floor",
           "len(distinct) >= 5000" in fixture_gen and
           "the discrimination contract died" in fixture_gen)
-    check('the golden set carries the texture (thirteen samples)',
-          '"fx_still_textured.png"' in golden_ps1 and "len(manifest) == 13" in golden_pg)
+    # thirteen samples render every run; twelve pin committed hashes -
+    # the wic jpeg decode drifts across windows builds (the v143/v145
+    # image pair answered different pixels for the same fixture), so its
+    # hashes stay out of the manifest and the unpinned list owns that.
+    check('the golden set carries the texture (thirteen render, twelve pinned)',
+          '"fx_still_textured.png"' in golden_ps1 and "len(manifest) == 12" in golden_pg and
+          '$unpinnedSamples = @("fx_still_photo.jpg")' in golden_ps1)
     # round-125: the distinctness contract moved to the scaled
     # samples (the 1:1 samples legitimately agree under the
     # upright mapping - the flip era faked their difference).
@@ -6896,7 +6901,8 @@ def t_audit_response_round111():
           # wired in (the tests job, the teeth job, the compile matrix).
           tests_yml.count("timeout-minutes:") == 3)
     check('the regenerating path runs the same renderer checks',
-          golden_ps1.find("$results[$renderer] -eq $results.gdi") < golden_ps1.find("if ($UpdateGolden) {\n            $updated"))
+          golden_ps1.find("$results[$renderer] -eq $results.gdi") < golden_ps1.find("$updated[$sample]") and
+          '$sample -notin $unpinnedSamples' in golden_ps1)
     check("the fuzz smoke's setup failures answer the setup code",
           qoi_ps1.count("exit 2") >= 2 and
           "exit codes: 0 pass, 1 fail, 2 setup error" in qoi_ps1)

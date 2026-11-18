@@ -32,6 +32,13 @@ $goldenSamples = @(
 )
 $atNativeSize = @("fx_still_24bpp.bmp", "fx_still_qoi_rgba.qoi", "fx_still_textured.png")
 $scaledTexture = "fx_still_qoi_sliver.qoi"
+# the wic jpeg decode is lossy and version-sensitive across windows builds -
+# the v145 image's decoder answers different pixels than the v143 image's
+# (the first ci run of the pair caught exactly that). the photo still renders
+# and still owes the d3d11/d3d12 channel agreement, but no committed hash can
+# satisfy two windows builds at once: its gdi and d3d9 hashes stay out of the
+# manifest, and the structure gate pins that exclusion.
+$unpinnedSamples = @("fx_still_photo.jpg")
 $size = "640x480"
 $renderers = @("gdi", "d3d9", "d3d11", "d3d12")
 Add-Type -TypeDefinition @'
@@ -135,8 +142,10 @@ try {
         }
 
         if ($UpdateGolden) {
-            $updated[$sample] = [ordered]@{gdi=$results.gdi; d3d9=$results.d3d9}
-        } else {
+            if ($sample -notin $unpinnedSamples) {
+                $updated[$sample] = [ordered]@{gdi=$results.gdi; d3d9=$results.d3d9}
+            }
+        } elseif ($sample -notin $unpinnedSamples) {
             foreach ($renderer in @("gdi","d3d9")) {
                 if ($results[$renderer] -ne $legacy.$sample.$renderer) {
                     throw "$sample / ${renderer}: committed pixel hash drift ($($results[$renderer]))"
