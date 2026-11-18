@@ -49,9 +49,16 @@ public static class VivGui {
         return GetGUIThreadInfo(GetWindowThreadProcessId(window,out pid),ref gui) && (gui.Flags & 4) != 0;
     }
     public static void Send(IntPtr window,uint msg,int w,int l) {
-        IntPtr result;
-        if (SendMessageTimeout(window,msg,new IntPtr(w),new IntPtr(l),2,4000,out result)==IntPtr.Zero)
-            throw new InvalidOperationException("Message timed out: " + msg);
+        // the slower hosted images can still be inside their first layout
+        // when the title goes visible, so a synchronous message can outlast
+        // one 4 s window without the thread being hung: give the send three
+        // windows before calling it a failure.
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            IntPtr result;
+            if (SendMessageTimeout(window,msg,new IntPtr(w),new IntPtr(l),2,4000,out result)!=IntPtr.Zero)
+                return;
+        }
+        throw new InvalidOperationException("Message timed out: " + msg);
     }
     public static void Post(IntPtr window,uint msg,int w,int l) {
         if (!PostMessage(window,msg,new IntPtr(w),new IntPtr(l)))
@@ -182,6 +189,10 @@ renderer=0
     } "first queued image"
     if ([VivGui]::IsZoomed($window)) { throw "Test needs a restored window" }
     $nativeDpi = [VivGui]::GetDpiForWindow($window)
+    # the first injected message waits on the app's message loop, so prove
+    # the thread finished its first layout and is pumping before the dpi
+    # lane starts (the v145 image's slower startup raced the old order).
+    Wait-Until { [VivGui]::IsWindowVisible((Child "_VIV_TOOLBAR")) } "the command strip before the dpi injections"
 
     # At a wide baseline, keyboard wrap lands on fullscreen, then rotate.
     [VivGui]::Send($window,0x02e0,(96 + (96 -shl 16)),0)
