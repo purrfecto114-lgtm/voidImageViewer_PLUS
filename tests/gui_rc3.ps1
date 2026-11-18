@@ -92,7 +92,8 @@ function Send-Msg([IntPtr]$target,[uint32]$msg,[int]$w,[int]$l) {
     try { [VivGui]::Send($target,$msg,$w,$l) }
     catch {
         $script:proc.Refresh()
-        throw ("send 0x{0:x} failed - viewer hasExited={1} exitCode={2} windowAlive={3} nativeDpi={4} stage={5}" -f $msg,$script:proc.HasExited,$script:proc.ExitCode,[VivGui]::IsWindow($target),$script:nativeDpi,$env:VIV_STAGE)
+        $inner = $_.Exception.InnerException
+        throw ("send 0x{0:x} failed - viewer hasExited={1} exitCode={2} windowAlive={3} nativeDpi={4} stage={5} inner=[{6}]" -f $msg,$script:proc.HasExited,$script:proc.ExitCode,[VivGui]::IsWindow($target),$script:nativeDpi,$env:VIV_STAGE,$inner.Message)
     }
 }
 function Stage([string]$Name) {
