@@ -57,7 +57,8 @@ export const DARK_TOKENS: Record<string, string> = {
   "VIV_TK_ACCENT": "#000000",
   "VIV_TK_ACCENT_HOT": "#000000",
   "VIV_TK_ACCENT_DOWN": "#000000",
-  "VIV_TK_ON_ACCENT": "#ffffff"
+  "VIV_TK_ON_ACCENT": "#ffffff",
+  "VIV_TK_LINK": "#9bc7ff"
 };
 export const LIGHT_TOKENS: Record<string, string> = {
   "VIV_TK_FACE": "sys:COLOR_BTNFACE",
@@ -73,6 +74,7 @@ export const LIGHT_TOKENS: Record<string, string> = {
   "VIV_TK_TEXT": "sys:COLOR_WINDOWTEXT",
   "VIV_TK_TEXT2": "sys:COLOR_GRAYTEXT",
   "VIV_TK_TEXTOFF": "sys:COLOR_GRAYTEXT",
+  "VIV_TK_LINK": "sys:COLOR_HOTLIGHT",
   "VIV_TK_ON_ACCENT": "#ffffff"
 };
 export const LIGHT_SYS_DEFAULTS: Record<string, string> = {
@@ -81,7 +83,8 @@ export const LIGHT_SYS_DEFAULTS: Record<string, string> = {
   "COLOR_3DSHADOW": "#a0a0a0",
   "COLOR_GRAYTEXT": "#6d6d6d",
   "COLOR_WINDOW": "#ffffff",
-  "COLOR_WINDOWTEXT": "#000000"
+  "COLOR_WINDOWTEXT": "#000000",
+  "COLOR_HOTLIGHT": "#0066cc"
 };
 export const TOKEN_ORDER: string[] = [
   "VIV_TK_FACE",
@@ -100,7 +103,8 @@ export const TOKEN_ORDER: string[] = [
   "VIV_TK_ACCENT",
   "VIV_TK_ACCENT_HOT",
   "VIV_TK_ACCENT_DOWN",
-  "VIV_TK_ON_ACCENT"
+  "VIV_TK_ON_ACCENT",
+  "VIV_TK_LINK"
 ];
 
 export function themeColor(mode: ThemeMode, token: string, accent: number): string {

@@ -106,6 +106,14 @@ jobs:
       - name: Installer and PE integration regressions (static control flow)
         run: python3 tests/repair_integration_test.py
 
+      # the C link gate: every symbol a header prototypes and a source
+      # calls must carry a definition body somewhere in src - the
+      # declared-but-never-defined class link-fails on the runner and
+      # none of the python suites compile the app, so the gate answers
+      # it here (GetProcAddress function pointers ride their own road).
+      - name: C link gate (prototyped and called symbols must be defined)
+        run: python3 tools/link_gate.py src
+
       # the whitespace gate: git's own diff --check over the pushed
       # range (the merge base for pull requests). catches trailing
       # whitespace and space-before-tab in added lines before they
@@ -286,8 +294,7 @@ jobs:
           if ($env:BOOTSTRAP_GOLDEN -eq 'true') { $options.UpdateGolden = $true }
           & .\tests\render_golden.ps1 @options
 
-      - name: RC3 Win32 interactions at 96 and 300 DPI
-        if: matrix.runner == 'windows-2025-vs2026'
+      - name: Win32 interactions, 4K rotation and effective DPI
         shell: powershell
         run: '& .\tests\gui_rc3.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\gui'
 

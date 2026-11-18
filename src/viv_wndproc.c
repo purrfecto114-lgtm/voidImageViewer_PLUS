@@ -38,6 +38,7 @@
 #include "viv_dark.h"
 #include "viv_dialogs.h"
 #include "viv_view.h"
+#include "viv_rotation.h"
 #include "viv_export.h"
 #include "viv_install.h"
 
@@ -1154,6 +1155,10 @@ static LRESULT _viv_on_wm_timer(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 		}
 		break;
 		
+		case VIV_ID_ROTATION_TIMER:
+			_viv_rotation_poll();
+			break;
+
 		case VIV_ID_STATUS_TEMP_TEXT_TIMER:
 			_viv_status_set_temp_text(0);
 			break;

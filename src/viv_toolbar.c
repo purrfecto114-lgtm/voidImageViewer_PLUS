@@ -30,6 +30,7 @@
 #include "viv_toolbar.h"
 #include "viv_menu.h"
 #include "viv_view.h"
+#include "viv_rotation.h"
 
 // not defined in older sdks.
 #ifndef BN_CLICKED
@@ -1355,10 +1356,10 @@ static LRESULT CALLBACK _viv_toolbar_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARA
 			// paint rode before the cluster gave the value this home. (the
 			// selection highlight stays the system color - the edit control
 			// offers no custom one; it lives only while the editor is open.)
-			SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_NAV_FACE));
+			SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));
 			SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));
 
-			return (LRESULT)viv_theme_brush(VIV_TK_NAV_FACE);
+			return (LRESULT)viv_theme_brush(VIV_TK_CHROME);
 
 		case WM_SETCURSOR:
 		{

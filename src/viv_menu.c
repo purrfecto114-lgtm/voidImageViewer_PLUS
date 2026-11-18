@@ -29,6 +29,7 @@
 #include "viv_recent.h"
 #include "viv_render.h"
 #include "viv_view.h"
+#include "viv_rotation.h"
 
 // forward declarations (order preserved from viv.c)
 void _viv_check_menus(HMENU hmenu);
@@ -227,7 +228,7 @@ void _viv_check_menus(HMENU hmenu)
 	EnableMenuItem(hmenu,VIV_ID_FILE_PRINT,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_FILE_PROPERTIES,is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_FILE_SET_DESKTOP_WALLPAPER,is_image_enabled);
-	EnableMenuItem(hmenu,VIV_ID_FILE_SAVE_AS,is_image_enabled);
+	EnableMenuItem(hmenu,VIV_ID_FILE_SAVE_AS,_viv_rotation_busy() ? MF_GRAYED : is_image_enabled);
 	EnableMenuItem(hmenu,VIV_ID_FILE_RENAME,is_image_enabled);
 
 	EnableMenuItem(hmenu,VIV_ID_EDIT_ROTATE_270,_viv_rotation_ready() ? MF_ENABLED : MF_GRAYED);

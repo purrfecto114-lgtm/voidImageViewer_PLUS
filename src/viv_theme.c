@@ -53,7 +53,8 @@ static const COLORREF _viv_theme_dark_colors[VIV_TK_COUNT] =
 	RGB(0x00,0x00,0x00),	// VIV_TK_ACCENT (the accent table wins)
 	RGB(0x00,0x00,0x00),	// VIV_TK_ACCENT_HOT (the accent table wins)
 	RGB(0x00,0x00,0x00),	// VIV_TK_ACCENT_DOWN (the accent table wins)
-	RGB(0xFF,0xFF,0xFF)		// VIV_TK_ON_ACCENT
+	RGB(0xFF,0xFF,0xFF),	// VIV_TK_ON_ACCENT
+	RGB(0x9B,0xC7,0xFF)		// VIV_TK_LINK
 };
 
 // system face, text and input colors form the light palette's native base.
@@ -85,6 +86,7 @@ static COLORREF _viv_theme_light_color(int token)
 		case VIV_TK_TEXT: return GetSysColor(COLOR_WINDOWTEXT);
 		case VIV_TK_TEXT2: return GetSysColor(COLOR_GRAYTEXT);
 		case VIV_TK_TEXTOFF: return GetSysColor(COLOR_GRAYTEXT);
+		case VIV_TK_LINK: return GetSysColor(COLOR_HOTLIGHT);
 		case VIV_TK_ON_ACCENT: return RGB(0xFF,0xFF,0xFF);
 		default: return RGB(0,0,0);
 	}

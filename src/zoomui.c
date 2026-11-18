@@ -1968,7 +1968,7 @@ static void _zoomui_draw_separator(HDC hdc)
 	DeleteObject(brush);
 }
 
-// draw the percent text cell: the shared 16 dip readout, centered in
+// Draw the same percentage readout as the toolbar, centered in
 // the cell. no fill, no border, no hover: the cell is a readout.
 static void _zoomui_draw_percent(HDC hdc,const RECT *rect)
 {
@@ -2000,8 +2000,7 @@ static void _zoomui_draw_percent(HDC hdc,const RECT *rect)
 		old_font = SelectObject(hdc,font);
 	}
 
-	_viv_ui_text_rect(hdc,&text_rect);
-	DrawTextW(hdc,wbuf,-1,&text_rect,DT_CENTER|DT_TOP|DT_SINGLELINE|DT_NOPREFIX);
+	DrawTextW(hdc,wbuf,-1,&text_rect,DT_CENTER|DT_VCENTER|DT_SINGLELINE|DT_NOPREFIX);
 
 	if (old_font)
 	{

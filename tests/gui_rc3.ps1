@@ -1,4 +1,4 @@
-# Run against the real Win32 binary. The 300 DPI lane injects WM_DPICHANGED.
+# Run the RC4 regressions against the Win32 binary and record the effective DPI.
 param(
     [Parameter(Mandatory=$true)][string]$ExePath,
     [string]$SamplesDir = (Join-Path $PSScriptRoot "samples"),
@@ -66,24 +66,11 @@ public static class VivGui {
         throw new InvalidOperationException("send msg=" + msg + " lastError=" + Marshal.GetLastWin32Error() + " targetHung=" + IsHungAppWindow(window));
     }
 
-    // the mechanism probe: a harmless wm_null through the same
-    // sendimetimeout path. if the null answers, the send mechanism and the
-    // target thread are fine and only the dpi message is refused; if the
-    // null fails the same way, the lane's whole synchronous channel is.
-    public static string Probe(IntPtr window) {
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            IntPtr result;
-            SetLastError(1);
-            if (SendMessageTimeout(window,0,new IntPtr(0),new IntPtr(0),2,2000,out result)!=IntPtr.Zero)
-                return "ok result=" + result;
-        }
-        return "fail err=" + Marshal.GetLastWin32Error() + " hung=" + IsHungAppWindow(window);
+    public static bool TrySend(IntPtr window,uint msg,int w,int l,uint timeout) {
+        IntPtr result;
+        return SendMessageTimeout(window,msg,new IntPtr(w),new IntPtr(l),3,timeout,out result)!=IntPtr.Zero;
     }
 
-    public static uint WindowThread(IntPtr window) {
-        uint process;
-        return GetWindowThreadProcessId(window,out process);
-    }
     public static void Post(IntPtr window,uint msg,int w,int l) {
         if (!PostMessage(window,msg,new IntPtr(w),new IntPtr(l)))
             throw new InvalidOperationException("Could not post message: " + msg);
@@ -96,12 +83,12 @@ public static class VivGui {
 }
 '@
 
-function Wait-Until([scriptblock]$Condition, [string]$Description) {
+function Wait-Until([scriptblock]$Condition, [string]$Description, [int]$TimeoutMs = 12000) {
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
     do {
         if (& $Condition) { return }
         Start-Sleep -Milliseconds 75
-    } while ($stopwatch.ElapsedMilliseconds -lt 12000)
+    } while ($stopwatch.ElapsedMilliseconds -lt $TimeoutMs)
     throw "Timed out waiting for $Description"
 }
 # the diagnostic wrapper: a send that fails names the viewer's real state -
@@ -119,18 +106,12 @@ function Stage([string]$Name) {
     $env:VIV_STAGE = $Name
     Write-Host "stage: $Name"
 }
-# the input ring: a posted click is an attempt, not a one-shot assertion -
-# right after a fullscreen restore the strip can still be settling, so the
-# click re-posts while the condition polls (the same discipline the waits
-# use for the app's own answers).
-function Click-Until([IntPtr]$target,[int]$x,[int]$y,[scriptblock]$Condition,[string]$Description) {
-    $stopwatch = [Diagnostics.Stopwatch]::StartNew()
-    do {
-        [VivGui]::Click($target,$x,$y)
-        Start-Sleep -Milliseconds 300
-        if (& $Condition) { return }
-    } while ($stopwatch.ElapsedMilliseconds -lt 12000)
-    throw "Timed out waiting for $Description"
+function Click-Once([IntPtr]$Target,[int]$X,[int]$Y) {
+    $point = ($Y -shl 16) -bor ($X -band 65535)
+    if (-not [VivGui]::TrySend($Target,0x201,1,$point,2000) -or
+        -not [VivGui]::TrySend($Target,0x202,0,$point,2000)) {
+        throw "The toolbar did not accept a single click at ($X, $Y)"
+    }
 }
 # the lane geometry is written in dip and rides the dpi the image accepted:
 # the same dip widths force the same overflow at 96 and at 300.
@@ -170,16 +151,43 @@ function Capture([string]$Name) {
         $bitmap.Save((Join-Path $EvidenceDir ($Name + ".png")),[Drawing.Imaging.ImageFormat]::Png)
     } finally { $bitmap.Dispose() }
 }
-function Read-PngSize([string]$Path) {
+function New-RotationFixture([string]$Path) {
+    $bitmap = New-Object Drawing.Bitmap(3840,2160,([Drawing.Imaging.PixelFormat]::Format24bppRgb))
+    try {
+        $graphics = [Drawing.Graphics]::FromImage($bitmap)
+        try {
+            $graphics.FillRectangle([Drawing.Brushes]::Red,0,0,1920,1080)
+            $graphics.FillRectangle([Drawing.Brushes]::Lime,1920,0,1920,1080)
+            $graphics.FillRectangle([Drawing.Brushes]::Blue,0,1080,1920,1080)
+            $graphics.FillRectangle([Drawing.Brushes]::Yellow,1920,1080,1920,1080)
+        } finally { $graphics.Dispose() }
+        $bitmap.Save($Path,[Drawing.Imaging.ImageFormat]::Bmp)
+    } finally { $bitmap.Dispose() }
+}
+
+function Read-RotatedBmp([string]$Path, [int]$Width, [int]$Height) {
     try {
         $stream = [IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+        $reader = New-Object IO.BinaryReader($stream)
         try {
-            $h = New-Object byte[] 24
-            if ($stream.Read($h,0,24) -ne 24 -or $h[0] -ne 137 -or $h[1] -ne 80) { return }
-            [Array]::Reverse($h,16,4)
-            [Array]::Reverse($h,20,4)
-            [pscustomobject]@{ Width=[BitConverter]::ToInt32($h,16); Height=[BitConverter]::ToInt32($h,20) }
-        } finally { $stream.Dispose() }
+            $header = $reader.ReadBytes(54)
+            if ($header.Length -ne 54 -or $header[0] -ne 66 -or $header[1] -ne 77 -or
+                [BitConverter]::ToInt32($header,18) -ne $Width -or [BitConverter]::ToInt32($header,22) -ne (-$Height)) { return }
+            $offset = [BitConverter]::ToUInt32($header,10)
+            $bits = [BitConverter]::ToUInt16($header,28)
+            if ($offset -ne 54 -or $bits -notin 24,32) { return }
+            $stride = (($Width * $bits + 31) -shr 5) * 4
+            if ($stream.Length -ne ($offset + $stride*$Height)) { return }
+            foreach ($y in @(0,($Height-1))) {
+                foreach ($x in @(0,($Width-1))) {
+                    $stream.Position = $offset + $stride*$y + ($bits -shr 3)*$x
+                    $blue = [int]$reader.ReadByte()
+                    $green = [int]$reader.ReadByte()
+                    $red = [int]$reader.ReadByte()
+                    ($red -shl 16) -bor ($green -shl 8) -bor $blue
+                }
+            }
+        } finally { $reader.Dispose() }
     } catch [IO.IOException] {}
 }
 
@@ -207,6 +215,7 @@ show_controls=1
 show_menu=1
 show_status=1
 show_zoom_controls=1
+toolbar_icon_only=1
 zoom_auto_hide=0
 sort=0
 sort_ascending=1
@@ -215,17 +224,13 @@ renderer=0
     $ini = Join-Path $root "voidImageViewer.ini"
     $profile | Set-Content -LiteralPath $ini -Encoding ascii
 
-    $first = Join-Path $root "01-rotate.bmp"
+    $first = Join-Path $root "01-rotate-long-catalogue-image-with-a-name-that-needs-the-full-status-pane-4k.bmp"
     $bad = Join-Path $root "02-broken.png"
     $last = Join-Path $root "03-next.png"
-    Copy-Item -LiteralPath (Join-Path $SamplesDir "fx_still_24bpp.bmp") -Destination $first
+    New-RotationFixture $first
     Copy-Item -LiteralPath (Join-Path $SamplesDir "fx_still_textured.png") -Destination $last
     [IO.File]::WriteAllBytes($bad,[byte[]](137,80,78,71))
     $original = (Get-FileHash -LiteralPath $first -Algorithm SHA256).Hash
-    $sample = [Drawing.Bitmap]::FromFile($first)
-    $oldWidth=$sample.Width
-    $oldHeight=$sample.Height
-    $sample.Dispose()
 
     $oldTemp,$oldTmp = $env:TEMP,$env:TMP
     try {
@@ -256,65 +261,60 @@ renderer=0
     } "the command strip before the dpi injections"
     Stage "strip-visible"
 
-    # At a wide baseline, keyboard wrap lands on fullscreen, then rotate.
-    # a 96 dpi runner gets no injection: echoing the same dpi back is the
-    # fragile no-op the v145 lane raced - only a real normalization sends.
     Stage "baseline"
-    if ($script:nativeDpi -ne 96) { Send-Msg $window 0x02e0 (96 + (96 -shl 16)) 0 }
-    if (-not [VivGui]::SetWindowPos($window,[IntPtr]::Zero,0,0,1700,800,0x14)) {
+    $nativeScale = $script:nativeDpi / 96.0
+    if (-not [VivGui]::SetWindowPos($window,[IntPtr]::Zero,0,0,([int](1700*$nativeScale)),([int](680*$nativeScale)),0x14)) {
         throw "Could not size the baseline window"
     }
     $toolbar = Child "_VIV_TOOLBAR"
     Wait-Until { [VivGui]::IsWindowVisible($toolbar) } "windowed command strip"
-    Capture "windowed-96dpi"
+    Capture "windowed-native-${script:nativeDpi}dpi"
+    # From the first toolbar item, wrap left to Fullscreen and then Rotate.
     Send-Msg $toolbar 7 0 0
     Send-Msg $toolbar 0x100 0x25 0
     Send-Msg $toolbar 0x100 0x25 0
-    [VivGui]::Post($toolbar,0x100,0x0d,0)
+    $rotation = [Diagnostics.Stopwatch]::StartNew()
+    if (-not [VivGui]::TrySend($toolbar,0x100,0x0d,0,2000)) {
+        throw "The 4K Rotate command held the UI thread"
+    }
+    Write-Host "4K Rotate command returned in $($rotation.ElapsedMilliseconds) ms"
     Wait-Until {
+        if (-not [VivGui]::TrySend($window,0,0,0,2000)) { throw "The window stopped pumping during rotation" }
         foreach ($entry in Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp') {
-            $size = Read-PngSize $entry.FullName
-            if ($size -and $size.Width -eq $oldHeight -and $size.Height -eq $oldWidth) { return $true }
+            $corners = @(Read-RotatedBmp $entry.FullName 2160 3840)
+            if (($corners -join ',') -eq (@(0x0000ff,0xff0000,0xffff00,0x00ff00) -join ',')) {
+                return $true
+            }
         }
         $false
-    } "temporary rotated PNG without a prompt"
+    } "correct temporary 4K clockwise BMP without a prompt"
+    Write-Host "4K BMP dimensions and four corner pixels verified after $($rotation.ElapsedMilliseconds) ms"
     Stage "rotated"
     if ((Get-FileHash -LiteralPath $first -Algorithm SHA256).Hash -ne $original) {
         throw "Rotation changed the source image"
     }
 
-    # Supply 300 DPI to the production WM_DPICHANGED handler, then narrow
-    # the restored window until the toolbar has about four 44-DIP slots.
-    # the delivery ladder answers by capability, not by assumption: the
-    # synchronous send first, a posted announcement second, and when the
-    # image refuses both (the server 2025 kernel declines a synthetic dpi
-    # announcement that contradicts the window's monitor, on both paths -
-    # the wm_null probe and the thread ids above name the mechanism fine),
-    # the whole lane set rides the native scale with dip-equivalent
-    # geometry, and the 300 dpi real-window lane stays on the windows-2022
-    # leg beside the rc3 harness's 288/300 production-c coverage.
-    Stage "300dpi-lane"
-    $script:dpi = 0
-    $delivery = "none"
-    try {
-        Send-Msg $window 0x02e0 (300 + (300 -shl 16)) 0
-        $delivery = "send"
-        $script:dpi = 300
-    } catch {
-        try {
-            [VivGui]::Post($window,0x02e0,(300 + (300 -shl 16)),0)
-            $toolbar = Child "_VIV_TOOLBAR"
-            Wait-Until {
-                if ($proc.HasExited) { throw "Viewer exited with code $($proc.ExitCode)" }
-                (Bounds $toolbar -Client).Height -eq 150
-            } "the 300 dpi strip re-measure after the posted dpi change"
-            $delivery = "post"
-            $script:dpi = 300
-        } catch {
-            $script:dpi = $script:nativeDpi
-            Write-Host ("synthetic dpi announcement refused on this image (send and post) - the high-dpi lane rides the native scale")
+    # A synthetic update may be refused. The application strip height
+    # proves whether the 300 DPI layout ran, independent of the send result.
+    Stage "high-dpi-lane"
+    $delivery = 'monitor'
+    if ($script:nativeDpi -ne 300) {
+        $delivery = 'native fallback'
+        $dpiParam = 300 + (300 -shl 16)
+        $null = [VivGui]::TrySend($window,0x02e0,$dpiParam,0,1000)
+        if ((Bounds $toolbar -Client).Height -eq 150) {
+            $delivery = 'synthetic send'
+        } else {
+            [VivGui]::Post($window,0x02e0,$dpiParam,0)
+            try {
+                Wait-Until { (Bounds $toolbar -Client).Height -eq 150 } "300 DPI strip after the synthetic post" 1500
+                $delivery = 'synthetic post'
+            } catch {
+                Write-Host "Synthetic 300 DPI was refused. Testing overflow at the native DPI."
+            }
         }
     }
+    $script:dpi = if ($delivery -eq 'native fallback') { $script:nativeDpi } else { 300 }
     $script:scale = $script:dpi / 96.0
     $menu = Child "_VIV_MENUBAR"
     $border = (Bounds $window).Width - (Bounds $window -Client).Width
@@ -327,7 +327,7 @@ renderer=0
     if ($bar.Height -ne (D2P 48) -or $bar.Width -lt (D2P 175) -or $bar.Width -ge (D2P 438.4)) {
         throw "Unexpected $($script:dpi) DPI toolbar geometry $($bar.Width)x$($bar.Height)"
     }
-    Capture "restored-300dpi-overflow"
+    Capture "restored-${script:dpi}dpi-overflow"
     [VivGui]::Click($toolbar,($bar.Width-(D2P 11.2)),(D2P 24))
     Wait-Until { [VivGui]::MenuOpen($window) } "More menu"
     Send-Msg $window 0x1f 0 0
@@ -349,28 +349,20 @@ renderer=0
     Wait-Until { [VivGui]::IsWindowVisible((Child "_VIV_TOOLBAR")) } "fullscreen exit from floating controls"
 
     $toolbar = Child "_VIV_TOOLBAR"
-    try {
-        Click-Until $toolbar (D2P 65.6) (D2P 24) {
-            [VivGui]::Title($window) -notlike '*01-rotate*' -and
-            @(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count -eq 0
-        } "failed queue item and temporary-file cleanup"
-    } catch {
-        # the failure names its own state: an unchanged title means the
-        # click landed on a different seat at this scale (geometry), a
-        # changed title with temps left means the release road itself.
-        $tb = Child "_VIV_TOOLBAR"
-        $tw = Bounds $tb -Client
-        $ww = Bounds $window
-        Write-Host ("queue-recovery state: title='{0}' window={1}x{2} toolbar={3}x{4} temps={5}" -f [VivGui]::Title($window),$ww.Width,$ww.Height,$tw.Width,$tw.Height,@(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count)
-        Capture "queue-recovery-state"
-        throw
-    }
-    Stage "queue-recovered"
-    Click-Until $toolbar (D2P 65.6) (D2P 24) {
-        [VivGui]::Title($window) -like '*03-next*'
-    } "next queue item after decode failure"
+    $bar = Bounds $toolbar -Client
+    $script:scale = $bar.Height / 48.0
+    Click-Once $toolbar (D2P 65.6) (D2P 24)
+    Wait-Until {
+        $title = [VivGui]::Title($window)
+        $title -notlike '*01-rotate*' -and $title -notlike '*03-next*' -and
+        @(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count -eq 0
+    } "one queue step to the failed item and removal of both temporary files"
+    Capture "queue-failed-item"
+    Stage "queue-recovery"
+    Click-Once $toolbar (D2P 65.6) (D2P 24)
+    Wait-Until { [VivGui]::Title($window) -like '*03-next*' } "one queue step past the failed item"
     Capture "queue-recovered"
-    Write-Host "Win32 GUI passed. Window DPI $script:dpi ($delivery delivery). Synthetic DPI tests 96 and 300."
+    Write-Host "Win32 GUI passed. Restored layout $script:dpi DPI ($delivery). Monitor DPI $([VivGui]::GetDpiForWindow($window))."
 
     [VivGui]::Post($window,0x10,0,0)
     if (-not $proc.WaitForExit(4000)) { throw "GDI viewer did not close" }

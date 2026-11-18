@@ -94,6 +94,7 @@ src/viv_theme.c
 src/viv_msgbox.c
 src/viv_toolbar.c
 src/viv_view.c
+src/viv_rotation.c
 src/viv_wndproc.c
 src/wchar.c
 src/webp.c

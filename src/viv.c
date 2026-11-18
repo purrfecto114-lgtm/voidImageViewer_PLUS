@@ -43,6 +43,7 @@
 #include "viv_dark.h"
 #include "viv_dialogs.h"
 #include "viv_view.h"
+#include "viv_rotation.h"
 #include "viv_install.h"
 #include "viv_menu.h"
 #include "viv_wndproc.h"
@@ -1881,6 +1882,7 @@ void _viv_kill(void)
 
 	_viv_clear_preload_frames();
 	_viv_clear();
+	_viv_rotation_shutdown();
 	_viv_process_pending_clear();
 
 	if (_viv_hwnd)

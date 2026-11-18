@@ -406,4 +406,5 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	"Rotated preview", // LOCALIZATION_ID_STATUS_BAR_ROTATED_PREVIEW
 	"Show in folder", // LOCALIZATION_ID_STATUS_BAR_SHOW_IN_FOLDER
 	"Direct3D 12 (11On12)", // LOCALIZATION_ID_RENDERER_D3D12
+	"Rotating…", // LOCALIZATION_ID_STATUS_BAR_ROTATING
 };

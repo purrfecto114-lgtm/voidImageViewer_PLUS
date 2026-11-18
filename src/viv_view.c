@@ -25,6 +25,7 @@
 #include "viv.h"
 #include "viv_state.h"
 #include "viv_view.h"
+#include "viv_rotation.h"
 #include "viv_anim.h"
 #include "viv_chrome.h"
 #include "viv_dialogs.h"
@@ -52,7 +53,6 @@ static void _viv_increase_rate(int dec);
 static void _viv_file_preview(void);
 static void _viv_file_print(void);
 static void _viv_file_set_desktop_wallpaper(void);
-static void _viv_edit_rotate(int counterclockwise);
 static void _viv_file_edit(void);
 static void _viv_open_file_location(void);
 static void _viv_properties(void);
@@ -2325,124 +2325,6 @@ static void _viv_file_set_desktop_wallpaper(void)
 				os_shell_execute(_viv_hwnd,_viv_slot_current.fd.cFileName,0,"setdesktopwallpaper",0);
 			}
 		}
-	}
-}
-// One original snapshot and one rotated PNG belong to the displayed image.
-static HANDLE _viv_rotation_source;
-static HANDLE _viv_rotation_preview;
-
-int _viv_rotation_active(void)
-{
-	return _viv_rotation_preview != NULL;
-}
-
-void _viv_rotation_clear(void)
-{
-	if (_viv_rotation_preview) CloseHandle(_viv_rotation_preview);
-	if (_viv_rotation_source) CloseHandle(_viv_rotation_source);
-	_viv_rotation_preview = NULL;
-	_viv_rotation_source = NULL;
-}
-
-int _viv_rotation_ready(void)
-{
-	return *_viv_slot_current.fd.cFileName && !_viv_image_is_low_res &&
-		_viv_slot_current.frame_count > 0 &&
-		_viv_slot_current.frame_loaded_count == _viv_slot_current.frame_count &&
-		_viv_frame_position >= 0 && _viv_frame_position < _viv_slot_current.frame_count;
-}
-
-static int _viv_rotation_temp(wchar_t *path,const wchar_t *directory)
-{
-	return GetTempFileNameW(directory,L"viv",0,path) != 0;
-}
-
-static HANDLE _viv_rotation_own_temp(const wchar_t *path)
-{
-	HANDLE file = CreateFileW(path,DELETE,FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-		NULL,OPEN_EXISTING,FILE_ATTRIBUTE_TEMPORARY | FILE_FLAG_DELETE_ON_CLOSE,NULL);
-	return file == INVALID_HANDLE_VALUE ? NULL : file;
-}
-
-static int _viv_rotation_stage(HBITMAP preview)
-{
-	wchar_t directory[MAX_PATH], source[MAX_PATH], output[MAX_PATH];
-	wchar_t original[STRING_SIZE];
-	HANDLE snapshot = NULL, result = NULL;
-	DWORD length = GetTempPathW(MAX_PATH,directory);
-
-	// GetTempFileName needs room for its generated name within MAX_PATH.
-	if (!length || length >= MAX_PATH - 14) return 0;
-	if (!_viv_rotation_source)
-	{
-		if (!string_path_long(original,STRING_SIZE,_viv_slot_current.fd.cFileName) ||
-			!_viv_rotation_temp(source,directory)) return 0;
-		if (CopyFileW(original,source,FALSE) && SetFileAttributesW(source,FILE_ATTRIBUTE_TEMPORARY))
-			snapshot = _viv_rotation_own_temp(source);
-		if (!snapshot)
-		{
-			SetFileAttributesW(source,FILE_ATTRIBUTE_NORMAL);
-			DeleteFileW(source);
-			return 0;
-		}
-	}
-
-	if (_viv_rotation_temp(output,directory))
-	{
-		if (os_save_hbitmap(preview,output,0)) result = _viv_rotation_own_temp(output);
-		if (!result) DeleteFileW(output);
-	}
-	if (!result)
-	{
-		if (snapshot) CloseHandle(snapshot);
-		return 0;
-	}
-
-	if (snapshot) _viv_rotation_source = snapshot;
-	if (_viv_rotation_preview) CloseHandle(_viv_rotation_preview);
-	_viv_rotation_preview = result;
-	return 1;
-}
-
-static void _viv_edit_rotate(int counterclockwise)
-{
-	HBITMAP *prepared;
-	int i, previous_width;
-
-	if (!_viv_rotation_ready()) return;
-	prepared = _viv_prepare_oriented_frames(_viv_slot_current.frames,_viv_slot_current.frame_count,counterclockwise ? 8 : 6);
-	if (prepared)
-	{
-		if (_viv_rotation_stage(prepared[_viv_frame_position]))
-		{
-			_viv_hw_release_image();
-			_viv_hw_render_fallback = 0;
-			for (i = 0; i < _viv_slot_current.frame_count; i++)
-			{
-				DeleteObject(_viv_slot_current.frames[i].hbitmap);
-				_viv_slot_current.frames[i].hbitmap = prepared[i];
-				if (_viv_slot_current.frames[i].mipmap) _viv_mipmap_free(_viv_slot_current.frames[i].mipmap);
-				_viv_slot_current.frames[i].mipmap = NULL;
-			}
-			mem_free(prepared);
-			previous_width = _viv_slot_current.image_wide;
-			_viv_slot_current.image_wide = _viv_slot_current.image_high;
-			_viv_slot_current.image_high = previous_width;
-			_viv_view_set(_viv_view_x,_viv_view_y,1);
-			_viv_update_src_pixel(1,0);
-			_viv_status_update();
-			InvalidateRect(_viv_hwnd,0,FALSE);
-			return;
-		}
-		for (i = 0; i < _viv_slot_current.frame_count; i++) DeleteObject(prepared[i]);
-		mem_free(prepared);
-	}
-
-	{
-		wchar_t caption[STRING_SIZE],message[STRING_SIZE];
-		string_copy_utf8_string(caption,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_CAPTION));
-		string_copy_utf8_string(message,localization_get_string(LOCALIZATION_ID_ROTATE_IMAGE_FAILED));
-		viv_msgbox(_viv_hwnd,caption,message,MB_OK | MB_ICONERROR);
 	}
 }
 static void _viv_file_edit(void)

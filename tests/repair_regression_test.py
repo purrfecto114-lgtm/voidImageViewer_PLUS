@@ -30,10 +30,12 @@ def main():
             'shell':('os.c',['os_shell_execute']),
             'file_location':('viv_view.c',['_viv_open_file_location']),
             'orientation':('viv_render.c',['_viv_orientate_hbitmap']),
-            'rotate_atomic':('viv_view.c',['_viv_rotation_ready','_viv_edit_rotate']),
+            'rotate_atomic':('viv_rotation.c',[]),
             'd3d_upload':('hwd3d.c',['_viv_hwd3d_release_image','_viv_d3d_texture_upload']),
             'd3d_modern_upload':('hwd3d_modern.c',['_viv_modern_release_image','upload_image']),
             'cache_budget':('viv_load.c',['_viv_frame_set_bytes']),
+            'cache_slots':('viv_load.c',['_viv_slot_clear_frames','_viv_slot_take','_viv_cache_insert',
+                                        'viv_copy_current_image_to_last_image','_viv_cache_activate']),
             'allocator':('mem.c',['mem_try_alloc_debug','mem_cc','mem_free_debug'])}
     rows=[]
     with tempfile.TemporaryDirectory(prefix='viv-repair-') as tmp:
@@ -42,8 +44,16 @@ def main():
             file,names=suites[name];names=list(names)
             source=(args.source_root/'src'/file).read_text()
             if name=='mipmap' and '_viv_mipmap_build(' in source:names.insert(0,'_viv_mipmap_build')
-            if name=='rotate_atomic' and '_viv_prepare_oriented_frames(' in source:names.insert(0,'_viv_prepare_oriented_frames')
-            bodies='\n'.join(extract(args.source_root,'viv_render.c' if n=='_viv_prepare_oriented_frames' else file,n) for n in names)
+            if name=='orientation' and '_viv_orientate_dib(' in source:
+                names=['_viv_rotation_cancelled','_viv_orientate_dib']+names+['_viv_prepare_oriented_frames']
+            if name=='cache_slots' and 'static int _viv_cache_current_eligible(' in source:
+                names.insert(3,'_viv_cache_current_eligible')
+            bodies='\n'.join(extract(args.source_root,file,n) for n in names)
+            if name=='orientation' and '_viv_prepare_oriented_frames' in names:
+                bodies='#define VIV_TEST_ORIENTED_FRAMES 1\n'+bodies
+            if name=='rotate_atomic':
+                start=source.index('// The UI keeps the source frames alive')
+                bodies=source[start:]
             if name=='allocator':
                 start=source.index('typedef struct mem_debug_s');end=source.index('void mem_debug(void)',start)
                 bodies='#define MEM_MAGIC_SIZE 64\n'+source[start:end]+bodies
@@ -58,6 +68,7 @@ def main():
             (out/(name+'.log')).write_text(log);rows.append(row)
             print(f"{name}: {'PASS' if row['passed'] else 'FAIL'}",flush=True)
             if not row['passed']:print(log[-3000:],flush=True)
+            elif name in {'orientation','rotate_atomic'}: print(r.stdout,end='',flush=True)
         (out/'results.json').write_text(json.dumps(rows,indent=2))
     return int(any(not r['passed'] for r in rows))
 if __name__=='__main__':raise SystemExit(main())

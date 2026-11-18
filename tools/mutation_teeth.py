@@ -96,6 +96,30 @@ MUTATIONS = [
      "(string_compare",
      ["rc3"]),
 
+    ("the status file link is capped at half the width again",
+     "src/viv_chrome.c",
+     "if (widths[_VIV_STATUS_FILE] > avail_wide) widths[_VIV_STATUS_FILE] = avail_wide;",
+     "if (widths[_VIV_STATUS_FILE] > avail_wide / 2) widths[_VIV_STATUS_FILE] = avail_wide / 2;",
+     ["refine"]),
+
+    ("the menu uses semibold again",
+     "src/viv_chrome.c",
+     "lf.lfWeight = FW_NORMAL;\r\n\t\t\t_viv_menu_font_handle",
+     "lf.lfWeight = 600;\r\n\t\t\t_viv_menu_font_handle",
+     ["refine"]),
+
+    ("the rotation pixels run from the command again",
+     "src/viv_rotation.c",
+     "_viv_rotation_job = job;\r\n\treturn 1;",
+     "_viv_rotation_job = job;\r\n\t_viv_rotation_worker(job);\r\n\treturn 1;",
+     ["repair"]),
+
+    ("the cache takes frames while rotation still reads them",
+     "src/viv_load.c",
+     "&& !_viv_rotation_active() && !_viv_rotation_busy() &&",
+     "&& !_viv_rotation_active() &&",
+     ["repair"]),
+
     ("the frame step pauses on a refused step again",
      "src/viv_anim.c",
      "// the pause rides the step that actually moved: refusing",

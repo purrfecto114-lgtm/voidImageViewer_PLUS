@@ -31,6 +31,7 @@
 #include "viv_menubar.h"
 #include "viv_render.h"
 #include "viv_view.h"
+#include "viv_rotation.h"
 #include "viv_dialogs.h"
 
 // forward declarations (order preserved from viv.c)
@@ -52,6 +53,15 @@ void _viv_status_show(int show);
 void _viv_controls_show(int show);
 void _viv_status_update(void);
 static void _viv_status_set(int part,const wchar_t *text);
+static HWND _viv_status_tooltip_hwnd;
+static wchar_t _viv_status_info_tip[STRING_SIZE];
+
+enum
+{
+	_VIV_STATUS_INFO_TOOL,
+	_VIV_STATUS_LINK_TOOL,
+	_VIV_STATUS_TOOL_COUNT
+};
 int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item);
 int _viv_get_status_high(void);
 int _viv_get_controls_high(void);
@@ -59,6 +69,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 {
 	static int pressed_command;
+	static wchar_t pressed_file[STRING_SIZE];
 
 	switch (msg) 
 
@@ -86,7 +97,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 				
 
-				FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_NAV_FACE));
+				FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_CHROME));
 
 				
 
@@ -146,7 +157,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 					// one physical-pixel hairline; erase the native highlight
 
-					// below it with the inset face in both themes.
+					// below it with the strip face in both themes.
 
 					rect.left = 0;
 
@@ -164,7 +175,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 					rect.bottom = 2;
 
-					FillRect(hdc,&rect,viv_theme_brush(VIV_TK_NAV_FACE));
+					FillRect(hdc,&rect,viv_theme_brush(VIV_TK_CHROME));
 
 					
 
@@ -198,9 +209,9 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 						
 
-						grip_wide = GetSystemMetrics(SM_CXVSCROLL);
+						grip_wide = os_GetSystemMetricsForDpi(SM_CXVSCROLL,os_logical_wide);
 
-						grip_high = GetSystemMetrics(SM_CYVSCROLL);
+						grip_high = os_GetSystemMetricsForDpi(SM_CYVSCROLL,os_logical_high);
 
 						
 
@@ -218,7 +229,7 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 
 							
 
-							FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_NAV_FACE));
+							FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_CHROME));
 
 							
 
@@ -300,17 +311,43 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 			// pane paint rides. (the selection highlight stays the system
 			// color - the edit control offers no custom one; it lives only
 			// while the editor is open.)
-			SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_NAV_FACE));
+			SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));
 			SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));
 			
-			return (LRESULT)viv_theme_brush(VIV_TK_NAV_FACE);
+			return (LRESULT)viv_theme_brush(VIV_TK_CHROME);
 			
+		case WM_NOTIFY:
+		{
+			NMTTDISPINFOW *tip = (NMTTDISPINFOW *)lParam;
+			if (tip && tip->hdr.hwndFrom == _viv_status_tooltip_hwnd && tip->hdr.code == TTN_GETDISPINFOW)
+			{
+				tip->lpszText = tip->hdr.idFrom == _VIV_STATUS_INFO_TOOL ? _viv_status_info_tip : _viv_slot_current.fd.cFileName;
+				tip->hinst = NULL;
+				return 0;
+			}
+			break;
+		}
+
+		case WM_SETCURSOR:
+			if (LOWORD(lParam) == HTCLIENT)
+			{
+				POINT point;
+				if (GetCursorPos(&point) && ScreenToClient(hwnd,&point) && _viv_status_file_command_at(point))
+				{
+					SetCursor(LoadCursor(NULL,IDC_HAND));
+					return TRUE;
+				}
+			}
+			break;
+
 		case WM_LBUTTONDOWN:
 		{
 			POINT point = {GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
 			pressed_command = _viv_status_file_command_at(point);
 			if (pressed_command)
 			{
+				string_copy(pressed_file,_viv_slot_current.fd.cFileName);
+				if (_viv_status_tooltip_hwnd) SendMessage(_viv_status_tooltip_hwnd,TTM_POP,0,0);
 				SetCapture(hwnd);
 				return 0;
 			}
@@ -324,7 +361,8 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 				int command = pressed_command;
 				pressed_command = 0;
 				ReleaseCapture();
-				if (_viv_status_file_command_at(point) == command)
+				if (string_compare(pressed_file,_viv_slot_current.fd.cFileName) == 0 &&
+					_viv_status_file_command_at(point) == command)
 					SendMessage(_viv_hwnd,WM_COMMAND,MAKEWPARAM(command,0),0);
 				return 0;
 			}
@@ -361,8 +399,8 @@ static LRESULT CALLBACK _viv_status_proc(HWND hwnd,UINT msg,WPARAM wParam,LPARAM
 				
 				GetClientRect(hwnd,&rect);
 				
-				grip_wide = GetSystemMetrics(SM_CXVSCROLL);
-				grip_high = GetSystemMetrics(SM_CYVSCROLL);
+				grip_wide = os_GetSystemMetricsForDpi(SM_CXVSCROLL,os_logical_wide);
+				grip_high = os_GetSystemMetricsForDpi(SM_CYVSCROLL,os_logical_high);
 				
 				if ((grip_wide > 0) && (grip_high > 0) && (grip_wide < rect.right - rect.left) && (grip_high < rect.bottom - rect.top) && (pt.x >= rect.right - grip_wide) && (pt.y >= rect.bottom - grip_high))
 				{
@@ -624,8 +662,6 @@ void _viv_on_size(void)
 		
 		if (_viv_status_hwnd)
 		{
-			_viv_status_update();
-			
 			{
 				int borders[3] = {0,0,0};
 				int high;
@@ -636,6 +672,7 @@ void _viv_on_size(void)
 				SendMessage(_viv_status_hwnd,SB_SETMINHEIGHT,(WPARAM)high,0);
 			}
 			SendMessage(_viv_status_hwnd,WM_SIZE,0,0);
+			_viv_status_update();
 			
 			high -= _viv_get_status_high();
 		}
@@ -1165,7 +1202,7 @@ static int _viv_menu_font_dpi = 0; // the dpi the menu bar font was created for
 // cached until the dpi or the theme changes. freed with the process.
 HFONT _viv_menu_font(void)
 {
-	if ((!_viv_menu_font_handle) || (_viv_menu_font_dpi != os_logical_wide))
+	if ((!_viv_menu_font_handle) || (_viv_menu_font_dpi != os_logical_high))
 	{
 		LOGFONTW lf;
 		
@@ -1180,10 +1217,10 @@ HFONT _viv_menu_font(void)
 		{
 			lf.lfHeight = -VIV_UI_SCALE(VIV_UI_MENU_FONT_DIP2,os_logical_high,192);
 			lf.lfWidth = 0;
-			lf.lfWeight = FW_SEMIBOLD;
+			lf.lfWeight = FW_NORMAL;
 			_viv_menu_font_handle = CreateFontIndirectW(&lf);
 			
-			_viv_menu_font_dpi = os_logical_wide;
+			_viv_menu_font_dpi = os_logical_high;
 		}
 	}
 	
@@ -1237,6 +1274,7 @@ HFONT _viv_ui_font(int role)
 		lf.lfHeight = -VIV_UI_SCALE(dip2,os_logical_high,192);
 		lf.lfWidth = 0;
 		lf.lfWeight = FW_NORMAL;
+		lf.lfUnderline = role == VIV_UI_FONT_LINK;
 		if ((role == VIV_UI_FONT_NUMBER) || (role == VIV_UI_FONT_PERCENT))
 		{
 			lf.lfCharSet = DEFAULT_CHARSET;
@@ -1249,8 +1287,7 @@ HFONT _viv_ui_font(int role)
 	return _viv_ui_fonts[role] ? _viv_ui_fonts[role] : (HFONT)GetStockObject(DEFAULT_GUI_FONT);
 }
 
-// align small status numbers to the percentage's baseline. the pill uses
-// this same reference and font, rather than its own vertical fudge.
+// Align the status facts and filename on a shared baseline.
 void _viv_ui_text_rect(HDC hdc,RECT *rect)
 {
 	TEXTMETRICW current;
@@ -1260,13 +1297,15 @@ void _viv_ui_text_rect(HDC hdc,RECT *rect)
 	int valid;
 
 	if (!GetTextMetricsW(hdc,&current)) return;
-	old_font = SelectObject(hdc,_viv_ui_font(VIV_UI_FONT_PERCENT));
+	old_font = SelectObject(hdc,_viv_ui_font(VIV_UI_FONT_STATUS));
 	valid = GetTextMetricsW(hdc,&reference);
 	if (old_font) SelectObject(hdc,old_font);
 	if (!valid) return;
 
 	baseline = rect->top + ((rect->bottom - rect->top - reference.tmHeight) / 2) + reference.tmAscent;
-	rect->top = baseline - current.tmAscent;
+	baseline -= current.tmAscent;
+	if (baseline > rect->bottom - current.tmHeight) baseline = rect->bottom - current.tmHeight;
+	if (baseline > rect->top) rect->top = baseline;
 }
 
 // drop the cached menu font (the dpi or the theme changed: the system
@@ -1478,7 +1517,7 @@ void _viv_status_show(int show)
 				WS_EX_COMPOSITED,
 				STATUSCLASSNAMEA,
 				"",
-				WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | SBARS_SIZEGRIP | SBARS_TOOLTIPS | WS_VISIBLE,
+				WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_CHILD | SBARS_SIZEGRIP | WS_VISIBLE,
 				0,0,0,0,
 				_viv_hwnd,(HMENU)VIV_ID_STATUS,os_hinstance,NULL);
 				
@@ -1511,6 +1550,11 @@ void _viv_status_show(int show)
 	{
 		if (_viv_status_hwnd)
 		{
+			if (_viv_status_tooltip_hwnd)
+			{
+				DestroyWindow(_viv_status_tooltip_hwnd);
+				_viv_status_tooltip_hwnd = NULL;
+			}
 			DestroyWindow(_viv_status_hwnd);
 
 			_viv_status_hwnd = 0;
@@ -1720,21 +1764,74 @@ static int _viv_status_info_width(void)
 	return VIV_UI_SCALE(32,os_logical_wide,96);
 }
 
-int _viv_status_file_command_at(POINT point)
+static void _viv_status_file_rects(RECT *rects)
 {
-	RECT rect;
+	int split;
+	SetRectEmpty(&rects[_VIV_STATUS_INFO_TOOL]);
+	SetRectEmpty(&rects[_VIV_STATUS_LINK_TOOL]);
 	if (!_viv_status_hwnd || _viv_status_file_pane < 0 || !*_viv_slot_current.fd.cFileName ||
-		!SendMessage(_viv_status_hwnd,SB_GETRECT,_viv_status_file_pane,(LPARAM)&rect) ||
-		!PtInRect(&rect,point)) return 0;
-	return point.x < rect.left + _viv_status_info_width() ?
-		VIV_ID_FILE_PROPERTIES : VIV_ID_FILE_OPEN_FILE_LOCATION;
+		!SendMessage(_viv_status_hwnd,SB_GETRECT,_viv_status_file_pane,(LPARAM)&rects[_VIV_STATUS_INFO_TOOL]))
+		return;
+	rects[_VIV_STATUS_LINK_TOOL] = rects[_VIV_STATUS_INFO_TOOL];
+	split = rects[_VIV_STATUS_INFO_TOOL].left + _viv_status_info_width();
+	if (split > rects[_VIV_STATUS_INFO_TOOL].right) split = rects[_VIV_STATUS_INFO_TOOL].right;
+	rects[_VIV_STATUS_INFO_TOOL].right = split;
+	rects[_VIV_STATUS_LINK_TOOL].left = split;
 }
 
+int _viv_status_file_command_at(POINT point)
+{
+	RECT rects[_VIV_STATUS_TOOL_COUNT];
+	_viv_status_file_rects(rects);
+	if (PtInRect(&rects[_VIV_STATUS_INFO_TOOL],point)) return VIV_ID_FILE_PROPERTIES;
+	if (PtInRect(&rects[_VIV_STATUS_LINK_TOOL],point)) return VIV_ID_FILE_OPEN_FILE_LOCATION;
+	return 0;
+}
 
-// the layout and the text store share one role map. a ninth candidate
-// gives way by the same priority as a width overflow: pos, rgb, frame,
-// date. the stamp is half of the bottom-right pair and survives longest.
-static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *roles)
+static void _viv_status_tooltip_sync(void)
+{
+	RECT rects[_VIV_STATUS_TOOL_COUNT];
+	int i;
+	int dark;
+
+	if (!_viv_status_tooltip_hwnd)
+	{
+		_viv_status_tooltip_hwnd = os_CreateWindowEx(WS_EX_TOPMOST,TOOLTIPS_CLASSA,"",
+			WS_POPUP | TTS_NOPREFIX,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,CW_USEDEFAULT,
+			_viv_status_hwnd,NULL,os_hinstance,NULL);
+		if (!_viv_status_tooltip_hwnd) return;
+		for (i=0; i<_VIV_STATUS_TOOL_COUNT; i++)
+		{
+			TOOLINFOW tool = {0};
+			tool.cbSize = sizeof(tool);
+			tool.uFlags = TTF_SUBCLASS;
+			tool.hwnd = _viv_status_hwnd;
+			tool.uId = (UINT_PTR)i;
+			tool.lpszText = LPSTR_TEXTCALLBACKW;
+			SendMessageW(_viv_status_tooltip_hwnd,TTM_ADDTOOLW,0,(LPARAM)&tool);
+		}
+	}
+
+	dark = _viv_is_dark();
+	SendMessage(_viv_status_tooltip_hwnd,TTM_SETTIPBKCOLOR,dark ? viv_theme_color(VIV_TK_FACE) : GetSysColor(COLOR_INFOBK),0);
+	SendMessage(_viv_status_tooltip_hwnd,TTM_SETTIPTEXTCOLOR,dark ? viv_theme_color(VIV_TK_TEXT) : GetSysColor(COLOR_INFOTEXT),0);
+	SendMessage(_viv_status_tooltip_hwnd,TTM_SETMAXTIPWIDTH,0,VIV_UI_SCALE(480,os_logical_wide,96));
+	_viv_status_file_rects(rects);
+	string_copy_utf8_string(_viv_status_info_tip,localization_get_string(LOCALIZATION_ID_TOOLBAR_IMAGE_INFO));
+	for (i=0; i<_VIV_STATUS_TOOL_COUNT; i++)
+	{
+		TOOLINFOW tool = {0};
+		tool.cbSize = sizeof(tool);
+		tool.hwnd = _viv_status_hwnd;
+		tool.uId = (UINT_PTR)i;
+		tool.rect = rects[i];
+		SendMessageW(_viv_status_tooltip_hwnd,TTM_NEWTOOLRECTW,0,(LPARAM)&tool);
+	}
+}
+
+// The layout and text store share one role map. Optional readouts give way
+// before the filename. A nonempty message reserves a compact readable pane.
+static int _viv_status_layout_parts(int *widths,int avail_wide,int min_file,int *edges,int *roles)
 {
 	int role;
 	int count;
@@ -1746,11 +1843,10 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *r
 		avail_wide = 0;
 	}
 
-	// a long preload label never consumes more than a quarter of the bar.
-	if (widths[_VIV_STATUS_FILE] > avail_wide / 2)
-	{
-		widths[_VIV_STATUS_FILE] = avail_wide / 2;
-	}
+	if (widths[_VIV_STATUS_FILE] > avail_wide) widths[_VIV_STATUS_FILE] = avail_wide;
+	if (min_file > widths[_VIV_STATUS_FILE]) min_file = widths[_VIV_STATUS_FILE];
+	if (widths[_VIV_STATUS_MESSAGE] > avail_wide / 3) widths[_VIV_STATUS_MESSAGE] = avail_wide / 3;
+	if (widths[_VIV_STATUS_MESSAGE] > avail_wide - min_file) widths[_VIV_STATUS_MESSAGE] = avail_wide - min_file;
 
 	if (widths[_VIV_STATUS_PRELOAD] > avail_wide / 4)
 	{
@@ -1807,28 +1903,21 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int *edges,int *r
 		total -= trim;
 	}
 
+	if (total > avail_wide)
+	{
+		int trim = total - avail_wide;
+		if (trim > widths[_VIV_STATUS_FILE] - min_file) trim = widths[_VIV_STATUS_FILE] - min_file;
+		widths[_VIV_STATUS_FILE] -= trim;
+		total -= trim;
+	}
 
 	if (total > avail_wide)
 	{
-		// the last pane: the resolution, clipped only after the optional
-		// readouts have gone. the -1 edge still pins it to the right.
-		widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_PRELOAD] - widths[_VIV_STATUS_FILE];
-		if (widths[_VIV_STATUS_DIMENSION] < 0)
-		{
-			widths[_VIV_STATUS_DIMENSION] = 0;
-		}
+		// the last pane: the resolution still pins to the right via -1.
+		widths[_VIV_STATUS_DIMENSION] -= total - avail_wide;
+		total = avail_wide;
 	}
-
-	total = 0;
-	for (role=0; role<_VIV_STATUS_ROLE_COUNT; role++)
-	{
-		total += widths[role];
-	}
-	widths[_VIV_STATUS_MESSAGE] = avail_wide - total;
-	if (widths[_VIV_STATUS_MESSAGE] < 0)
-	{
-		widths[_VIV_STATUS_MESSAGE] = 0;
-	}
+	widths[_VIV_STATUS_MESSAGE] += avail_wide - total;
 
 	count = 0;
 	edge = 0;
@@ -1884,8 +1973,13 @@ void _viv_status_update(void)
 		int frame_wide;
 		int preload_wide;
 		int minwide;
-		
-		GetClientRect(_viv_hwnd,&rect);
+		int message_wide = 0;
+		int borders[3] = {0,0,0};
+		const wchar_t *text;
+		wchar_t text_buf[STRING_SIZE];
+
+		GetClientRect(_viv_status_hwnd,&rect);
+		SendMessage(_viv_status_hwnd,SB_GETBORDERS,0,(LPARAM)borders);
 		
 		*index_buf = 0;
 		nav_index = _viv_status_nav_index();
@@ -2001,6 +2095,48 @@ void _viv_status_update(void)
 		}
 
 
+		text = L"";
+
+		if (_viv_status_temp_text)
+		{
+			text = _viv_status_temp_text;
+		}
+		else
+		if ((_viv_load_image_thread) && ((!_viv_load_is_preload) || (_viv_should_activate_preload_on_load)))
+		{
+			string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_LOADING));
+			text = text_buf;
+		}
+		else
+		if (_viv_status_failure_line(text_buf))
+		{
+			// rc.17: the lifted line - the title bar borrows the same
+			// chain when the strip is gone (see _viv_update_title).
+			text = text_buf;
+		}
+		else
+		if (_viv_is_slideshow)
+		{
+			string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING));
+			text = text_buf;
+		}
+		else if (_viv_rotation_busy())
+		{
+			string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ROTATING));
+			text = text_buf;
+		}
+		else if (_viv_hw_render_fallback)
+		{
+			string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK));
+			text = text_buf;
+		}
+		else if (_viv_rotation_active())
+		{
+			string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ROTATED_PREVIEW));
+			text = text_buf;
+		}
+
+
 		index_wide = 0;
 		dimension_wide = 0;
 		frame_wide = 0;
@@ -2061,12 +2197,8 @@ void _viv_status_update(void)
 				}
 
 				SelectObject(hdc,_viv_ui_font(VIV_UI_FONT_STATUS));
-				if (*filename)
-				{
-					size.cx = 0;
-					GetTextExtentPoint32W(hdc,filename,(int)string_get_length(filename),&size);
-					file_wide = _viv_status_info_width() + size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
-				}
+				if (*text && GetTextExtentPoint32W(hdc,text,(int)string_get_length(text),&size))
+					message_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
 				if (*preload_buf)
 				{
 					if (GetTextExtentPoint32(hdc,preload_buf,string_get_length(preload_buf),&size))
@@ -2075,23 +2207,33 @@ void _viv_status_update(void)
 					}
 				}
 
+				if (*filename)
+				{
+					SelectObject(hdc,_viv_ui_font(VIV_UI_FONT_LINK));
+					size.cx = 0;
+					GetTextExtentPoint32W(hdc,filename,(int)string_get_length(filename),&size);
+					file_wide = _viv_status_info_width() + size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96)
+						+ borders[0] + borders[2];
+				}
+
 				SelectObject(hdc,last_font);
 			}
 			
 			ReleaseDC(_viv_status_hwnd,hdc);
 		}
 		
-		// add size box
-		dimension_wide += GetSystemMetrics(SM_CXVSCROLL) + GetSystemMetrics(SM_CXBORDER);
+		if (!_viv_is_fullscreen && !IsZoomed(_viv_hwnd))
+			dimension_wide += os_GetSystemMetricsForDpi(SM_CXVSCROLL,os_logical_wide) + borders[0];
 		
 		widths[_VIV_STATUS_FILE] = file_wide;
 		widths[_VIV_STATUS_INDEX] = index_wide;
 		widths[_VIV_STATUS_PRELOAD] = preload_wide;
-		widths[_VIV_STATUS_MESSAGE] = 0;
+		widths[_VIV_STATUS_MESSAGE] = message_wide;
 		widths[_VIV_STATUS_FRAME] = frame_wide;
 		widths[_VIV_STATUS_DIMENSION] = dimension_wide;
 
-		part_count = _viv_status_layout_parts(widths,rect.right - rect.left,part_array,_viv_status_roles);
+		part_count = _viv_status_layout_parts(widths,rect.right - rect.left,
+			_viv_status_info_width() + VIV_UI_SCALE(44,os_logical_wide,96),part_array,_viv_status_roles);
 		_viv_status_frame_pane = _viv_status_file_pane = -1;
 		_viv_status_frame_wide = widths[_VIV_STATUS_FRAME];
 
@@ -2107,65 +2249,18 @@ void _viv_status_update(void)
 
 		SendMessage(_viv_status_hwnd,SB_SETPARTS,part_count,(LPARAM)part_array);
 
+		texts[_VIV_STATUS_FILE] = filename;
+		texts[_VIV_STATUS_INDEX] = index_buf;
+		texts[_VIV_STATUS_PRELOAD] = preload_buf;
+		texts[_VIV_STATUS_MESSAGE] = text;
+		texts[_VIV_STATUS_FRAME] = frame_buf;
+		texts[_VIV_STATUS_DIMENSION] = dimension_buf;
+
+		for (parti=0; (parti<part_count) && (parti<_VIV_STATUS_PART_MAX); parti++)
 		{
-			wchar_t *text;
-			wchar_t text_buf[STRING_SIZE];
-			
-			text =  L"";
-			
-			if (_viv_status_temp_text)
-			{
-				text = _viv_status_temp_text;
-			}
-			else
-			if ((_viv_load_image_thread) && ((!_viv_load_is_preload) || (_viv_should_activate_preload_on_load)))
-			{
-				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_LOADING));
-				text = text_buf;
-			}
-			else
-			if (_viv_status_failure_line(text_buf))
-			{
-				// rc.17: the lifted line - the title bar borrows the same
-				// chain when the strip is gone (see _viv_update_title).
-				text = text_buf;
-			}
-			else
-			if (_viv_is_slideshow)
-			{
-				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING));
-				text = text_buf;
-			}
-			else if (_viv_hw_render_fallback)
-			{
-				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK));
-				text = text_buf;
-			}
-			else if (_viv_rotation_active())
-			{
-				string_copy_utf8_string(text_buf,localization_get_string(LOCALIZATION_ID_STATUS_BAR_ROTATED_PREVIEW));
-				text = text_buf;
-			}
-
-			texts[_VIV_STATUS_FILE] = filename;
-			texts[_VIV_STATUS_INDEX] = index_buf;
-			texts[_VIV_STATUS_PRELOAD] = preload_buf;
-			texts[_VIV_STATUS_MESSAGE] = text;
-			texts[_VIV_STATUS_FRAME] = frame_buf;
-			texts[_VIV_STATUS_DIMENSION] = dimension_buf;
-
-			for (parti=0; (parti<part_count) && (parti<_VIV_STATUS_PART_MAX); parti++)
-			{
-				_viv_status_set(parti,texts[_viv_status_roles[parti]]);
-			}
-			if (_viv_status_file_pane >= 0)
-			{
-				string_printf(text_buf,"%s / %s",
-					localization_get_string(LOCALIZATION_ID_TOOLBAR_IMAGE_INFO),
-					localization_get_string(LOCALIZATION_ID_STATUS_BAR_SHOW_IN_FOLDER));
-				SendMessageW(_viv_status_hwnd,SB_SETTIPTEXTW,_viv_status_file_pane,(LPARAM)text_buf);
-			}
+			_viv_status_set(parti,texts[_viv_status_roles[parti]]);
 		}
+		_viv_status_tooltip_sync();
 
 		_viv_zoom_edit_layout();
 		InvalidateRect(_viv_status_hwnd,0,FALSE);
@@ -2216,6 +2311,30 @@ static void _viv_status_set(int part,const wchar_t *text)
 		part_live[part] = 1;
 	}
 }
+// Keep the suffix of a long filename visible when its extension fits.
+static const wchar_t *_viv_status_elide_filename(HDC hdc,const wchar_t *name,int width,wchar_t *label)
+{
+	const wchar_t *extension = wcsrchr(name,L'.');
+	int length = (int)string_get_length(name);
+	int prefix = 0;
+	SIZE size;
+
+	if (!extension || extension == name || width <= 0 ||
+		!GetTextExtentPoint32W(hdc,name,length,&size) || size.cx <= width) return name;
+	label[0] = L'\x2026';
+	string_copy(label+1,extension);
+	if (!GetTextExtentPoint32W(hdc,label,length-(int)(extension-name)+1,&size) || size.cx >= width ||
+		!GetTextExtentExPointW(hdc,name,(int)(extension-name),width-size.cx,&prefix,NULL,&size)) return name;
+
+	// Win32 measures UTF-16 code units. Keep a surrogate pair together.
+	if (prefix > 0 && name[prefix-1] >= 0xd800 && name[prefix-1] <= 0xdbff) prefix--;
+	if (prefix >= extension - name) return name;
+	os_copy_memory(label,name,(SIZE_T)prefix*sizeof(*label));
+	label[prefix] = L'\x2026';
+	string_copy(label+prefix+1,extension);
+	return label;
+}
+
 // owner draw one status pane: the dark palette for the dark ui, a
 // faithful light replica otherwise. the texts come from the pane store;
 // an overlong text (a capped resolution pane) ellipsizes instead of
@@ -2228,6 +2347,8 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 	HGDIOBJ last_font;
 	COLORREF text_color;
 	int part;
+	const wchar_t *text;
+	wchar_t label[STRING_SIZE];
 	
 	if (!draw_item)
 	{
@@ -2259,13 +2380,13 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 		// face so a mystery draw reads as a quiet pane instead of the
 		// light comctl slab (the rc.11 bottom white bar was exactly a
 		// draw nobody answered).
-		FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_NAV_FACE));
+		FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_CHROME));
 		
 		return 1;
 	}
 	
-	// the inset strip face matches its erase and grip in both themes.
-	FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_NAV_FACE));
+	// the strip face matches its erase and grip in both themes.
+	FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_CHROME));
 	
 	text_color = viv_theme_color(VIV_TK_TEXT);
 	if (_viv_status_roles[part] == _VIV_STATUS_INDEX)
@@ -2278,7 +2399,13 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 	text_rect.left += VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 	text_rect.right -= VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
 	
-	hfont = _viv_ui_font((_viv_status_roles[part] == _VIV_STATUS_FILE) || (_viv_status_roles[part] == _VIV_STATUS_MESSAGE) || (_viv_status_roles[part] == _VIV_STATUS_PRELOAD) ? VIV_UI_FONT_STATUS : VIV_UI_FONT_NUMBER);
+	text = _viv_status_part_text[part];
+	if (_viv_status_roles[part] == _VIV_STATUS_FILE)
+		hfont = _viv_ui_font(VIV_UI_FONT_LINK);
+	else if (_viv_status_roles[part] == _VIV_STATUS_MESSAGE || _viv_status_roles[part] == _VIV_STATUS_PRELOAD)
+		hfont = _viv_ui_font(VIV_UI_FONT_STATUS);
+	else
+		hfont = _viv_ui_font(VIV_UI_FONT_NUMBER);
 	last_font = 0;
 	
 	if (hfont)
@@ -2291,21 +2418,28 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 	
 	if (_viv_status_roles[part] == _VIV_STATUS_FILE)
 	{
+		RECT zones[_VIV_STATUS_TOOL_COUNT];
 		int glyph_size = VIV_UI_SCALE(16,os_logical_high,96);
-		int icon_width = _viv_status_info_width();
 		HICON icon = glyphs_icon(GLYPH_INFO,_viv_is_dark(),glyph_size);
-		if (icon && draw_item->rcItem.right - draw_item->rcItem.left >= icon_width)
+		_viv_status_file_rects(zones);
+		if (icon && zones[_VIV_STATUS_INFO_TOOL].right - zones[_VIV_STATUS_INFO_TOOL].left >= glyph_size)
 		{
-			DrawIconEx(hdc,draw_item->rcItem.left + (icon_width - glyph_size) / 2,
-				draw_item->rcItem.top + (draw_item->rcItem.bottom - draw_item->rcItem.top - glyph_size) / 2,
+			RECT *info = &zones[_VIV_STATUS_INFO_TOOL];
+			DrawIconEx(hdc,info->left + (info->right - info->left - glyph_size) / 2,
+				info->top + (info->bottom - info->top - glyph_size) / 2,
 				icon,glyph_size,glyph_size,0,NULL,DI_NORMAL);
 		}
-		text_rect.left += icon_width;
-		SetTextColor(hdc,viv_theme_color(VIV_TK_ACCENT));
+		text_rect.left = zones[_VIV_STATUS_LINK_TOOL].left + VIV_UI_SCALE(VIV_UI_PAD,os_logical_wide,96);
+		if (IsRectEmpty(&zones[_VIV_STATUS_LINK_TOOL])) text_rect.left = text_rect.right;
+		text = _viv_status_elide_filename(hdc,text,text_rect.right - text_rect.left,label);
+		SetTextColor(hdc,viv_theme_color(VIV_TK_LINK));
 	}
-	_viv_ui_text_rect(hdc,&text_rect);
-	DrawTextW(hdc,_viv_status_part_text[part],-1,&text_rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOPREFIX);
-	
+	if (text_rect.right > text_rect.left)
+	{
+		_viv_ui_text_rect(hdc,&text_rect);
+		DrawTextW(hdc,text,-1,&text_rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOPREFIX);
+	}
+
 	if (last_font)
 	{
 		SelectObject(hdc,last_font);

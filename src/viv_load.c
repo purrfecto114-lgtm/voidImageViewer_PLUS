@@ -31,6 +31,7 @@
 #include "viv_recent.h"
 #include "viv_render.h"
 #include "viv_view.h"
+#include "viv_rotation.h"
 
 // forward declarations (order preserved from viv.c)
 void _viv_clear(void);
@@ -88,6 +89,7 @@ static void _viv_slot_clear_frames(_viv_image_slot_t *slot)
 	slot->frame_loaded_count = 0;
 	slot->image_wide = 0;
 	slot->image_high = 0;
+	slot->alpha_baked = 0;
 }
 static void _viv_slot_take(_viv_image_slot_t *dst,_viv_image_slot_t *src)
 {
@@ -97,12 +99,14 @@ static void _viv_slot_take(_viv_image_slot_t *dst,_viv_image_slot_t *src)
 	dst->frame_loaded_count = src->frame_loaded_count;
 	dst->image_wide = src->image_wide;
 	dst->image_high = src->image_high;
+	dst->alpha_baked = src->alpha_baked;
 	src->fd.cFileName[0] = 0;
 	src->frames = NULL;
 	src->frame_count = 0;
 	src->frame_loaded_count = 0;
 	src->image_wide = 0;
 	src->image_high = 0;
+	src->alpha_baked = 0;
 }
 // clearing is really slow.
 // delay this until after the new image is shown.
@@ -1023,6 +1027,7 @@ static int _viv_get_extension_format(const wchar_t *filename)
 // the in-memory rotation is included, alpha is flattened over the window background.
 void _viv_save_image_as(void)
 {
+	if (_viv_rotation_busy()) return;
 	// the gate and the seed answer the image on screen (the pixels
 	// below already do): during a first load the request fd names a
 	// file nothing shows yet - that window would save one file's
@@ -2428,25 +2433,21 @@ static void _viv_cache_insert(_viv_image_slot_t *src)
 	// settle.
 	_viv_cache_set_trim();
 }
-// push the current image into the cache ring's head (the name keeps
-// the historical export surface; the single last slot became the
-// ring).
+// Cached frames must be the complete original, with no rotation worker
+// borrowing its storage.
+static int _viv_cache_current_eligible(void)
+{
+	return config_cache_count > 0 && !_viv_rotation_active() && !_viv_rotation_busy() &&
+		!_viv_image_is_low_res && _viv_slot_current.frames && _viv_slot_current.frame_count > 0 &&
+		_viv_slot_current.frame_count == _viv_slot_current.frame_loaded_count;
+}
+
 void viv_copy_current_image_to_last_image(void)
 {
-debug_printf("*** Cache PUSH : %S\n",_viv_slot_current.fd.cFileName);
-
-	// only cache if the whole image was loaded.
-	// Otherwise we need to reload the whole image again..
-	if (config_cache_count > 0 && !_viv_rotation_active())
+	if (_viv_cache_current_eligible())
 	{
-		if (_viv_slot_current.frame_count == _viv_slot_current.frame_loaded_count)
-		{
-			// the whole current slot moves into the ring's head in one
-			// take: the file identity, the frames, both counts and the
-			// dimensions. the source is left empty for the incoming
-			// image.
-			_viv_cache_insert(&_viv_slot_current);
-		}
+		debug_printf("*** Cache PUSH : %S\n",_viv_slot_current.fd.cFileName);
+		_viv_cache_insert(&_viv_slot_current);
 	}
 }
 static void _viv_cache_activate(int index)
@@ -2460,38 +2461,19 @@ static void _viv_cache_activate(int index)
 		return;
 	}
 	_viv_image_slot_t old_slot;
-	BYTE old_valid;
+	int old_valid;
 	int i;
 	int active;
 
-debug_printf("activate cache %d\n",index);
+	debug_printf("activate cache %d\n",index);
 
-	old_valid = 0;
-
-	// save the current image so it can enter the ring as the newest
-	// entry below. the whole current image is saved in one copy -
-	// the frames belong to the save now: detach them before
-	// _viv_clear runs, or its pending-clear mailbox would stash
-	// (and later free) the very frames being saved.
-	if (config_cache_count > 0)
+	old_valid = _viv_cache_current_eligible();
+	if (old_valid)
 	{
-		if (_viv_slot_current.frame_count == _viv_slot_current.frame_loaded_count)
-		{
-debug_printf("*** Cache ACTIVATE : %S\n",_viv_slot_current.fd.cFileName);
-
-			old_slot = _viv_slot_current;
-			old_valid = 1;
-
-			_viv_slot_current.frames = NULL;
-			_viv_slot_current.frame_count = 0;
-			_viv_slot_current.frame_loaded_count = 0;
-			_viv_slot_current.image_wide = 0;
-			_viv_slot_current.image_high = 0;
-			_viv_slot_current.alpha_baked = 0;
-			_viv_slot_current.fd.cFileName[0] = 0;
-		}
+		debug_printf("*** Cache ACTIVATE : %S\n",_viv_slot_current.fd.cFileName);
+		_viv_slot_take(&old_slot,&_viv_slot_current);
 	}
-	
+
 	os_copy_memory(_viv_current_fd,&_viv_slot_cache[index].fd,sizeof(WIN32_FIND_DATA));
 	
 	// the folder fact belongs to the position being left.
@@ -2519,6 +2501,7 @@ debug_printf("*** Cache ACTIVATE : %S\n",_viv_slot_current.fd.cFileName);
 	_viv_slot_cache[active-1].frame_loaded_count = 0;
 	_viv_slot_cache[active-1].image_wide = 0;
 	_viv_slot_cache[active-1].image_high = 0;
+	_viv_slot_cache[active-1].alpha_baked = 0;
 	_viv_slot_cache[active-1].fd.cFileName[0] = 0;
 	
 	_viv_start_first_frame();

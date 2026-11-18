@@ -61,7 +61,8 @@ def theme(root):
     source = re.sub(r'^#include[^\n]*', '', source, flags=re.M)
     system = {"COLOR_BTNFACE": "#f0f0f0", "COLOR_MENU": "#f0f0f0",
               "COLOR_3DSHADOW": "#a0a0a0", "COLOR_GRAYTEXT": "#6d6d6d",
-              "COLOR_WINDOW": "#ffffff", "COLOR_WINDOWTEXT": "#000000"}
+              "COLOR_WINDOW": "#ffffff", "COLOR_WINDOWTEXT": "#000000",
+              "COLOR_HOTLIGHT": "#0066cc"}
     names = re.findall(r'^\s*(VIV_TK_\w+),', header, re.M)
     definitions = '\n'.join(f'#define {key} {i}' for i, key in enumerate(system))
     cases = '\n'.join(f'case {i}: return RGB(0x{value[1:3]},0x{value[3:5]},0x{value[5:7]});'
@@ -106,6 +107,8 @@ int main(void) {
         "light_hover_face": contrast(l["VIV_TK_HOVER"], l["VIV_TK_FACE"]),
         "light_hover_nav": contrast(l["VIV_TK_HOVER"], l["VIV_TK_NAV_FACE"]),
         "light_outline_white": contrast(l["VIV_TK_LINE"], "#ffffff"),
+        "dark_status_link": contrast(d["VIV_TK_LINK"], d["VIV_TK_CHROME"]),
+        "light_status_link": contrast(l["VIV_TK_LINK"], l["VIV_TK_CHROME"]),
         "on_accent_min": min(contrast(p["VIV_TK_ON_ACCENT"], p[t])
                              for p in palettes.values()
                              for t in ("VIV_TK_ACCENT", "VIV_TK_ACCENT_HOT", "VIV_TK_ACCENT_DOWN")),
@@ -115,6 +118,7 @@ int main(void) {
     require(ratios["dark_down_hover"] >= 1.15, "distinct dark pressed state")
     require(ratios["light_hover_face"] >= 1.31, "light hover contrast")
     require(ratios["light_outline_white"] >= 2.8, "tray outline on white")
+    require(ratios["dark_status_link"] >= 4.5 and ratios["light_status_link"] >= 4.5, "status link contrast")
     require(ratios["on_accent_min"] >= 3, "text on every accent state")
     return {"passed": True, "coverage": "production theme C + classic Windows light system-color adapter",
             "ratios": ratios, "dark": d, "light": l, "system_color_fixture": system}
@@ -178,8 +182,66 @@ def status(root):
     source = (root / "src/viv_chrome.c").read_text()
     enum = re.search(r'enum\s*\{\s*_VIV_STATUS_FILE,.*?\};', source, re.S)
     require(enum is not None, "semantic pane roles missing")
+    tools = re.search(r'enum\s*\{\s*_VIV_STATUS_INFO_TOOL,.*?\};', source, re.S)
+    require(tools is not None, "separate status hit zones missing")
     cap = re.search(r'^#define _VIV_STATUS_PART_MAX\s+\d+', (root / "src/viv_state.h").read_text(), re.M)
-    code = '#include <assert.h>\n#include <stdio.h>\n' + cap.group() + '\n' + enum.group() + '\n'
+    code = '#include <assert.h>\n#include <stdio.h>\n#include <string.h>\n#include <wchar.h>\n' + cap.group() + '\n' + enum.group() + '\n'
+    code += tools.group() + '\n' + re.search(r'^#define VIV_UI_SCALE[^\n]+', (root / 'src/viv_theme.h').read_text(), re.M).group() + '\n'
+    code += r'''
+#include <stdint.h>
+typedef int HDC;
+typedef intptr_t LPARAM;
+typedef size_t SIZE_T;
+typedef struct { int cx,cy; } SIZE;
+typedef struct { int x,y; } POINT;
+typedef struct { int left,top,right,bottom; } RECT;
+#define string_get_length wcslen
+#define string_copy wcscpy
+#define string_compare wcscmp
+#define os_copy_memory memcpy
+#define STRING_SIZE 1024
+#define VIV_ID_FILE_PROPERTIES 1
+#define VIV_ID_FILE_OPEN_FILE_LOCATION 2
+#define SB_GETRECT 3
+#define TTM_POP 4
+#define WM_COMMAND 5
+#define WM_LBUTTONDOWN 6
+#define WM_LBUTTONUP 7
+#define WM_CAPTURECHANGED 8
+#define MAKEWPARAM(command,unused) (command)
+#define GET_X_LPARAM(value) ((int16_t)((value)&0xffff))
+#define GET_Y_LPARAM(value) ((int16_t)((value)>>16))
+static int os_logical_wide=300,_viv_status_hwnd=1,_viv_status_file_pane=1;
+static int _viv_hwnd=2,_viv_status_tooltip_hwnd,dispatch_count,last_command,capture;
+static RECT pane={3,2,223,79};
+static struct {struct {wchar_t cFileName[16];} fd;} _viv_slot_current={{L"test.jpg"}};
+static void SetCapture(int hwnd) { capture=hwnd; }
+static void ReleaseCapture(void) { capture=0; }
+static void SetRectEmpty(RECT *r) { *r=(RECT){0}; }
+static int PtInRect(const RECT *r,POINT p) { return p.x>=r->left && p.x<r->right && p.y>=r->top && p.y<r->bottom; }
+static int SendMessage(int hwnd,int msg,int index,LPARAM value) {
+    if (msg==WM_COMMAND) {
+        assert(hwnd==_viv_hwnd && !capture);
+        dispatch_count++; last_command=index;
+        return 0;
+    }
+    assert(msg==SB_GETRECT && index==1);
+    *(RECT *)value=pane;
+    return 1;
+}
+static int GetTextExtentPoint32W(HDC dc,const wchar_t *s,int n,SIZE *size) { size->cx=n*5; return 1; }
+static int GetTextExtentExPointW(HDC dc,const wchar_t *s,int n,int w,int *fit,int *units,SIZE *size) {
+    *fit=w/5<n?w/5:n;
+    return GetTextExtentPoint32W(dc,s,n,size);
+}
+'''
+    code += extract(root, "viv_chrome.c", "_viv_status_elide_filename") + '\n'
+    for name in ('_viv_status_info_width', '_viv_status_file_rects', '_viv_status_file_command_at'):
+        code += extract(root, 'viv_chrome.c', name) + '\n'
+    proc = extract(root, "viv_chrome.c", "_viv_status_proc")
+    press_state = proc.split('{', 1)[1].split('switch (msg)', 1)[0]
+    button_cases = proc[proc.index('case WM_LBUTTONDOWN:'):proc.index('case WM_NCHITTEST:')]
+    code += f'\nstatic int press_event(int hwnd,int msg,LPARAM lParam) {{ {press_state} switch(msg) {{ {button_cases} }} return 0; }}\n'
     code += extract(root, "viv_chrome.c", "_viv_status_layout_parts") + r'''
 static void fill(int *w,int index,int preload,int mask) {
     int i;
@@ -192,11 +254,55 @@ static void fill(int *w,int index,int preload,int mask) {
 int main(void) {
     int w[_VIV_STATUS_ROLE_COUNT], edges[_VIV_STATUS_PART_MAX+1], roles[_VIV_STATUS_PART_MAX+1];
     int index,preload,mask,avail,n,i,cases=0;
+    const int min_file=76;
+    wchar_t label[64];
+    const wchar_t name[]=L"Example & illustration.webp";
+    const wchar_t pair[]={L'A',0xd83d,0xde00,L'z',L'.',L'p',L'n',L'g',0};
+    assert(_viv_status_elide_filename(0,name,500,label)==name);
+    assert(!wcscmp(_viv_status_elide_filename(0,name,60,label),L"Exampl\x2026.webp"));
+    assert(!wcscmp(_viv_status_elide_filename(0,pair,35,label),L"A\x2026.png"));
+    assert(_viv_status_elide_filename(0,name,10,label)==name);
+    assert(_viv_status_file_command_at((POINT){102,30})==VIV_ID_FILE_PROPERTIES);
+    assert(_viv_status_file_command_at((POINT){103,30})==VIV_ID_FILE_OPEN_FILE_LOCATION);
+    assert(!_viv_status_file_command_at((POINT){223,30}));
+    press_event(1,WM_LBUTTONDOWN,(30<<16)|110);
+    assert(capture==1);
+    press_event(1,WM_LBUTTONUP,(30<<16)|110);
+    assert(dispatch_count==1 && last_command==VIV_ID_FILE_OPEN_FILE_LOCATION);
+    press_event(1,WM_LBUTTONDOWN,(30<<16)|110);
+    wcscpy(_viv_slot_current.fd.cFileName,L"next.jpg");
+    press_event(1,WM_LBUTTONUP,(30<<16)|110);
+    assert(dispatch_count==1 && !capture);
+    press_event(1,WM_LBUTTONDOWN,(30<<16)|12);
+    press_event(1,WM_LBUTTONUP,(30<<16)|110);
+    assert(dispatch_count==1);
+    press_event(1,WM_LBUTTONDOWN,(30<<16)|12);
+    press_event(1,WM_LBUTTONUP,(30<<16)|12);
+    assert(dispatch_count==2 && last_command==VIV_ID_FILE_PROPERTIES);
+    press_event(1,WM_LBUTTONDOWN,(30<<16)|110);
+    capture=0;
+    press_event(1,WM_CAPTURECHANGED,0);
+    press_event(1,WM_LBUTTONUP,(30<<16)|110);
+    assert(dispatch_count==2);
+    pane.right=70;
+    assert(!_viv_status_file_command_at((POINT){70,30}));
+    _viv_slot_current.fd.cFileName[0]=0;
+    assert(!_viv_status_file_command_at((POINT){5,30}));
+    fill(w,0,0,2);
+    n=_viv_status_layout_parts(w,620,min_file,edges,roles);
+    assert(n==3 && roles[0]==_VIV_STATUS_FILE && edges[0]==350);
+    assert(roles[1]==_VIV_STATUS_MESSAGE && edges[1]==420);
+    fill(w,1,1,3);
+    w[_VIV_STATUS_MESSAGE]=85;
+    _viv_status_layout_parts(w,180,min_file,edges,roles);
+    assert(edges[0]==min_file && w[_VIV_STATUS_MESSAGE]==60);
+    assert(!w[_VIV_STATUS_FRAME] && !w[_VIV_STATUS_INDEX] && !w[_VIV_STATUS_PRELOAD]);
     for(index=0;index<2;index++) for(preload=0;preload<2;preload++)
     for(mask=0;mask<4;mask++) for(avail=0;avail<=2048;avail+=7) {
         int previous=0, seen=0;
         fill(w,index,preload,mask); edges[_VIV_STATUS_PART_MAX]=roles[_VIV_STATUS_PART_MAX]=0x12345678;
-        n=_viv_status_layout_parts(w,avail,edges,roles);
+        w[_VIV_STATUS_MESSAGE]=preload?120:0;
+        n=_viv_status_layout_parts(w,avail,min_file,edges,roles);
         assert(n>=2 && n<=_VIV_STATUS_PART_MAX && edges[n-1]==-1);
         assert(edges[_VIV_STATUS_PART_MAX]==0x12345678 && roles[_VIV_STATUS_PART_MAX]==0x12345678);
         for(i=0;i<n;i++) {
@@ -206,23 +312,24 @@ int main(void) {
             if(i<n-1) { assert(edges[i]>=previous && edges[i]<=avail); previous=edges[i]; }
         }
         assert(seen&(1<<_VIV_STATUS_MESSAGE));
-        if ((mask&2) && avail >= 2) {
-            assert(roles[0]==_VIV_STATUS_FILE && edges[0]<=avail/2);
+        if ((mask&2) && avail > 0) {
+            assert(roles[0]==_VIV_STATUS_FILE && edges[0]>0 && edges[0]<=350);
         }
+        for(i=0;i<_VIV_STATUS_ROLE_COUNT;i++) assert(w[i]>=0);
         assert(seen&(1<<_VIV_STATUS_DIMENSION)); cases++;
     }
     { const int widths[]={690,610,520,450,380,270,269};
       const int remaining[]={1,1,1,1,1,1,0};
       for(i=0;i<7;i++) {
         int actual;
-        fill(w,0,0,1); _viv_status_layout_parts(w,widths[i],edges,roles);
+        fill(w,0,0,1); _viv_status_layout_parts(w,widths[i],min_file,edges,roles);
         actual=w[_VIV_STATUS_FRAME]?1:0;
         assert(actual==remaining[i]);
       }
     }
-    fill(w,1,1,1); n=_viv_status_layout_parts(w,10000,edges,roles);
+    fill(w,1,1,1); n=_viv_status_layout_parts(w,10000,min_file,edges,roles);
     assert(n==5 && w[_VIV_STATUS_FRAME] && w[_VIV_STATUS_INDEX] && w[_VIV_STATUS_PRELOAD]);
-    printf("status: %d width/mask cases + the frame give-way threshold + the fact strip budget passed\n",cases);
+    printf("status: %d widths and role combinations, 300 DPI hit zones, stable click target, Unicode elision and fact priority passed\n",cases);
     return 0;
 }
 '''
@@ -296,9 +403,8 @@ typedef int HGDIOBJ;
 typedef int HDC;
 typedef struct { int left,top,right,bottom; } RECT;
 typedef struct { int tmHeight,tmAscent; } TEXTMETRICW;
-typedef struct { int lfHeight,lfWidth,lfWeight,lfCharSet,lfPitchAndFamily; wchar_t lfFaceName[32]; } LOGFONTW;
+typedef struct { int lfHeight,lfWidth,lfWeight,lfUnderline,lfCharSet,lfPitchAndFamily; wchar_t lfFaceName[32]; } LOGFONTW;
 #define FW_NORMAL 400
-#define FW_SEMIBOLD 600
 #define DEFAULT_CHARSET 1
 #define FIXED_PITCH 1
 #define FF_MODERN 48
@@ -325,30 +431,33 @@ static int GetTextMetricsW(HDC dc,TEXTMETRICW *tm) { int height=-fonts[selected]
         code += extract(root, 'viv_chrome.c', name) + '\n'
     code += r'''
 int main(void) {
-    const int dpis[]={96,120,144,192,216,288};
+    const int dpis[]={96,120,144,192,216,288,300};
     unsigned i;
     int role,menu,font,cache,baseline=-1;
     for(i=0;i<sizeof(dpis)/sizeof(dpis[0]);i++) {
         os_logical_wide=os_logical_high=dpis[i];
         menu=_viv_menu_font();
-        assert(fonts[menu].lfHeight==-MulDiv(26,dpis[i],192) && fonts[menu].lfWeight==600);
+        assert(fonts[menu].lfHeight==-MulDiv(24,dpis[i],192) && fonts[menu].lfWeight==400);
         for(role=0;role<VIV_UI_FONT_COUNT;role++) {
-            int dip2=role==VIV_UI_FONT_TOOLBAR?24:(role==VIV_UI_FONT_PERCENT?32:23);
+            int dip2=role==VIV_UI_FONT_PERCENT?26:24;
             font=_viv_ui_font(role); cache=created;
             assert(fonts[font].lfHeight==-MulDiv(dip2,dpis[i],192) && fonts[font].lfWeight==400);
             assert(_viv_ui_font(role)==font && created==cache);
+            assert(fonts[font].lfUnderline==(role==VIV_UI_FONT_LINK));
             if(role==VIV_UI_FONT_NUMBER || role==VIV_UI_FONT_PERCENT)
                 assert(fonts[font].lfPitchAndFamily==(FIXED_PITCH|FF_MODERN));
         }
         assert(alive==VIV_UI_FONT_COUNT+1);
         baseline=-1;
-        for(role=VIV_UI_FONT_STATUS;role<=VIV_UI_FONT_PERCENT;role++) {
+        for(role=VIV_UI_FONT_STATUS;role<VIV_UI_FONT_COUNT;role++) {
             RECT rect={0,100,200,100+MulDiv(26,dpis[i],96)};
             TEXTMETRICW tm;
+            if(role==VIV_UI_FONT_PERCENT) continue;
             selected=_viv_ui_font(role); GetTextMetricsW(0,&tm);
             _viv_ui_text_rect(0,&rect);
             if(baseline<0) baseline=rect.top+tm.tmAscent;
             assert(rect.top+tm.tmAscent==baseline);
+            assert(rect.top>=100 && rect.top+tm.tmHeight<=rect.bottom);
         }
         selected=1; _viv_menu_font_drop(); assert(alive==0);
     }
@@ -356,7 +465,7 @@ int main(void) {
     assert(_viv_ui_font(VIV_UI_FONT_STATUS)==1 && !alive);
     assert(!_viv_ui_font(-1) && !_viv_ui_font(VIV_UI_FONT_COUNT));
     _viv_menu_font_drop(); assert(!alive);
-    puts("typography: 96/120/144/192/216/288 DPI, font hierarchy, cache lifetimes, fixed pitch and shared baseline passed");
+    puts("typography: seven DPIs through 300, regular weight, link underline, fixed pitch, baseline and font lifetimes passed");
     return 0;
 }
 '''

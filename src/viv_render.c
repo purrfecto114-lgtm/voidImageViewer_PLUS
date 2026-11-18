@@ -892,62 +892,114 @@ int _viv_zoom_pos_for_percent(int percent,int strict)
 // #define PHOTO_ORIENTATION_ROTATE270         6u
 // #define PHOTO_ORIENTATION_TRANSVERSE        7u
 // #define PHOTO_ORIENTATION_ROTATE90          8u
-HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int orientation)
+int _viv_rotation_cancelled(volatile LONG *cancel)
 {
-	BITMAP bitmap;
+	return cancel && InterlockedCompareExchange(cancel,0,0);
+}
+
+static HBITMAP _viv_orientate_dib(const BITMAP *bitmap,int orientation,volatile LONG *cancel)
+{
 	BITMAPINFO bmi;
 	HBITMAP result;
-	BYTE *bits;
-	int wide,high,bpp,stride,x,y;
+	BYTE *bits = NULL;
+	const BYTE *origin;
+	const int tile = 32;
+	int wide,high,bpp,stride,xb,yb;
+	int reverse_x,reverse_y,step_x,step_y,swap;
 	SIZE_T row_bytes,total;
-	// Internal frames are top-down 24/32-bit DIB sections.
-	if ((orientation < 1) || (orientation > 8) ||
-		!GetObject(hbitmap,sizeof(bitmap),&bitmap) || !bitmap.bmBits ||
-		(bitmap.bmWidth <= 0) || (bitmap.bmHeight <= 0) ||
-		(bitmap.bmPlanes != 1) || ((bitmap.bmBitsPixel != 24) && (bitmap.bmBitsPixel != 32))) return 0;
-	bpp = bitmap.bmBitsPixel / 8;
-	row_bytes = safe_size_mul((SIZE_T)bitmap.bmWidth,bpp);
-	if ((row_bytes == SIZE_MAX) || (bitmap.bmWidthBytes <= 0) || ((SIZE_T)bitmap.bmWidthBytes < row_bytes)) return 0;
-	wide = orientation >= 5 ? bitmap.bmHeight : bitmap.bmWidth;
-	high = orientation >= 5 ? bitmap.bmWidth : bitmap.bmHeight;
+
+	// Internal frames are immutable, top-down 24/32-bit DIB sections.
+	if (orientation < 1 || orientation > 8 || !bitmap->bmBits ||
+		bitmap->bmWidth <= 0 || bitmap->bmHeight <= 0 ||
+		bitmap->bmPlanes != 1 || (bitmap->bmBitsPixel != 24 && bitmap->bmBitsPixel != 32)) return NULL;
+	bpp = bitmap->bmBitsPixel / 8;
+	row_bytes = safe_size_mul((SIZE_T)bitmap->bmWidth,bpp);
+	if (bitmap->bmWidthBytes <= 0 || row_bytes > (SIZE_T)bitmap->bmWidthBytes ||
+		safe_size_mul((SIZE_T)bitmap->bmWidthBytes,bitmap->bmHeight) > VIV_MAX_IMAGE_BYTES) return NULL;
+
+	swap = orientation >= 5;
+	wide = swap ? bitmap->bmHeight : bitmap->bmWidth;
+	high = swap ? bitmap->bmWidth : bitmap->bmHeight;
 	row_bytes = safe_size_add(safe_size_mul((SIZE_T)wide,bpp),3);
-	if ((row_bytes == SIZE_MAX) || (row_bytes > INT_MAX)) return 0;
+	if (row_bytes > INT_MAX) return NULL;
 	stride = (int)(row_bytes & ~(SIZE_T)3);
 	total = safe_size_mul((SIZE_T)stride,(SIZE_T)high);
-	if ((total == SIZE_MAX) || (total > VIV_MAX_IMAGE_BYTES) || !GdiFlush()) return 0;
+	if (total > VIV_MAX_IMAGE_BYTES || _viv_rotation_cancelled(cancel)) return NULL;
+
+	reverse_x = orientation == 2 || orientation == 3 || orientation == 6 || orientation == 7;
+	reverse_y = orientation == 3 || orientation == 4 || orientation == 7 || orientation == 8;
+	step_x = swap ? bitmap->bmWidthBytes : bpp;
+	step_y = swap ? bpp : bitmap->bmWidthBytes;
+	origin = (const BYTE *)bitmap->bmBits;
+	if (reverse_x)
+	{
+		origin += (SIZE_T)(wide - 1)*step_x;
+		step_x = -step_x;
+	}
+	if (reverse_y)
+	{
+		origin += (SIZE_T)(high - 1)*step_y;
+		step_y = -step_y;
+	}
+
 	os_zero_memory(&bmi,sizeof(bmi));
 	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	bmi.bmiHeader.biWidth = wide;
 	bmi.bmiHeader.biHeight = -high;
 	bmi.bmiHeader.biPlanes = 1;
-	bmi.bmiHeader.biBitCount = bitmap.bmBitsPixel;
+	bmi.bmiHeader.biBitCount = bitmap->bmBitsPixel;
 	bmi.bmiHeader.biCompression = BI_RGB;
-	bits = NULL;
 	result = CreateDIBSection(NULL,&bmi,DIB_RGB_COLORS,(void **)&bits,NULL,0);
-	if (!result || !bits) { if (result) DeleteObject(result); return 0; }
-	for(y=0;y<high;y++)
+	if (!result || !bits)
 	{
-		BYTE *row = bits + (SIZE_T)y*stride;
-		for(x=0;x<wide;x++)
+		if (result) DeleteObject(result);
+		return NULL;
+	}
+
+	// Tile the transpose so adjacent reads reuse the source's cache lines.
+	for (yb=0; yb<high; yb+=tile)
+	{
+		int yend = high - yb < tile ? high : yb + tile;
+		if (_viv_rotation_cancelled(cancel))
 		{
-			int sx = x,sy = y;
-			const BYTE *source;
-			switch(orientation)
-			{
-				case 2: sx = bitmap.bmWidth-1-x; break;
-				case 3: sx = bitmap.bmWidth-1-x; sy = bitmap.bmHeight-1-y; break;
-				case 4: sy = bitmap.bmHeight-1-y; break;
-				case 5: sx = y; sy = x; break;
-				case 6: sx = y; sy = bitmap.bmHeight-1-x; break;
-				case 7: sx = bitmap.bmWidth-1-y; sy = bitmap.bmHeight-1-x; break;
-				case 8: sx = bitmap.bmWidth-1-y; sy = x; break;
-			}
-			source = (const BYTE *)bitmap.bmBits + (SIZE_T)sy*bitmap.bmWidthBytes + (SIZE_T)sx*bpp;
-			memcpy(row + (SIZE_T)x*bpp,source,bpp);
+			DeleteObject(result);
+			return NULL;
 		}
-		memset(row + (SIZE_T)wide*bpp,0,(SIZE_T)stride-(SIZE_T)wide*bpp);
+		for (xb=0; xb<wide;)
+		{
+			int columns = swap && wide - xb > tile ? tile : wide - xb;
+			int y;
+			for (y=yb; y<yend; y++)
+			{
+				const BYTE *source = origin + (ptrdiff_t)y*step_y + (ptrdiff_t)xb*step_x;
+				BYTE *dest = bits + (SIZE_T)y*stride + (SIZE_T)xb*bpp;
+				int x;
+				if (step_x == bpp)
+					memcpy(dest,source,(SIZE_T)columns*bpp);
+				else if (bpp == 4)
+					for (x=0; x<columns; x++)
+						memcpy(dest + (SIZE_T)x*4,source + (ptrdiff_t)x*step_x,4);
+				else
+					for (x=0; x<columns; x++)
+						memcpy(dest + (SIZE_T)x*3,source + (ptrdiff_t)x*step_x,3);
+			}
+			xb += columns;
+		}
+	}
+	if (stride != wide*bpp)
+	{
+		int y;
+		for (y=0; y<high; y++)
+			memset(bits + (SIZE_T)y*stride + (SIZE_T)wide*bpp,0,stride-wide*bpp);
 	}
 	return result;
+}
+
+HBITMAP _viv_orientate_hbitmap(HBITMAP hbitmap,int orientation)
+{
+	BITMAP bitmap;
+	if (!GetObject(hbitmap,sizeof(bitmap),&bitmap) || !GdiFlush()) return NULL;
+	return _viv_orientate_dib(&bitmap,orientation,NULL);
 }
 static HBITMAP _viv_mipmap_build(HBITMAP source,int sw,int sh,int wide,int high)
 {
@@ -977,34 +1029,34 @@ done:
 	return bitmap;
 }
 
-HBITMAP *_viv_prepare_oriented_frames(const _viv_frame_t *frames,int count,int orientation)
+HBITMAP *_viv_prepare_oriented_frames(const BITMAP *bitmaps,int count,int orientation,volatile LONG *cancel)
 {
 	HBITMAP *result;
 	SIZE_T bytes = 0;
 	int i;
-	if (!frames || count <= 0) return NULL;
+	if (!bitmaps || count <= 0) return NULL;
 	// Atomic rotation holds a replacement set: bound its additional bytes.
-	for(i=0;i<count;i++)
+	for (i=0; i<count; i++)
 	{
-		DIBSECTION ds;
+		const BITMAP *bitmap = &bitmaps[i];
 		SIZE_T row,wide,high;
-		if (!GetObject(frames[i].hbitmap,sizeof(ds),&ds) || (ds.dsBm.bmWidth <= 0) ||
-			(ds.dsBm.bmHeight <= 0) || ((ds.dsBm.bmBitsPixel != 24) && (ds.dsBm.bmBitsPixel != 32))) return NULL;
-		wide = (SIZE_T)(orientation >= 5 ? ds.dsBm.bmHeight : ds.dsBm.bmWidth);
-		high = (SIZE_T)(orientation >= 5 ? ds.dsBm.bmWidth : ds.dsBm.bmHeight);
-		row = safe_size_add(safe_size_mul(wide,ds.dsBm.bmBitsPixel/8),3);
+		if (_viv_rotation_cancelled(cancel) || bitmap->bmWidth <= 0 || bitmap->bmHeight <= 0 ||
+			(bitmap->bmBitsPixel != 24 && bitmap->bmBitsPixel != 32)) return NULL;
+		wide = (SIZE_T)(orientation >= 5 ? bitmap->bmHeight : bitmap->bmWidth);
+		high = (SIZE_T)(orientation >= 5 ? bitmap->bmWidth : bitmap->bmHeight);
+		row = safe_size_add(safe_size_mul(wide,bitmap->bmBitsPixel/8),3);
 		if (row == SIZE_MAX) return NULL;
 		bytes = safe_size_add(bytes,safe_size_mul(row & ~(SIZE_T)3,high));
-		if ((bytes == SIZE_MAX) || (bytes > VIV_MAX_ROTATION_BYTES)) return NULL;
+		if (bytes > VIV_MAX_ROTATION_BYTES) return NULL;
 	}
 	result = mem_try_alloc(safe_size_mul((SIZE_T)count,sizeof(*result)));
 	if (!result) return NULL;
-	for(i=0;i<count;i++)
+	for (i=0; i<count; i++)
 	{
-		result[i] = _viv_orientate_hbitmap(frames[i].hbitmap,orientation);
+		result[i] = _viv_orientate_dib(&bitmaps[i],orientation,cancel);
 		if (!result[i])
 		{
-			while(i) DeleteObject(result[--i]);
+			while (i) DeleteObject(result[--i]);
 			mem_free(result);
 			return NULL;
 		}

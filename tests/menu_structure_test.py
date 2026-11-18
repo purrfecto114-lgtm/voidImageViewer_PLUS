@@ -399,7 +399,8 @@ def t_localization_alignment():
             "LOCALIZATION_ID_TOOLBAR_EXIT_FULLSCREEN",
             "LOCALIZATION_ID_STATUS_BAR_ROTATED_PREVIEW",
             "LOCALIZATION_ID_STATUS_BAR_SHOW_IN_FOLDER",
-            "LOCALIZATION_ID_RENDERER_D3D12")
+            "LOCALIZATION_ID_RENDERER_D3D12",
+            "LOCALIZATION_ID_STATUS_BAR_ROTATING")
     check("enum ends with the dark+backdrop+ux+remake+closure ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r96: the renderer and toolbar ids ride the tail; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(ids[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more (the consent pair, the lock caption, the uninstall ask); rc.2: four more (the exit ask's caption, faces and message)
     check("en ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(en[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
     check("zh ends with the dark+backdrop+ux+remake ids (rc.79: the zoom ids retired; rc.6: the dimensions format retired; rc.7: the startup shortcut retired; r113: the init-failed id rides the tail; r114: the icon-only pair rides the tail)", tuple(zh[-len(tail):]) == tail)  # round-125: the remake tail is eight ids longer; round-128: four more; round-129: two more; rc.4: two more; rc.6: two more; round-148: five more; rc.2: four more (the exit ask's caption, faces and message)
@@ -1515,7 +1516,7 @@ def t_release_engineering_round5():
         check("%s no longer references vs2005" % f, needle not in t)
     fp = read("voidImageViewer.files.props").decode("utf-8", errors="replace")
     check("shared props carries the full compile list",
-          len(re.findall(r"<ClCompile ", fp)) == 104)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders + the R96 gl, d3d and shell menu modules + the R102 export module
+          len(re.findall(r"<ClCompile ", fp)) == 105)  # 81 + 11 R70 domains + wndproc + the R77 menubar module + the rc.8 toolbar/settings domains + the theme core and the msgbox + the R94 qoi and wic decoders + the R96 gl, d3d and shell menu modules + the R102 export module
     check("shared props has no phantom res\\resource reference",
           'res\\resource"' not in fp)
     check("shared props has the resource script and the app icon only",
@@ -1622,8 +1623,8 @@ def t_modernization_round6():
           os.path.exists("src/glyphs.c") and os.path.exists("src/glyphs.h")
           and "glyphs.c" in fp and "glyphs.h" in fp)
     check("the props counts grew by the glyphs pair, the R70 domains, the wndproc pair, the remake pair, the R96 renderers and the R102 export module",
-          len(re.findall(r"<ClCompile ", fp)) == 104
-          and len(re.findall(r"<ClInclude ", fp)) == 73)
+          len(re.findall(r"<ClCompile ", fp)) == 105
+          and len(re.findall(r"<ClInclude ", fp)) == 74)
     check("glyphs.c loads its own gdi+ flat api table",
           '"GdipCreatePen1"' in gc and '"GdipDrawLinesI"' in gc
           and '"GdipCreateBitmapFromScan0"' in gc
@@ -1777,7 +1778,7 @@ def t_round7():
     check("the right cluster gives way (frame, rgb, date, pos)",
           "if ((total <= avail_wide) && (count <= _VIV_STATUS_PART_MAX))" in viv)
     check("the resolution pane clips instead of vanishing",
-          "widths[_VIV_STATUS_DIMENSION] = avail_wide - widths[_VIV_STATUS_PRELOAD] - widths[_VIV_STATUS_FILE];" in viv)
+          "widths[_VIV_STATUS_DIMENSION] -= total - avail_wide;" in viv)
     check("the panes use cumulative coordinates",
           "edge += widths[role];" in viv and "edges[count] = (role == _VIV_STATUS_DIMENSION) ? -1 : edge;" in viv)
     check("the message pane index follows the preload pane",
@@ -1938,7 +1939,7 @@ def t_dark_menu_bar():
 
     # the menu font cache: dpi keyed, dropped on theme and dpi change.
     check("the menu font cache is dpi keyed",
-          "_viv_menu_font_dpi != os_logical_wide" in viv)
+          "_viv_menu_font_dpi != os_logical_high" in viv)
     i = viv.find("static LRESULT _viv_on_wm_themechanged(")
     seg = viv[i:viv.find("static LRESULT _viv_on_wm_setcursor(", i)]
     check("WM_THEMECHANGED drops the cached menu font",
@@ -3356,7 +3357,7 @@ def t_split_architecture_round70():
 
     # 2. every domain module exists and is under the 3,000 line cap
     domains = ["recent", "playlist", "load", "anim", "render", "chrome",
-               "dark", "dialogs", "view", "install", "menu"]
+               "dark", "dialogs", "view", "rotation", "install", "menu"]
     for d in domains:
         p = f"src/viv_{d}.c"
         ok = os.path.exists(p)
@@ -3467,10 +3468,10 @@ def t_structure_round76():
     expected = ["viv_anim.c", "viv_chrome.c", "viv_dark.c", "viv_dialogs.c",
                 "viv_export.c", "viv_install.c", "viv_load.c", "viv_menu.c",
                 "viv_menubar.c", "viv_msgbox.c", "viv_playlist.c",
-                "viv_recent.c", "viv_render.c", "viv_selfshot.c",
+                "viv_recent.c", "viv_render.c", "viv_rotation.c", "viv_selfshot.c",
                 "viv_settings.c", "viv_theme.c", "viv_toolbar.c",
                 "viv_view.c", "viv_wndproc.c"]
-    check("the splice manifest is the pinned 19-domain list",
+    check("the splice manifest includes the rotation domain",
           actual == expected, f"({actual})")  # round-102: the export module joins
     check("the state layer is the splice tail",
           os.path.exists("src/viv_state.h"))
@@ -3860,7 +3861,7 @@ def t_zoom_pane_editor_round79():
           "os_statusbar_index_from_x" not in osh)
     check("the status subclass answers the editor colors (the chrome tokens)",
           "case WM_CTLCOLOREDIT:" in chrome and
-          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_NAV_FACE));" in chrome and
+          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));" in chrome and
           "SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));" in chrome)
 
     # the field: created on the pane, themed by the strip.
@@ -3956,9 +3957,9 @@ def t_field_report_round80():
           "_viv_open_from_filename(config_recent_files[recent_index],VIV_OPEN_RECENT)" in view)
     check("the command line still opens the single file (rc.16: as forwarded)",
           "_viv_open_from_filename(open_filename,VIV_OPEN_FORWARDED)" in viv)
-    rotate = " ".join(view.split("static void _viv_edit_rotate(int counterclockwise)\r\n{")[1].split("static void _viv_file_edit(void)\r\n{")[0].split())
+    rotate = read("src/viv_rotation.c").decode()
     check("rotate never touches the recent list",
-          "_viv_recent" not in rotate and "_viv_rotation_stage" in rotate)
+          "_viv_recent" not in rotate and "CopyFileExW(job->original,path" in rotate)
     check("the single-instance forward survives (the fix is at the push site)",
           "cds.dwData = _VIV_COPYDATA_COMMAND_LINE;" in viv)
 
@@ -4113,21 +4114,21 @@ def t_review_absorption_round82():
           chrome.find("part = (int)draw_item->itemID;") <
           chrome.find("part = (int)draw_item->itemData;"))
     check("an unresolvable pane paints the face instead of returning unhandled",
-          chrome.count("FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_NAV_FACE));") == 2 and
+          chrome.count("FillRect(hdc,&draw_item->rcItem,viv_theme_brush(VIV_TK_CHROME));") == 2 and
           "the rc.11 bottom white bar was exactly a" in chrome)
     check("the pane text rides the text token",
           "text_color = viv_theme_color(VIV_TK_TEXT);" in chrome)
 
     # 2. the status strip is on the tokens, no hardcoded palette of its own.
     check("the erase rides the chrome brush",
-          "FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_NAV_FACE));" in chrome)
+          "FillRect((HDC)wParam,&rect,viv_theme_brush(VIV_TK_CHROME));" in chrome)
     check("the grip fill and dots ride the tokens",
-          "FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_NAV_FACE));" in chrome and
+          "FillRect(hdc,&grip_rect,viv_theme_brush(VIV_TK_CHROME));" in chrome and
           "grip_rect.bottom - 2 - (dot_y * step),viv_theme_color(VIV_TK_TEXT2));" in chrome)
     check("the zoom editor field rides the tokens",
-          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_NAV_FACE));" in chrome and
+          "SetBkColor((HDC)wParam,viv_theme_color(VIV_TK_CHROME));" in chrome and
           "SetTextColor((HDC)wParam,viv_theme_color(VIV_TK_TEXT));" in chrome and
-          "return (LRESULT)viv_theme_brush(VIV_TK_NAV_FACE);" in chrome)
+          "return (LRESULT)viv_theme_brush(VIV_TK_CHROME);" in chrome)
     check("the strip carries no hardcoded palette of its own",
           "RGB(0xE8,0xE8,0xE8)" not in chrome and
           "RGB(0x20,0x20,0x20)" not in chrome and
@@ -4964,7 +4965,8 @@ def t_todo_closure_round96():
           "src/hwd3d.c" in files_txt and
           "src/shellmenu.c" in files_txt and
           "src/viv_export.c" in files_txt and
-          files_txt.count("\n") == 104)
+          "src/viv_rotation.c" in files_txt and
+          files_txt.count("\n") == 105)
     check("the shared props list carries all six new files",
           props.count('Include="..\\src\\hwd3d_modern.c"') == 1 and
           props.count('Include="..\\src\\hwd3d.c"') == 1 and
@@ -6049,7 +6051,7 @@ def t_renderer_parity_round105():
           "hbitmap = _viv_load_create_frame_dib(screen_hdc,(int)thumb_wide,(int)thumb_high);" in vivload and
           vivload.count("CreateCompatibleBitmap(") == 1)
     check('orientation preserves top-down 24/32bpp DIBs',
-          "bmi.bmiHeader.biHeight = -high;" in vivrender and "bmi.bmiHeader.biBitCount = bitmap.bmBitsPixel;" in vivrender and "result = CreateDIBSection(NULL,&bmi,DIB_RGB_COLORS,(void **)&bits,NULL,0);" in vivrender and "SetDIBits(" not in vivrender)
+          "bmi.bmiHeader.biHeight = -high;" in vivrender and "bmi.bmiHeader.biBitCount = bitmap->bmBitsPixel;" in vivrender and "result = CreateDIBSection(NULL,&bmi,DIB_RGB_COLORS,(void **)&bits,NULL,0);" in vivrender and "SetDIBits(" not in vivrender)
     check("Direct3D 9 explains unsupported DIBs",
           "the frame is not a dib section" in hwd3d and "the frame is %d bpp" in hwd3d)
 
@@ -7661,16 +7663,16 @@ def t_gui_limits_round121():
           0 <= body.find("total -= widths[_VIV_STATUS_INDEX];") and
           "widths[_VIV_STATUS_DATE] = 0;" not in body and
           "widths[_VIV_STATUS_POS] = 0;" not in body)
-    check("the give-way comment names the frame's give-way",
-          "gives way by the same priority" in chrome)
+    check("the filename keeps its reserved width when the strip is compressed",
+          "widths[_VIV_STATUS_FILE] - min_file" in body)
 
     # 4. the pane budget: both sections gate the same way.
     check("the layout gates every optional right-cluster pane",
           "(count >= _VIV_STATUS_PART_MAX - 1)" in chrome and "(count <= _VIV_STATUS_PART_MAX)" in chrome)
     check("the final pane writes are budget gated",
           "if (count >= _VIV_STATUS_PART_MAX)" in chrome and "(parti<_VIV_STATUS_PART_MAX)" in chrome)
-    check("the budget comment names the lockstep rule",
-          "the layout and the text store share one role map" in chrome)
+    check("pane assignment and text use the same role map",
+          "part_array,_viv_status_roles" in chrome and "texts[_viv_status_roles[parti]]" in chrome)
 
     # 5. the stale comments tell the truth.
     check("the last-pane comment is single and names the resolution",

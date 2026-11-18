@@ -42,10 +42,10 @@
 #define VIV_UI_PAD 8
 #define VIV_UI_GAP 4
 #define VIV_UI_STATUS_HIGH 26
-#define VIV_UI_MENU_FONT_DIP2 26
+#define VIV_UI_MENU_FONT_DIP2 24
 #define VIV_UI_TOOLBAR_FONT_DIP2 24
-#define VIV_UI_STATUS_FONT_DIP2 23
-#define VIV_UI_PERCENT_FONT_DIP2 32
+#define VIV_UI_STATUS_FONT_DIP2 24
+#define VIV_UI_PERCENT_FONT_DIP2 26
 // positive design units only; keep scaling in C without a new API import.
 #define VIV_UI_SCALE(value,dpi,base) (((value) * (dpi) + (base) / 2) / (base))
 
@@ -69,6 +69,7 @@ enum
 	VIV_TK_ACCENT_HOT,		// the accent fill hovered
 	VIV_TK_ACCENT_DOWN,		// the accent fill pressed
 	VIV_TK_ON_ACCENT,		// text and icons drawn on top of the accent
+	VIV_TK_LINK,			// link text on the status strip
 	VIV_TK_COUNT
 };
 

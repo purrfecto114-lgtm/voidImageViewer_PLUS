@@ -265,7 +265,7 @@ static BYTE _viv_settings_touch_have = 0;
 static BYTE _viv_settings_keys_dirty = 0;	// the shortcut editor's lamp (a deep compare per paint costs more than the latch)
 
 static HFONT _viv_settings_font = 0;
-static HFONT _viv_settings_font_bold = 0;
+static HFONT _viv_settings_font_heading = 0;
 static HFONT _viv_settings_font_small = 0;
 
 // the title row close button hover / press state and the hovered
@@ -522,9 +522,9 @@ static void _viv_settings_fonts_create(void)
 
 	_viv_settings_font = CreateFontIndirectW(&lf);
 
-	lf.lfWeight = FW_BOLD;
+	lf.lfWeight = FW_MEDIUM;
 
-	_viv_settings_font_bold = CreateFontIndirectW(&lf);
+	_viv_settings_font_heading = CreateFontIndirectW(&lf);
 
 	lf.lfWeight = FW_NORMAL;
 	lf.lfHeight = -_viv_settings_dip(11);
@@ -541,11 +541,11 @@ static void _viv_settings_fonts_delete(void)
 		_viv_settings_font = 0;
 	}
 
-	if (_viv_settings_font_bold)
+	if (_viv_settings_font_heading)
 	{
-		DeleteObject(_viv_settings_font_bold);
+		DeleteObject(_viv_settings_font_heading);
 
-		_viv_settings_font_bold = 0;
+		_viv_settings_font_heading = 0;
 	}
 
 	if (_viv_settings_font_small)
@@ -4513,7 +4513,7 @@ static void _viv_settings_draw_title(HDC hdc,const RECT *client)
 	rect.right = client->right - _viv_settings_dip(_VIV_SETTINGS_TITLE_X_WIDE) - _viv_settings_dip(8);
 	rect.bottom = _viv_settings_dip(_VIV_SETTINGS_TITLE_HIGH);
 
-	_viv_settings_draw_label(hdc,&rect,LOCALIZATION_ID_SETTINGS,_viv_settings_font_bold ? _viv_settings_font_bold : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+	_viv_settings_draw_label(hdc,&rect,LOCALIZATION_ID_SETTINGS,_viv_settings_font_heading ? _viv_settings_font_heading : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
 
 	_viv_settings_title_close_rect(client,&close_rect);
 
@@ -4796,7 +4796,7 @@ static void _viv_settings_paint(HWND hwnd)
 
 					section_rect = ctl->rect;
 					section_rect.bottom = ctl->rect.top + _viv_settings_dip(_VIV_SETTINGS_LABEL_HIGH);
-					_viv_settings_draw_label(mem,&section_rect,(localization_id_t)ctl->param,_viv_settings_font_bold ? _viv_settings_font_bold : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
+					_viv_settings_draw_label(mem,&section_rect,(localization_id_t)ctl->param,_viv_settings_font_heading ? _viv_settings_font_heading : _viv_settings_font,_viv_settings_color(_VIV_SETTINGS_C_TEXT));
 
 					section_rect.top = ctl->rect.top + _viv_settings_dip(_VIV_SETTINGS_SECTION_RULE);
 					section_rect.bottom = section_rect.top + 1;
