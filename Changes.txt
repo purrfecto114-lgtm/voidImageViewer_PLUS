@@ -1,4 +1,16 @@
-﻿Pre-release: Version 1.1.18-rc.3
+﻿Pre-release: Version 1.1.18-rc.4
+
+        the responsive and hardware round takes its tag. the
+        command bar lays out at the live dpi and narrows from
+        labels to icons into the More overflow; the status bar
+        shows the open image's name with a folder link; rotation
+        keeps its temp copy and suggests the -rotated name; the
+        queue stays reachable from blank and failed images.
+        Direct3D 9, Direct3D 11 and Direct3D 12 (11On12) are
+        available under View > Renderer when supported, GDI stays
+        the default, and the retired OpenGL setting reads GDI.
+        Renderer exports and CI exercise D3D11 and D3D12
+        separately, including software rendering and pixel checks.
 
         The command bar switches to icons as it narrows and puts
         remaining commands in More. The bottom bar shows the open
