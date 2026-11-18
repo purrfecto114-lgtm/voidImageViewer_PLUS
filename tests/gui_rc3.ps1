@@ -337,10 +337,22 @@ renderer=0
 
     $toolbar = Child "_VIV_TOOLBAR"
     [VivGui]::Click($toolbar,(D2P 65.6),(D2P 24))
-    Wait-Until {
-        [VivGui]::Title($window) -notlike '*01-rotate*' -and
-        @(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count -eq 0
-    } "failed queue item and temporary-file cleanup"
+    try {
+        Wait-Until {
+            [VivGui]::Title($window) -notlike '*01-rotate*' -and
+            @(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count -eq 0
+        } "failed queue item and temporary-file cleanup"
+    } catch {
+        # the failure names its own state: an unchanged title means the
+        # click landed on a different seat at this scale (geometry), a
+        # changed title with temps left means the release road itself.
+        $tb = Child "_VIV_TOOLBAR"
+        $tw = Bounds $tb -Client
+        $ww = Bounds $window
+        Write-Host ("queue-recovery state: title='{0}' window={1}x{2} toolbar={3}x{4} temps={5}" -f [VivGui]::Title($window),$ww.Width,$ww.Height,$tw.Width,$tw.Height,@(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count)
+        Capture "queue-recovery-state"
+        throw
+    }
     Stage "queue-recovered"
     [VivGui]::Click($toolbar,(D2P 65.6),(D2P 24))
     Wait-Until { [VivGui]::Title($window) -like '*03-next*' } "next queue item after decode failure"
