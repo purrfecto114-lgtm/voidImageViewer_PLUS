@@ -114,16 +114,25 @@ function Click-Once([IntPtr]$Target,[int]$X,[int]$Y) {
     }
 }
 # a posted click is an attempt, not a one-shot assertion: right after a
-# fullscreen restore the strip can still be settling and the seat answers
-# on a later ring pass, so the click re-posts while the condition polls -
-# the same discipline the waits use for the app's own answers.
+# fullscreen restore the strip can still be settling, so the click re-posts
+# while the condition polls - the same discipline the waits use for the
+# app's own answers. the delivery rides the posted pair (the synchronous
+# send of a click into a settling strip was answered without the seat
+# acting on it), and the timeout names the state it gave up on.
 function Click-Until([IntPtr]$Target,[int]$X,[int]$Y,[scriptblock]$Condition,[string]$Description) {
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
     do {
-        Click-Once $Target $X $Y
+        [VivGui]::Click($Target,$X,$Y)
         Start-Sleep -Milliseconds 300
         if (& $Condition) { return }
     } while ($stopwatch.ElapsedMilliseconds -lt 12000)
+    try {
+        $tb = Child "_VIV_TOOLBAR"
+        $tw = Bounds $tb -Client
+        $ww = Bounds $window
+        Write-Host ("queue state: title='{0}' window={1}x{2} toolbar={3}x{4} temps={5}" -f [VivGui]::Title($window),$ww.Width,$ww.Height,$tw.Width,$tw.Height,@(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count)
+        Capture "queue-click-timeout"
+    } catch { }
     throw "Timed out waiting for $Description"
 }
 # the lane geometry is written in dip and rides the dpi the image accepted:
