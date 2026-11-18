@@ -113,6 +113,19 @@ function Click-Once([IntPtr]$Target,[int]$X,[int]$Y) {
         throw "The toolbar did not accept a single click at ($X, $Y)"
     }
 }
+# a posted click is an attempt, not a one-shot assertion: right after a
+# fullscreen restore the strip can still be settling and the seat answers
+# on a later ring pass, so the click re-posts while the condition polls -
+# the same discipline the waits use for the app's own answers.
+function Click-Until([IntPtr]$Target,[int]$X,[int]$Y,[scriptblock]$Condition,[string]$Description) {
+    $stopwatch = [Diagnostics.Stopwatch]::StartNew()
+    do {
+        Click-Once $Target $X $Y
+        Start-Sleep -Milliseconds 300
+        if (& $Condition) { return }
+    } while ($stopwatch.ElapsedMilliseconds -lt 12000)
+    throw "Timed out waiting for $Description"
+}
 # the lane geometry is written in dip and rides the dpi the image accepted:
 # the same dip widths force the same overflow at 96 and at 300.
 function D2P([double]$Dip) {
@@ -354,16 +367,16 @@ renderer=0
     $toolbar = Child "_VIV_TOOLBAR"
     $bar = Bounds $toolbar -Client
     $script:scale = $bar.Height / 48.0
-    Click-Once $toolbar (D2P 65.6) (D2P 24)
-    Wait-Until {
+    Click-Until $toolbar (D2P 65.6) (D2P 24) {
         $title = [VivGui]::Title($window)
         $title -notlike '*01-rotate*' -and $title -notlike '*03-next*' -and
         @(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count -eq 0
     } "one queue step to the failed item and removal of both temporary files"
     Capture "queue-failed-item"
     Stage "queue-recovery"
-    Click-Once $toolbar (D2P 65.6) (D2P 24)
-    Wait-Until { [VivGui]::Title($window) -like '*03-next*' } "one queue step past the failed item"
+    Click-Until $toolbar (D2P 65.6) (D2P 24) {
+        [VivGui]::Title($window) -like '*03-next*'
+    } "one queue step past the failed item"
     Capture "queue-recovered"
     Write-Host "Win32 GUI passed. Restored layout $script:dpi DPI ($delivery). Monitor DPI $([VivGui]::GetDpiForWindow($window))."
 
