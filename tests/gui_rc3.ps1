@@ -119,6 +119,19 @@ function Stage([string]$Name) {
     $env:VIV_STAGE = $Name
     Write-Host "stage: $Name"
 }
+# the input ring: a posted click is an attempt, not a one-shot assertion -
+# right after a fullscreen restore the strip can still be settling, so the
+# click re-posts while the condition polls (the same discipline the waits
+# use for the app's own answers).
+function Click-Until([IntPtr]$target,[int]$x,[int]$y,[scriptblock]$Condition,[string]$Description) {
+    $stopwatch = [Diagnostics.Stopwatch]::StartNew()
+    do {
+        [VivGui]::Click($target,$x,$y)
+        Start-Sleep -Milliseconds 300
+        if (& $Condition) { return }
+    } while ($stopwatch.ElapsedMilliseconds -lt 12000)
+    throw "Timed out waiting for $Description"
+}
 # the lane geometry is written in dip and rides the dpi the image accepted:
 # the same dip widths force the same overflow at 96 and at 300.
 function D2P([double]$Dip) {
@@ -336,9 +349,8 @@ renderer=0
     Wait-Until { [VivGui]::IsWindowVisible((Child "_VIV_TOOLBAR")) } "fullscreen exit from floating controls"
 
     $toolbar = Child "_VIV_TOOLBAR"
-    [VivGui]::Click($toolbar,(D2P 65.6),(D2P 24))
     try {
-        Wait-Until {
+        Click-Until $toolbar (D2P 65.6) (D2P 24) {
             [VivGui]::Title($window) -notlike '*01-rotate*' -and
             @(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count -eq 0
         } "failed queue item and temporary-file cleanup"
@@ -354,8 +366,9 @@ renderer=0
         throw
     }
     Stage "queue-recovered"
-    [VivGui]::Click($toolbar,(D2P 65.6),(D2P 24))
-    Wait-Until { [VivGui]::Title($window) -like '*03-next*' } "next queue item after decode failure"
+    Click-Until $toolbar (D2P 65.6) (D2P 24) {
+        [VivGui]::Title($window) -like '*03-next*'
+    } "next queue item after decode failure"
     Capture "queue-recovered"
     Write-Host "Win32 GUI passed. Window DPI $script:dpi ($delivery delivery). Synthetic DPI tests 96 and 300."
 
