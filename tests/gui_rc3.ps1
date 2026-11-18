@@ -305,8 +305,11 @@ renderer=0
         if ((Bounds $toolbar -Client).Height -eq 150) {
             $delivery = 'synthetic send'
         } else {
-            [VivGui]::Post($window,0x02e0,$dpiParam,0)
             try {
+                # the post path carries the same refusal the send path does
+                # on this image - the helper throws, so the fallback rides
+                # the catch and the lane keeps its native-scale geometry.
+                [VivGui]::Post($window,0x02e0,$dpiParam,0)
                 Wait-Until { (Bounds $toolbar -Client).Height -eq 150 } "300 DPI strip after the synthetic post" 1500
                 $delivery = 'synthetic post'
             } catch {
