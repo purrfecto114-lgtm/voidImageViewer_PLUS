@@ -2656,13 +2656,24 @@ void _viv_open_preload(void)
 		_viv_load_failed = 1;
 		_viv_load_is_preload = 0;
 		_viv_status_update();
-		
+
 		_viv_clear();
-		
+
 		_viv_start_first_frame();
-		
+
 		_viv_process_pending_clear();
-		
+
+		// rc.6's settle rule, failed branch: the title call at the top
+		// of _viv_open_preload answers the still-loading branch, where
+		// the old image is the one on screen. here the failure has
+		// landed and the slot is empty - without the follow-up the
+		// caption keeps the outgoing file's name forever (the step onto
+		// a broken file left the title claiming the image it just
+		// abandoned), and the activation path pays this same call
+		// because its own settle moved the slot. the failure owes the
+		// title the same respect.
+		_viv_update_title();
+
 		_viv_preload_next();
 	}	
 }

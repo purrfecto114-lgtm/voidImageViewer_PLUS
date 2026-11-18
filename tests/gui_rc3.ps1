@@ -152,7 +152,9 @@ function Click-Until([IntPtr]$Target,[int]$X,[int]$Y,[scriptblock]$Condition,[st
         $ww = Bounds $window
         Write-Host ("queue state: title='{0}' window={1}x{2} toolbar={3}x{4} temps={5}" -f [VivGui]::Title($window),$ww.Width,$ww.Height,$tw.Width,$tw.Height,@(Get-ChildItem -LiteralPath $temp -Filter 'viv*.tmp').Count)
         Capture "queue-click-timeout"
-    } catch { }
+    } catch {
+        Write-Host ("queue snapshot failed: {0}" -f $_.Exception.Message)
+    }
     throw "Timed out waiting for $Description"
 }
 # the lane geometry is written in dip and rides the dpi the image accepted:
