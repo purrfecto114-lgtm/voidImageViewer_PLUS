@@ -1,4 +1,45 @@
-﻿Pre-release: Version 1.1.18-rc.6
+﻿Pre-release: Version 1.1.18-rc.7
+
+        the position indicator paints whole at last, and the rc.6
+        entry's evidence claim gets its correction first: that
+        round believed the released captures re-read as "1 / 3"
+        landing whole, but the rc.6 evidence artifact still painted
+        "1 ..." - the audit that found it compared the shipped
+        screenshot byte for byte against the release run's upload
+        and read the strip's pixels. the slack was never the whole
+        story: the draw trace the gui harness now carries (env
+        viv_status_draw_trace, the first 256 owner draws to
+        viv_status_trace.log with pane, role, rect, both text
+        engines' width and the font metrics) measured the index
+        pane's sb_setparts edges at [513,566) drawing as [517,566)
+        - the same right edge with four dips eaten at every pane's
+        left edge, a reservation no text measurement can see. the
+        two engines themselves answered identical widths
+        (extent 35, draw 35, delta 0), so the first fix of this
+        round - measuring with the draw's own calcrect call - was
+        numerically a no-op and the captures proved it. the width
+        now carries viv_ui_status_pane_reserve 4 next to the slack
+        (both named dip constants), and the evidence re-reads
+        truthfully: the trace rows ride [517,570) with the full
+        37-dip span over the 35 the string needs, and the released
+        captures paint "1 / 3" and "3 / 3" whole beside the
+        untouched "3840 x 2160 (23.7 mb)".
+
+        the instruments ride their own lessons. the gui harness
+        saves a status-draw-probe.png next to the captures - the
+        app's number font replayed from the system menu font, the
+        two engines' widths per string, and a forty-three pane
+        sweep whose verdict comes from ink maps against an
+        unclipped reference. the out-of-process sb_getparts query
+        is retired as lethal: the kernel does not marshal wm_user
+        lparam buffers across processes, so the control wrote the
+        caller's address inside its own space and the viewer died
+        with 0xC000041D - the in-app trace owns the question now.
+        the refine suite pins the reserve and the draw-side measure
+        on exactly the three fact panes, and the simulation suite's
+        frame-ceiling pin follows the same call.
+
+Pre-release: Version 1.1.18-rc.6
 
         the status bar's bottom panes stop ellipsizing their own
         text. the pane widths rode an exact fit - measured extent
