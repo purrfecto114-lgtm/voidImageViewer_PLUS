@@ -125,6 +125,32 @@ public static class StatusFacts {
     [DllImport("user32.dll")] public static extern bool FillRect(IntPtr dc, ref VivGui.Rect rect, IntPtr brush);
     [DllImport("gdi32.dll")] public static extern uint GetPixel(IntPtr dc, int x, int y);
     [DllImport("gdi32.dll")] public static extern uint SetPixel(IntPtr dc, int x, int y, uint color);
+    [DllImport("user32.dll", SetLastError=true)] static extern IntPtr SendMessageTimeoutRaw(IntPtr h, uint msg, UIntPtr w, IntPtr l, uint flags, uint time, out IntPtr result);
+
+    // the status control's own truth: the borders and the pane edges it
+    // actually laid out (SB_GETBORDERS, SB_GETPARTS), plus the control's
+    // client width - the app's arithmetic side of the same question.
+    public static string SbDump(IntPtr status) {
+        IntPtr res;
+        int[] edges = new int[16];
+        GCHandle he = GCHandle.Alloc(edges, GCHandleType.Pinned);
+        try {
+            int n = 0;
+            if (SendMessageTimeoutRaw(status,0x0406,(UIntPtr)16,he.AddrOfPinnedObject(),2,2000,out res) != IntPtr.Zero)
+                n = res.ToInt32();
+            int[] borders = new int[3];
+            GCHandle hb = GCHandle.Alloc(borders, GCHandleType.Pinned);
+            try {
+                SendMessageTimeoutRaw(status,0x0407,UIntPtr.Zero,hb.AddrOfPinnedObject(),2,2000,out res);
+            } finally { hb.Free(); }
+            VivGui.Rect rc;
+            GetClientRect(status,out rc);
+            var sb = new StringBuilder();
+            sb.Append("status client=" + rc.Width + " borders=" + borders[0] + "," + borders[1] + "," + borders[2] + " parts=" + n + " edges:");
+            for (int i = 0; i < Math.Min(n,16); i++) sb.Append(" " + edges[i]);
+            return sb.ToString();
+        } finally { he.Free(); }
+    }
 
     const uint DT_LEFT=0x0, DT_TOP=0x0, DT_SINGLELINE=0x20, DT_NOPREFIX=0x800, DT_END_ELLIPSIS=0x8000, DT_CALCRECT=0x400;
 
@@ -505,6 +531,8 @@ renderer=0
     try {
         $env:TEMP=$temp
         $env:TMP=$temp
+        # the status draw trace: the app's own owner-draw rects (env-gated).
+        $env:VIV_STATUS_DRAW_TRACE = "1"
         $arguments = @($first,$bad,$last) | ForEach-Object { '"' + $_ + '"' }
         $proc = Start-Process -FilePath $app -WorkingDirectory $root -ArgumentList $arguments -PassThru
     } finally {
@@ -557,6 +585,24 @@ renderer=0
         [void][StatusFacts]::DeleteObject($sheet)
     }
     Write-Host "status-draw-probe.png written ($($probePanes.Count) pane widths swept)"
+
+    # the control's own edges next to the app's trace of the same draw: the
+    # two instruments answer where the pane width goes between the layout
+    # arithmetic and the owner-draw rect.
+    Stage "status-parts-query"
+    $statusHwnd = [VivGui]::FindWindowEx($window,[IntPtr]::Zero,"msctls_statusbar32",$null)
+    if ($statusHwnd -ne [IntPtr]::Zero) {
+        Write-Host ([StatusFacts]::SbDump($statusHwnd))
+    } else {
+        Write-Host "status child window not found (class msctls_statusbar32)"
+    }
+    $tracePath = Join-Path $temp "viv_status_trace.log"
+    if (Test-Path -LiteralPath $tracePath) {
+        Write-Host "--- viv_status_trace.log ---"
+        Get-Content -LiteralPath $tracePath | ForEach-Object { Write-Host "trace: $_" }
+    } else {
+        Write-Host "viv_status_trace.log not found in $temp"
+    }
     # From the first toolbar item, wrap left to Fullscreen and then Rotate.
     Send-Msg $toolbar 7 0 0
     Send-Msg $toolbar 0x100 0x25 0

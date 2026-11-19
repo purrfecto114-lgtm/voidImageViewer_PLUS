@@ -2397,6 +2397,32 @@ static const wchar_t *_viv_status_elide_filename(HDC hdc,const wchar_t *name,int
 	return label;
 }
 
+// the draw trace's gates: the env decides whether the instrument exists at
+// all, and the counter caps it at the first 256 owner draws (a strip
+// redraws constantly; the question needs one settled frame, not a log farm).
+static int _viv_status_draw_trace_armed(void)
+{
+	static int armed = -1;
+
+	if (armed < 0)
+	{
+		char env_trace[8];
+
+		armed = (GetEnvironmentVariableA("VIV_STATUS_DRAW_TRACE",env_trace,sizeof(env_trace)) > 0 && env_trace[0] != '0') ? 1 : 0;
+	}
+
+	return armed;
+}
+
+static int _viv_status_draw_trace_next(void)
+{
+	static int drawn = 0;
+
+	if (drawn < 256) drawn++;
+
+	return (drawn <= 256) ? drawn : 0;
+}
+
 // owner draw one status pane: the dark palette for the dark ui, a
 // faithful light replica otherwise. the texts come from the pane store;
 // an overlong text (a capped resolution pane) ellipsizes instead of
@@ -2500,6 +2526,69 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 	{
 		_viv_ui_text_rect(hdc,&text_rect);
 		DrawTextW(hdc,text,-1,&text_rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOPREFIX);
+	}
+
+	// the draw trace: the env-gated instrument for the pane-width question.
+	// the isolated probe said the two text engines agree exactly and a pane
+	// of extent + 2*pad + 2 paints "1 / 3" whole, while the shipped captures
+	// still ellipsized - so the unknowns left were the rect the paint really
+	// received and what the real dc answers for the real font. with
+	// VIV_STATUS_DRAW_TRACE=1 the first 64 owner draws append one line each
+	// to %TEMP%\viv_status_trace.log: seq, pane, role, the rect and its
+	// inset span, both engines' width for the drawn string in this dc, the
+	// font height, and the text itself. stays silent without the variable.
+	if (_viv_status_draw_trace_armed())
+	{
+		int trace_seq = _viv_status_draw_trace_next();
+
+		if (trace_seq)
+		{
+			wchar_t trace_directory[MAX_PATH];
+			wchar_t trace_path[MAX_PATH];
+			wchar_t trace_line[512];
+			wchar_t trace_text[41];
+			DWORD trace_length = GetTempPathW(MAX_PATH,trace_directory);
+			SIZE trace_size;
+			RECT trace_calc;
+			TEXTMETRICW trace_metric;
+			int trace_extent = -1;
+			int trace_natural = -1;
+			int trace_height = -1;
+			int trace_ave = -1;
+			int trace_chars = string_get_length(text);
+
+			if (trace_chars > 40) trace_chars = 40;
+			os_copy_memory(trace_text,text,trace_chars * sizeof(wchar_t));
+			trace_text[trace_chars] = 0;
+
+			if (trace_length && trace_length < MAX_PATH - 32)
+			{
+				HANDLE trace_file;
+
+				wsprintfW(trace_path,L"%sviv_status_trace.log",trace_directory);
+				if (GetTextExtentPoint32W(hdc,text,string_get_length(text),&trace_size)) trace_extent = trace_size.cx;
+				trace_calc.left = trace_calc.top = 0;
+				trace_calc.right = trace_calc.bottom = 32767;
+				DrawTextW(hdc,text,-1,&trace_calc,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+				trace_natural = trace_calc.right - trace_calc.left;
+				if (GetTextMetricsW(hdc,&trace_metric))
+				{
+					trace_height = trace_metric.tmHeight;
+					trace_ave = trace_metric.tmAveCharWidth;
+				}
+				wsprintfW(trace_line,L"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s\r\n",
+					trace_seq,part,_viv_status_roles[part],
+					draw_item->rcItem.left,draw_item->rcItem.right,
+					text_rect.right - text_rect.left,trace_extent,trace_natural,
+					trace_height,trace_ave,trace_text);
+				trace_file = CreateFileW(trace_path,FILE_APPEND_DATA,FILE_SHARE_READ,NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
+				if (trace_file != INVALID_HANDLE_VALUE)
+				{
+					WriteFile(trace_file,trace_line,(DWORD)(lstrlenW(trace_line) * sizeof(wchar_t)),&trace_length,NULL);
+					CloseHandle(trace_file);
+				}
+			}
+		}
 	}
 
 	if (last_font)
