@@ -2202,10 +2202,12 @@ def t_sim_field_response_round124():
           frame_pane_level(False, False) == "none")
 
     # round-136: the pane is born at the counter's ceiling - the
-    # 9-to-10 boundary is paid at layout time, not mid-play.
+    # 9-to-10 boundary is paid at layout time, not mid-play. the ceiling
+    # measures with the draw's own engine now (the rc.7 round: the extent
+    # sat under the drawtextw layout and the ellipsis fired on the counter).
     check("the layout measures the counter's ceiling text (the 9-to-10 hitch is born paid)",
           "_viv_status_frame_text_at(reserve_buf,_viv_slot_current.frame_count);" in chrome and
-          "GetTextExtentPoint32(hdc,reserve_buf,string_get_length(reserve_buf),&size)" in chrome)
+          "_viv_status_text_wide(hdc,reserve_buf)" in chrome)
     check("the builder serves the live position and the ceiling from one body",
           "static void _viv_status_frame_text_at(wchar_t *frame_buf,int frame_pos_forced)" in chrome and
           "_viv_status_frame_text_at(frame_buf,-1);" in chrome)
