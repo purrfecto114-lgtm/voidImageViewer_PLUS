@@ -48,6 +48,12 @@
 // the pane's own full text (the field report: "1 / 3" drawn as "1 ...").
 // every measured status pane carries this tolerance over the exact fit.
 #define VIV_UI_STATUS_SLACK 2
+// the control takes four more dips at each pane's left edge than the edges
+// sb_setparts sent: the rc.7 draw trace measured the index pane's edges at
+// [513,566) and its owner-draw rect at [517,566) - same right edge, four
+// eaten on the left, on every pane alike. a pane sized without this
+// reserve paints its own ellipsis no matter how the text was measured.
+#define VIV_UI_STATUS_PANE_RESERVE 4
 #define VIV_UI_MENU_FONT_DIP2 24
 #define VIV_UI_TOOLBAR_FONT_DIP2 24
 #define VIV_UI_STATUS_FONT_DIP2 24

@@ -2210,7 +2210,7 @@ void _viv_status_update(void)
 					// pixels under it and the two-dip slack never covered the
 					// gap ("1 / 3" painted as "1 ..." through rc.6, the slack
 					// already in place).
-					index_wide = _viv_status_text_wide(hdc,index_buf) + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
+					index_wide = _viv_status_text_wide(hdc,index_buf) + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK + VIV_UI_STATUS_PANE_RESERVE,os_logical_wide,96);
 				}
 
 				{
@@ -2219,7 +2219,7 @@ void _viv_status_update(void)
 					// there, so this pane rides the exact fit alone - the
 					// resolution and the size readout ellipsized on maximized
 					// windows.
-					dimension_wide = _viv_status_text_wide(hdc,dimension_buf) + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
+					dimension_wide = _viv_status_text_wide(hdc,dimension_buf) + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK + VIV_UI_STATUS_PANE_RESERVE,os_logical_wide,96);
 
 					if (dimension_wide < minwide)
 					{
@@ -2246,7 +2246,7 @@ void _viv_status_update(void)
 						// same draw-side measure: a long counter rides the exact
 						// fit otherwise, and the ellipsis fires on the counter's
 						// own text.
-						frame_wide = _viv_status_text_wide(hdc,reserve_buf) + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
+						frame_wide = _viv_status_text_wide(hdc,reserve_buf) + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK + VIV_UI_STATUS_PANE_RESERVE,os_logical_wide,96);
 
 						if (frame_wide < minwide)
 						{

@@ -351,15 +351,21 @@ int main(void) {
     # place - gettextextentpoint32 sat under the draw's own layout - so the
     # three fact panes now measure with the draw's own engine
     # (_viv_status_text_wide) and keep the slack as the inset fuse; the
-    # flexible panes ride the layout's.
-    require(update.count('VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96)') == 3,
-            "the exact-fit panes (index/dimension/frame) measure with the pane tolerance")
+    # flexible panes ride the layout's. the rc.7 draw trace measured the
+    # control itself taking four dips at each pane's left edge (edges
+    # [513,566) drew as [517,566)), so the width carries a named reserve
+    # over the arithmetic too - the reservation no measurement fixes.
+    require(update.count('VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK + VIV_UI_STATUS_PANE_RESERVE,os_logical_wide,96)') == 3,
+            "the exact-fit panes (index/dimension/frame) measure with the tolerance and the pane-left reserve")
     require(update.count('_viv_status_text_wide(hdc,') == 3,
             "the three fact panes measure with the draw's own layout engine")
     require('static int _viv_status_text_wide' in (root / 'src' / 'viv_chrome.c').read_text(),
             "the draw-side measure exists as a named helper")
-    require('#define VIV_UI_STATUS_SLACK 2' in (root / 'src' / 'viv_theme.h').read_text(),
+    theme = (root / 'src' / 'viv_theme.h').read_text()
+    require('#define VIV_UI_STATUS_SLACK 2' in theme,
             "the tolerance is a named dip constant next to the pad")
+    require('#define VIV_UI_STATUS_PANE_RESERVE 4' in theme,
+            "the control's pane-left reservation is a named dip constant")
     require('LOCALIZATION_ID_STATUS_BAR_SIZE_TB_FORMAT' in update,
             "the size ladder's top rung exists in the status text assembly")
     # quiet chrome: the value's hit target is the command bar's cluster -
