@@ -144,7 +144,7 @@ public static class StatusFacts {
                 SendMessageTimeoutRaw(status,0x0407,UIntPtr.Zero,hb.AddrOfPinnedObject(),2,2000,out res);
             } finally { hb.Free(); }
             VivGui.Rect rc;
-            GetClientRect(status,out rc);
+            VivGui.GetClientRect(status,out rc);
             var sb = new StringBuilder();
             sb.Append("status client=" + rc.Width + " borders=" + borders[0] + "," + borders[1] + "," + borders[2] + " parts=" + n + " edges:");
             for (int i = 0; i < Math.Min(n,16); i++) sb.Append(" " + edges[i]);

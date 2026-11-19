@@ -1948,13 +1948,10 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int min_file,int 
 	return count;
 }
 
-// the fact panes' draw-side layout width: the painter answers DrawTextW
-// (dt_end_ellipsis on the pane's own text), so the measurement rides the
-// same call - gettextextentpoint32's summed advance sat a few pixels under
-// the draw's own layout, and the two-dip slack could not cover the
-// difference ("1 / 3" still painted as "1 ..." in the rc.6 captures, the
-// slack already in place). measuring with the draw's own engine makes the
-// pane wide enough by construction; the slack stays as the pane-inset fuse.
+// the fact panes' draw-side layout width: the painter answers DrawTextW, so
+// the measurement rides the same call - the rc.7 probe measured the two
+// engines identical on the runner, and this keeps the pane wide enough by
+// construction regardless; the slack stays as the pane-inset fuse.
 static int _viv_status_text_wide(HDC hdc,const wchar_t *text)
 {
 	RECT rect;
@@ -2397,29 +2394,21 @@ static const wchar_t *_viv_status_elide_filename(HDC hdc,const wchar_t *name,int
 	return label;
 }
 
-// the draw trace's gates: the env decides whether the instrument exists at
-// all, and the counter caps it at the first 256 owner draws (a strip
-// redraws constantly; the question needs one settled frame, not a log farm).
-static int _viv_status_draw_trace_armed(void)
+// the draw trace's gate and cap: the env arms the instrument and the first
+// 256 owner draws carry it (a strip redraws constantly; the question needs
+// one settled frame, not a log farm). seq 0 answers "write nothing".
+static int _viv_status_draw_trace_next(void)
 {
 	static int armed = -1;
+	static int drawn = 0;
+	char env_trace[8];
 
 	if (armed < 0)
 	{
-		char env_trace[8];
-
 		armed = (GetEnvironmentVariableA("VIV_STATUS_DRAW_TRACE",env_trace,sizeof(env_trace)) > 0 && env_trace[0] != '0') ? 1 : 0;
 	}
-
-	return armed;
-}
-
-static int _viv_status_draw_trace_next(void)
-{
-	static int drawn = 0;
-
+	if (!armed) return 0;
 	if (drawn < 256) drawn++;
-
 	return (drawn <= 256) ? drawn : 0;
 }
 
@@ -2528,43 +2517,29 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 		DrawTextW(hdc,text,-1,&text_rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOPREFIX);
 	}
 
-	// the draw trace: the env-gated instrument for the pane-width question.
-	// the isolated probe said the two text engines agree exactly and a pane
-	// of extent + 2*pad + 2 paints "1 / 3" whole, while the shipped captures
-	// still ellipsized - so the unknowns left were the rect the paint really
-	// received and what the real dc answers for the real font. with
-	// VIV_STATUS_DRAW_TRACE=1 the first 64 owner draws append one line each
-	// to %TEMP%\viv_status_trace.log: seq, pane, role, the rect and its
-	// inset span, both engines' width for the drawn string in this dc, the
-	// font height, and the text itself. stays silent without the variable.
-	if (_viv_status_draw_trace_armed())
+	// the draw trace (VIV_STATUS_DRAW_TRACE=1): the first 256 owner draws
+	// append pane, role, the rect, both engines' width in that dc and the
+	// font metrics to %TEMP%\viv_status_trace.log - where does the width go.
 	{
 		int trace_seq = _viv_status_draw_trace_next();
 
 		if (trace_seq)
 		{
-			wchar_t trace_directory[MAX_PATH];
-			wchar_t trace_path[MAX_PATH];
-			wchar_t trace_line[512];
-			wchar_t trace_text[41];
-			DWORD trace_length = GetTempPathW(MAX_PATH,trace_directory);
+			wchar_t trace_directory[MAX_PATH],trace_path[MAX_PATH],trace_line[512],trace_text[41];
+			DWORD trace_length,trace_written;
 			SIZE trace_size;
 			RECT trace_calc;
 			TEXTMETRICW trace_metric;
-			int trace_extent = -1;
-			int trace_natural = -1;
-			int trace_height = -1;
-			int trace_ave = -1;
+			HANDLE trace_file;
+			int trace_extent = -1,trace_natural = -1,trace_height = -1,trace_ave = -1;
 			int trace_chars = string_get_length(text);
 
 			if (trace_chars > 40) trace_chars = 40;
 			os_copy_memory(trace_text,text,trace_chars * sizeof(wchar_t));
 			trace_text[trace_chars] = 0;
-
+			trace_length = GetTempPathW(MAX_PATH,trace_directory);
 			if (trace_length && trace_length < MAX_PATH - 32)
 			{
-				HANDLE trace_file;
-
 				wsprintfW(trace_path,L"%sviv_status_trace.log",trace_directory);
 				if (GetTextExtentPoint32W(hdc,text,string_get_length(text),&trace_size)) trace_extent = trace_size.cx;
 				trace_calc.left = trace_calc.top = 0;
@@ -2584,7 +2559,7 @@ int _viv_status_draw_item(DRAWITEMSTRUCT *draw_item)
 				trace_file = CreateFileW(trace_path,FILE_APPEND_DATA,FILE_SHARE_READ,NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
 				if (trace_file != INVALID_HANDLE_VALUE)
 				{
-					WriteFile(trace_file,trace_line,(DWORD)(lstrlenW(trace_line) * sizeof(wchar_t)),&trace_length,NULL);
+					WriteFile(trace_file,trace_line,(DWORD)(lstrlenW(trace_line) * sizeof(wchar_t)),&trace_written,NULL);
 					CloseHandle(trace_file);
 				}
 			}
