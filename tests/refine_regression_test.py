@@ -343,13 +343,21 @@ int main(void) {
                    'LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING', 'LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK',
                    'LOCALIZATION_ID_STATUS_BAR_PRELOAD'):
         require(anchor in update, "status message chain: " + anchor)
-    # the pane tolerance (rc.6): the draw rect insets VIV_UI_PAD a side, so a
-    # pane measured to its extent alone rides an exact fit and gdi's draw-time
-    # layout - a pixel off the extent - answers with DT_END_ELLIPSIS on the
+    # the pane tolerance (rc.6) and the draw-side measure (rc.7): the draw
+    # rect insets VIV_UI_PAD a side, so a pane measured to its extent alone
+    # rides an exact fit and the painter's dt_end_ellipsis fires on the
     # pane's own text (the field report: "1 / 3" painted as "1 ..."). the
-    # three fact panes carry the slack; the flexible panes ride the layout's.
+    # rc.6 captures kept painting the ellipsis with the two-dip slack in
+    # place - gettextextentpoint32 sat under the draw's own layout - so the
+    # three fact panes now measure with the draw's own engine
+    # (_viv_status_text_wide) and keep the slack as the inset fuse; the
+    # flexible panes ride the layout's.
     require(update.count('VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96)') == 3,
             "the exact-fit panes (index/dimension/frame) measure with the pane tolerance")
+    require(update.count('_viv_status_text_wide(hdc,') == 3,
+            "the three fact panes measure with the draw's own layout engine")
+    require('static int _viv_status_text_wide' in (root / 'src' / 'viv_chrome.c').read_text(),
+            "the draw-side measure exists as a named helper")
     require('#define VIV_UI_STATUS_SLACK 2' in (root / 'src' / 'viv_theme.h').read_text(),
             "the tolerance is a named dip constant next to the pad")
     require('LOCALIZATION_ID_STATUS_BAR_SIZE_TB_FORMAT' in update,

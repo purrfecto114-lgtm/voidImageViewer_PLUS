@@ -81,6 +81,231 @@ public static class VivGui {
         Post(window,0x202,0,point);
     }
 }
+
+// The status fact panes' measure/draw gap, replayed on the runner's real
+// gdi: the app sizes the index/dimension/frame panes from a text extent
+// and paints with DrawTextW, so the probe quantifies what the two engines
+// disagree on and sweeps the pane widths for the ellipsis decision - the
+// rc.6 captures painted "1 / 3" as "1 ..." with the two-dip slack already
+// in place, and only the real engine answers why.
+public static class StatusFacts {
+    [StructLayout(LayoutKind.Sequential)] public struct SIZE { public int cx, cy; }
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+    public struct LOGFONTW {
+        public int lfHeight, lfWidth, lfEscapement, lfOrientation, lfWeight;
+        public byte lfItalic, lfUnderline, lfStrikeOut, lfCharSet, lfOutPrecision, lfClipPrecision, lfQuality, lfPitchAndFamily;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst=32)] public string lfFaceName;
+    }
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
+    public struct NONCLIENTMETRICSW {
+        public int cbSize, iBorderWidth, iScrollWidth, iScrollHeight, iCaptionWidth, iCaptionHeight;
+        public LOGFONTW lfCaptionFont;
+        public int iSmCaptionWidth, iSmCaptionHeight;
+        public LOGFONTW lfSmCaptionFont;
+        public int iMenuWidth, iMenuHeight;
+        public LOGFONTW lfMenuFont;
+        public LOGFONTW lfStatusFont, lfMessageFont;
+        public int iPaddedBorderWidth;
+    }
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern bool SystemParametersInfoForDpi(uint action, uint size, ref NONCLIENTMETRICSW metrics, uint update, uint dpi);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern bool SystemParametersInfoW(uint action, uint size, ref NONCLIENTMETRICSW metrics, uint update);
+    [DllImport("gdi32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr CreateFontIndirectW(ref LOGFONTW lf);
+    [DllImport("gdi32.dll")] public static extern IntPtr SelectObject(IntPtr dc, IntPtr obj);
+    [DllImport("gdi32.dll")] public static extern bool DeleteObject(IntPtr obj);
+    [DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleDC(IntPtr dc);
+    [DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleBitmap(IntPtr dc, int w, int h);
+    [DllImport("gdi32.dll")] public static extern bool DeleteDC(IntPtr dc);
+    [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);
+    [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr h, IntPtr dc);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int DrawTextW(IntPtr dc, string text, int count, ref VivGui.Rect rect, uint flags);
+    [DllImport("gdi32.dll", CharSet=CharSet.Unicode)] public static extern bool GetTextExtentPoint32(IntPtr dc, string text, int count, ref SIZE sz);
+    [DllImport("gdi32.dll")] public static extern int SetBkMode(IntPtr dc, int mode);
+    [DllImport("gdi32.dll")] public static extern uint SetTextColor(IntPtr dc, uint color);
+    [DllImport("gdi32.dll")] public static extern IntPtr GetStockObject(int index);
+    [DllImport("user32.dll")] public static extern bool FillRect(IntPtr dc, ref VivGui.Rect rect, IntPtr brush);
+    [DllImport("gdi32.dll")] public static extern uint GetPixel(IntPtr dc, int x, int y);
+    [DllImport("gdi32.dll")] public static extern uint SetPixel(IntPtr dc, int x, int y, uint color);
+
+    const uint DT_LEFT=0x0, DT_TOP=0x0, DT_SINGLELINE=0x20, DT_NOPREFIX=0x800, DT_END_ELLIPSIS=0x8000, DT_CALCRECT=0x400;
+
+    // the app's number font: the menu font the system sizes for this dpi
+    // (os_menu_font), with the number-role overrides from _viv_ui_font -
+    // consolas, fixed pitch, -VIV_UI_SCALE(24,dpi,192) tall, weight normal.
+    public static IntPtr AppNumberFont(uint dpi) {
+        var ncm = new NONCLIENTMETRICSW();
+        ncm.cbSize = Marshal.SizeOf(ncm);
+        if (!SystemParametersInfoForDpi(0x0029,(uint)ncm.cbSize,ref ncm,0,dpi)
+            && !SystemParametersInfoW(0x0029,(uint)ncm.cbSize,ref ncm,0))
+            throw new InvalidOperationException("SPI_GETNONCLIENTMETRICS failed");
+        LOGFONTW lf = ncm.lfMenuFont;
+        lf.lfHeight = -((24 * (int)dpi + 96) / 192);
+        lf.lfWidth = 0;
+        lf.lfWeight = 400;
+        lf.lfUnderline = 0;
+        lf.lfCharSet = 1;             // DEFAULT_CHARSET
+        lf.lfPitchAndFamily = 0x31;   // FIXED_PITCH | FF_MODERN
+        lf.lfFaceName = "Consolas";
+        IntPtr font = CreateFontIndirectW(ref lf);
+        if (font == IntPtr.Zero) throw new InvalidOperationException("CreateFontIndirectW failed");
+        return font;
+    }
+
+    static int DrawNatural(IntPtr dc, string text) {
+        VivGui.Rect rect = new VivGui.Rect();
+        rect.Left = 0; rect.Top = 0; rect.Right = 32767; rect.Bottom = 32767;
+        DrawTextW(dc,text,-1,ref rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+        return rect.Right - rect.Left;
+    }
+
+    // paint one pane exactly like _viv_status_draw_item: black face, white
+    // text, the rect inset 8 a side, the draw's own flag set.
+    static void PaintPane(IntPtr dc, IntPtr font, string text, int pane) {
+        VivGui.Rect full = new VivGui.Rect();
+        full.Left = 0; full.Top = 0; full.Right = pane; full.Bottom = 26;
+        FillRect(dc,ref full,GetStockObject(4));
+        SelectObject(dc,font);
+        SetBkMode(dc,1);
+        SetTextColor(dc,0x00ffffff);
+        VivGui.Rect rect = new VivGui.Rect();
+        rect.Left = 8; rect.Top = 0; rect.Right = pane - 8; rect.Bottom = 26;
+        DrawTextW(dc,text,-1,ref rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_END_ELLIPSIS|DT_NOPREFIX);
+    }
+
+    // ink pattern of the draw region, sampled on a luminance threshold:
+    // antialiasing fringes must not decide, the glyph shapes must.
+    static string InkMap(IntPtr dc, int x0, int x1) {
+        var sb = new StringBuilder();
+        for (int x = x0; x < x1; x++)
+            for (int y = 4; y < 22; y++) {
+                uint c = GetPixel(dc,x,y);
+                int lum = (int)((c & 0xff) + ((c >> 8) & 0xff) + ((c >> 16) & 0xff)) / 3;
+                sb.Append(lum > 64 ? '1' : '0');
+            }
+        return sb.ToString();
+    }
+
+    // one painted row on a fresh bitmap: returns the ink map.
+    static string PaintAndMap(IntPtr screen, IntPtr font, string text, int pane) {
+        IntPtr dc = CreateCompatibleDC(screen);
+        IntPtr bmp = CreateCompatibleBitmap(screen,pane,26);
+        try {
+            SelectObject(dc,bmp);
+            PaintPane(dc,font,text,pane);
+            int x1 = Math.Min(8 + DrawNatural(dc,text), pane - 8) - 1;
+            return InkMap(dc,8,Math.Max(9,x1));
+        } finally {
+            DeleteDC(dc);
+            DeleteObject(bmp);
+        }
+    }
+
+    // the report: extent vs draw per string, then the "1 / 3" sweep -
+    // the smallest pane the paint accepts without the ellipsis, and the
+    // fix's own guarantee (pane = draw + 18) checked on the real engine.
+    public static string Probe(uint dpi, string[] texts) {
+        IntPtr screen = GetDC(IntPtr.Zero);
+        IntPtr font = AppNumberFont(dpi);
+        var report = new StringBuilder();
+        try {
+            foreach (string text in texts) {
+                IntPtr dc = CreateCompatibleDC(screen);
+                IntPtr bmp = CreateCompatibleBitmap(screen,64,26);
+                SelectObject(dc,bmp);
+                SelectObject(dc,font);
+                SIZE sz = new SIZE();
+                GetTextExtentPoint32(dc,text,text.Length,ref sz);
+                int natural = DrawNatural(dc,text);
+                report.AppendLine("text=[" + text + "] extent=" + sz.cx + " draw=" + natural + " delta=" + (natural - sz.cx));
+                DeleteDC(dc); DeleteObject(bmp);
+            }
+            string probeText = "1 / 3";
+            IntPtr refDc = IntPtr.Zero, refBmp = IntPtr.Zero;
+            string reference;
+            int naturalWidth;
+            try {
+                refDc = CreateCompatibleDC(screen);
+                refBmp = CreateCompatibleBitmap(screen,4096,26);
+                SelectObject(refDc,refBmp);
+                PaintPane(refDc,font,probeText,4096);
+                naturalWidth = DrawNatural(refDc,probeText);
+                reference = InkMap(refDc,8,8 + naturalWidth);
+            } finally {
+                if (refDc != IntPtr.Zero) DeleteDC(refDc);
+                if (refBmp != IntPtr.Zero) DeleteObject(refBmp);
+            }
+            int smallestOk = -1;
+            for (int pane = 16; pane <= naturalWidth + 18 + 12; pane++) {
+                IntPtr dc2, bmp2;
+                string ink;
+                bool ok;
+                // paint with the app's draw flags at this pane width and
+                // compare the in-region ink with the unclipped reference.
+                {
+                    dc2 = CreateCompatibleDC(screen);
+                    bmp2 = CreateCompatibleBitmap(screen,pane,26);
+                    SelectObject(dc2,bmp2);
+                    PaintPane(dc2,font,probeText,pane);
+                    int limit = Math.Min(8 + naturalWidth, pane - 8) - 1;
+                    ink = InkMap(dc2,8,Math.Max(9,limit));
+                    ok = (ink == reference.Substring(0, ink.Length));
+                    DeleteDC(dc2); DeleteObject(bmp2);
+                }
+                if (ok && smallestOk < 0) smallestOk = pane;
+                if (pane == naturalWidth + 18)
+                    report.AppendLine("fix pane (" + pane + " = draw + pad2 + slack2) ellipsis=" + (ok ? "no" : "YES"));
+            }
+            report.AppendLine("smallest pane without ellipsis=" + smallestOk
+                + " (draw=" + naturalWidth + ", implied slack=" + (smallestOk - 16 - naturalWidth) + ")");
+        } finally {
+            ReleaseDC(IntPtr.Zero,screen);
+            DeleteObject(font);
+        }
+        return report.ToString();
+    }
+
+    // the sweep as pixels: one row per pane width, labelled with the width
+    // and the verdict, so the evidence png reads without the log.
+    public static IntPtr SweepSheet(uint dpi, string text, int[] panes) {
+        IntPtr screen = GetDC(IntPtr.Zero);
+        IntPtr font = AppNumberFont(dpi);
+        IntPtr sheet = IntPtr.Zero;
+        int rowH = 28;
+        try {
+            IntPtr dc = CreateCompatibleDC(screen);
+            sheet = CreateCompatibleBitmap(screen,260,panes.Length * rowH + 4);
+            SelectObject(dc,sheet);
+            for (int i = 0; i < panes.Length; i++) {
+                int y = i * rowH + 2;
+                VivGui.Rect row = new VivGui.Rect();
+                row.Left = 0; row.Top = y; row.Right = 260; row.Bottom = y + 26;
+                FillRect(dc,ref row,GetStockObject(4));
+                SelectObject(dc,font);
+                SetBkMode(dc,1);
+                SetTextColor(dc,0x00ffff00);
+                VivGui.Rect rect = new VivGui.Rect();
+                rect.Left = 2; rect.Top = y + 4; rect.Right = 68; rect.Bottom = y + 26;
+                DrawTextW(dc,panes[i] + "px",-1,ref rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_NOPREFIX);
+                // the pane replay, pasted beside the label at its real width
+                IntPtr paneDc = CreateCompatibleDC(screen);
+                IntPtr paneBmp = CreateCompatibleBitmap(screen,panes[i],26);
+                SelectObject(paneDc,paneBmp);
+                PaintPane(paneDc,font,text,panes[i]);
+                for (int x = 0; x < panes[i]; x++)
+                    for (int yy = 0; yy < 26; yy++) {
+                        uint c = GetPixel(paneDc,x,yy);
+                        if ((c & 0xff) > 40 || ((c >> 8) & 0xff) > 40 || ((c >> 16) & 0xff) > 40)
+                            SetPixel(dc,x,y + yy,0x00ffffff);
+                    }
+                DeleteDC(paneDc); DeleteObject(paneBmp);
+            }
+            DeleteDC(dc);
+        } finally {
+            ReleaseDC(IntPtr.Zero,screen);
+            DeleteObject(font);
+        }
+        return sheet;
+    }
+}
 '@
 
 function Wait-Until([scriptblock]$Condition, [string]$Description, [int]$TimeoutMs = 12000) {
@@ -313,6 +538,25 @@ renderer=0
     $toolbar = Child "_VIV_TOOLBAR"
     Wait-Until { [VivGui]::IsWindowVisible($toolbar) } "windowed command strip"
     Capture "windowed-native-${script:nativeDpi}dpi"
+
+    # The status fact panes replayed on the runner's own gdi: what the two
+    # text engines disagree on, and which pane widths the paint accepts.
+    # this round the numbers ride the log and the evidence png - the lane
+    # itself does not fail on the verdict yet (the fix rides the same tree;
+    # the next round pins the numbers once they are known).
+    Stage "status-facts-probe"
+    $probeTexts = @("1 / 3","3 / 3","1 / 12","10 / 12","3840 × 2160 (23.7 MB)")
+    Write-Host ([StatusFacts]::Probe([uint32]$script:nativeDpi,$probeTexts))
+    $probePanes = @(30..72)
+    $sheet = [StatusFacts]::SweepSheet([uint32]$script:nativeDpi,"1 / 3",$probePanes)
+    try {
+        $probeBmp = [System.Drawing.Bitmap]::FromHbitmap($sheet)
+        $probeBmp.Save((Join-Path $EvidenceDir "status-draw-probe.png"),[System.Drawing.Imaging.ImageFormat]::Png)
+        $probeBmp.Dispose()
+    } finally {
+        [void][StatusFacts]::DeleteObject($sheet)
+    }
+    Write-Host "status-draw-probe.png written ($($probePanes.Count) pane widths swept)"
     # From the first toolbar item, wrap left to Fullscreen and then Rotate.
     Send-Msg $toolbar 7 0 0
     Send-Msg $toolbar 0x100 0x25 0

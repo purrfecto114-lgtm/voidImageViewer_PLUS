@@ -1948,6 +1948,29 @@ static int _viv_status_layout_parts(int *widths,int avail_wide,int min_file,int 
 	return count;
 }
 
+// the fact panes' draw-side layout width: the painter answers DrawTextW
+// (dt_end_ellipsis on the pane's own text), so the measurement rides the
+// same call - gettextextentpoint32's summed advance sat a few pixels under
+// the draw's own layout, and the two-dip slack could not cover the
+// difference ("1 / 3" still painted as "1 ..." in the rc.6 captures, the
+// slack already in place). measuring with the draw's own engine makes the
+// pane wide enough by construction; the slack stays as the pane-inset fuse.
+static int _viv_status_text_wide(HDC hdc,const wchar_t *text)
+{
+	RECT rect;
+
+	if ((!hdc) || (!*text))
+	{
+		return 0;
+	}
+
+	rect.left = rect.top = 0;
+	rect.right = rect.bottom = 32767;
+	DrawTextW(hdc,text,-1,&rect,DT_LEFT|DT_TOP|DT_SINGLELINE|DT_NOPREFIX|DT_CALCRECT);
+
+	return rect.right - rect.left;
+}
+
 void _viv_status_update(void)
 {
 	if (_viv_status_hwnd)
@@ -2181,24 +2204,26 @@ void _viv_status_update(void)
 				
 				last_font = SelectObject(hdc,hfont);
 				
-				if ((*index_buf) && (GetTextExtentPoint32(hdc,index_buf,string_get_length(index_buf),&size)))
+				if (*index_buf)
 				{
 					// the slack over the exact fit: the draw rect insets VIV_UI_PAD
 					// a side, so a pane sized to its extent alone gives the text
-					// zero room and gdi's draw-time layout - a pixel off the
-					// extent - answers with DT_END_ELLIPSIS on the pane's own
-					// text ("1 / 3" painted as "1 ...", the field report).
-					index_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
+					// zero room. the width rides the draw's own layout now (see
+					// _viv_status_text_wide): gettextextentpoint32 sat a few
+					// pixels under it and the two-dip slack never covered the
+					// gap ("1 / 3" painted as "1 ..." through rc.6, the slack
+					// already in place).
+					index_wide = _viv_status_text_wide(hdc,index_buf) + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
 				}
 
-				if (GetTextExtentPoint32(hdc,dimension_buf,string_get_length(dimension_buf),&size))
 				{
-					// the same tolerance, and it matters most when the window is
-					// maximized: the grip reservation below is skipped there, so
-					// this pane rides the exact fit alone - the resolution and
-					// the size readout ellipsized on maximized windows.
-					dimension_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
-					
+					// the same draw-side measure, and it matters most when the
+					// window is maximized: the grip reservation below is skipped
+					// there, so this pane rides the exact fit alone - the
+					// resolution and the size readout ellipsized on maximized
+					// windows.
+					dimension_wide = _viv_status_text_wide(hdc,dimension_buf) + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
+
 					if (dimension_wide < minwide)
 					{
 						dimension_wide = minwide;
@@ -2219,13 +2244,13 @@ void _viv_status_update(void)
 					// fallback below stays as the font-change net.
 					_viv_status_frame_text_at(reserve_buf,_viv_slot_current.frame_count);
 					
-					if (GetTextExtentPoint32(hdc,reserve_buf,string_get_length(reserve_buf),&size))
 					{
-						// the born width carries the pane tolerance too: a long
-						// counter rides the exact fit otherwise, and the ellipsis
-						// fires on the counter's own text.
-						frame_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
-						
+						// the born width carries the pane tolerance too, on the
+						// same draw-side measure: a long counter rides the exact
+						// fit otherwise, and the ellipsis fires on the counter's
+						// own text.
+						frame_wide = _viv_status_text_wide(hdc,reserve_buf) + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
+
 						if (frame_wide < minwide)
 						{
 							frame_wide = minwide;
