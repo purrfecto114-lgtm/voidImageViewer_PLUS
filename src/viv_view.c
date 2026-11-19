@@ -66,6 +66,138 @@ void _viv_do_mousewheel_action(int action,int delta,int x,int y);
 void _viv_do_left_click_action(int action);
 void _viv_start_move_window(void);
 
+// a pinch can produce many WM_PAINT cycles before the fingers settle.  keep
+// one source bitmap for that short interval so the paint path only changes
+// the destination rectangle.  The source is borrowed from the current frame
+// or one of its existing mipmaps and remains owned by the image slot.
+static BYTE _viv_zoom_preview_active = 0;
+static HBITMAP _viv_zoom_preview_hbitmap = NULL;
+static _viv_frame_t *_viv_zoom_preview_frame = NULL;
+static HBITMAP _viv_zoom_preview_frame_hbitmap = NULL;
+static int _viv_zoom_preview_wide = 0;
+static int _viv_zoom_preview_high = 0;
+static int _viv_zoom_preview_frame_position = -1;
+static int _viv_zoom_preview_image_wide = 0;
+static int _viv_zoom_preview_image_high = 0;
+
+static void _viv_zoom_preview_clear(void)
+{
+	_viv_zoom_preview_active = 0;
+	_viv_zoom_preview_hbitmap = NULL;
+	_viv_zoom_preview_frame = NULL;
+	_viv_zoom_preview_frame_hbitmap = NULL;
+	_viv_zoom_preview_wide = 0;
+	_viv_zoom_preview_high = 0;
+	_viv_zoom_preview_frame_position = -1;
+	_viv_zoom_preview_image_wide = 0;
+	_viv_zoom_preview_image_high = 0;
+}
+
+static int _viv_zoom_preview_valid(void)
+{
+	_viv_frame_t *frame;
+
+	if (!_viv_zoom_preview_active || !_viv_zoom_preview_hbitmap ||
+		!_viv_slot_current.frames ||
+		(_viv_zoom_preview_frame_position < 0) ||
+		(_viv_zoom_preview_frame_position >= _viv_slot_current.frame_loaded_count) ||
+		(_viv_frame_position != _viv_zoom_preview_frame_position) ||
+		(_viv_zoom_preview_image_wide != _viv_slot_current.image_wide) ||
+		(_viv_zoom_preview_image_high != _viv_slot_current.image_high))
+	{
+		_viv_zoom_preview_clear();
+		return 0;
+	}
+
+	frame = &_viv_slot_current.frames[_viv_zoom_preview_frame_position];
+	if ((frame != _viv_zoom_preview_frame) || (frame->hbitmap != _viv_zoom_preview_frame_hbitmap))
+	{
+		_viv_zoom_preview_clear();
+		return 0;
+	}
+
+	return 1;
+}
+
+void _viv_zoom_preview_begin(void)
+{
+	_viv_frame_t *frame;
+	int render_wide;
+	int render_high;
+	int preview_wide;
+	int preview_high;
+
+	_viv_zoom_preview_clear();
+
+	if (!_viv_slot_current.frames || !_viv_slot_current.frame_loaded_count ||
+		(_viv_frame_position < 0) ||
+		(_viv_frame_position >= _viv_slot_current.frame_loaded_count) ||
+		!_viv_slot_current.image_wide || !_viv_slot_current.image_high)
+	{
+		return;
+	}
+
+	frame = &_viv_slot_current.frames[_viv_frame_position];
+	if (!frame->hbitmap)
+	{
+		return;
+	}
+
+	_viv_get_render_size(&render_wide,&render_high);
+	if ((render_wide <= 0) || (render_high <= 0))
+	{
+		return;
+	}
+
+	// Preparing one source at the gesture boundary amortizes the expensive
+	// downsample.  Every following sample reuses this source while the
+	// destination follows the fingers.
+	_viv_zoom_preview_hbitmap = _viv_get_mipmap(frame->hbitmap,
+		_viv_slot_current.image_wide,_viv_slot_current.image_high,
+		render_wide,render_high,&preview_wide,&preview_high,&frame->mipmap);
+	if (!_viv_zoom_preview_hbitmap || (preview_wide <= 0) || (preview_high <= 0))
+	{
+		_viv_zoom_preview_clear();
+		return;
+	}
+
+	_viv_zoom_preview_wide = preview_wide;
+	_viv_zoom_preview_high = preview_high;
+	_viv_zoom_preview_frame = frame;
+	_viv_zoom_preview_frame_hbitmap = frame->hbitmap;
+	_viv_zoom_preview_frame_position = _viv_frame_position;
+	_viv_zoom_preview_image_wide = _viv_slot_current.image_wide;
+	_viv_zoom_preview_image_high = _viv_slot_current.image_high;
+	_viv_zoom_preview_active = 1;
+}
+
+void _viv_zoom_preview_end(void)
+{
+	if (_viv_zoom_preview_active)
+	{
+		_viv_zoom_preview_clear();
+		// the next paint selects the final mipmap and the configured quality
+		// filter.  invalidate even when the gesture did not move so a preview
+		// source can never remain on screen after the fingers leave.
+		if (_viv_hwnd)
+		{
+			InvalidateRect(_viv_hwnd,NULL,FALSE);
+		}
+	}
+}
+
+int _viv_zoom_preview_get(HBITMAP *phbitmap,int *pwide,int *phigh)
+{
+	if (!_viv_zoom_preview_valid())
+	{
+		return 0;
+	}
+
+	if (phbitmap) *phbitmap = _viv_zoom_preview_hbitmap;
+	if (pwide) *pwide = _viv_zoom_preview_wide;
+	if (phigh) *phigh = _viv_zoom_preview_high;
+	return 1;
+}
 
 static int _viv_old_zoom_pos = 0; // restore this zoom level after leaving 1:1 mode.
 // round-125: the sub-second presets retired with their menu rows
@@ -3015,6 +3147,10 @@ void _viv_start_move_window(void)
 // touch gesture state.
 static DWORD _viv_gesture_zoom_dist = 0; // reference distance between the two fingers.
 static double _viv_gesture_zoom_ratio = 1.0; // accumulated pinch ratio since the last zoom step.
+static BYTE _viv_gesture_zoom_initial_close = 0; // the second finger landed below the close-contact floor.
+static BYTE _viv_gesture_zoom_waiting = 0; // a later sample must establish a new distance baseline.
+static BYTE _viv_gesture_zoom_started = 0; // at least one zoom step was applied in this sequence.
+static BYTE _viv_gesture_handoff = 0; // a second contact took over an active single-finger drag.
 static int _viv_gesture_last_x = 0; // last two finger pan location. (screen coords)
 static int _viv_gesture_last_y = 0;
 static BYTE _viv_gesture_have_last = 0;
@@ -3076,10 +3212,18 @@ void _viv_touch_double_click(void)
 		_viv_view_1to1();
 	}
 }
-static void _viv_gesture_reset(void)
+static void _viv_gesture_zoom_reset(void)
 {
 	_viv_gesture_zoom_dist = 0;
 	_viv_gesture_zoom_ratio = 1.0;
+	_viv_gesture_zoom_initial_close = 0;
+	_viv_gesture_zoom_waiting = 0;
+	_viv_gesture_zoom_started = 0;
+}
+static void _viv_gesture_reset(void)
+{
+	_viv_gesture_zoom_reset();
+	_viv_gesture_handoff = 0;
 	_viv_gesture_have_last = 0;
 }
 // returns 1 if the gesture was handled. (caller returns 0)
@@ -3111,6 +3255,8 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 			// handle for anything we do not consume).
 			if (gesture_info.dwID == 1)
 			{
+				_viv_gesture_reset();
+				_viv_gesture_handoff = (_viv_doing != _VIV_DOING_NOTHING) ? 1 : 0;
 				// a second contact starts the gesture while the promoted
 				// mouse drag can still own capture. retire that drag first.
 				// the temporary 1:1 scroll normally restores its entry view.
@@ -3125,9 +3271,15 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 				_viv_doing_cancel();
 			}
+			// GID_BEGIN also retires a stale preview if the system starts a
+			// replacement gesture without delivering the previous end.
+			_viv_zoom_preview_end();
 			_viv_gesture_mouse_tick = GetTickCount();
 			_viv_gesture_mouse_guard = 1;
-			_viv_gesture_reset();
+			if (gesture_info.dwID == 2)
+			{
+				_viv_gesture_reset();
+			}
 			return 0;
 
 		case 3: // GID_ZOOM
@@ -3135,6 +3287,11 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 			DWORD dist;
 
 			dist = (DWORD)gesture_info.ullArguments;
+
+			if (gesture_info.dwFlags & 0x01) // GF_BEGIN
+			{
+				_viv_zoom_preview_begin();
+			}
 
 			// Reject zero and distances beyond the virtual screen envelope.
 			// This is a defensive bound, not a Windows encoding rule.
@@ -3151,8 +3308,15 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 					// even when its first distance is unusable.
 					if (gesture_info.dwFlags & 0x01)
 					{
+						_viv_gesture_zoom_reset();
+					}
+					else
+					{
+						// An invalid middle sample must not leave the previous
+						// distance as the next valid sample's denominator.
 						_viv_gesture_zoom_dist = 0;
 						_viv_gesture_zoom_ratio = 1.0;
+						_viv_gesture_zoom_waiting = 1;
 					}
 					break;
 				}
@@ -3171,18 +3335,62 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 				if (gesture_info.dwFlags & 0x01) // GF_BEGIN
 				{
-					_viv_gesture_zoom_dist = ((dist) && (dist < min_dist)) ? min_dist : dist;
+					_viv_gesture_zoom_initial_close = (dist && (dist < min_dist)) ? 1 : 0;
+					_viv_gesture_zoom_dist = _viv_gesture_zoom_initial_close ? min_dist : dist;
 					_viv_gesture_zoom_ratio = 1.0;
+					_viv_gesture_zoom_waiting = 0;
+					_viv_gesture_zoom_started = 0;
 
 					break;
 				}
 
-				if ((dist) && (dist < min_dist))
+				if (!dist)
 				{
 					_viv_gesture_zoom_dist = 0;
 					_viv_gesture_zoom_ratio = 1.0;
+					_viv_gesture_zoom_waiting = 1;
 
 					break;
+				}
+
+				if (dist < min_dist)
+				{
+					// a close start keeps the floor as its baseline so the first
+					// real spread answers immediately.  Once zooming has started,
+					// a close crossing freezes and the next valid sample re-bases
+					// instead of producing a jump from an arbitrary distance.
+					if (_viv_gesture_handoff && _viv_gesture_zoom_initial_close && !_viv_gesture_zoom_started && _viv_gesture_zoom_dist)
+					{
+						break;
+					}
+
+					_viv_gesture_zoom_dist = 0;
+					_viv_gesture_zoom_ratio = 1.0;
+					_viv_gesture_zoom_waiting = 1;
+
+					break;
+				}
+
+				if (!_viv_gesture_zoom_dist)
+				{
+					if (_viv_gesture_handoff && _viv_gesture_zoom_waiting && _viv_gesture_zoom_initial_close && !_viv_gesture_zoom_started)
+					{
+						// the close-contact start is the common one-finger-to-
+						// two-finger path.  Use the floor as its first baseline
+						// instead of discarding the only useful spread sample.
+						_viv_gesture_zoom_dist = min_dist;
+						_viv_gesture_zoom_waiting = 0;
+					}
+					else
+					{
+						// a later re-entry after an active pinch establishes a
+						// clean baseline and does not jump the image.
+						_viv_gesture_zoom_dist = dist;
+						_viv_gesture_zoom_ratio = 1.0;
+						_viv_gesture_zoom_waiting = 0;
+
+						break;
+					}
 				}
 			}
 
@@ -3239,11 +3447,13 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 					if (steps_in)
 					{
+						_viv_gesture_zoom_started = 1;
 						_viv_zoom_steps(steps_in,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
 					}
 
 					if (steps_out)
 					{
+						_viv_gesture_zoom_started = 1;
 						_viv_zoom_steps(-steps_out,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
 					}
 				}

@@ -85,6 +85,7 @@ def production(suite):
                   function("viv_view.c", "_viv_is_touch_click"),
                   function("viv_view.c", "_viv_suppress_gesture_mouse"),
                   function("viv_load.c", "_viv_doing_cancel"),
+                  function("viv_view.c", "_viv_gesture_zoom_reset"),
                   function("viv_view.c", "_viv_gesture_reset"),
                   function("viv_view.c", "_viv_on_gesture")]
         return "\n".join(constants) + "\n", "\n".join(bodies)
@@ -162,7 +163,7 @@ def main():
     parser.add_argument("suites", nargs="*", choices=["mru", "gesture", "memory", "ini"])
     parser.add_argument("--sanitize", action="store_true", help="enable undefined-behavior sanitizer")
     parser.add_argument("--mru-case", choices=["rename", "load"], help="run one MRU scenario group")
-    parser.add_argument("--gesture-case", choices=["policy", "zoom", "zero", "begin", "closestart", "touch", "wheel", "bounds"], help="run one input scenario group")
+    parser.add_argument("--gesture-case", choices=["policy", "zoom", "zero", "begin", "closestart", "pan_to_pinch", "touch", "wheel", "bounds"], help="run one input scenario group")
     args = parser.parse_args()
     failed = 0
     with tempfile.TemporaryDirectory(prefix="viv-native-") as directory:

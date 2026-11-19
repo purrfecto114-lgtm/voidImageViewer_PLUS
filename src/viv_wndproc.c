@@ -2916,13 +2916,13 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			int rw = 0;
 			int rh = 0;
 			int frame_state_ok;
-
+			HBITMAP render_hbitmap = NULL;
+			int render_source_wide = 0,render_source_high = 0,using_zoom_preview = 0;
 			// the hardware renderers take the whole frame: the same view
 			// math the gdi path computes below, one textured quad, one
 			// present. any refusal (no dll, no context, an oversized
 			// canvas) leaves the gdi path painting this frame - the sticky
 			// flags keep the answer stable for the session.
-			
 			// the frame-state guard runs once for both render legs: the
 			// A refused guard (an empty animation, a stale
 			// position) leaves this paint to the background fill alone,
@@ -2930,11 +2930,11 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			// (a zero return from the hw frame is the renderer's own
 			// refusal contract, not the frame state's).
 			frame_state_ok = (_viv_slot_current.frame_count) && (_viv_frame_state_guard("paint"));
-			
 			if (frame_state_ok)
 			{
+				render_hbitmap = _viv_slot_current.frames[_viv_frame_position].hbitmap;
+				using_zoom_preview = _viv_zoom_preview_get(&render_hbitmap,&render_source_wide,&render_source_high);
 				_viv_get_render_size(&rw,&rh);
-				
 				rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
 				ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
 				
@@ -2947,7 +2947,7 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 				if (config_renderer != CONFIG_RENDERER_GDI &&
 				    !_viv_hw_render_fallback)
 				{
-					if (_viv_gpu_render(config_renderer,hwnd,ps.hdc,_viv_slot_current.frames[_viv_frame_position].hbitmap,
+					if (_viv_gpu_render(config_renderer,hwnd,ps.hdc,render_hbitmap,
 						wide,high,view_top,rx,ry,rw,rh,brush_color))
 					{
 						_viv_paint_kill();
@@ -3008,7 +3008,15 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 					int mip_high;
 					
 debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
-					mip_hbitmap = _viv_get_mipmap(_viv_slot_current.frames[_viv_frame_position].hbitmap,_viv_slot_current.image_wide,_viv_slot_current.image_high,rw,rh,&mip_wide,&mip_high,&_viv_slot_current.frames[_viv_frame_position].mipmap);
+					if (using_zoom_preview)
+					{
+						mip_hbitmap = render_hbitmap;
+						mip_wide = render_source_wide; mip_high = render_source_high;
+					}
+					else
+					{
+						mip_hbitmap = _viv_get_mipmap(_viv_slot_current.frames[_viv_frame_position].hbitmap,_viv_slot_current.image_wide,_viv_slot_current.image_high,rw,rh,&mip_wide,&mip_high,&_viv_slot_current.frames[_viv_frame_position].mipmap);
+					}
 					
 					if (mip_hbitmap)
 					{
@@ -3044,6 +3052,12 @@ debug_printf("PAINT %d %d %d\n",_viv_frame_position,rw,rh);
 									is_mag = 1;
 								}
 								
+								if (using_zoom_preview)
+								{
+									last_stretch_mode = SetStretchBltMode(paint_hdc,COLORONCOLOR);
+									did_set_stretch_blt_mode = 1;
+								}
+								else
 								if ((rw < mip_wide) || (rh < mip_high))
 								{
 									if (config_shrink_blit_mode == CONFIG_SHRINK_BLIT_MODE_HALFTONE)

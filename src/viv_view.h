@@ -51,4 +51,11 @@ int _viv_suppress_gesture_mouse(int is_down);
 void _viv_touch_double_click(void);
 int _viv_on_gesture(HWND hwnd,void *gesture_info_handle);
 
+// During a pinch the view can reuse the bitmap that was already on screen
+// and scale it with the fast blit path.  The normal mipmap/high-quality path
+// is restored as soon as the gesture ends.
+void _viv_zoom_preview_begin(void);
+void _viv_zoom_preview_end(void);
+int _viv_zoom_preview_get(HBITMAP *phbitmap,int *pwide,int *phigh);
+
 #endif

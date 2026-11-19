@@ -2681,11 +2681,18 @@ static void _viv_settings_reset_defaults(void)
 	const wchar_t *labels[2];
 	int ids[2];
 
-	string_copy(caption_wbuf,L"Reset settings");
-
-	string_copy_utf8_string(message_wbuf,(const utf8_t *)"Reset every preference to its default?\n\nYour window position, window size and maximized state are kept, and your file associations are untouched. Choose Yes to reset, or No to keep your settings as they are now.");
-
-	string_copy_utf8_string(reset_wbuf,(const utf8_t *)"Reset");
+	if (localization_language == LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED)
+	{
+		string_copy(caption_wbuf,L"重置设置");
+		string_copy_utf8_string(message_wbuf,(const utf8_t *)"要将所有偏好设置恢复为默认值吗？\n\n窗口位置、窗口大小和最大化状态会保留，文件关联不会更改。选择“重置”继续，选择“取消”保留当前设置。");
+		string_copy_utf8_string(reset_wbuf,(const utf8_t *)"重置设置");
+	}
+	else
+	{
+		string_copy(caption_wbuf,L"Reset settings");
+		string_copy_utf8_string(message_wbuf,(const utf8_t *)"Reset every preference to its default?\n\nYour window position, window size and maximized state are kept, and your file associations are untouched. Choose Reset to continue, or Cancel to keep your settings as they are now.");
+		string_copy_utf8_string(reset_wbuf,(const utf8_t *)"Reset settings");
+	}
 	string_copy_utf8_string(cancel_wbuf,localization_get_string(LOCALIZATION_ID_SETTINGS_CANCEL));
 
 	labels[0] = cancel_wbuf;
@@ -4291,9 +4298,14 @@ static void _viv_settings_draw_button(HDC hdc,const _viv_settings_ctl_t *ctl,int
 	else
 	if (ctl->id == _VIV_SETTINGS_ID_RESET)
 	{
-		// plain text, beside the ask it belongs to - see the note on
-		// _viv_settings_reset_defaults below.
-		string_copy_utf8_string(wbuf,(const utf8_t *)"Reset");
+		if (localization_language == LOCALIZATION_LANGUAGE_CHINESE_SIMPLIFIED)
+		{
+			string_copy_utf8_string(wbuf,(const utf8_t *)"重置设置");
+		}
+		else
+		{
+			string_copy_utf8_string(wbuf,(const utf8_t *)"Reset settings");
+		}
 	}
 	else
 	{

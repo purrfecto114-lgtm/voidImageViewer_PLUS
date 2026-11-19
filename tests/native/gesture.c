@@ -52,6 +52,10 @@ static void ReleaseCapture(void) { captured=0; }
 static void ShowCursor(int visible) { (void)visible; }
 void _viv_doing_cancel(void);
 
+/* The host gesture adapter does not build the Windows bitmap preview path. */
+static void _viv_zoom_preview_begin(void) {}
+static void _viv_zoom_preview_end(void) {}
+
 /* PRODUCTION */
 
 static int send(unsigned id, unsigned flags, unsigned distance)
@@ -108,6 +112,15 @@ static void policy(void)
     send(3, 0, 100); assert(!_viv_zoom_pos);
     send(3, 0, 150);
     assert(_viv_zoom_pos >= 40 && _viv_zoom_pos <= 41); /* a real 1.5x distance change */
+
+    geometry(4000, 3000, 1600, 1000, 0);
+    send(3, 1, 100);
+    send(3, 0, 9000); /* an invalid middle sample must retire its denominator */
+    assert(!_viv_gesture_zoom_dist && _viv_gesture_zoom_ratio == 1.0);
+    send(3, 0, 100); /* first valid sample re-baselines without moving */
+    assert(!_viv_zoom_pos && _viv_gesture_zoom_dist == 100);
+    send(3, 0, 150);
+    assert(_viv_zoom_pos >= 40 && _viv_zoom_pos <= 41);
     puts("gesture policy: floor/rebase, ratio, DPI, drag cancellation and handle ownership passed");
 }
 /* A linear walk through the real renderer is independent of the binary
@@ -281,6 +294,35 @@ static void touch(void)
     message_extra = 0x12340080u; assert(!_viv_is_touch_click());
     puts("input: mouse, pen and promoted touch signatures passed");
 }
+static void pan_to_pinch(void)
+{
+    unsigned floor = 36;
+
+    geometry(4000, 3000, 1600, 1000, 0);
+    _viv_doing = _VIV_DOING_SCROLL;
+    captured = 1;
+    assert(send(1, 0, 0) == 0);
+    assert(!_viv_doing && !captured);
+    send(4, 1, 100);
+    send(4, 0, 104);
+
+    /* a close second contact must keep a useful floor baseline */
+    assert(send(3, 1, floor / 3) == 1);
+    send(3, 0, floor / 2);
+    send(3, 0, floor * 2);
+    assert(_viv_zoom_pos > 0);
+
+    /* a later close crossing re-bases without a jump, then resumes */
+    {
+        int pos = _viv_zoom_pos;
+        send(3, 0, floor / 2);
+        send(3, 0, floor * 2);
+        assert(_viv_zoom_pos == pos);
+        send(3, 0, floor * 4);
+        assert(_viv_zoom_pos > pos);
+    }
+    puts("gesture: single-finger pan to pinch handoff and close re-entry passed");
+}
 static void wheel(void)
 {
     const int parts[] = {1, 12, 40};
@@ -336,6 +378,7 @@ int main(int argc, char **argv)
     if (!*selected || !strcmp(selected, "zero")) zero();
     if (!*selected || !strcmp(selected, "begin")) begin();
     if (!*selected || !strcmp(selected, "closestart")) close_start();
+    if (!*selected || !strcmp(selected, "pan_to_pinch")) pan_to_pinch();
     if (!*selected || !strcmp(selected, "touch")) touch();
     if (!*selected || !strcmp(selected, "wheel")) wheel();
     if (!*selected || !strcmp(selected, "bounds")) bounds();

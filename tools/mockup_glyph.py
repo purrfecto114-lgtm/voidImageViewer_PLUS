@@ -142,7 +142,19 @@ class Glyphs(object):
                             ref = f[1:]
                     if ref is None:
                         continue
-                    vals = _parse_floats(self._arr(ref))
+                    # A few compact glyphs keep several ellipse descriptors
+                    # in one array and reference them with [index].  Resolve
+                    # the selected record instead of treating the whole
+                    # array as one descriptor.
+                    indexed = re.match(r"^(\w+)\[(\d+)\]$", ref)
+                    if indexed:
+                        base = indexed.group(1)
+                        index = int(indexed.group(2))
+                        all_vals = _parse_floats(self._arr(base))
+                        stride = 6 if "arc" in base else 4
+                        vals = all_vals[index * stride:(index + 1) * stride]
+                    else:
+                        vals = _parse_floats(self._arr(ref))
                     if "arc" in ref:
                         stroke["kind"] = "arc"
                         stroke["cx"], stroke["cy"], stroke["rx"], stroke["ry"] = vals[:4]

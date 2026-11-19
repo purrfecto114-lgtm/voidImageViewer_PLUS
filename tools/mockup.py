@@ -639,7 +639,10 @@ def settings_page(theme, redesign=False, lang="en"):
         c.roundrect((cx + cw - vw, y + (rh - 28) / 2.0, cx + cw, y + (rh - 28) / 2.0 + 28),
                     6, fill=theme["VIV_TK_INPUT"], outline=theme["VIV_TK_LINE"])
         c.text(cx + cw - vw + 12, y + rh / 2.0, value, f, theme["VIV_TK_TEXT"], anchor="lm")
-        c.text(cx + cw - vw - 10, y + rh / 2.0, "▾", f, theme["VIV_TK_TEXT2"], anchor="rm")
+        arrow_x = cx + cw - 10
+        arrow_y = y + rh / 2.0
+        c.line([(arrow_x - 3, arrow_y - 1), (arrow_x, arrow_y + 2),
+                (arrow_x + 3, arrow_y - 1)], theme["VIV_TK_TEXT2"], width=1)
         return y + rh
 
     # --- the interface section
@@ -655,6 +658,18 @@ def settings_page(theme, redesign=False, lang="en"):
                    "LOCALIZATION_ID_SETTINGS_HARDWARE_ACCELERATION_DESC", True)
     y += 10
 
+    # the content reset action sits exactly where viv_settings.c puts it,
+    # before the system section. It is deliberately visible in the preview
+    # because the footer has its own apply/cancel/ok verdicts.
+    reset_label = "重置设置" if lang == "zh" else "Reset settings"
+    bw = 140
+    by = y
+    bx = cx + cw - bw
+    c.roundrect((bx, by, bx + bw, by + 32), 6, fill=theme["VIV_TK_INPUT"],
+                outline=theme["VIV_TK_LINE"])
+    c.text(bx + bw / 2.0, by + 16, reset_label, f, theme["VIV_TK_TEXT"], anchor="mm")
+    y += 32 + 10
+
     # --- the system integration section (the two line row lives here)
     y = section(y, T.get("LOCALIZATION_ID_SETTINGS_SECTION_STARTUP", "System integration"))
     y = row_switch(y, row_h_desc, "LOCALIZATION_ID_SETTINGS_ALLOW_MULTIPLE",
@@ -668,8 +683,9 @@ def settings_page(theme, redesign=False, lang="en"):
     c.rect((0, fy, w, h), fill=theme["VIV_TK_FACE"])
     c.line([(0, fy), (w, fy)], theme["VIV_TK_LINE"])
     bw, bh = 140, 32
-    bx = w - S["content_pad"] - bw
-    for label, primary in (("LOCALIZATION_ID_SETTINGS_CANCEL", False),
+    bx = w - S["content_pad"] - bw * 3 - 10 * 2
+    for label, primary in (("LOCALIZATION_ID_SETTINGS_APPLY", False),
+                           ("LOCALIZATION_ID_SETTINGS_CANCEL", False),
                            ("LOCALIZATION_ID_SETTINGS_OK", True)):
         by = fy + (S["footer_h"] - bh) / 2.0
         if primary:
@@ -680,7 +696,7 @@ def settings_page(theme, redesign=False, lang="en"):
                         outline=theme["VIV_TK_LINE"])
             col = theme["VIV_TK_TEXT"]
         c.text(bx + bw / 2.0, by + bh / 2.0, T.get(label, label), f, col, anchor="mm")
-        bx -= bw + 10
+        bx += bw + 10
     return c
 
 

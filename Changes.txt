@@ -29,6 +29,22 @@
         extracted and re-run over twenty-three boundary readings,
         and no four-digit row survives anywhere.
 
+        the touch gestures finish their own contract. a pinch
+        that takes over from a promoted single-finger drag keeps
+        the close-contact floor as its first baseline, so the
+        first real spread answers instead of discarding the only
+        useful sample; an invalid middle distance retires its
+        denominator rather than leaving the old one as the next
+        sample's jump source; and a later close crossing re-bases
+        without moving the image. each pinch now prepares one
+        source bitmap at the gesture boundary - the paint path
+        borrows the on-screen mipmap and only moves the
+        destination rectangle across the pinch's many paint
+        cycles, and the configured quality filter returns the
+        moment the fingers leave. the settings reset dialog
+        speaks its reader's language with a simplified chinese
+        branch, and the reset button's label says reset settings.
+
 Pre-release: Version 1.1.18-rc.5
 
         the 4k rotation round takes its tag. rotation moves into
