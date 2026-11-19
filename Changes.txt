@@ -1,4 +1,35 @@
-﻿Pre-release: Version 1.1.18-rc.5
+﻿Pre-release: Version 1.1.18-rc.6
+
+        the status bar's bottom panes stop ellipsizing their own
+        text. the pane widths rode an exact fit - measured extent
+        plus padding on both sides - and the owner draw insets the
+        same padding back off, so a draw-time layout one pixel off
+        the extent answered with dt_end_ellipsis on the pane's own
+        string: the position indicator painted "1 ..." for "1 / 3"
+        in every released capture since rc.4, and on a maximized
+        window - where the size-grip reservation is skipped - the
+        resolution and size pane rode the same exact fit. the three
+        fact panes now measure with a two-dip tolerance
+        (viv_ui_status_slack), the ellipsis stays as the overflow
+        fuse, and the released ci captures re-read as evidence:
+        "1 / 3" and "3840 x 2160 (23.7 mb)" land whole.
+
+        the capacity ladder finishes its own job. the kb rung
+        rounded ceil (1,025 bytes read "2 kb") while the rungs
+        above round half; and every boundary kept the four-digit
+        row alive one rung higher - 1,048,575 bytes read "1,024
+        kb", 1,073,741,822 bytes read "1,024.0 mb", a terabyte
+        scan read "1,024.0 gb". each rung now hands over before
+        the lower unit's rounded reading reaches four digits, the
+        kb rung rounds half like its neighbours, and the ladder
+        grows a tb rung (three localization tables ride the new
+        id in step) - the ceiling a reading can round past moves
+        from a terabyte to a petabyte. the refine suite gains the
+        size ladder as a behavior check: the shipped block is
+        extracted and re-run over twenty-three boundary readings,
+        and no four-digit row survives anywhere.
+
+Pre-release: Version 1.1.18-rc.5
 
         the 4k rotation round takes its tag. rotation moves into
         its own unit with an async worker: the rotate command

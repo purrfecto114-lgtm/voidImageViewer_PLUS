@@ -2023,18 +2023,24 @@ void _viv_status_update(void)
 				
 				// adaptive size units: a 4 gb scan used to show as a row of comma
 				// separated kilobytes. pick b / kb / mb / gb by magnitude, with
-				// one decimal place above a megabyte (integer math only).
+				// one decimal place above a kilobyte (integer math only). each
+				// rung hands over before the lower unit's reading reaches four
+				// digits: "1,024 kb" and "1,024.0 mb" read as the broken row
+				// this ladder was written to end, and the next unit up rounds
+				// the same boundary to "1.0" instead.
 				if (size.QuadPart < 1024)
 				{
 					string_format_number(widebuf,size.QuadPart);
-					
+
 					size_unit_id = LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT;
 				}
 				else
-				if (size.QuadPart < ((LONGLONG)1024 * 1024))
+				if (size.QuadPart < (((LONGLONG)1024 * 1024) - 512))
 				{
-					string_format_number(widebuf,(size.QuadPart + 1023) / 1024);
-					
+					// rounded half, like the mb/gb rungs below, not ceil: the
+					// old (size + 1023) / 1024 showed "2 kb" for 1,025 bytes.
+					string_format_number(widebuf,(size.QuadPart + 512) / 1024);
+
 					size_unit_id = LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT;
 				}
 				else
@@ -2043,13 +2049,29 @@ void _viv_status_update(void)
 					VIV_UINT64 tenths;
 					DWORD whole;
 					DWORD frac;
-					
-					divisor = (size.QuadPart < ((LONGLONG)1024 * 1024 * 1024)) ? ((VIV_UINT64)1024 * 1024) : ((VIV_UINT64)1024 * 1024 * 1024);
-					
-					size_unit_id = (divisor == ((VIV_UINT64)1024 * 1024)) ? LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT : LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT;
-					
-					// one decimal place, rounded: (bytes * 10 + divisor / 2) / divisor
+
+					// start in mb; when a reading would print four digits, the
+					// same rounded reading climbs one unit up (1,073,741,822
+					// bytes: "1,024.0 mb" before, "1.0 gb" now; a terabyte
+					// scan: "1.0 tb"). the ladder ends at tb - the ceiling a
+					// petabyte-scale reading would round past.
+					divisor = (VIV_UINT64)1024 * 1024;
+					size_unit_id = LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT;
 					tenths = (((VIV_UINT64)size.QuadPart * 10) + (divisor / 2)) / divisor;
+					if (tenths >= (10 * 1024))
+					{
+						divisor = (VIV_UINT64)1024 * 1024 * 1024;
+						size_unit_id = LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT;
+						tenths = (((VIV_UINT64)size.QuadPart * 10) + (divisor / 2)) / divisor;
+					}
+					if (tenths >= (10 * 1024))
+					{
+						divisor = (VIV_UINT64)1024 * 1024 * 1024 * 1024;
+						size_unit_id = LOCALIZATION_ID_STATUS_BAR_SIZE_TB_FORMAT;
+						tenths = (((VIV_UINT64)size.QuadPart * 10) + (divisor / 2)) / divisor;
+					}
+
+					// one decimal place, rounded: (bytes * 10 + divisor / 2) / divisor
 					whole = (DWORD)(tenths / 10);
 					frac = (DWORD)(tenths % 10);
 					
@@ -2070,7 +2092,10 @@ void _viv_status_update(void)
 					}
 				}
 				
-				numberfmt.NumDigits = (size.QuadPart < ((LONGLONG)1024 * 1024)) ? 0 : 1;
+				// the kb band ends half a kilobyte below the mb line now, and
+				// its readings carry no decimal; everything the mb/gb rungs
+				// print rides one decimal place.
+				numberfmt.NumDigits = (size.QuadPart < (((LONGLONG)1024 * 1024) - 512)) ? 0 : 1;
 				numberfmt.LeadingZero = 0;
 				numberfmt.Grouping = 3;
 				numberfmt.lpThousandSep = L",";
@@ -2158,12 +2183,21 @@ void _viv_status_update(void)
 				
 				if ((*index_buf) && (GetTextExtentPoint32(hdc,index_buf,string_get_length(index_buf),&size)))
 				{
-					index_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
+					// the slack over the exact fit: the draw rect insets VIV_UI_PAD
+					// a side, so a pane sized to its extent alone gives the text
+					// zero room and gdi's draw-time layout - a pixel off the
+					// extent - answers with DT_END_ELLIPSIS on the pane's own
+					// text ("1 / 3" painted as "1 ...", the field report).
+					index_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
 				}
 
 				if (GetTextExtentPoint32(hdc,dimension_buf,string_get_length(dimension_buf),&size))
 				{
-					dimension_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
+					// the same tolerance, and it matters most when the window is
+					// maximized: the grip reservation below is skipped there, so
+					// this pane rides the exact fit alone - the resolution and
+					// the size readout ellipsized on maximized windows.
+					dimension_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
 					
 					if (dimension_wide < minwide)
 					{
@@ -2187,7 +2221,10 @@ void _viv_status_update(void)
 					
 					if (GetTextExtentPoint32(hdc,reserve_buf,string_get_length(reserve_buf),&size))
 					{
-						frame_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2,os_logical_wide,96);
+						// the born width carries the pane tolerance too: a long
+						// counter rides the exact fit otherwise, and the ellipsis
+						// fires on the counter's own text.
+						frame_wide = size.cx + VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96);
 						
 						if (frame_wide < minwide)
 						{

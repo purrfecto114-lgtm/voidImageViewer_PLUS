@@ -343,11 +343,151 @@ int main(void) {
                    'LOCALIZATION_ID_STATUS_BAR_SLIDESHOW_PLAYING', 'LOCALIZATION_ID_STATUS_BAR_RENDERER_FALLBACK',
                    'LOCALIZATION_ID_STATUS_BAR_PRELOAD'):
         require(anchor in update, "status message chain: " + anchor)
+    # the pane tolerance (rc.6): the draw rect insets VIV_UI_PAD a side, so a
+    # pane measured to its extent alone rides an exact fit and gdi's draw-time
+    # layout - a pixel off the extent - answers with DT_END_ELLIPSIS on the
+    # pane's own text (the field report: "1 / 3" painted as "1 ..."). the
+    # three fact panes carry the slack; the flexible panes ride the layout's.
+    require(update.count('VIV_UI_SCALE(VIV_UI_PAD * 2 + VIV_UI_STATUS_SLACK,os_logical_wide,96)') == 3,
+            "the exact-fit panes (index/dimension/frame) measure with the pane tolerance")
+    require('#define VIV_UI_STATUS_SLACK 2' in (root / 'src' / 'viv_theme.h').read_text(),
+            "the tolerance is a named dip constant next to the pad")
+    require('LOCALIZATION_ID_STATUS_BAR_SIZE_TB_FORMAT' in update,
+            "the size ladder's top rung exists in the status text assembly")
     # quiet chrome: the value's hit target is the command bar's cluster -
     # the editor anchors there and the colour case rides the strip.
     require('_viv_toolbar_zoom_cell(' in (root / 'src' / 'viv_dialogs.c').read_text(), "the editor anchors to the cluster's cell")
     require('case WM_CTLCOLOREDIT:' in (root / 'src' / 'viv_toolbar.c').read_text(), "the editor's colour case rides the toolbar")
     return {"passed": True, "coverage": "production layout C + source wiring, not native status-control paint", "result": result}
+
+
+def size_ladder(root):
+    """the b/kb/mb/gb/tb selection, re-executed from the shipped source.
+
+    the ladder's own comment names the disease it was written to end: a row
+    of comma separated units that keep climbing ("1,024 kb", "1,024.0 mb",
+    "1,024.0 gb"). every rung now hands over before the lower unit's rounded
+    reading reaches four digits, and the kb rung rounds half like the rungs
+    above it (the old ceil showed "2 kb" for 1,025 bytes). the real block is
+    extracted from _viv_status_update and run over the boundary sweep, with
+    a GetNumberFormat stand-in applying the same grouping rule."""
+    update = extract(root, "viv_chrome.c", "_viv_status_update")
+    start = update.index('\t\t\t\tif (size.QuadPart < 1024)')
+    end = update.index('numberfmt.NegativeOrder', start)
+    production = update[start:end]
+    require('VIV_UI_STATUS_SLACK' not in production and 'tenths >= (10 * 1024)' in production,
+            "the extracted ladder is the unit selection, not the width block")
+    code = r'''
+#include <assert.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include <wchar.h>
+typedef long long LONGLONG;
+typedef long long __int64;
+typedef unsigned long long VIV_UINT64;
+typedef unsigned long DWORD;
+typedef struct { LONGLONG QuadPart; } LARGE_INTEGER;
+typedef unsigned char utf8_t;
+typedef struct { int NumDigits, LeadingZero, Grouping, NegativeOrder; const wchar_t *lpThousandSep, *lpDecimalSep; } NUMBERFMT;
+#define STRING_SIZE 1024
+enum {
+    LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT = 1,
+    LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT,
+    LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT,
+    LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT,
+    LOCALIZATION_ID_STATUS_BAR_SIZE_TB_FORMAT
+};
+''' + extract(root, "string.c", "string_get_length") + '\n' + r'''
+static wchar_t *string_format_number(wchar_t *buf,__int64 number)
+{
+    wchar_t *d = buf;
+    if (number < 0) { number = -number; *d++ = L'-'; }
+    if (!number) { *d++ = L'0'; *d = 0; return d; }
+    wchar_t back[64]; int n = 0;
+    while (number) { back[n++] = (wchar_t)(L'0' + (int)(number % 10)); number /= 10; }
+    while (n) { *d++ = back[--n]; }
+    *d = 0;
+    return d;
+}
+static void string_cat_utf8(wchar_t *buf,const utf8_t *utf8)
+{
+    while (*buf) buf++;
+    while (*utf8) *buf++ = (wchar_t)(unsigned char)*utf8++;
+    *buf = 0;
+}
+static int run_ladder(LONGLONG quadpart,wchar_t *widebuf,int *numdigits)
+{
+    LARGE_INTEGER size; size.QuadPart = quadpart;
+    int size_unit_id = 0;
+    NUMBERFMT numberfmt;
+''' + production + r'''
+    *numdigits = numberfmt.NumDigits;
+    return size_unit_id;
+}
+static void gnf(wchar_t *out,const wchar_t *in,int numdigits)
+{
+    /* GetNumberFormat's rule for these inputs: group the whole part by
+       three with commas, keep numdigits decimals. */
+    const wchar_t *dot = 0; const wchar_t *p = in;
+    while (*p) { if (*p == L'.') dot = p; p++; }
+    const wchar_t *whole = in;
+    int digits = (int)(dot ? dot - in : p - in);
+    wchar_t *d = out;
+    for (int i = 0; i < digits; i++) {
+        if (i > 0 && (digits - i) % 3 == 0) *d++ = L',';
+        *d++ = whole[i];
+    }
+    if (numdigits && dot) { *d++ = L'.'; *d++ = dot[1]; }
+    *d = 0;
+}
+int main(void)
+{
+    static const struct { LONGLONG bytes; int unit; int numdigits; const wchar_t *reading; } cases[] = {
+        {905, LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT, 0, L"905 B"},
+        {1023, LOCALIZATION_ID_STATUS_BAR_SIZE_BYTES_FORMAT, 0, L"1,023 B"},
+        {1024, LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT, 0, L"1 KB"},
+        {1025, LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT, 0, L"1 KB"},
+        {1500, LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT, 0, L"1 KB"},
+        {1536, LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT, 0, L"2 KB"},
+        {999424, LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT, 0, L"976 KB"},
+        {1048063, LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT, 0, L"1,023 KB"},
+        {1048064, LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT, 1, L"1.0 MB"},
+        {1048575, LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT, 1, L"1.0 MB"},
+        {1048576, LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT, 1, L"1.0 MB"},
+        {2202009, LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT, 1, L"2.1 MB"},
+        {10485760, LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT, 1, L"10.0 MB"},
+        {1073689395LL, LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT, 1, L"1,023.9 MB"},
+        {1073689396LL, LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT, 1, L"1.0 GB"},
+        {1073741823LL, LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT, 1, L"1.0 GB"},
+        {1073741824LL, LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT, 1, L"1.0 GB"},
+        {2147483647LL, LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT, 1, L"2.0 GB"},
+        {4706730000LL, LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT, 1, L"4.4 GB"},
+        {1099457940684LL, LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT, 1, L"1,023.9 GB"},
+        {1099511627775LL, LOCALIZATION_ID_STATUS_BAR_SIZE_TB_FORMAT, 1, L"1.0 TB"},
+        {1099511627776LL, LOCALIZATION_ID_STATUS_BAR_SIZE_TB_FORMAT, 1, L"1.0 TB"},
+        {27413, LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT, 0, L"27 KB"},
+    };
+    for (unsigned i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
+        wchar_t widebuf[STRING_SIZE], grouped[STRING_SIZE], reading[STRING_SIZE];
+        int numdigits = 0;
+        widebuf[0] = 0;
+        int unit = run_ladder(cases[i].bytes, widebuf, &numdigits);
+        gnf(grouped, widebuf, numdigits);
+        swprintf(reading, STRING_SIZE, L"%ls%ls", grouped, cases[i].unit == 1 ? L" B" : cases[i].unit == 2 ? L" KB" : cases[i].unit == 3 ? L" MB" : cases[i].unit == 4 ? L" GB" : L" TB");
+        if (unit != cases[i].unit || numdigits != cases[i].numdigits || wcscmp(reading, cases[i].reading) != 0) {
+            fwprintf(stderr, L"case %u: %lld bytes -> unit %d (want %d), digits %d (want %d), reading %ls (want %ls)\n",
+                     i, cases[i].bytes, unit, cases[i].unit, numdigits, cases[i].numdigits, reading, cases[i].reading);
+            return 1;
+        }
+        assert(wcsstr(reading, L"1,024") == 0);
+    }
+    printf("size ladder: %d boundary readings re-run from the shipped block, no four-digit row anywhere\n",
+           (int)(sizeof(cases) / sizeof(cases[0])));
+    return 0;
+}
+'''
+    return {"passed": True, "coverage": "production size-unit ladder C + a GetNumberFormat stand-in", "result": run_c(code).strip()}
 
 
 def decimal(root):
@@ -532,9 +672,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, default=ROOT)
     parser.add_argument("--out", type=Path)
-    parser.add_argument("suites", nargs="*", choices=("theme", "hold", "status", "decimal", "typography", "corners"))
+    parser.add_argument("suites", nargs="*", choices=("theme", "hold", "status", "decimal", "size_ladder", "typography", "corners"))
     args = parser.parse_args()
-    suites = {"theme": theme, "hold": hold, "status": status, "decimal": decimal, "typography": typography, "corners": corners}
+    suites = {"theme": theme, "hold": hold, "status": status, "decimal": decimal, "size_ladder": size_ladder, "typography": typography, "corners": corners}
     result = {name: suites[name](args.source_root) for name in args.suites or suites}
     output = json.dumps(result, ensure_ascii=False, indent=2)
     if args.out:

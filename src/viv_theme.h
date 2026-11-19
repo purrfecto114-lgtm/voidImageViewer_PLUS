@@ -42,6 +42,12 @@
 #define VIV_UI_PAD 8
 #define VIV_UI_GAP 4
 #define VIV_UI_STATUS_HIGH 26
+// the status panes' draw rect insets VIV_UI_PAD a side, so a pane sized to
+// exactly its measured text rides an exact fit - and gdi's draw-time layout
+// can disagree with the extent by a pixel, which fires DT_END_ELLIPSIS on
+// the pane's own full text (the field report: "1 / 3" drawn as "1 ...").
+// every measured status pane carries this tolerance over the exact fit.
+#define VIV_UI_STATUS_SLACK 2
 #define VIV_UI_MENU_FONT_DIP2 24
 #define VIV_UI_TOOLBAR_FONT_DIP2 24
 #define VIV_UI_STATUS_FONT_DIP2 24

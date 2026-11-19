@@ -323,6 +323,7 @@ static const utf8_t *_localization_string_array_en_us[LOCALIZATION_ID_COUNT] =
 	" KB", // LOCALIZATION_ID_STATUS_BAR_SIZE_KB_FORMAT
 	" MB", // LOCALIZATION_ID_STATUS_BAR_SIZE_MB_FORMAT
 	" GB", // LOCALIZATION_ID_STATUS_BAR_SIZE_GB_FORMAT
+	" TB", // LOCALIZATION_ID_STATUS_BAR_SIZE_TB_FORMAT
 	"Windowed &background color...", // LOCALIZATION_ID_WINDOWED_BACKGROUND_COLOR_MENU
 	// the gui remake round: the settings window, toolbar labels, status formats
 	"Settings", // LOCALIZATION_ID_SETTINGS

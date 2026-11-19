@@ -692,7 +692,7 @@ def t_sim_version_117():
     check("the version quad is 1.1.18.122",
           (major, minor, rev, build) == (1, 1, 18, 122), str((major, minor, rev, build)))
     check("the release identity string is 1.1.18-rc.4",
-          vstr is not None and vstr.group(1) == "1.1.18-rc.5", vstr.group(1) if vstr else None)
+          vstr is not None and vstr.group(1) == "1.1.18-rc.6", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
