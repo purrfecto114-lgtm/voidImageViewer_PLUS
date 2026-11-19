@@ -125,7 +125,7 @@ public static class StatusFacts {
     [DllImport("user32.dll")] public static extern bool FillRect(IntPtr dc, ref VivGui.Rect rect, IntPtr brush);
     [DllImport("gdi32.dll")] public static extern uint GetPixel(IntPtr dc, int x, int y);
     [DllImport("gdi32.dll")] public static extern uint SetPixel(IntPtr dc, int x, int y, uint color);
-    [DllImport("user32.dll", SetLastError=true)] static extern IntPtr SendMessageTimeoutRaw(IntPtr h, uint msg, UIntPtr w, IntPtr l, uint flags, uint time, out IntPtr result);
+    [DllImport("user32.dll", SetLastError=true, EntryPoint="SendMessageTimeoutW")] static extern IntPtr SendMessageTimeoutRaw(IntPtr h, uint msg, UIntPtr w, IntPtr l, uint flags, uint time, out IntPtr result);
 
     // the status control's own truth: the borders and the pane edges it
     // actually laid out (SB_GETBORDERS, SB_GETPARTS), plus the control's
