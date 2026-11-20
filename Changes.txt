@@ -1,4 +1,46 @@
-﻿Pre-release: Version 1.1.18-rc.8
+﻿Pre-release: Version 1.1.18-rc.9
+
+        the memory round. a field question arrived with numbers -
+        a 4.7 mb image holding 408 mb of process memory under the
+        direct3d 12 renderer, is that normal? - and the answer is
+        the ledger, not a shrug: the viewer prices canvases, never
+        compressed file bytes, and a 12-16 mp decode behind such a
+        file holds roughly three decoded seats (the image plus the
+        preload and cache seats the defaults carry), one dynamic
+        bgra8 texture at 32 bpp, two swap buffers and the d3
+        runtime's own commit - a few hundred mb is the design's
+        arithmetic inside the shipped ceilings (12 bytes/pixel of
+        priced working set, 512 mb of hardware texture+viewport,
+        1.2 gb across the cache set with its oldest-first trim). the
+        release-path audit found no leak in the gpu domains (every
+        texture, view, wrapped resource, staging surface and device
+        releases through its shutdown path), and the readme now
+        carries the arithmetic and the knob (preload/cache = 0) in
+        both languages.
+
+        the question also earned its instrument: the memory lane
+        generates deterministic gradient-noise canvases in its own
+        temp, measures private and working set per back end with
+        warp on a two-seat steady state, churns 100 synchronous
+        redraws against the cached-upload contract (a per-paint
+        leak answers there first, bound at 12 mb) and records
+        memory-lane.json evidence on both pipeline legs - its own
+        first run taught the tree that powershell 5.1's add-type
+        compiles c# without the already-loaded assemblies, so the
+        reference is named.
+
+        the nightly cron's red teeth answer for themselves too:
+        the two reset-road mutations re-anchored to the rc.8 trace
+        shape their drift had skipped, and the pinch-floor row
+        retired named - the rc.6 touch round resets the gesture
+        web's dist and ratio together at six sites, so that single
+        gf_begin removal no longer carries behavior, and no runner
+        can drive a two-finger pinch; the tool answers 137/137 with
+        zero escapes. the repo sheds its finished-round scaffolding
+        (the rc.1 implementer handoff, the refine round's done
+        todo, the superseded first audit) and keeps the two docs
+        the contributing guide still walks.
+Pre-release: Version 1.1.18-rc.8
 
         the direct3d field round. a real gpu answered for the
         first time - an i5-12450h's uhd graphics, a dx12 part,

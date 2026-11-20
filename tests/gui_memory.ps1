@@ -47,7 +47,6 @@ public static class VivMem {
     public static void Fill(Bitmap bmp) {
         int wide = bmp.Width;
         int high = bmp.Height;
-        Rect dummy;
         var data = bmp.LockBits(new Rectangle(0,0,wide,high), ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
         try {
             int stride = data.Stride;
