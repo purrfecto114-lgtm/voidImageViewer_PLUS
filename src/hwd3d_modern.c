@@ -90,7 +90,7 @@ void _viv_render_trace(int renderer,const char *site,HRESULT hresult)
 	length = GetTempPathW(MAX_PATH,path);
 	if (!length || length >= MAX_PATH - 24) return;
 	lstrcpyW(path + length,L"viv_render_trace.log");
-	file = CreateFileW(path,GENERIC_WRITE,FILE_SHARE_READ,NULL,OPEN_ALWAYS,NULL,NULL);
+	file = CreateFileW(path,GENERIC_WRITE,FILE_SHARE_READ,NULL,OPEN_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
 	if (file == INVALID_HANDLE_VALUE) return;
 	SetFilePointer(file,0,NULL,FILE_END);
 	length = (DWORD)wsprintfA(line,"%s %s: %08x\r\n",
