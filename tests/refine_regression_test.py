@@ -750,6 +750,18 @@ def renderers(root):
             "the lane captures the composed screen the user sees")
     require("-render-warp" in lane, "the lane drives warp on the runners")
 
+    # 4. the memory lane: the resident set per back end on known canvases,
+    #    with the churn bound (100 synchronous paints may not grow the
+    #    private bytes - the upload is cached against the frame dib) and
+    #    the gross bound that catches double-holds (rc.9).
+    mem_lane = (root / "tests" / "gui_memory.ps1").read_text(encoding="utf-8", errors="replace")
+    require("RedrawWindow" in mem_lane, "the memory lane owns a synchronous churn probe")
+    require("PrivateMemorySize64" in mem_lane, "the memory lane measures private bytes")
+    require("memory-lane.json" in mem_lane, "the memory lane records its evidence")
+    require("gui_memory.ps1" in (root / ".github/workflows/tests.yml").read_text(encoding="utf-8", errors="replace") and
+            "gui_memory.ps1" in (root / ".github/workflows/release.yml").read_text(encoding="utf-8", errors="replace"),
+            "both pipelines run the memory lane")
+
     return {"passed": True,
             "result": "renderers: frame-dib gpu leg, all-build refusal trace, present lane on both pipelines pinned"}
 

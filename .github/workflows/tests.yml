@@ -302,6 +302,10 @@ jobs:
         shell: powershell
         run: '& .\tests\gui_render.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\gui'
 
+      - name: Memory lanes (resident set per renderer, churn leak bound)
+        shell: powershell
+        run: '& .\tests\gui_memory.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\gui'
+
       - name: Upload render and GUI evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
