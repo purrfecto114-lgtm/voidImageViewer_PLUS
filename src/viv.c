@@ -695,6 +695,10 @@ void _viv_exit(void)
 	{
 		config_renderer = _viv_render_ini_renderer;
 	}
+	if (_viv_render_ini_renderer >= 0)
+	{
+		config_renderer = _viv_render_ini_renderer;
+	}
 	
 	config_save_settings(config_appdata);
 	PostQuitMessage(0);

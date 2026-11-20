@@ -26,7 +26,9 @@ public static class VivGui {
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hi, uint flags);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out Rect r);
-    [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
+    [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);
+    [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr h, IntPtr dc);
+    [DllImport("gdi32.dll")] public static extern bool BitBlt(IntPtr dst, int dx, int dy, int w, int h, IntPtr src, int sx, int sy, uint rop);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder title, int size);
     public static string Title(IntPtr window) {
         var title = new StringBuilder(1024);
@@ -97,14 +99,25 @@ foreach ($renderer in $renderers) {
 
         $r = New-Object 'VivGui+Rect'
         if (-not [VivGui]::GetWindowRect($window,[ref]$r)) { throw "$renderer`: GetWindowRect failed" }
+        # The capture reads the composed screen, not PrintWindow's redirection
+        # surface: the d3d9 leg's blt-model present never rides that surface
+        # (the first run captured the parent's own background where the child
+        # had presented), and the screen is the truth the user sees for every
+        # back end - the window sits at (0,0) in the foreground.
         $capture = New-Object Drawing.Bitmap($r.Width,$r.Height)
         try {
             $graphics = [Drawing.Graphics]::FromImage($capture)
             try {
-                $dc = $graphics.GetHdc()
+                $hg = $graphics.GetHdc()
+                $screen = [VivGui]::GetDC([IntPtr]::Zero)
                 try {
-                    if (-not [VivGui]::PrintWindow($window,$dc,2)) { throw "$renderer`: PrintWindow failed" }
-                } finally { $graphics.ReleaseHdc($dc) }
+                    if (-not [VivGui]::BitBlt($hg,0,0,$r.Width,$r.Height,$screen,$r.Left,$r.Top,0x00CC0020)) {
+                        throw "$renderer`: the screen capture failed"
+                    }
+                } finally {
+                    [void][VivGui]::ReleaseDC([IntPtr]::Zero,$screen)
+                    $graphics.ReleaseHdc($hg)
+                }
             } finally { $graphics.Dispose() }
 
             $capture.Save((Join-Path $EvidenceDir ("present-" + $renderer + ".png")),[Drawing.Imaging.ImageFormat]::Png)

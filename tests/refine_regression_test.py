@@ -746,7 +746,8 @@ def renderers(root):
     lane = (root / "tests" / "gui_render.ps1").read_text(encoding="utf-8", errors="replace")
     require("VIV_RENDER_TRACE" in lane and "viv_render_trace.log" in lane,
             "the lane reads the app's own refusal trace")
-    require("PrintWindow" in lane, "the lane captures the presented pixels")
+    require("BitBlt" in lane and "GetDC" in lane,
+            "the lane captures the composed screen the user sees")
     require("-render-warp" in lane, "the lane drives warp on the runners")
 
     return {"passed": True,
