@@ -761,12 +761,13 @@ MUTATIONS = [
      "if (0)",
      ["native"]),
 
-    ("pinch floor leaves its accumulated ratio behind again",
-     "src/viv_view.c",
-     "_viv_gesture_zoom_dist = 0;\r\n\t\t\t\t\t_viv_gesture_zoom_ratio = 1.0;",
-     "_viv_gesture_zoom_dist = 0;",
-     ["native"]),
-
+    # retired (rc.9): the pinch-floor mutation removed the gf_begin reset of
+    # the accumulated gesture ratio, and the full battery answered green on
+    # rc.7 and rc.8 alike - the rc.6 touch round now resets dist and ratio
+    # together at six sites, so that single reset no longer carries the
+    # behavior, and no runner can drive a two-finger pinch to re-arm the
+    # row. a row that can never bite again answers as a red nightly, not
+    # as a guard; the gesture-reset web itself stays under the suites.
     ("gesture begin leaves the promoted drag active again",
      "src/viv_view.c",
      "\t\t\t\t_viv_doing_cancel();",
@@ -838,21 +839,25 @@ MUTATIONS = [
      "itself - recover now or the session wedges into the gdi\r\n"
      "\t\t// fallback with a full-size texture churn on every paint.\r\n"
      "\t\t_viv_d3d_attempt_reset();\r\n"
+     "\t\t_viv_render_trace(CONFIG_RENDERER_D3D9,\"clear\",E_FAIL);\r\n"
      "\r\n"
      "\t\treturn 0;",
      "itself - recover now or the session wedges into the gdi\r\n"
      "\t\t// fallback with a full-size texture churn on every paint.\r\n"
-     "\t\treturn 0;",
+     "\t\t_viv_render_trace(CONFIG_RENDERER_D3D9,\"clear\",E_FAIL);\r\n"
+     "\r\n"     "\t\treturn 0;",
      ["repair"]),
 
     ("the scene refusal loses its reset road again",
      "src/hwd3d.c",
      "// a scene that could not run is the same lost-device news.\r\n"
      "\t\t_viv_d3d_attempt_reset();\r\n"
+     "\t\t_viv_render_trace(CONFIG_RENDERER_D3D9,\"scene\",E_FAIL);\r\n"
      "\r\n"
      "\t\treturn 0;",
      "// a scene that could not run is the same lost-device news.\r\n"
-     "\t\treturn 0;",
+     "\t\t_viv_render_trace(CONFIG_RENDERER_D3D9,\"scene\",E_FAIL);\r\n"
+     "\r\n"     "\t\treturn 0;",
      ["repair"]),
 
     ("the msgbox face loop reads past the caller's array again",

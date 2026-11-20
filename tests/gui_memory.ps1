@@ -15,7 +15,9 @@ param(
 )
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
-Add-Type -TypeDefinition @'
+# the c# compile must name its own references (powershell 5.1's Add-Type
+# does not pass the already-loaded assemblies on)
+Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;

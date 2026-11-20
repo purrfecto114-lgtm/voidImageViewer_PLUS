@@ -10,7 +10,7 @@
 
 A lightweight Windows image viewer (BMP, GIF, ICO, PNG, JPG, TIF, WEBP, JPEG-XR, HEIF, AVIF, DDS, QOI, EMF, WMF — animated GIF/WEBP included; JPEG-XR (Win7+) and DDS (Win8.1+) ride the WIC codecs Windows itself carries, HEIF/AVIF ride the store's image extensions wherever they are installed, QOI is built in) that opens and displays images as fast as possible.
 
-[Download](#download) · [Upgrade & uninstall notes](#upgrade--uninstall-notes) · [What's new](#whats-new) · [Touch & zoom](#touch--zoom-controls) · [Canvas & backdrop](#canvas-backdrop--dark-mode) · [Recent files](#recent-files) · [Languages](#languages) · [Build](#build-from-source)
+[Download](#download) · [Upgrade & uninstall notes](#upgrade--uninstall-notes) · [What's new](#whats-new) · [Touch & zoom](#touch--zoom-controls) · [Canvas & backdrop](#canvas-backdrop--dark-mode) · [Memory & renderers](#memory--renderers) · [Diagnostics](#diagnostics) · [Recent files](#recent-files) · [Languages](#languages) · [Build](#build-from-source)
 
 Download
 --------
@@ -98,6 +98,20 @@ Canvas, backdrop & dark mode
 - **Dark UI rule** — the light UI always shows your exact colors. In the dark UI a light mat keeps its hue but drops into the dark range (the default white maps to the dark palette canvas), and the same rule applies to the custom backdrop, so nothing glares out of the dark chrome. The Win11 caption tint follows the mat.
 - **The dark UI is complete** — dialogs, Settings pages and the menu bar all follow the theme (owner-drawn where the theme API falls short on older builds); light dialogs stay light.
 - Dark mode itself: Settings → General → Theme — automatic (follow Windows), light, or dark. Theme flips repaint the whole window and re-assert the dark chrome unconditionally (a delayed re-check heals any system-side light repaint), and the open dialogs re-theme live.
+
+Memory & renderers
+--------
+
+The renderer choice lives under **View → Renderer**: GDI plus three hardware back ends — Direct3D 9, Direct3D 11 and Direct3D 12 (through D3D11On12). A back end that cannot take a frame hands that frame to GDI and says so on the status line; an rc.8 round also ended the touch regression where the first pinch-zoom retired the session's hardware renderer behind that note.
+
+**Why a small file can hold a lot of memory.** The viewer prices canvases, never compressed file bytes: a 4.7 MB JPEG that decodes to 12 megapixels holds, at the default settings, roughly three decoded copies (the image, one preload seat and one cache seat), the GPU's 32-bit texture, the swap chain's two buffers and the D3D runtime's own commit — a few hundred MB is the design's arithmetic, not a leak (CI's memory lane churns 100 synchronous paints and bounds the growth). Every part carries its own ceiling: a load refuses past 12 bytes/pixel (~2.4 GB of priced working set), the hardware path past 512 MB of texture + viewport, and the preload+cache set past 1.2 GB (the cache ring trims oldest-first over that line). Reduce the residency with **Settings → Preload count / Cache count = 0**.
+
+Diagnostics
+--------
+
+- `VIV_RENDER_TRACE=1` (any build): the first 128 hardware-renderer refusals append the back end, a stable site name (probe, apis, create-device, pipeline, targets, upload, present, frame-contract, byte-budget, max-texture, viewport, reset, scene among them) and the HRESULT to `%TEMP%\viv_render_trace.log` — a field report that names its gate.
+- `-render-d3d9 | -render-d3d11 | -render-d3d12` (without `-render-export`) pins that back end for the session over the ini — the field diagnostic and the test surface the CI lanes ride. `-render-warp` forces the software rasterizer. The ini keeps its own value; the exit save restores it.
+- `-render-export <path> -render-size WxH` renders a file headlessly through any back end (the pixel-oracle harness the release pipeline runs).
 
 Recent files
 --------
