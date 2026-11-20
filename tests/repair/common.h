@@ -23,6 +23,14 @@ typedef struct { BITMAP dsBm; } DIBSECTION;
 #define GetGValue(x) (((x)>>8)&255)
 #define GetBValue(x) (((x)>>16)&255)
 #define debug_printf(...) ((void)0)
+/* rc.8: the all-build refusal trace is a no-op in the harness; the
+   renderer constants ride config.h's own numbering. */
+#define CONFIG_RENDERER_GDI 0
+#define CONFIG_RENDERER_D3D9 2
+#define CONFIG_RENDERER_D3D11 3
+#define CONFIG_RENDERER_D3D12 4
+#define E_FAIL (-1)
+static void _viv_render_trace(int renderer,const char *site,HRESULT hresult){(void)renderer;(void)site;(void)hresult;}
 #define VIV_MAX_IMAGE_BYTES 2400000000ULL
 static DWORD GetLastError(void) { return 8; }
 static BOOL GetClientRect(HWND h,RECT *r) { *r=(RECT){0,0,4,4};return 1; }

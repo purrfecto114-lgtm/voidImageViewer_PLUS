@@ -316,6 +316,10 @@ jobs:
         shell: powershell
         run: '& .\tests\gui_rc3.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\gui'
 
+      - name: On-screen present lanes (d3d9/d3d11/d3d12, WARP)
+        shell: powershell
+        run: '& .\tests\gui_render.ps1 -ExePath build\x64\voidImageViewer.exe -EvidenceDir build\evidence\gui'
+
       - name: Upload release render and GUI evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -67,6 +67,39 @@ static compile_shader_fn compile_shader;
 static BYTE *export_bits;
 static int export_wide,export_high,export_filled;
 
+// the render trace (VIV_RENDER_TRACE=1): the first 128 hardware refusals
+// append their back end, site and hresult to %TEMP%\viv_render_trace.log.
+// the status note names the fallback, but the reason only ever lived in
+// the debug_printf channel the shipping binaries do not carry - a field
+// report could never say which gate fired (the rc.8 d3d question). the
+// env arms the instrument and the cap keeps a wedged repaint loop from
+// farming the log; seq 0 answers "write nothing".
+void _viv_render_trace(int renderer,const char *site,HRESULT hresult)
+{
+	static int armed = -1;
+	static int written = 0;
+	char env_trace[8];
+	char line[96];
+	wchar_t path[MAX_PATH];
+	DWORD length;
+	HANDLE file;
+
+	if (armed < 0)
+		armed = (GetEnvironmentVariableA("VIV_RENDER_TRACE",env_trace,sizeof(env_trace)) > 0 && env_trace[0] != '0') ? 1 : 0;
+	if (!armed || ++written > 128) return;
+	length = GetTempPathW(MAX_PATH,path);
+	if (!length || length >= MAX_PATH - 24) return;
+	lstrcpyW(path + length,L"viv_render_trace.log");
+	file = CreateFileW(path,GENERIC_WRITE,FILE_SHARE_READ,NULL,OPEN_ALWAYS,NULL,NULL);
+	if (file == INVALID_HANDLE_VALUE) return;
+	SetFilePointer(file,0,NULL,FILE_END);
+	length = (DWORD)wsprintfA(line,"%s %s: %08x\r\n",
+		renderer == CONFIG_RENDERER_D3D9 ? "d3d9" : renderer == CONFIG_RENDERER_D3D12 ? "d3d12" : "d3d11",
+		site,(unsigned int)hresult);
+	WriteFile(file,line,length,&length,NULL);
+	CloseHandle(file);
+}
+
 HMODULE _viv_gpu_system_dll(const wchar_t *name)
 {
 	wchar_t path[MAX_PATH];
@@ -122,6 +155,11 @@ int _viv_modern_available(int renderer)
 				create11(NULL,D3D_DRIVER_TYPE_HARDWARE,NULL,D3D11_CREATE_DEVICE_BGRA_SUPPORT,
 					levels,ARRAYSIZE(levels),D3D11_SDK_VERSION,NULL,NULL,NULL);
 			available[i] = SUCCEEDED(hr);
+			if (!available[i]) _viv_render_trace(renderer,"probe",hr);
+		}
+		else
+		{
+			_viv_render_trace(renderer,"apis",E_FAIL);
 		}
 	}
 	return available[i];
@@ -509,35 +547,67 @@ int _viv_modern_render(int renderer,int warp,HWND hwnd,HBITMAP bitmap,int wide,i
 		(dib.dsBm.bmBitsPixel != 24 && dib.dsBm.bmBitsPixel != 32) ||
 		dib.dsBm.bmWidthBytes <= 0 ||
 		(SIZE_T)dib.dsBm.bmWidthBytes < safe_size_mul((SIZE_T)dib.dsBm.bmWidth,dib.dsBm.bmBitsPixel/8))
+	{
+		_viv_render_trace(renderer,"frame-contract",E_FAIL);
 		return 0;
+	}
 
 	texture_bytes = safe_size_mul(safe_size_mul((SIZE_T)dib.dsBm.bmWidth,dib.dsBm.bmHeight),8);
 	// Allow one upload rename plus two swap/readback surfaces.
 	if (safe_size_add(texture_bytes,safe_size_mul(safe_size_mul((SIZE_T)wide,high),8)) > VIV_MAX_HARDWARE_BYTES)
+	{
+		_viv_render_trace(renderer,"byte-budget",E_FAIL);
 		return 0;
+	}
 
 	if (!gpu.device || renderer != gpu.renderer || warp != gpu.warp || hwnd != gpu.hwnd)
 	{
 		_viv_modern_shutdown();
-		if (!load_apis(renderer)) return 0;
+		if (!load_apis(renderer))
+		{
+			_viv_render_trace(renderer,"apis",E_FAIL);
+			return 0;
+		}
 		hr = create_devices(renderer,warp);
-		if (SUCCEEDED(hr)) hr = create_pipeline();
-		if (FAILED(hr)) goto failed;
+		if (FAILED(hr))
+		{
+			_viv_render_trace(renderer,"create-device",hr);
+			goto failed;
+		}
+		hr = create_pipeline();
+		if (FAILED(hr))
+		{
+			_viv_render_trace(renderer,"pipeline",hr);
+			goto failed;
+		}
 		gpu.renderer = renderer;
 		gpu.warp = warp;
 		gpu.hwnd = hwnd;
 	}
 
 	max_texture = gpu.level >= D3D_FEATURE_LEVEL_11_0 ? 16384 : 8192;
-	if (dib.dsBm.bmWidth > max_texture || dib.dsBm.bmHeight > max_texture) return 0;
+	if (dib.dsBm.bmWidth > max_texture || dib.dsBm.bmHeight > max_texture)
+	{
+		_viv_render_trace(renderer,"max-texture",E_FAIL);
+		return 0;
+	}
 	hr = create_targets(hwnd,wide,high);
-	if (SUCCEEDED(hr)) hr = upload_image(bitmap,&dib,texture_bytes);
-	if (FAILED(hr)) goto failed;
+	if (FAILED(hr))
+	{
+		_viv_render_trace(renderer,"targets",hr);
+		goto failed;
+	}
+	hr = upload_image(bitmap,&dib,texture_bytes);
+	if (FAILED(hr))
+	{
+		_viv_render_trace(renderer,"upload",hr);
+		goto failed;
+	}
 
 	if (gpu.swap12)
 	{
 		index = IDXGISwapChain3_GetCurrentBackBufferIndex(gpu.swap12);
-		if (index >= gpu.swap_count) { hr = E_FAIL; goto failed; }
+		if (index >= gpu.swap_count) { hr = E_FAIL; _viv_render_trace(renderer,"backbuffer-index",hr); goto failed; }
 		wrapped = (ID3D11Resource *)gpu.wrapped[index];
 		ID3D11On12Device_AcquireWrappedResources(gpu.on12,&wrapped,1);
 	}
@@ -573,6 +643,7 @@ int _viv_modern_render(int renderer,int warp,HWND hwnd,HBITMAP bitmap,int wide,i
 	}
 	hr = export_bits ? read_pixels() : IDXGISwapChain_Present(gpu.swap,1,0);
 	if (SUCCEEDED(hr)) return 1;
+	_viv_render_trace(renderer,export_bits ? "readback" : "present",hr);
 
 failed:
 	debug_printf("Direct3D %d render failed: %08x\r\n",renderer == CONFIG_RENDERER_D3D12 ? 12 : 11,(unsigned int)hr);
@@ -668,7 +739,11 @@ int _viv_gpu_render(int renderer,HWND parent,HDC hdc,HBITMAP bitmap,int wide,int
 	if (!export_active)
 	{
 		target = viewport(parent,wide,high,top);
-		if (!target) return 0;
+		if (!target)
+		{
+			_viv_render_trace(renderer,"viewport",E_FAIL);
+			return 0;
+		}
 	}
 	if (renderer == CONFIG_RENDERER_D3D9)
 		return _viv_hwd3d_render(target,hdc,bitmap,x,y,dst_wide,dst_high,color);

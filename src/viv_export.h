@@ -46,6 +46,8 @@
 // output path ride the same early parse.
 extern int _viv_export_mode;
 extern int _viv_export_renderer;
+extern int _viv_render_force_renderer; // -1 answers "no renderer word rode the command line"
+extern int _viv_render_ini_renderer; // the ini's own back end while a force holds the session
 extern int _viv_export_wide;
 extern int _viv_export_high;
 extern wchar_t _viv_export_path[STRING_SIZE];

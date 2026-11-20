@@ -689,6 +689,13 @@ void _viv_exit(void)
 		return;
 	}
 	
+	// the forced back end answers this session alone - the exit save
+	// writes the ini's own renderer back, never the test surface's.
+	if (_viv_render_ini_renderer >= 0)
+	{
+		config_renderer = _viv_render_ini_renderer;
+	}
+	
 	config_save_settings(config_appdata);
 	PostQuitMessage(0);
 }
@@ -1470,6 +1477,18 @@ static int _viv_init(int nCmdShow)
 	if (_viv_export_mode)
 	{
 		_viv_export_apply_config_pins();
+	}
+	else if (_viv_render_force_renderer >= 0)
+	{
+		// the on-screen half of the render words: a renderer word without
+		// an export word pins the session's back end over whatever the ini
+		// just answered (the test surface the gui present lanes ride). the
+		// ini's own value rides _viv_render_ini_renderer so the exit save
+		// never writes the forced back end back - the export round's
+		// "never rewrites the user's ini" discipline, kept.
+		_viv_render_ini_renderer = config_renderer;
+		config_renderer = _viv_render_force_renderer;
+		_viv_hw_render_fallback = 0;
 	}
 	
 	// config_maximized will be overwritten when we show are normal window

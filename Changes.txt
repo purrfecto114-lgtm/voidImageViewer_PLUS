@@ -1,4 +1,63 @@
-﻿Pre-release: Version 1.1.18-rc.7
+﻿Pre-release: Version 1.1.18-rc.8
+
+        the direct3d field round. a real gpu answered for the
+        first time - an i5-12450h's uhd graphics, a dx12 part,
+        with the report "d3d cannot run, and the renderer
+        selection seems broken too" - and the audit that followed
+        found three debts the green pipelines had been carrying.
+
+        the first is a regression this fork's own rc.6 planted: the
+        touch round handed the pinch zoom preview's mipmap source to
+        every render leg, but the mipmaps are built with
+        createcompatiblebitmap - ddb sections, whose getobject
+        answers no bits - and the hardware renderers' dib contract
+        refuses exactly that. the first pinch from a fit view (the
+        case that always builds a real mipmap) refused, set the
+        sticky fallback flag, and retired the session's gpu renderer
+        behind the "the selected renderer cannot display this
+        image" note - on a touch machine the renderer worked until
+        the first two-finger zoom and never came back. the gpu legs
+        take the frame's own dib again: the upload is cached against
+        it, the gpu's sampling never needed the cpu downsample the
+        preview amortizes, and the preview swap answers the gdi leg
+        alone - after the gpu attempt, where its cost story lives.
+
+        the second is a coverage hole: every ci lane rendered
+        through the export readback (warp for d3d11 and d3d12),
+        which never creates the swapchain, never presents, never
+        touches the viewport child window - the whole on-screen
+        present path shipped without one test. a renderer word
+        without an export word now pins the session's back end over
+        the ini (the ini keeps its own value; the exit save restores
+        it), and the new gui lane drives the real present path per
+        back end on both pipeline legs with warp: the process must
+        stay alive, the render trace must stay empty, and the
+        captured window must really show the fixture's own pixels.
+
+        the third is why the field report could not say more than
+        "cannot run": every refusal reason lived in debug_printf
+        calls that compile to nothing outside _debug builds - the
+        shipping binaries answered a d3d failure with the status
+        note and nothing else. viv_render_trace=1 now arms a refusal
+        trace in every build: the back end, a stable site name
+        (probe, apis, create-device, pipeline, targets, upload,
+        present, frame-contract, byte-budget, max-texture, viewport,
+        reset, scene among them) and the hresult, the first 128
+        refusals appended to viv_render_trace.log in the temp
+        directory. the api contracts the audit walked were verified
+        against the microsoft docs - d3d12createdevice's null-device
+        test, d3d11createdevice's null-output probe, getbuffer's
+        flip-model index rule and createswapchainforhwnd's scaling
+        rules - and the shipped present path stands within them; the
+        honest limit is recorded too: no gpu sits in this sandbox and
+        the runners answer warp, so the field machine itself answers
+        the last mile through the trace the next time it refuses.
+
+        the paint path also retires a duplicate rx/ry recompute the
+        gdi block carried since the rounds before (the inputs never
+        move between the two computations), which pays the line the
+        wndproc cap asks for the fix's own comment.
+Pre-release: Version 1.1.18-rc.7
 
         the position indicator paints whole at last, and the rc.6
         entry's evidence claim gets its correction first: that

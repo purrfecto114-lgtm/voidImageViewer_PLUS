@@ -118,6 +118,7 @@ int _viv_hwd3d_available(void)
 		if (!_viv_d3d_module)
 		{
 			debug_printf("direct3d probe: d3d9.dll is not on this system\r\n");
+			_viv_render_trace(CONFIG_RENDERER_D3D9,"apis",E_FAIL);
 
 			return 0;
 		}
@@ -137,6 +138,7 @@ int _viv_hwd3d_available(void)
 		_viv_d3d = _viv_d3d_create9(D3D_SDK_VERSION);
 		if (!_viv_d3d)
 		{
+			_viv_render_trace(CONFIG_RENDERER_D3D9,"apis",E_FAIL);
 			return 0;
 		}
 	}
@@ -155,6 +157,7 @@ int _viv_hwd3d_available(void)
 		if (FAILED(hresult))
 		{
 			debug_printf("direct3d probe: the caps did not answer\r\n");
+			_viv_render_trace(CONFIG_RENDERER_D3D9,"probe",E_FAIL);
 
 			return 0;
 		}
@@ -187,6 +190,7 @@ static int _viv_d3d_init(HWND hwnd)
 		if (!_viv_d3d_module)
 		{
 			debug_printf("direct3d: d3d9.dll is not on this system\r\n");
+			_viv_render_trace(CONFIG_RENDERER_D3D9,"apis",E_FAIL);
 			
 			_viv_d3d_failed = 1;
 			
@@ -231,6 +235,7 @@ static int _viv_d3d_init(HWND hwnd)
 		if (FAILED(hresult))
 		{
 			debug_printf("direct3d: the caps did not answer\r\n");
+			_viv_render_trace(CONFIG_RENDERER_D3D9,"probe",E_FAIL);
 			
 			_viv_d3d_failed = 1;
 			
@@ -283,6 +288,7 @@ static int _viv_d3d_init(HWND hwnd)
 	if (FAILED(hresult))
 	{
 		debug_printf("direct3d: CreateDevice failed %x\r\n",(unsigned int)hresult);
+		_viv_render_trace(CONFIG_RENDERER_D3D9,"create-device",hresult);
 		
 		_viv_d3d_failed = 1;
 		
@@ -352,6 +358,7 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 	if ((pot_wide < wide) || (pot_high < high) || (pot_wide > _viv_d3d_max_wide) || (pot_high > _viv_d3d_max_high))
 	{
 		debug_printf("direct3d: the image exceeds the max texture size\r\n");
+		_viv_render_trace(CONFIG_RENDERER_D3D9,"max-texture",E_FAIL);
 		
 		return 0;
 	}
@@ -360,6 +367,7 @@ static int _viv_d3d_texture_upload(HBITMAP hbitmap,DIBSECTION *ds)
 		safe_size_mul(safe_size_mul((SIZE_T)_viv_d3d_client_wide,(SIZE_T)_viv_d3d_client_high),4)) > VIV_MAX_HARDWARE_BYTES)
 	{
 		debug_printf("direct3d: the managed texture exceeds the hardware byte budget\r\n");
+		_viv_render_trace(CONFIG_RENDERER_D3D9,"byte-budget",E_FAIL);
 		
 		return 0;
 	}
@@ -512,6 +520,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	
 	if ((!hbitmap) || (dst_wide <= 0) || (dst_high <= 0))
 	{
+		_viv_render_trace(CONFIG_RENDERER_D3D9,"frame-contract",E_FAIL);
 		return 0;
 	}
 	
@@ -532,6 +541,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 		{
 			debug_printf("direct3d: the frame is %d bpp (24 or 32 answer) - the gdi path paints it\r\n",ds.dsBm.bmBitsPixel);
 		}
+		_viv_render_trace(CONFIG_RENDERER_D3D9,"frame-contract",E_FAIL);
 		
 		return 0;
 	}
@@ -567,6 +577,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 			if (FAILED(hresult))
 			{
 				debug_printf("direct3d: the reset failed %x\r\n",(unsigned int)hresult);
+				_viv_render_trace(CONFIG_RENDERER_D3D9,"reset",hresult);
 				
 				return 0;
 			}
@@ -581,6 +592,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 		// an oversized image is a per-image refusal, not a session failure.
 		if (!_viv_d3d_texture_upload(hbitmap,&ds))
 		{
+			_viv_render_trace(CONFIG_RENDERER_D3D9,"upload",E_FAIL);
 			return 0;
 		}
 	}
@@ -593,6 +605,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 		// itself - recover now or the session wedges into the gdi
 		// fallback with a full-size texture churn on every paint.
 		_viv_d3d_attempt_reset();
+		_viv_render_trace(CONFIG_RENDERER_D3D9,"clear",E_FAIL);
 
 		return 0;
 	}
@@ -664,6 +677,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	{
 		// a scene that could not run is the same lost-device news.
 		_viv_d3d_attempt_reset();
+		_viv_render_trace(CONFIG_RENDERER_D3D9,"scene",E_FAIL);
 
 		return 0;
 	}
@@ -677,6 +691,7 @@ int _viv_hwd3d_render(HWND hwnd,HDC hdc,HBITMAP hbitmap,int dst_x,int dst_y,int 
 	{
 		_viv_d3d_attempt_reset();
 	}
+	if (FAILED(hresult)) _viv_render_trace(CONFIG_RENDERER_D3D9,"present",hresult);
 	return SUCCEEDED(hresult);
 }
 

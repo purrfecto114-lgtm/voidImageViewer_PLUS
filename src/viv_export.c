@@ -34,6 +34,8 @@
 
 int _viv_export_mode = 0;
 int _viv_export_renderer = CONFIG_RENDERER_GDI;
+int _viv_render_force_renderer = -1; // the on-screen session pin (a renderer word without an export word)
+int _viv_render_ini_renderer = -1; // the ini's own back end, restored at the exit save
 static int _viv_export_warp;
 static int _viv_export_bad_option;
 int _viv_export_wide = _VIV_EXPORT_DEFAULT_WIDE;
@@ -203,8 +205,17 @@ int _viv_export_probe_command_line(void)
 		_viv_export_path[0] = 0;
 	}
 
-	if (!install_word_seen && !_viv_export_mode && _viv_export_warp)
-		_viv_gpu_enable_warp();
+	if (!install_word_seen && !_viv_export_mode)
+	{
+		// the on-screen test surface: a renderer word without an export
+		// word pins the session's back end (warp optional) - the gui lanes
+		// drive the real present path with it, and a field machine answers
+		// "which gate refused" through the render trace.
+		if (_viv_export_warp)
+			_viv_gpu_enable_warp();
+		if (_viv_export_renderer != CONFIG_RENDERER_GDI)
+			_viv_render_force_renderer = _viv_export_renderer;
+	}
 
 	return _viv_export_mode;
 }

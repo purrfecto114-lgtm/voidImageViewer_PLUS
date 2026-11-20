@@ -682,13 +682,84 @@ int main(void) {
     return {"passed": True, "coverage": "production rounded path C with GDI+ call adapters; raster pixels pending", "result": run_c(code).strip()}
 
 
+def renderers(root):
+    """rc.8: the d3d field round's pins.
+
+    the audit answered a real-gpu field report ("d3d cannot run, the
+    renderer selection seems broken too") with three debts: rc.6's touch
+    round handed the pinch preview's ddb mipmap to the gpu legs (the dib
+    contract refuses it, the sticky fallback retires the session's back
+    end on the first pinch), the on-screen present path had no lane (the
+    export readback never creates the swapchain), and the release builds
+    carried no refusal diagnostics at all (debug_printf compiles out).
+    these pins hold the three fixes in the tree."""
+    def src(name):
+        return (root / "src" / name).read_text(encoding="utf-8", errors="replace")
+
+    wnd = src("viv_wndproc.c")
+    modern = src("hwd3d_modern.c")
+    d3d9 = src("hwd3d.c")
+    export = src("viv_export.c")
+    viv = src("viv.c")
+
+    # 1. the gpu leg takes the frame's own dib; the preview swap (a gdi-only
+    #    cost amortization over ddb surfaces) rides after the attempt.
+    frame_assign = wnd.index("render_hbitmap = _viv_slot_current.frames[_viv_frame_position].hbitmap;")
+    gpu_call = wnd.index("_viv_gpu_render(config_renderer,hwnd,ps.hdc,render_hbitmap")
+    preview_swap = wnd.index("using_zoom_preview = _viv_zoom_preview_get(&render_hbitmap")
+    require(frame_assign < gpu_call < preview_swap,
+            "the paint flow must hand the gpu leg the frame's own dib (rc.8)")
+    require("CreateCompatibleBitmap" in src("viv_render.c"),
+            "the mipmap builder keeps its gdi-only ddb surfaces")
+
+    # 2. the refusal trace exists in every build, with the sites the field reads.
+    header = src("hwd3d_modern.h")
+    require("void _viv_render_trace(int renderer,const char *site,HRESULT hresult);" in header,
+            "the render trace is declared for both modules")
+    for needle, why in (
+        ('GetEnvironmentVariableA("VIV_RENDER_TRACE"', "the env arms the trace"),
+        ('L"viv_render_trace.log"', "the trace lands in the temp directory"),
+        ('_viv_render_trace(renderer,"probe"', "a failed availability probe names itself"),
+        ('_viv_render_trace(renderer,"create-device"', "a failed device creation names itself"),
+        ('"readback" : "present"', "the present/readback refusal names itself"),
+    ):
+        require(needle in modern, why)
+    for needle, why in (
+        ('_viv_render_trace(CONFIG_RENDERER_D3D9,"create-device"', "the d3d9 device refusal names itself"),
+        ('_viv_render_trace(CONFIG_RENDERER_D3D9,"frame-contract"', "the d3d9 dib refusal names itself"),
+        ('_viv_render_trace(CONFIG_RENDERER_D3D9,"present"', "the d3d9 present refusal names itself"),
+    ):
+        require(needle in d3d9, why)
+
+    # 3. the on-screen present surface: the force, the ini restore, the lane
+    #    and its wiring on both pipelines.
+    require("int _viv_render_force_renderer = -1;" in export,
+            "the force surface exists")
+    require("else if (_viv_render_force_renderer >= 0)" in viv,
+            "the force applies after the ini load")
+    require("_viv_render_ini_renderer" in viv and
+            "config_renderer = _viv_render_ini_renderer;" in viv,
+            "the exit save restores the ini's own back end")
+    for pipeline in (".github/workflows/tests.yml", ".github/workflows/release.yml"):
+        require("gui_render.ps1" in (root / pipeline).read_text(encoding="utf-8", errors="replace"),
+                "%s runs the present lane" % pipeline)
+    lane = (root / "tests" / "gui_render.ps1").read_text(encoding="utf-8", errors="replace")
+    require("VIV_RENDER_TRACE" in lane and "viv_render_trace.log" in lane,
+            "the lane reads the app's own refusal trace")
+    require("PrintWindow" in lane, "the lane captures the presented pixels")
+    require("-render-warp" in lane, "the lane drives warp on the runners")
+
+    return {"passed": True,
+            "result": "renderers: frame-dib gpu leg, all-build refusal trace, present lane on both pipelines pinned"}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, default=ROOT)
     parser.add_argument("--out", type=Path)
-    parser.add_argument("suites", nargs="*", choices=("theme", "hold", "status", "decimal", "size_ladder", "typography", "corners"))
+    parser.add_argument("suites", nargs="*", choices=("theme", "hold", "status", "decimal", "size_ladder", "typography", "corners", "renderers"))
     args = parser.parse_args()
-    suites = {"theme": theme, "hold": hold, "status": status, "decimal": decimal, "size_ladder": size_ladder, "typography": typography, "corners": corners}
+    suites = {"theme": theme, "hold": hold, "status": status, "decimal": decimal, "size_ladder": size_ladder, "typography": typography, "corners": corners, "renderers": renderers}
     result = {name: suites[name](args.source_root) for name in args.suites or suites}
     output = json.dumps(result, ensure_ascii=False, indent=2)
     if args.out:

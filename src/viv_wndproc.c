@@ -2933,7 +2933,6 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			if (frame_state_ok)
 			{
 				render_hbitmap = _viv_slot_current.frames[_viv_frame_position].hbitmap;
-				using_zoom_preview = _viv_zoom_preview_get(&render_hbitmap,&render_source_wide,&render_source_high);
 				_viv_get_render_size(&rw,&rh);
 				rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
 				ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
@@ -2975,8 +2974,10 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 					// so the hot path never repeats it.
 					_viv_hw_render_fallback = 1;
 
-					_viv_status_update();
 				}
+
+				// the pinch preview is a gdi-only cost amortization: its mipmap sources are ddb sections the hardware legs' dib contract refuses (rc.6's handoff retired the session's gpu renderer on the first pinch), and the gpu upload is cached against the frame's own dib - the swap answers the gdi leg alone.
+				using_zoom_preview = _viv_zoom_preview_get(&render_hbitmap,&render_source_wide,&render_source_high);
 			}
 
 			// begin the backbuffer only when there is a viewport to render into.
@@ -2993,9 +2994,6 @@ static LRESULT _viv_on_wm_paint(HWND hwnd,UINT msg,WPARAM wParam,LPARAM lParam)
 			if (frame_state_ok)
 			{
 				HDC mem_hdc;
-				
-				rx = (((_viv_dst_pos_x - 250) * (wide*2)) / 1000) - (rw / 2) - _viv_view_x;
-				ry = (((_viv_dst_pos_y - 250) * (high*2)) / 1000) - (rh / 2) - _viv_view_y;
 				
 	//			rh += (-dst_left_offset + dst_right_offset) * wide / 1000;
 	//			rh += (-dst_top_offset + dst_bottom_offset) * high / 1000;
