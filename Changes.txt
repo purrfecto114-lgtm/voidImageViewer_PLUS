@@ -27,7 +27,11 @@
         memory-lane.json evidence on both pipeline legs - its own
         first run taught the tree that powershell 5.1's add-type
         compiles c# without the already-loaded assemblies, so the
-        reference is named.
+        reference is named. the churn bound carries the third lesson:
+        the 2022 warp churns per-present command allocations behind
+        the 11on12 wrapper (61.3 mb over 100 paints, against the
+        2025 warp's <=12), so the d3d12 rows ride an 80 mb bound the
+        app's own no-per-paint-allocation contract keeps trivially.
 
         the nightly cron's red teeth answer for themselves too:
         the two reset-road mutations re-anchored to the rc.8 trace
