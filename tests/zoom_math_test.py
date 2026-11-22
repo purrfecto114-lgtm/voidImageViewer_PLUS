@@ -1211,6 +1211,76 @@ def t_gesture_close_contact_policy():
           f"applied {applied:.3f}x, real {real:.3f}x")
 
 
+def c_function_source(path, name):
+    """A production function body, read live from the tree - the same
+    contract the native harness runs on: no python copy of the logic."""
+    text = (ROOT / path).read_text(encoding="utf-8")
+    match = re.search(r"(?m)^[\w *]+\b" + re.escape(name) + r"\([^;{}]*\)\s*\n\{", text)
+    if not match:
+        raise ValueError(f"definition missing: {path}:{name}")
+    depth = 0
+    for token in re.finditer(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\])*"|[{}]', text[match.start():], re.S):
+        if token.group() == "{":
+            depth += 1
+        elif token.group() == "}":
+            depth -= 1
+            if depth == 0:
+                return text[match.start():match.start() + token.end()]
+    raise ValueError(f"unterminated block: {path}:{name}")
+
+
+def t_pan_paint_vehicle_policy():
+    """The d3d field report: zoomed pan dead in every d3d leg, gdi fine.
+
+    The pan rode ScrollWindowEx's own invalidation, and the d3d viewport
+    child covers the scroll rect exactly: a ws_clipchildren parent never
+    receives an invalidation that lands under a child (msdn scrollwindowex:
+    the update areas include the child windows - the app owns the
+    propagation), so the parent answered a nullregion, the swapchain never
+    presented and the zoomed view never moved. the pan family (two finger
+    pan, its inertia, the mouse drag) went dead exactly where it first
+    does something: past the fit zoom. the animation tick's frame rect
+    rode the same loss at the fit. the policy: the hardware legs repaint
+    through the full client invalidate - the one vehicle that reaches the
+    present - while the gdi leg keeps the scroll blit and the frame-rect
+    economy.
+    """
+    scroll = c_function_source("src/viv_view.c", "_viv_view_scroll")
+    frame = c_function_source("src/viv_render.c", "_viv_invalidate_frame_rect")
+
+    # the vehicle gates, read from the live source: a regression that
+    # re-opens the blit or the rect economy to the hardware legs trips here.
+    check("the pan's scroll blit is gated on the gdi leg",
+          "if (config_scroll_window && (config_renderer == CONFIG_RENDERER_GDI))" in scroll)
+    check("the pan's hardware vehicle is the full client invalidate",
+          scroll.count("InvalidateRect(_viv_hwnd,0,FALSE)") == 1 and
+          scroll.index("ScrollWindowEx(") < scroll.index("InvalidateRect(_viv_hwnd,0,FALSE)"))
+    check("the animation's frame rect rides the gdi leg alone",
+          frame.count("config_renderer == CONFIG_RENDERER_GDI") == 1 and
+          frame.index("config_renderer == CONFIG_RENDERER_GDI") < frame.index("InvalidateRect(hwnd,&rect,FALSE)"))
+    check("the animation's hardware vehicle is the full client invalidate",
+          frame.count("InvalidateRect(hwnd,0,FALSE)") == 2)
+
+    # the vehicle model the gates implement: the blit answers only the
+    # gdi leg with the setting on - there its invalidation lands on the
+    # parent's own pixels and reaches the paint. everywhere else the
+    # vehicle is the full client invalidate; on the hardware legs a
+    # child-owned invalidation never fires the parent's paint, so a
+    # vehicle that cannot reach the present is not a vehicle.
+    gdi, d3d9, d3d11, d3d12 = 0, 2, 3, 4
+
+    def pan_vehicle(renderer, scroll_window):
+        return "blit" if (scroll_window and renderer == gdi) else "full"
+
+    for renderer in (gdi, d3d9, d3d11, d3d12):
+        for scroll_window in (1, 0):
+            vehicle = pan_vehicle(renderer, scroll_window)
+            reaches = (renderer == gdi) or (vehicle == "full")
+            check(f"pan vehicle renderer={renderer} setting={scroll_window} reaches the present",
+                  vehicle == ("blit" if (scroll_window and renderer == gdi) else "full") and reaches,
+                  vehicle)
+
+
 if __name__ == "__main__":
     t_ladder_step_extracted()
     t_aspect_invariant()
@@ -1231,6 +1301,7 @@ if __name__ == "__main__":
     t_wall_clock_fade_round127()
     t_clean_number_round148()
     t_gesture_close_contact_policy()
+    t_pan_paint_vehicle_policy()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

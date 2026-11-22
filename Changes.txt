@@ -1,4 +1,49 @@
-﻿Pre-release: Version 1.1.18-rc.10
+﻿Pre-release: Version 1.1.18-rc.11
+
+        the pan repaint round. a touchscreen field report named
+        the d3d family at once: in every hardware leg (d3d9,
+        d3d11, d3d12) the zoomed pan went dead - two finger pan,
+        its inertia and the mouse drag alike - while the gdi leg
+        answered fine. the loss began exactly where a pan first
+        does something: past the fit zoom, where the view actually
+        moves.
+
+        the root is the repaint vehicle, not the gesture math. the
+        pan rode scrollwindowex's own invalidation, and the d3d
+        viewport child window covers the scroll rect exactly: a
+        ws_clipchildren parent never receives an invalidation that
+        lands under a child (msdn scrollwindowex: the update areas
+        include the child windows, the app owns the propagation),
+        so the parent answered a nullregion, no wm_paint fired and
+        the swapchain never presented. the state moved; the screen
+        did not. at the fit the pan is a clamped no-op, which is
+        why the report only saw it zoomed.
+
+        the fix splits the vehicle by renderer: the scroll blit
+        and its update window stay the gdi leg's optimization
+        (there the invalidation lands on the parent's own pixels);
+        the hardware legs repaint through the full client
+        invalidate - the one vehicle that reaches the present,
+        which is full-frame anyway. the animation tick's frame
+        rect rode the same loss at the fit (animated frames froze
+        in every d3d leg) and rides the same split: the image-rect
+        economy stays gdi's, the hardware legs take the full
+        client.
+
+        the three-layer gates grew the vehicle contract: the
+        native harness now compiles the real view set, view scroll
+        and frame-rect helpers with vehicle-recording adapters,
+        and its pan scenario walks all four legs (the hardware
+        legs must answer a full client invalidate and never the
+        blit; gdi keeps the blit, its update window and the
+        setting-off historic vehicle), the animation scenario pins
+        the frame-rect split, and the zoom scenario now counts the
+        real view_set's own invalidate. the zoom-math suite binds
+        the vehicle gates from the live source (a regression that
+        re-opens the blit or the rect economy to the hardware legs
+        trips it), and the menu structure suite pins the single
+        blit site and both gates.
+Pre-release: Version 1.1.18-rc.10
 
         the touch gesture round. a touchscreen field report named
         three symptoms at once: the pinch felt unresponsive, the

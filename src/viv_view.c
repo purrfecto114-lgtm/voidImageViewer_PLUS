@@ -2762,7 +2762,20 @@ void _viv_view_scroll(int mx,int my)
 
 	_viv_view_set(_viv_view_x - mx,_viv_view_y - my,0);
 	
-	if (config_scroll_window)
+	// the repaint vehicle. the gdi leg scrolls its own pixels and
+	// repaints only the exposed strip. the hardware legs present the
+	// frame through the viewport child window, which covers the scroll
+	// rect exactly: a ws_clipchildren parent never receives an
+	// invalidation that lands under a child (msdn scrollwindowex: the
+	// update areas include the child windows, the app owns the
+	// propagation), so the blit's exposed strip answered a nullregion
+	// on the parent and the swapchain never presented - the d3d field
+	// report's zoomed pan deadness, and with it every two finger pan,
+	// its inertia and the mouse drag, dead exactly where a pan first
+	// does something: past the fit zoom. the full client is the one
+	// vehicle that reaches the present, and the present is full-frame
+	// anyway.
+	if (config_scroll_window && (config_renderer == CONFIG_RENDERER_GDI))
 	{
 		RECT rect;
 		
@@ -2788,7 +2801,8 @@ void _viv_view_scroll(int mx,int my)
 	}
 	else
 	{
-		// this fixes the scroll bug for stamimail
+		// this fixes the scroll bug for stamimail, and it is the
+		// hardware legs' only vehicle that reaches the present.
 		InvalidateRect(_viv_hwnd,0,FALSE);
 	}
 	

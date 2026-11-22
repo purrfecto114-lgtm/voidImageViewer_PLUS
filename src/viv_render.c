@@ -275,7 +275,11 @@ void _viv_get_render_size(int *prw,int *prh)
 // mirrors _viv_on_wm_paint's own rx/ry/rw/rh walk - the state both
 // read is the same state, and every path that moves the image rect
 // (zoom, pan, resize, image change) still invalidates the whole
-// client on its own.
+// client on its own. the vehicle splits by renderer (the d3d field
+// report): the gdi leg paints the rect alone, the hardware legs
+// present through the viewport child that covers the image area,
+// and a child-owned invalidation never fires the parent's paint the
+// present rides - the full client is their vehicle.
 void _viv_invalidate_frame_rect(HWND hwnd)
 {
 	RECT rect;
@@ -326,7 +330,21 @@ void _viv_invalidate_frame_rect(HWND hwnd)
 
 	if ((rect.right > rect.left) && (rect.bottom > rect.top))
 	{
-		InvalidateRect(hwnd,&rect,FALSE);
+		// the gdi leg repaints the frame rect alone. the hardware legs
+		// present through the viewport child that covers the image area:
+		// a rect invalidation landing under it never fires the parent's
+		// paint (msdn scrollwindowex: the update areas include the child
+		// windows, the app owns the propagation), so at the fit the
+		// animation frame would never present. the full client is the
+		// vehicle that reaches the present.
+		if (config_renderer == CONFIG_RENDERER_GDI)
+		{
+			InvalidateRect(hwnd,&rect,FALSE);
+		}
+		else
+		{
+			InvalidateRect(hwnd,0,FALSE);
+		}
 	}
 	else
 	{

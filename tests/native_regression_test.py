@@ -87,8 +87,12 @@ def production(suite):
                   function("viv_load.c", "_viv_doing_cancel"),
                   function("viv_view.c", "_viv_gesture_zoom_reset"),
                   function("viv_view.c", "_viv_gesture_reset"),
+                  function("viv_view.c", "_viv_view_set"),
+                  function("viv_view.c", "_viv_view_scroll"),
+                  function("viv_render.c", "_viv_invalidate_frame_rect"),
                   function("viv_view.c", "_viv_on_gesture")]
-        return "\n".join(constants) + "\n", "\n".join(bodies)
+        renderers = re.findall(r"(?m)^#define\s+CONFIG_RENDERER_(?:GDI|D3D9|D3D11|D3D12)\s+\d+", source("config.h"))
+        return "\n".join(constants + renderers) + "\n", "\n".join(bodies)
     if suite == "memory":
         text = source("mem.c")
         start = text.index("typedef struct mem_debug_s")
@@ -163,7 +167,7 @@ def main():
     parser.add_argument("suites", nargs="*", choices=["mru", "gesture", "memory", "ini"])
     parser.add_argument("--sanitize", action="store_true", help="enable undefined-behavior sanitizer")
     parser.add_argument("--mru-case", choices=["rename", "load"], help="run one MRU scenario group")
-    parser.add_argument("--gesture-case", choices=["policy", "zoom", "zero", "begin", "closestart", "pan_to_pinch", "touch", "wheel", "bounds"], help="run one input scenario group")
+    parser.add_argument("--gesture-case", choices=["policy", "zoom", "zero", "begin", "closestart", "pan_to_pinch", "touch", "wheel", "bounds", "pan_paint", "animation"], help="run one input scenario group")
     args = parser.parse_args()
     failed = 0
     with tempfile.TemporaryDirectory(prefix="viv-native-") as directory:

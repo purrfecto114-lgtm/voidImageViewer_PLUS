@@ -43,9 +43,45 @@ static void os_zero_memory(void *p, size_t size) { memset(p, 0, size); }
 static int _viv_get_status_high(void) { return 0; }
 static int _viv_get_view_top(void) { return 0; }
 static void _viv_next(int prev, int reset, int preload, int wait) { navigated += prev ? -1 : 1; }
-static void _viv_view_scroll(int x, int y) { _viv_view_x -= x; _viv_view_y -= y; }
-static void _viv_view_set(int x, int y, int update) { _viv_view_x = x; _viv_view_y = y; }
-static void InvalidateRect(HWND hwnd, void *rect, int erase) { invalidated++; }
+/* the real _viv_view_set / _viv_view_scroll / _viv_invalidate_frame_rect
+   bodies compile below. their repaint vehicles are recorded here so the
+   scenarios can bind the contract the field report priced: on the
+   hardware legs the only invalidation that reaches the present is the
+   full client (the viewport child covers the image area, and a
+   ws_clipchildren parent never receives an invalidation that lands
+   under it). */
+#define SW_INVALIDATE 0x0002
+#define LAYOUT_RTL 0x0001
+#define ERROR 0
+typedef void *HDC;
+typedef long LONG;
+static int config_renderer, config_scroll_window = 1, config_keep_centered;
+static int _viv_dst_pos_x = 500, _viv_dst_pos_y = 500;
+static double _viv_view_ix, _viv_view_iy;
+static int scrolled, updated, scrolled_dx, scrolled_dy, rect_invalidated;
+static RECT scrolled_rect;
+static void InvalidateRect(HWND hwnd, void *rect, int erase)
+{
+    (void)hwnd; (void)erase;
+    if (rect) { rect_invalidated++; } else { invalidated++; }
+}
+static int ScrollWindowEx(HWND hwnd, int dx, int dy, const RECT *scroll_rect,
+    void *clip, void *update, void *update_rect, unsigned flags)
+{
+    (void)hwnd; (void)clip; (void)update; (void)update_rect; (void)flags;
+    scrolled++; scrolled_dx = dx; scrolled_dy = dy; scrolled_rect = *scroll_rect;
+    return 2; /* SIMPLEREGION */
+}
+static int UpdateWindow(HWND hwnd) { (void)hwnd; updated++; return 1; }
+static DWORD GetLastError(void) { return 0; }
+static HDC GetDC(HWND hwnd) { (void)hwnd; return NULL; }
+static int ReleaseDC(HWND hwnd, HDC hdc) { (void)hwnd; (void)hdc; return 1; }
+static DWORD (*os_GetLayout)(HDC hdc) = NULL;
+static void debug_printf(const char *fmt, ...) { (void)fmt; }
+static void _viv_toolbar_update_buttons(void) {}
+void _viv_view_scroll(int mx, int my);
+void _viv_view_set(int view_x, int view_y, int invalidate);
+void _viv_invalidate_frame_rect(HWND hwnd);
 static void _viv_status_update_temp_pos_zoom(void) { status_updates++; }
 static HWND GetCapture(void) { return captured ? (captured==1 ? _viv_hwnd : (HWND)(uintptr_t)2) : NULL; }
 static void ReleaseCapture(void) { captured=0; }
@@ -70,8 +106,11 @@ static void geometry(int iw, int ih, int cw, int ch, int fill)
     os_logical_wide = 96;
     config_fill_window = fill; config_allow_shrinking = 1;
     config_keep_aspect_ratio = 1; _viv_is_fullscreen = config_fullscreen_fill_window = 0;
+    config_renderer = CONFIG_RENDERER_GDI;
+    config_scroll_window = 1; config_keep_centered = 0;
     _viv_1to1 = _viv_zoom_pos = _viv_view_x = _viv_view_y = _viv_doing = 0;
     invalidated = status_updates = navigated = 0;
+    scrolled = updated = rect_invalidated = 0;
     _viv_gesture_reset();
 }
 static void policy(void)
@@ -181,7 +220,10 @@ static void zoom(void)
                 _viv_do_mousewheel_action(0, direction * delta, client_wide / 2, client_high / 2);
                 fprintf(stderr, "1:1 image %u direction %d steps %d: position %d expected %d\n", i, direction, steps, _viv_zoom_pos, expected);
                 assert(!_viv_1to1 && _viv_zoom_pos == expected);
-                assert(invalidated == 1 && status_updates == 1);
+                /* the view_set rides its own invalidate when the anchor
+                   math moves the view (a 1:1 exit onto a thin axis does);
+                   the zoom step adds the second one. coalesced paints. */
+                assert(invalidated == ((_viv_view_x || _viv_view_y) ? 2 : 1) && status_updates == 1);
             }
     geometry(4000, 3000, 1600, 1000, 0);
     _viv_do_mousewheel_action(0, 120, 800, 500);
@@ -383,6 +425,74 @@ static void bounds(void)
     assert(_viv_1to1 && _viv_zoom_pos == 42 && !invalidated);
     puts("zoom: an unavailable ladder size cannot reverse the requested direction");
 }
+/* The zoomed pan's repaint vehicle: the d3d viewport child covers the
+   scroll rect exactly, and a ws_clipchildren parent never receives an
+   invalidation that lands under a child - msdn scrollwindowex hands the
+   child-owned part to the app to propagate, so the scroll blit's exposed
+   strip answered a nullregion on the parent and the swapchain never
+   presented (the d3d field report: pan dead in every d3d leg once the
+   view leaves the fit, gdi fine). the hardware legs ride the full client
+   invalidate; the gdi leg keeps the scroll blit and its update window. */
+static void pan_paint(void)
+{
+    static const int hardware[] = {CONFIG_RENDERER_D3D9, CONFIG_RENDERER_D3D11, CONFIG_RENDERER_D3D12};
+    unsigned i;
+    for (i = 0; i < sizeof(hardware) / sizeof(hardware[0]); i++)
+    {
+        geometry(4000, 3000, 1600, 1000, 0);
+        config_renderer = hardware[i];
+        _viv_zoom_pos = 60; /* zoomed in: the render outgrows the client */
+        _viv_view_x = 100; _viv_view_y = -50;
+        scrolled = updated = invalidated = rect_invalidated = 0;
+        _viv_view_scroll(30, 20);
+        assert(_viv_view_x == 70 && _viv_view_y == -70); /* the fingers moved the view */
+        assert(!scrolled && !updated); /* the blit is clipped away under the child */
+        assert(invalidated == 1 && !rect_invalidated); /* the full client reaches the present */
+    }
+    geometry(4000, 3000, 1600, 1000, 0);
+    config_renderer = CONFIG_RENDERER_GDI;
+    _viv_zoom_pos = 60;
+    _viv_view_x = 100; _viv_view_y = -50;
+    scrolled = updated = invalidated = rect_invalidated = 0;
+    _viv_view_scroll(30, 20);
+    assert(_viv_view_x == 70 && _viv_view_y == -70);
+    assert(scrolled == 1 && updated == 1 && !invalidated); /* the blit optimization lives on gdi */
+    assert(scrolled_dx == 30 && scrolled_dy == 20); /* the content follows the fingers */
+    assert(scrolled_rect.left == 0 && scrolled_rect.top == 0 &&
+           scrolled_rect.right == client_wide && scrolled_rect.bottom == client_high);
+    geometry(4000, 3000, 1600, 1000, 0);
+    config_scroll_window = 0;
+    _viv_zoom_pos = 60;
+    _viv_view_x = 100; _viv_view_y = -50;
+    scrolled = updated = invalidated = rect_invalidated = 0;
+    _viv_view_scroll(30, 20);
+    assert(_viv_view_x == 70 && _viv_view_y == -70);
+    assert(!scrolled && invalidated == 1); /* the setting off keeps the historic vehicle */
+    config_scroll_window = 1;
+    puts("pan: the hardware legs repaint through the full client invalidate, gdi keeps the scroll blit, the setting off rides the invalidate");
+}
+/* The animation tick's frame rect rides the same loss: at the fit the
+   whole rect sits under the viewport child, so the frame advance could
+   never fire the parent's paint the present rides. the hardware legs
+   take the full client; the gdi leg keeps the image-rect economy. */
+static void animation(void)
+{
+    static const int renderers[] = {CONFIG_RENDERER_GDI, CONFIG_RENDERER_D3D9, CONFIG_RENDERER_D3D11, CONFIG_RENDERER_D3D12};
+    unsigned i;
+    for (i = 0; i < sizeof(renderers) / sizeof(renderers[0]); i++)
+    {
+        geometry(4000, 3000, 1600, 1000, 0);
+        config_renderer = renderers[i];
+        invalidated = rect_invalidated = 0;
+        _viv_invalidate_frame_rect(_viv_hwnd);
+        if (renderers[i] == CONFIG_RENDERER_GDI)
+            assert(rect_invalidated == 1 && !invalidated); /* the image-rect economy */
+        else
+            assert(invalidated == 1 && !rect_invalidated); /* the vehicle that reaches the present */
+    }
+    config_renderer = CONFIG_RENDERER_GDI;
+    puts("animation: the frame rect rides gdi, the hardware legs ride the full client invalidate");
+}
 int main(int argc, char **argv)
 {
     const char *selected = argc > 1 ? argv[1] : "";
@@ -397,5 +507,7 @@ int main(int argc, char **argv)
     if (!*selected || !strcmp(selected, "touch")) touch();
     if (!*selected || !strcmp(selected, "wheel")) wheel();
     if (!*selected || !strcmp(selected, "bounds")) bounds();
+    if (!*selected || !strcmp(selected, "pan_paint")) pan_paint();
+    if (!*selected || !strcmp(selected, "animation")) animation();
     return 0;
 }
