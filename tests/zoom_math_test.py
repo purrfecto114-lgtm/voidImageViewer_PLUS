@@ -1005,6 +1005,212 @@ def t_clean_number_round148():
           "if ((snapped >= 20) && (snapped - percent <= 2) && (percent - snapped <= 2))" in src)
 
 
+# ---------------------------------------------------------------------------
+# rc.10: the touch pinch close-contact policy (viv_view.c _viv_on_gesture,
+# GID_ZOOM). The model mirrors the C flow exactly; the gate literal and the
+# clamp bounds are read from the source so the model cannot drift from it.
+#
+# The rc.7 field report (36 DIP floor): a pinch landing with the fingers
+# close was dead until the spread passed the floor, and the floored
+# baseline then served as the first applied ratio's denominator - the
+# "dead until a sudden jump" report. The rc.10 policy baselines every
+# BEGIN at the real distance (MSDN: the first GID_ZOOM only establishes
+# state), keeps a small gate only to drop landing garbage, re-bases
+# without applying after garbage (the anti-jump contract), and widens the
+# per-message clamp so a fast spread from a close baseline is not
+# truncated (ImageGlass's WinTouch listener clamps nothing at all).
+# ---------------------------------------------------------------------------
+VIEW_SOURCE = (ROOT / "src/viv_view.c").read_text(encoding="utf-8")
+
+
+def gesture_gate_dip():
+    match = re.search(r"min_dist = \(DWORD\)\(\((\d+) \* os_logical_wide\) / 96\);",
+                      VIEW_SOURCE)
+    if not match:
+        raise ValueError("cannot read the close-contact gate from viv_view.c")
+    return int(match.group(1))
+
+
+def gesture_clamp_bounds():
+    high = re.search(r"if \(ratio > ([0-9.]+)\)\s*\{\s*ratio = ([0-9.]+);",
+                     VIEW_SOURCE)
+    low = re.search(r"if \(ratio < ([0-9.]+)\)\s*\{\s*ratio = ([0-9.]+);",
+                    VIEW_SOURCE)
+    if not low or not high:
+        raise ValueError("cannot read the per-message ratio clamp from viv_view.c")
+    # the check constant and the assignment constant must agree: a clamp
+    # whose assignment stays at the old bound while its check moves (the
+    # rc.10 round's own caught patch-boundary bug) would sail through a
+    # model that reads only the check.
+    low_pair = (float(low.group(1)), float(low.group(2)))
+    high_pair = (float(high.group(1)), float(high.group(2)))
+    if low_pair[0] != low_pair[1] or high_pair[0] != high_pair[1]:
+        raise ValueError(
+            f"clamp check and assignment disagree: low {low_pair}, high {high_pair}")
+    return low_pair[0], high_pair[0]
+
+
+class GestureZoom:
+    """viv_view.c GID_ZOOM state machine, mirrored line for line.
+
+    message(dist, begin) replays one WM_GESTURE GID_ZOOM sample and returns
+    the signed ladder steps the C would hand _viv_zoom_steps. dist arrives
+    in physical screen pixels (MSDN: all distances and positions are
+    provided in physical screen coordinates), the gate in the same scale.
+    """
+
+    def __init__(self, gate_px, clamp_low, clamp_high):
+        self.gate = gate_px
+        self.low = clamp_low
+        self.high = clamp_high
+        self.reset()
+
+    def reset(self):
+        self.base = 0    # _viv_gesture_zoom_dist (0 = next valid sample re-bases)
+        self.acc = 1.0   # _viv_gesture_zoom_ratio (the 1% ladder accumulator)
+
+    def message(self, dist, begin=False):
+        if begin:
+            # GF_BEGIN: baseline at the real distance (floors retired);
+            # below the gate it is landing garbage: leave the baseline
+            # empty and let the first valid sample re-base.
+            self.reset()
+            if dist >= self.gate:
+                self.base = dist
+            return 0
+
+        # landing garbage below the gate (and the dist == 0 envelope
+        # case): drop the sample, the next valid one re-bases cleanly.
+        if (not dist) or (dist < self.gate):
+            self.base = 0
+            self.acc = 1.0
+            return 0
+
+        # first valid sample after garbage: clean re-base, nothing
+        # applied this message (no jump from an arbitrary distance).
+        if not self.base:
+            self.base = dist
+            self.acc = 1.0
+            return 0
+
+        ratio = dist / self.base
+        if ratio > self.high:
+            ratio = self.high
+        elif ratio < self.low:
+            ratio = self.low
+        self.acc *= ratio
+
+        # convert the accumulated pinch ratio into whole 1% ladder steps.
+        steps = 0
+        while self.acc >= 1.01:
+            steps += 1
+            self.acc /= 1.01
+        while self.acc <= (1.0 / 1.01):
+            steps -= 1
+            self.acc *= 1.01
+        self.base = dist
+        return steps
+
+
+def t_gesture_close_contact_policy():
+    gate_dip = gesture_gate_dip()
+    clamp_low, clamp_high = gesture_clamp_bounds()
+
+    # the gate only filters landing garbage: small enough that a real
+    # pinch posture (fingertip centers 2-3 cm apart, down to nearly
+    # touching) is never inside it. The rc.7 36 DIP floor froze every
+    # close start; ImageGlass runs with no gate at all.
+    check("gesture close-contact gate stays small (DIP, dpi scaled)",
+          6 <= gate_dip <= 12, f"gate = {gate_dip} DIP")
+
+    # the per-message clamp guards corrupt samples only: wide enough that
+    # a fast spread from a close baseline (the field's "from small to
+    # large" report) is never truncated between two gesture messages.
+    check("gesture per-message clamp no longer truncates real motion",
+          clamp_low <= 0.25 and 4.0 <= clamp_high <= 8.0,
+          f"clamp = {clamp_low}..{clamp_high}")
+
+    # the retired floor machinery must be gone from the source: the
+    # floored baseline was the burst's denominator and the waiting/
+    # initial-close state existed only to serve it.
+    check("the floored close-start baseline is retired",
+          "0 ? min_dist : dist" not in VIEW_SOURCE and
+          "_viv_gesture_zoom_initial_close" not in VIEW_SOURCE and
+          "36 * os_logical_wide" not in VIEW_SOURCE)
+    check("the zoom state machine carries only the baseline and the accumulator",
+          "_viv_gesture_zoom_waiting" not in VIEW_SOURCE and
+          "_viv_gesture_zoom_started" not in VIEW_SOURCE and
+          "_viv_gesture_handoff" not in VIEW_SOURCE)
+
+    # --- the model against the field-symptom sequences ---------------------
+    gz = GestureZoom(gate_dip, clamp_low, clamp_high)
+
+    # 1. a pinch starting close answers immediately (the dead zone).
+    gz.reset()
+    gz.message(20, begin=True)
+    steps = gz.message(22)
+    check("a close-start pinch answers at its first real motion",
+          steps >= 8, f"22/20 in one message applied {steps} steps")
+
+    # 2. from small to large tracks the fingers 1:1 (the sudden jump):
+    #    the applied zoom equals the real finger motion, bounded only by
+    #    the clamp - never a floor-inflated burst, never dead lost motion.
+    gz.reset()
+    gz.message(20, begin=True)
+    steps = gz.message(70)
+    applied = 1.01 ** steps
+    check("from-small-to-large applies the real finger motion",
+          abs(applied - 3.5) / 3.5 < 0.02,
+          f"applied {applied:.3f}x for 3.5x of finger motion")
+
+    # 3. a landing-garbage sample never jumps: the re-base message
+    #    applies nothing and tracking resumes from the real distance.
+    gz.reset()
+    seq = []
+    gz.message(100, begin=True)
+    seq.append(gz.message(120))
+    seq.append(gz.message(5))     # fingers still closing: landing garbage
+    seq.append(gz.message(140))   # re-base: nothing applied
+    seq.append(gz.message(150))   # tracking resumes
+    check("garbage crossing re-bases without a jump",
+          seq[1] == 0 and seq[2] == 0 and seq[3] >= 4 and seq[3] <= 10,
+          f"steps = {seq}")
+
+    # 4. a fast flick from a close baseline is not truncated by the clamp.
+    gz.reset()
+    gz.message(10, begin=True)
+    steps = gz.message(90)
+    check("fast spread from a close baseline keeps its motion",
+          200 <= steps <= 212, f"applied {steps} steps for a 9x real ratio")
+
+    # 5. the 1% accumulator carries its remainder across messages: no
+    #    motion below the ladder quantum is discarded (the fine-grained
+    #    half of the unresponsive report).
+    gz.reset()
+    gz.message(100, begin=True)
+    total = gz.message(101) + gz.message(102) + gz.message(103)
+    check("sub-quantum motion accumulates instead of being discarded",
+          1.01 ** total >= 1.02, f"3x 1% moves applied {total} steps")
+
+    # 6. cumulative tracking across a mixed sequence (slow, fast, close,
+    #    wide): applied zoom equals the product of the clamped real ratios
+    #    within the ladder rounding.
+    gz.reset()
+    seq = [(60, True), (66, False), (90, False), (45, False), (30, False),
+           (24, False), (100, False)]
+    total = 0
+    for dist, begin in seq:
+        total += gz.message(dist, begin=begin)
+    real = 1.0
+    for (d1, b1), (d2, _) in zip(seq, seq[1:]):
+        r = d2 / d1
+        real *= min(max(r, clamp_low), clamp_high)
+    applied = 1.01 ** total
+    check("cumulative pinch tracks the clamped real motion",
+          abs(applied - real) / real < 0.05,
+          f"applied {applied:.3f}x, real {real:.3f}x")
+
+
 if __name__ == "__main__":
     t_ladder_step_extracted()
     t_aspect_invariant()
@@ -1024,6 +1230,7 @@ if __name__ == "__main__":
     t_pill_scale_round127()
     t_wall_clock_fade_round127()
     t_clean_number_round148()
+    t_gesture_close_contact_policy()
     print()
     if failures:
         print(f"{len(failures)} FAILURE(S)")

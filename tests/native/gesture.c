@@ -79,22 +79,23 @@ static void policy(void)
     int dpi;
     for (dpi = 96; dpi <= 288; dpi += 96)
     {
-        unsigned floor = 36 * dpi / 96;
+        unsigned gate = 8 * dpi / 96;
         os_logical_wide = dpi;
         _viv_gesture_reset();
         _viv_gesture_zoom_ratio = 1.009;
-        assert(send(3, 1, floor - 1) == 1);
-        /* a close-fingered BEGIN baselines at the floor itself: the first
-           spread answers (the old reset left the pinch dead at the start) */
-        assert(_viv_gesture_zoom_dist == floor && _viv_gesture_zoom_ratio == 1.0);
+        assert(send(3, 1, gate - 1) == 1);
+        /* a sub-gate BEGIN is landing garbage: the baseline stays empty
+           and the first valid sample re-bases (the rc.7 36 DIP floor
+           froze the gesture for its first 36 DIP of spread instead) */
+        assert(!_viv_gesture_zoom_dist && _viv_gesture_zoom_ratio == 1.0);
         _viv_zoom_pos = 0;
-        send(3, 0, floor); /* a sample at the floor itself moves nothing */
-        assert(!_viv_zoom_pos && _viv_gesture_zoom_dist == floor);
-        send(3, 0, floor * 11 / 10);
+        send(3, 0, gate); /* the first valid sample re-bases without zooming */
+        assert(!_viv_zoom_pos && _viv_gesture_zoom_dist == gate);
+        send(3, 0, gate * 3 / 2);
         assert(_viv_zoom_pos > 0);
         _viv_gesture_zoom_ratio = 1.008;
-        send(3, 0, floor - 1);
-        /* mid-gesture close contacts still freeze and drop the baseline */
+        send(3, 0, gate - 1);
+        /* mid-gesture sub-gate contacts still drop the baseline */
         assert(!_viv_gesture_zoom_dist && _viv_gesture_zoom_ratio == 1.0);
     }
     _viv_doing = captured = 1;
@@ -105,13 +106,23 @@ static void policy(void)
     assert(send(999, 0, 0) == 0 && !closed);
     assert(send(3, 1, 100) == 1 && closed == 1);
 
+    /* a real close posture answers at its first motion: BEGIN baselines
+       at the real distance, so the zoom equals the finger motion (the
+       rc.7 floor made this sequence dead until 36 DIP and then burst) */
     geometry(4000, 3000, 1600, 1000, 0);
-    send(3, 1, 20); send(3, 0, 30);
-    assert(!_viv_zoom_pos); /* BEGIN baselines at the floor, the sub-floor
-                               follow-up freezes: neither zooms */
-    send(3, 0, 100); assert(!_viv_zoom_pos);
-    send(3, 0, 150);
-    assert(_viv_zoom_pos >= 40 && _viv_zoom_pos <= 41); /* a real 1.5x distance change */
+    send(3, 1, 20);
+    assert(_viv_gesture_zoom_dist == 20 && !_viv_zoom_pos);
+    send(3, 0, 30);
+    assert(_viv_zoom_pos >= 40 && _viv_zoom_pos <= 41); /* a real 1.5x spread */
+
+    /* the fast-spread discriminator: one message carrying a 3.5x real
+       ratio applies the whole motion - the rc.7 2.0 cap truncated it to
+       ~70 steps, and a clamp whose assignment disagrees with its check
+       would answer here too */
+    geometry(4000, 3000, 1600, 1000, 0);
+    send(3, 1, 20);
+    send(3, 0, 70);
+    assert(_viv_zoom_pos >= 120 && _viv_zoom_pos <= 130); /* 1.01^125 ~ 3.5x */
 
     geometry(4000, 3000, 1600, 1000, 0);
     send(3, 1, 100);
@@ -121,7 +132,7 @@ static void policy(void)
     assert(!_viv_zoom_pos && _viv_gesture_zoom_dist == 100);
     send(3, 0, 150);
     assert(_viv_zoom_pos >= 40 && _viv_zoom_pos <= 41);
-    puts("gesture policy: floor/rebase, ratio, DPI, drag cancellation and handle ownership passed");
+    puts("gesture policy: gate/rebase, real-distance tracking, ratio, DPI, drag cancellation and handle ownership passed");
 }
 /* A linear walk through the real renderer is independent of the binary
    search used by the action. The native image's longer axis avoids a
@@ -208,35 +219,37 @@ static void begin(void)
     }
     puts("gesture: invalid per-type BEGIN cannot keep a stale baseline");
 }
-/* The natural pinch entry: the fingers land closer than the floor (the
-   one-finger pan that gains a second finger starts near it), the first
-   spread must zoom, the mid-gesture freeze must survive, and the
-   re-baseline after the freeze must not move the zoom. */
+/* The natural pinch entry: the fingers land just above the garbage gate
+   (the one-finger pan that gains a second finger starts near it), the
+   baseline is the real distance, the first spread must zoom, the
+   mid-gesture garbage crossing must drop the baseline, and the re-baseline
+   after it must not move the zoom. */
 static void close_start(void)
 {
     int dpi;
     for (dpi = 96; dpi <= 288; dpi += 96)
     {
-        unsigned floor = 36 * dpi / 96;
+        unsigned gate = 8 * dpi / 96;
+        unsigned posture = gate + 4; /* a real close pinch posture */
         geometry(4000, 3000, 1600, 1000, 0);
         os_logical_wide = dpi; /* geometry() resets the dpi */
-        assert(send(3, 1, floor / 3) == 1);
-        assert(_viv_gesture_zoom_dist == floor && !_viv_zoom_pos);
-        send(3, 0, floor * 3);
+        assert(send(3, 1, posture) == 1);
+        assert(_viv_gesture_zoom_dist == posture && !_viv_zoom_pos);
+        send(3, 0, posture * 3);
         assert(_viv_zoom_pos > 0); /* the first spread answers */
         {
             int pos = _viv_zoom_pos;
-            send(3, 0, floor / 2);          /* fingers cross: frozen */
+            send(3, 0, gate / 2);           /* fingers cross the gate: dropped */
             assert(!_viv_gesture_zoom_dist);
-            send(3, 0, floor / 2 + 1);      /* still sub-floor: frozen */
+            send(3, 0, gate / 2 + 1);       /* still sub-gate: dropped */
             assert(!_viv_gesture_zoom_dist);
-            send(3, 0, floor * 2);          /* the next sample re-baselines */
+            send(3, 0, posture * 2);        /* the next sample re-baselines */
             assert(_viv_zoom_pos == pos);
-            send(3, 0, floor * 4);
+            send(3, 0, posture * 4);
             assert(_viv_zoom_pos > pos);    /* and the spread zooms again */
         }
     }
-    puts("gesture: close-fingered start zooms from the first spread; mid-gesture freeze intact");
+    puts("gesture: close-fingered start baselines at the real distance and zooms from the first spread; the garbage gate re-bases");
 }
 static void transition(void)
 {
@@ -296,7 +309,8 @@ static void touch(void)
 }
 static void pan_to_pinch(void)
 {
-    unsigned floor = 36;
+    unsigned gate = 8;
+    unsigned posture = gate + 4;
 
     geometry(4000, 3000, 1600, 1000, 0);
     _viv_doing = _VIV_DOING_SCROLL;
@@ -306,19 +320,20 @@ static void pan_to_pinch(void)
     send(4, 1, 100);
     send(4, 0, 104);
 
-    /* a close second contact must keep a useful floor baseline */
-    assert(send(3, 1, floor / 3) == 1);
-    send(3, 0, floor / 2);
-    send(3, 0, floor * 2);
+    /* the close second contact baselines at its real distance and the
+       first spread zooms (the rc.7 handoff kept a floored baseline that
+       burst instead) */
+    assert(send(3, 1, posture) == 1);
+    send(3, 0, posture * 2);
     assert(_viv_zoom_pos > 0);
 
-    /* a later close crossing re-bases without a jump, then resumes */
+    /* a later garbage crossing re-bases without a jump, then resumes */
     {
         int pos = _viv_zoom_pos;
-        send(3, 0, floor / 2);
-        send(3, 0, floor * 2);
+        send(3, 0, gate / 2);
+        send(3, 0, posture * 2);
         assert(_viv_zoom_pos == pos);
-        send(3, 0, floor * 4);
+        send(3, 0, posture * 4);
         assert(_viv_zoom_pos > pos);
     }
     puts("gesture: single-finger pan to pinch handoff and close re-entry passed");

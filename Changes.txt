@@ -1,4 +1,55 @@
-﻿Pre-release: Version 1.1.18-rc.9
+﻿Pre-release: Version 1.1.18-rc.10
+
+        the touch gesture round. a touchscreen field report named
+        three symptoms at once: the pinch felt unresponsive, the
+        "invalid distance" seemed too large, and a pinch starting
+        with the fingers close jumped suddenly once the spread
+        grew, dragging the view with it. all three share one root:
+        the rc.7 36 dip close-contact floor. fingers landing closer
+        than 36 dip (54 px at 150% scaling) froze the gesture - the
+        dead zone; and once the spread crossed the floor between two
+        gesture messages, the floored baseline served as the first
+        applied ratio's denominator, so one message applied dozens of
+        1% ladder steps around the pinch midpoint - the sudden jump
+        and the view translation. the per-message ratio clamp on top
+        (0.5..2.0) discarded the excess of every fast spread, the
+        unresponsive half of the same report.
+
+        the fix follows the platform's own semantics and the
+        reference viewers. msdn anchors the model: the first
+        gid_zoom only establishes state, every distance is physical
+        screen coordinates, and the zoom is anchored at the contact
+        midpoint - the anchor math here was already correct, so the
+        round touches only the baseline policy: begin now baselines
+        at the real distance (imageglass's wintouch listener, the
+        comparison the field asked for, carries no floor at all);
+        the close-contact gate drops only landing garbage at 8 dip,
+        an order of magnitude below any real pinch posture; the
+        first valid sample after garbage re-bases without applying,
+        so a garbage crossing can never jump the image; the clamp
+        widens to a corrupt-sample guard only (0.125..8.0, far above
+        any real inter-message motion); and the four state bytes that
+        existed to serve the floor (initial-close, waiting, started,
+        handoff) retire, leaving the zoom state machine the baseline
+        and the ladder accumulator - the image now follows the
+        fingers from their first real motion and never applies a
+        ratio the fingers did not produce.
+
+        the round's own gates caught its own bug: a patch boundary
+        left the clamp's assignment at 2.0 while its check moved to
+        8.0, and the model tests sailed over it - the native harness
+        (the live viv_view.c gesture functions compiled per run)
+        gained a fast-spread scenario that discriminates the two
+        bounds, the zoom-math binding now reads both the check and
+        the assignment constants and refuses a disagreement, and the
+        native close-start, pan-to-pinch and dpi scenarios were
+        rewritten for the real-distance policy. the zoom-math suite
+        adds the policy simulation: a close start answers at its
+        first motion, from-small-to-large tracks the fingers 1:1, a
+        garbage crossing re-bases without a jump, fast spreads keep
+        their motion, and sub-quantum motion accumulates in the
+        ladder remainder instead of being discarded.
+Pre-release: Version 1.1.18-rc.9
 
         the memory round. a field question arrived with numbers -
         a 4.7 mb image holding 408 mb of process memory under the

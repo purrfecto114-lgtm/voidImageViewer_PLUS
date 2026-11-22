@@ -3144,13 +3144,12 @@ void _viv_start_move_window(void)
 	SendMessage(_viv_hwnd,WM_NCLBUTTONDOWN,(WPARAM)HTCAPTION,MAKELPARAM(cursor_pt.x,cursor_pt.y));
 }
 
-// touch gesture state.
+// touch gesture state. the zoom carries only the distance baseline (0 =
+// the next valid sample re-bases) and the accumulated ladder ratio; the
+// rc.7 initial-close, waiting, started and handoff bytes existed to serve
+// the floored close-start baseline the rc.10 field report retired.
 static DWORD _viv_gesture_zoom_dist = 0; // reference distance between the two fingers.
 static double _viv_gesture_zoom_ratio = 1.0; // accumulated pinch ratio since the last zoom step.
-static BYTE _viv_gesture_zoom_initial_close = 0; // the second finger landed below the close-contact floor.
-static BYTE _viv_gesture_zoom_waiting = 0; // a later sample must establish a new distance baseline.
-static BYTE _viv_gesture_zoom_started = 0; // at least one zoom step was applied in this sequence.
-static BYTE _viv_gesture_handoff = 0; // a second contact took over an active single-finger drag.
 static int _viv_gesture_last_x = 0; // last two finger pan location. (screen coords)
 static int _viv_gesture_last_y = 0;
 static BYTE _viv_gesture_have_last = 0;
@@ -3216,14 +3215,10 @@ static void _viv_gesture_zoom_reset(void)
 {
 	_viv_gesture_zoom_dist = 0;
 	_viv_gesture_zoom_ratio = 1.0;
-	_viv_gesture_zoom_initial_close = 0;
-	_viv_gesture_zoom_waiting = 0;
-	_viv_gesture_zoom_started = 0;
 }
 static void _viv_gesture_reset(void)
 {
 	_viv_gesture_zoom_reset();
-	_viv_gesture_handoff = 0;
 	_viv_gesture_have_last = 0;
 }
 // returns 1 if the gesture was handled. (caller returns 0)
@@ -3256,7 +3251,6 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 			if (gesture_info.dwID == 1)
 			{
 				_viv_gesture_reset();
-				_viv_gesture_handoff = (_viv_doing != _VIV_DOING_NOTHING) ? 1 : 0;
 				// a second contact starts the gesture while the promoted
 				// mouse drag can still own capture. retire that drag first.
 				// the temporary 1:1 scroll normally restores its entry view.
@@ -3316,107 +3310,84 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 						// distance as the next valid sample's denominator.
 						_viv_gesture_zoom_dist = 0;
 						_viv_gesture_zoom_ratio = 1.0;
-						_viv_gesture_zoom_waiting = 1;
 					}
 					break;
 				}
 			}
 
-			// Retain the 36 DIP close-contact policy, one change to where it
-			// bites: the old gate froze GF_BEGIN too, so a pinch landing with
-			// the fingers close (the second finger joining a pan) left the
-			// baseline empty and the gesture dead until the spread passed the
-			// floor twice. Mid-gesture samples still freeze; the BEGIN
-			// baselines at the real distance, floored, keeping the damping.
+			// The close-contact gate drops only landing garbage: a finger
+			// still traveling when the gesture engine starts reporting. The
+			// rc.7 36 DIP floor answered the same noise with a dead zone -
+			// every close start froze below it - and, worse, served as the
+			// first applied ratio's denominator once the spread crossed it
+			// between two messages, applying dozens of ladder steps in one
+			// paint: the field's "unresponsive until it suddenly jumps"
+			// report. MSDN anchors the model: the first GID_ZOOM only
+			// establishes state and every distance is physical screen
+			// coordinates. ImageGlass's WinTouch listener baselines at the
+			// real distance with no gate at all; this gate stays an order
+			// of magnitude below any real pinch posture, so the zoom begins
+			// tracking at the fingers' first real motion and never applies
+			// a ratio the fingers did not produce.
 			{
 				DWORD min_dist;
 
-				min_dist = (DWORD)((36 * os_logical_wide) / 96);
+				min_dist = (DWORD)((8 * os_logical_wide) / 96);
 
 				if (gesture_info.dwFlags & 0x01) // GF_BEGIN
 				{
-					_viv_gesture_zoom_initial_close = (dist && (dist < min_dist)) ? 1 : 0;
-					_viv_gesture_zoom_dist = _viv_gesture_zoom_initial_close ? min_dist : dist;
+					// baseline at the real distance. below the gate the
+					// sample is landing garbage: leave the baseline empty and
+					// let the first valid sample re-base instead.
+					_viv_gesture_zoom_dist = (dist >= min_dist) ? dist : 0;
 					_viv_gesture_zoom_ratio = 1.0;
-					_viv_gesture_zoom_waiting = 0;
-					_viv_gesture_zoom_started = 0;
-
-					break;
-				}
-
-				if (!dist)
-				{
-					_viv_gesture_zoom_dist = 0;
-					_viv_gesture_zoom_ratio = 1.0;
-					_viv_gesture_zoom_waiting = 1;
 
 					break;
 				}
 
 				if (dist < min_dist)
 				{
-					// a close start keeps the floor as its baseline so the first
-					// real spread answers immediately.  Once zooming has started,
-					// a close crossing freezes and the next valid sample re-bases
+					// a mid-gesture close crossing is garbage for the same
+					// reason: dropping it re-bases on the next valid sample
 					// instead of producing a jump from an arbitrary distance.
-					if (_viv_gesture_handoff && _viv_gesture_zoom_initial_close && !_viv_gesture_zoom_started && _viv_gesture_zoom_dist)
-					{
-						break;
-					}
-
 					_viv_gesture_zoom_dist = 0;
 					_viv_gesture_zoom_ratio = 1.0;
-					_viv_gesture_zoom_waiting = 1;
 
 					break;
 				}
 
 				if (!_viv_gesture_zoom_dist)
 				{
-					if (_viv_gesture_handoff && _viv_gesture_zoom_waiting && _viv_gesture_zoom_initial_close && !_viv_gesture_zoom_started)
-					{
-						// the close-contact start is the common one-finger-to-
-						// two-finger path.  Use the floor as its first baseline
-						// instead of discarding the only useful spread sample.
-						_viv_gesture_zoom_dist = min_dist;
-						_viv_gesture_zoom_waiting = 0;
-					}
-					else
-					{
-						// a later re-entry after an active pinch establishes a
-						// clean baseline and does not jump the image.
-						_viv_gesture_zoom_dist = dist;
-						_viv_gesture_zoom_ratio = 1.0;
-						_viv_gesture_zoom_waiting = 0;
+					// the first valid sample after garbage establishes a
+					// clean baseline and does not jump the image.
+					_viv_gesture_zoom_dist = dist;
+					_viv_gesture_zoom_ratio = 1.0;
 
-						break;
-					}
+					break;
 				}
 			}
 
-			if (gesture_info.dwFlags & 0x01) // GF_BEGIN
-			{
-				_viv_gesture_zoom_dist = dist;
-				_viv_gesture_zoom_ratio = 1.0;
-			}
-			else
 			if (_viv_gesture_zoom_dist && dist)
 			{
 				double ratio;
 
 				ratio = (double)dist / (double)_viv_gesture_zoom_dist;
 
-				// Retain the existing per-message 0.5..2.0 policy. The API
-				// specifies distance, not a speed bound; larger ratios alone
-				// do not prove corrupt input. Revisit with a hardware trace.
-				if (ratio > 2.0)
+				// Guard corrupt samples only. MSDN specifies distance, not a
+				// speed bound, and a fast spread from a close baseline
+				// legitimately exceeds the old 2.0 cap between two messages -
+				// the discarded excess was the unresponsive half of the same
+				// report. 8.0 stays far above any real inter-message motion
+				// while keeping one corrupt sample bounded to a single 8x
+				// step; ImageGlass clamps nothing at all.
+				if (ratio > 8.0)
 				{
-					ratio = 2.0;
+					ratio = 8.0;
 				}
 				else
-				if (ratio < 0.5)
+				if (ratio < 0.125)
 				{
-					ratio = 0.5;
+					ratio = 0.125;
 				}
 
 				_viv_gesture_zoom_ratio *= ratio;
@@ -3447,13 +3418,11 @@ int _viv_on_gesture(HWND hwnd,void *gesture_info_handle)
 
 					if (steps_in)
 					{
-						_viv_gesture_zoom_started = 1;
 						_viv_zoom_steps(steps_in,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
 					}
 
 					if (steps_out)
 					{
-						_viv_gesture_zoom_started = 1;
 						_viv_zoom_steps(-steps_out,gesture_info.ptsLocation.x,gesture_info.ptsLocation.y);
 					}
 				}
