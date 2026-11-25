@@ -1,3 +1,58 @@
+﻿Stable: Version 1.1.18 (the touch and hardware arc)
+
+        the arc takes its stable. eleven candidates, and the
+        field drove every one of them. the touch hand-off and
+        the touch gesture rounds made the pinch honest: the
+        zoom baselines at the fingers' real distance from the
+        first motion, a garbage crossing re-bases without
+        jumping, fast spreads keep their motion, and no floor
+        sits between a close start and its first spread. the
+        pan repaint round closed the same story's other end -
+        the zoomed pan (two finger, inertia and the mouse drag
+        alike) rode the scroll blit's own invalidation and
+        never reached a ws_clipchildren parent under the d3d
+        viewport child, so the hardware legs repaint through
+        the full client invalidate and the animated frame rides
+        the same split. the image answers the fingers in every
+        leg.
+
+        the hardware story went all direct3d. the responsive
+        and hardware round (two tags, rc.3 and rc.4) retired
+        opengl for good and shipped direct3d 9, 11 and 12
+        (11on12, warp by default) under view > renderer with
+        gdi as the default, a per-image pixel self-check that
+        hands a lying accelerator to the gdi path, the dip-laid
+        command strip with its more overflow, the status bar's
+        name pane and folder link, and rotation on a temporary
+        copy (the async worker of the 4k round - the command
+        returns at once, the original never changes, save-as
+        suggests the -rotated name). the direct3d field round
+        then answered a real gpu's report: the mipmap the
+        preview planted behind the pinch refused the hardware
+        dib contract and retired the session's renderer at the
+        first two-finger zoom, the coverage hole closed with
+        per-back-end present lanes in ci, and viv_render_trace=1
+        arms a refusal trace in every build - back end, site
+        name, hresult - because a shipping binary that can only
+        say "cannot run" cannot be supported.
+
+        the quiet chrome round rebuilt the frame: the menus and
+        the command cluster share one 48-dip strip, the zoom
+        cluster owns the zoom as one grouped control with its
+        in-place percent editor, the status bar carries the
+        facts with the pixel read-out following the cursor as
+        its own chip, and the settings rows answer at every
+        size. the status panes stopped ellipsizing their own
+        text (the position indicator paints "1 / 3" whole), the
+        capacity ladder grew its terabyte rung, and the memory
+        round answered the field's numbers with the ledger, the
+        memory lane and the churn bounds.
+
+        the promotion rides the contributing rule's build bump
+        - 129 answers underneath the stable - and the round
+        itself carries no code, only the version identity, the
+        changelog and the readme.
+
 ﻿Pre-release: Version 1.1.18-rc.11
 
         the pan repaint round. a touchscreen field report named

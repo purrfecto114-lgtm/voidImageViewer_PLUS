@@ -22,7 +22,7 @@ The binaries are unsigned (an open-source signing account is on the roadmap) —
 Every release artifact also carries a build-provenance attestation: `gh attestation verify <file> --repo purrfecto114-lgtm/voidImageViewer_PLUS`
 answers the workflow run and commit each file was built from (signing would still be its own round — attestation proves origin, not publisher identity).
 
-### 1.1.18-rc.3
+### 1.1.18
 
 The command strip drops text labels as the window narrows. **More** lists the remaining commands. The filename at the bottom opens its folder, and the adjacent info button opens the file properties. Enter fullscreen from the toolbar and leave it from the floating controls.
 
@@ -33,11 +33,15 @@ Choose GDI, Direct3D 9, Direct3D 11, or Direct3D 12 (11On12) under **View → Re
 Upgrade & uninstall notes
 --------
 
-**Upgrading from 1.1.16 or earlier to 1.1.17:**
+**Upgrading from 1.1.16 or earlier to 1.1.18:**
 
-- This round tightens the settings-file integrity checks, so the **first launch after an upgrade may show a "Settings file problem" dialog - with rc.2 only for a genuinely damaged file** (see the rc.2 fix below): the session then runs on the built-in defaults, and the original settings file is kept as a `.corrupt.date-time` copy in the same folder. **Your settings are not lost.**
+- The renderer story is all Direct3D: GDI stays the default, Direct3D 9, Direct3D 11 and Direct3D 12 (11On12) are opt-in under **View → Renderer**, and the retired OpenGL setting reads GDI. An old `renderer` ini value maps to Direct3D 9.
+- Rotation works on a temporary copy: the original never changes, the preview turns as soon as it is ready, and **Save As** suggests a `-rotated` name.
+- Touch works in every renderer; the pinch follows the fingers from their first real motion.
+- `VIV_RENDER_TRACE=1` arms a renderer refusal trace (back end, site name, HRESULT) in the shipping binaries — set it before reproducing a render problem.
+- This round tightens the settings-file integrity checks, so the **first launch after an upgrade may show a "Settings file problem" dialog - with 1.1.17-rc.2 and later only for a genuinely damaged file** (see the rc.2 fix below): the session then runs on the built-in defaults, and the original settings file is kept as a `.corrupt.date-time` copy in the same folder. **Your settings are not lost.**
 - The dialog's three buttons: **Cancel** = leave everything untouched (you will be asked again next launch); **Restore backup** = write back the last settings that loaded cleanly; **Keep** = save the defaults this session ran on.
-- Fixed in rc.2: settings written by an older release could be misjudged by the stricter reader (the rc.1 regression). rc.2 reads files written by every writer of this line cleanly, so the dialog now appears only for genuinely damaged files.
+- Fixed in 1.1.17-rc.2: settings written by an older release could be misjudged by the stricter reader (the rc.1 regression). rc.2 reads files written by every writer of this line cleanly, so the dialog now appears only for genuinely damaged files.
 - The dialog and its backup copy only touch the settings folder (`%APPDATA%\voidImageViewer`); images are never affected.
 
 **Uninstall residue:**
@@ -54,10 +58,17 @@ Upgrade & uninstall notes
 What's new
 --------
 
-**1.1.17 — the corrupted-settings round (the current stable):**
+**1.1.18 — the touch and hardware arc (the current stable):**
 
-- The two-round arc takes its stable. The p0 round made every open path answer one whitelist and name its refusals: the command line, drag-drop, folder walks and file->open agree on what is openable, what is not is named with its reason on the status line, and a release-blocking reader defect that shipped with that round was caught by the smoke gate before publishing.
+- Touch answers from the first motion: the pinch baselines at the fingers' real distance (the close-contact floor is gone), a garbage crossing re-bases without jumping, fast spreads keep their motion, and the zoomed pan — two-finger, inertia and mouse drag alike — repaints in every renderer, the Direct3D legs included.
 
+- The hardware story is all Direct3D: Direct3D 9, Direct3D 11 and Direct3D 12 (11On12, WARP by default) sit under **View → Renderer**, GDI stays the default, a per-image pixel self-check hands a lying accelerator to GDI, and `VIV_RENDER_TRACE=1` names every refusal with its site and HRESULT.
+
+- The chrome went quiet and responsive: one 48-dip strip carries the menus and the command cluster (labels fold to icons and into **More** as the window narrows), the zoom cluster works as one grouped control with an in-place percent editor, and the status bar keeps the facts with the pixel read-out following the cursor as its own chip.
+
+- Rotation moved to an async worker on a temporary copy: a 4K image turns without holding the UI thread, the original never changes, and **Save As** suggests the `-rotated` name.
+
+- The status panes stopped ellipsizing their own text (the position indicator paints "1 / 3" whole), the capacity ladder grew its terabyte rung, and the memory round answered the field's numbers with the ledger, the memory lane and the churn bounds. Full narrative: `Changes.txt`.
 - The settings file gained a corruption gate: a file that no longer reads cleanly is kept as a `.corrupt.` copy, the session runs on built-in defaults, and the exit asks before writing anything (Cancel / Restore backup / Keep). The rc.2 round fixed the gate's own false ask — the malformed-line check sat inside the character loop and read every settings file ever written as damaged; files written by every writer of this line now read clean, and genuinely damaged lines still report.
 
 - The ask speaks your language: its caption, its keep and restore faces and its message body moved into the localization tables (English and Simplified Chinese).
@@ -66,9 +77,9 @@ What's new
 
 - A cleanup uninstall now takes the preserved copies (`.corrupt.`, `.auditbak`) with the delete answer, and the guard suites grew with the arc: the ini reader walk rides the native regression gate host-side. Full narrative: `Changes.txt`.
 
-- Open-from-anywhere now answers one whitelist with one named refusal: the command line, drag-drop, folder walks and file->open agree on what is openable, and what is not is named on the status line instead of vanishing. A release-blocking reader defect shipped with this reading was caught by the smoke gate and fixed before publishing.
-- The settings file gains a corruption gate: a file that no longer reads cleanly is kept as a `.corrupt.` copy, the session runs on defaults, and the exit asks before writing anything (Cancel / Restore backup / Keep). Upgrade friction from that gate is documented above.
-- The slideshow rate clamp, the installer's settings-write honesty, the strict safety sums and the eleven memory/consistency fixes from the audit response round all ride here. Full narrative: `Changes.txt`.
+**1.1.17 — the previous stable** — the corrupted-settings arc: the open paths answer one whitelist with named refusals, the settings file gains a corruption gate (kept as a `.corrupt.` copy, the session on defaults, the exit asks before writing), the ask speaks both languages, and a cleanup uninstall takes the preserved copies with it. Full narrative: `Changes.txt`.
+
+**The 1.1.18 arc — eleven release candidates:** the touch hand-off, the quiet chrome, the responsive and hardware round (rc.3 and rc.4), the 4K rotation, the status panes, the position indicator, the Direct3D field round, the memory round, the touch gesture round, and the pan repaint. Full narrative: `Changes.txt`.
 
 **1.1.16 — the previous stable** — the arm64 platform joins the release (a native aarch64 build, installer and portable zip), the performance round's five wins and a courtesy, the settings page answering at every size, the jpg family's takeover guard corrected, and the uninstall that leaves nothing behind. Full narrative: `Changes.txt`.
 

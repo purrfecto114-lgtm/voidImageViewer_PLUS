@@ -690,9 +690,9 @@ def t_sim_version_117():
     build = extract_int(VER_H, r"#define\s+VERSION_BUILD\s+(\d+)", "VERSION_BUILD")
     vstr = re.search(r'#define\s+VERSION_STRING\s+"([^"]*)"', VER_H)
     check("the version quad is 1.1.18.128",
-          (major, minor, rev, build) == (1, 1, 18, 128), str((major, minor, rev, build)))
-    check("the release identity string is 1.1.18-rc.11",
-          vstr is not None and vstr.group(1) == "1.1.18-rc.11", vstr.group(1) if vstr else None)
+          (major, minor, rev, build) == (1, 1, 18, 129), str((major, minor, rev, build)))
+    check("the release identity string is 1.1.18",
+          vstr is not None and vstr.group(1) == "1.1.18", vstr.group(1) if vstr else None)
     check("the rc derives from version.h (no hardcoded quad)",
           '#include "../src/version.h"' in RC and
           "FILEVERSION VERSION_MAJOR,VERSION_MINOR,VERSION_REVISION,VERSION_BUILD" in RC)
